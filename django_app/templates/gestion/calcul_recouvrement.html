@@ -1,0 +1,571 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Mode Toggle & History -->
+    <div class="flex justify-between items-center flex-wrap gap-4">
+        <div class="toggle-group">
+            <div class="toggle-option active" id="modeComplet" onclick="setMode('complet')">Calcul Complet</div>
+            <div class="toggle-option" id="modeEmoluments" onclick="setMode('emoluments')">Émoluments Seuls</div>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="toggleHistorique()">
+                <i data-lucide="history"></i> Historique
+            </button>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="two-col-layout">
+        <!-- Parameters Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Paramètres</h3>
+            </div>
+            <div class="card-body">
+                <!-- Complet Mode -->
+                <div id="completForm">
+                    <!-- Stepper -->
+                    <div class="stepper" id="stepper">
+                        <div class="step active" data-step="1">
+                            <div class="step-circle">1</div>
+                            <div class="step-label">Principal</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step pending" data-step="2">
+                            <div class="step-circle">2</div>
+                            <div class="step-label">Taux</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step pending" data-step="3">
+                            <div class="step-circle">3</div>
+                            <div class="step-label">Dates</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step pending" data-step="4">
+                            <div class="step-circle">4</div>
+                            <div class="step-label">Options</div>
+                        </div>
+                    </div>
+
+                    <!-- Step 1: Principal -->
+                    <div class="step-content" id="step1">
+                        <div class="form-group">
+                            <label class="form-label">Montant principal</label>
+                            <input class="form-input" type="number" id="montantPrincipal" placeholder="Ex: 1000000">
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Taux -->
+                    <div class="step-content" id="step2" style="display: none;">
+                        <div class="space-y-4">
+                            <div class="form-group">
+                                <label class="form-label">Type de Taux</label>
+                                <select class="form-select" id="typeTaux" onchange="toggleTauxConventionnel()">
+                                    <option value="legal">Légal (UEMOA)</option>
+                                    <option value="cima">CIMA (Assurance)</option>
+                                    <option value="conventionnel">Conventionnel</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="tauxConventionnelGroup" style="display: none;">
+                                <label class="form-label">Taux (%)</label>
+                                <input class="form-input" type="number" id="tauxConventionnel" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Dates -->
+                    <div class="step-content" id="step3" style="display: none;">
+                        <div class="space-y-4">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Date Créance (Dies a quo)</label>
+                                    <input class="form-input" type="date" id="dateCreance">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date Saisie (Dies ad quem)</label>
+                                    <input class="form-input" type="date" id="dateSaisie">
+                                </div>
+                            </div>
+                            <div class="majoration-box">
+                                <label class="majoration-label">
+                                    <input type="checkbox" id="appliquerMajoration" onchange="toggleMajoration()">
+                                    Appliquer Majoration (Loi 2024)
+                                </label>
+                                <div id="majorationDate" style="display: none; margin-top: 8px;">
+                                    <input class="form-input" type="date" id="dateDecisionJustice">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Options -->
+                    <div class="step-content" id="step4" style="display: none;">
+                        <div class="space-y-4">
+                            <div class="form-group">
+                                <label class="form-label">Type Calcul</label>
+                                <select class="form-select" id="typeCalcul">
+                                    <option value="simple">Intérêts Simples</option>
+                                    <option value="compose">Intérêts Composés</option>
+                                </select>
+                            </div>
+                            <div class="options-section">
+                                <label class="options-label">
+                                    <input type="checkbox" id="calculerEmoluments" onchange="toggleEmoluments()">
+                                    Ajouter Émoluments
+                                </label>
+                                <div id="emolumentsOptions" style="display: none;" class="options-content mt-2">
+                                    <div class="form-group">
+                                        <label class="form-label">Titre Exécutoire</label>
+                                        <select class="form-select" id="typeTitre">
+                                            <option value="sans">Sans titre</option>
+                                            <option value="avec">Avec titre</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group mt-2">
+                                        <label class="form-label">Frais de Justice</label>
+                                        <input class="form-input" type="number" id="fraisJustice">
+                                    </div>
+
+                                    <!-- Actes de procédure -->
+                                    <div class="form-group mt-4">
+                                        <label class="options-label">
+                                            <input type="checkbox" id="calculerActes" onchange="toggleActes()">
+                                            Coûts des actes de procédure
+                                        </label>
+                                        <div id="actesBox" style="display: none;" class="actes-box mt-2">
+                                            <div id="actesList"></div>
+                                            <select class="form-select mb-2" id="catalogueActes" onchange="selectActe()">
+                                                <option value="">-- Catalogue --</option>
+                                                {% for acte in catalogue_actes %}
+                                                <option value="{{ acte.id }}" data-label="{{ acte.label }}" data-tarif="{{ acte.tarif }}">
+                                                    {{ acte.label }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="flex gap-2">
+                                                <input class="form-input" id="acteLibelle" placeholder="Libellé" style="flex: 1;">
+                                                <input class="form-input" id="acteMontant" type="number" placeholder="Coût" style="width: 80px;">
+                                            </div>
+                                            <button class="btn btn-sm btn-secondary w-full mt-2" onclick="addActe()">
+                                                <i data-lucide="plus"></i> Ajouter
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="flex gap-2 mt-6">
+                        <button class="btn btn-secondary" id="prevBtn" style="flex: 1; display: none;" onclick="prevStep()">Précédent</button>
+                        <button class="btn btn-primary" id="nextBtn" style="flex: 1;" onclick="nextStep()">Suivant</button>
+                        <button class="btn btn-success" id="calcBtn" style="flex: 1; display: none;" onclick="calculer()">Calculer</button>
+                    </div>
+                </div>
+
+                <!-- Emoluments Mode -->
+                <div id="emolumentsForm" style="display: none;">
+                    <div class="space-y-4">
+                        <div class="form-group">
+                            <label class="form-label">Base Calcul</label>
+                            <input class="form-input" type="number" id="baseEmoluments">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Titre</label>
+                            <select class="form-select" id="typeTitreEmol">
+                                <option value="sans">Sans titre</option>
+                                <option value="avec">Avec titre</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-full mt-4" onclick="calculerEmolumentsSeuls()">Calculer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div>
+            <div class="card" id="resultsCard" style="display: none;">
+                <div class="card-header">
+                    <h3 class="card-title">Résultats</h3>
+                    <div class="flex gap-2">
+                        <input class="form-input" style="padding: 6px 10px; width: 150px;" placeholder="Nom sauvegarde" id="nomCalcul">
+                        <button class="btn btn-secondary btn-sm" onclick="saveCalcul()">
+                            <i data-lucide="save"></i> Sauvegarder
+                        </button>
+                        <button class="btn btn-accent btn-sm" onclick="copyText()">
+                            <i data-lucide="copy"></i> Copier
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="grid grid-cols-4 gap-4 mb-6" id="resultSummary">
+                        <!-- Results will be inserted here -->
+                    </div>
+                    <div class="text-output" id="resultText">
+                        <!-- Detailed text will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="card calc-box" id="emptyState">
+                <i data-lucide="calculator"></i>
+                <p>Configurez les paramètres et lancez le calcul</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-overlay" id="historiqueOverlay" onclick="if(event.target===this)toggleHistorique()">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 class="modal-title">Historique des Calculs</h3>
+            <button class="modal-close" onclick="toggleHistorique()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="historiqueList" style="text-align: center; color: var(--neutral-500);">
+                Aucun historique.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // State
+    let currentStep = 1;
+    let mode = 'complet';
+    let actes = [];
+    let historique = [];
+    let resultats = null;
+
+    // Taux légaux UEMOA
+    const tauxLegaux = {{ taux_legaux|safe }};
+
+    function setMode(newMode) {
+        mode = newMode;
+        document.getElementById('modeComplet').classList.toggle('active', mode === 'complet');
+        document.getElementById('modeEmoluments').classList.toggle('active', mode === 'emoluments');
+        document.getElementById('completForm').style.display = mode === 'complet' ? 'block' : 'none';
+        document.getElementById('emolumentsForm').style.display = mode === 'emoluments' ? 'block' : 'none';
+        if (mode === 'complet') {
+            currentStep = 1;
+            updateStepper();
+        }
+    }
+
+    function updateStepper() {
+        const steps = document.querySelectorAll('.step');
+        steps.forEach((step, index) => {
+            const stepNum = index + 1;
+            step.classList.remove('completed', 'active', 'pending');
+            if (stepNum < currentStep) {
+                step.classList.add('completed');
+                step.querySelector('.step-circle').innerHTML = '<i data-lucide="check" style="width:18px;height:18px;"></i>';
+            } else if (stepNum === currentStep) {
+                step.classList.add('active');
+                step.querySelector('.step-circle').textContent = stepNum;
+            } else {
+                step.classList.add('pending');
+                step.querySelector('.step-circle').textContent = stepNum;
+            }
+        });
+
+        // Show/hide step content
+        for (let i = 1; i <= 4; i++) {
+            document.getElementById('step' + i).style.display = i === currentStep ? 'block' : 'none';
+        }
+
+        // Update buttons
+        document.getElementById('prevBtn').style.display = currentStep > 1 ? 'block' : 'none';
+        document.getElementById('nextBtn').style.display = currentStep < 4 ? 'block' : 'none';
+        document.getElementById('calcBtn').style.display = currentStep === 4 ? 'block' : 'none';
+
+        lucide.createIcons();
+    }
+
+    function nextStep() {
+        if (currentStep < 4) {
+            currentStep++;
+            updateStepper();
+        }
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateStepper();
+        }
+    }
+
+    function toggleTauxConventionnel() {
+        const typeTaux = document.getElementById('typeTaux').value;
+        document.getElementById('tauxConventionnelGroup').style.display = typeTaux === 'conventionnel' ? 'block' : 'none';
+    }
+
+    function toggleMajoration() {
+        const checked = document.getElementById('appliquerMajoration').checked;
+        document.getElementById('majorationDate').style.display = checked ? 'block' : 'none';
+    }
+
+    function toggleEmoluments() {
+        const checked = document.getElementById('calculerEmoluments').checked;
+        document.getElementById('emolumentsOptions').style.display = checked ? 'block' : 'none';
+    }
+
+    function toggleActes() {
+        const checked = document.getElementById('calculerActes').checked;
+        document.getElementById('actesBox').style.display = checked ? 'block' : 'none';
+    }
+
+    function selectActe() {
+        const select = document.getElementById('catalogueActes');
+        const option = select.options[select.selectedIndex];
+        if (option.value) {
+            document.getElementById('acteLibelle').value = option.dataset.label;
+            document.getElementById('acteMontant').value = option.dataset.tarif;
+        }
+        select.value = '';
+    }
+
+    function addActe() {
+        const libelle = document.getElementById('acteLibelle').value;
+        const montant = document.getElementById('acteMontant').value;
+        if (libelle && montant) {
+            actes.push({ id: Date.now(), libelle, montant: parseFloat(montant) });
+            document.getElementById('acteLibelle').value = '';
+            document.getElementById('acteMontant').value = '';
+            renderActes();
+        }
+    }
+
+    function removeActe(id) {
+        actes = actes.filter(a => a.id !== id);
+        renderActes();
+    }
+
+    function renderActes() {
+        const container = document.getElementById('actesList');
+        if (actes.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        let html = '';
+        let total = 0;
+        actes.forEach(acte => {
+            total += acte.montant;
+            html += `
+                <div class="acte-item">
+                    <span class="acte-label">${acte.libelle}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="acte-amount">${formatMontant(acte.montant)}</span>
+                        <button onclick="removeActe(${acte.id})" style="background:none;border:none;color:var(--danger);cursor:pointer;">
+                            <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        html += `
+            <div class="actes-total">
+                <span>TOTAL</span>
+                <span style="color:var(--primary);">${formatMontant(total)}</span>
+            </div>
+        `;
+        container.innerHTML = html;
+        lucide.createIcons();
+    }
+
+    function formatMontant(m) {
+        return new Intl.NumberFormat('fr-FR').format(Math.round(m)) + ' FCFA';
+    }
+
+    function calculer() {
+        const data = {
+            montant_principal: parseFloat(document.getElementById('montantPrincipal').value) || 0,
+            date_creance: document.getElementById('dateCreance').value,
+            date_saisie: document.getElementById('dateSaisie').value,
+            type_taux: document.getElementById('typeTaux').value,
+            taux_conventionnel: parseFloat(document.getElementById('tauxConventionnel').value) || 0,
+            type_calcul: document.getElementById('typeCalcul').value,
+            appliquer_majoration: document.getElementById('appliquerMajoration').checked,
+            date_decision: document.getElementById('dateDecisionJustice').value,
+            calculer_emoluments: document.getElementById('calculerEmoluments').checked,
+            type_titre: document.getElementById('typeTitre').value,
+            frais_justice: parseFloat(document.getElementById('fraisJustice').value) || 0,
+            actes: actes,
+            arrondir: true
+        };
+
+        fetch('{% url "api_calculer_interets" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                resultats = data.resultats;
+                displayResults(resultats);
+            } else {
+                alert(data.error || 'Erreur de calcul');
+            }
+        });
+    }
+
+    function calculerEmolumentsSeuls() {
+        const data = {
+            base: parseFloat(document.getElementById('baseEmoluments').value) || 0,
+            type_titre: document.getElementById('typeTitreEmol').value,
+            arrondir: true
+        };
+
+        fetch('{% url "api_calculer_emoluments" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                resultats = data.resultats;
+                displayResults(resultats);
+            } else {
+                alert(data.error || 'Erreur de calcul');
+            }
+        });
+    }
+
+    function displayResults(res) {
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('resultsCard').style.display = 'block';
+
+        // Summary cards
+        let summaryHtml = '';
+        if (res.mode === 'emoluments') {
+            summaryHtml = `
+                <div class="result-card info">
+                    <div class="result-label">Base</div>
+                    <div class="result-value">${formatMontant(res.base)}</div>
+                </div>
+                <div class="result-card success">
+                    <div class="result-label">Émoluments</div>
+                    <div class="result-value">${formatMontant(res.emoluments.total)}</div>
+                </div>
+                <div class="result-card primary">
+                    <div class="result-label">TOTAL</div>
+                    <div class="result-value">${formatMontant(res.total)}</div>
+                </div>
+            `;
+        } else {
+            summaryHtml = `
+                <div class="result-card info">
+                    <div class="result-label">Principal</div>
+                    <div class="result-value">${formatMontant(res.principal)}</div>
+                </div>
+                <div class="result-card success">
+                    <div class="result-label">Intérêts</div>
+                    <div class="result-value">${formatMontant(res.interets_echus.total)}</div>
+                </div>
+            `;
+            if (res.emoluments) {
+                summaryHtml += `
+                    <div class="result-card purple">
+                        <div class="result-label">Émoluments</div>
+                        <div class="result-value">${formatMontant(res.emoluments.total)}</div>
+                    </div>
+                `;
+            }
+            summaryHtml += `
+                <div class="result-card primary">
+                    <div class="result-label">TOTAL</div>
+                    <div class="result-value">${formatMontant(res.total)}</div>
+                </div>
+            `;
+        }
+        document.getElementById('resultSummary').innerHTML = summaryHtml;
+
+        // Detailed text
+        document.getElementById('resultText').textContent = generateText(res);
+    }
+
+    function generateText(res) {
+        if (res.mode === 'emoluments') {
+            return `Calcul d'émoluments:\nBase: ${formatMontant(res.base)}\nÉmoluments: ${formatMontant(res.emoluments.total)}\nTotal: ${formatMontant(res.total)}`;
+        }
+
+        let text = `MENTION JURIDIQUE OHADA (v2.0):\n\n`;
+        text += `PRINCIPAL: ${formatMontant(res.principal)}\n`;
+        text += `INTÉRÊTS ÉCHUS (du ${res.date_debut} au ${res.date_fin}): ${formatMontant(res.interets_echus.total)}\n`;
+
+        res.interets_echus.periodes.forEach(p => {
+            text += `  - ${p.annee} (${p.jours}j à ${p.taux.toFixed(2)}%): ${formatMontant(p.interet)}\n`;
+        });
+
+        if (res.majoration && res.date_limite_majoration) {
+            text += `\n⚠️ MAJORATION APPLIQUÉE (+50%) après le ${res.date_limite_majoration}\n`;
+        }
+
+        text += `\nINTÉRÊTS À ÉCHOIR (1 mois): ${formatMontant(res.interets_echoir.total)}\n`;
+
+        if (res.emoluments) {
+            text += `\nÉMOLUMENTS PROPORTIONNELS (Base ${formatMontant(res.base_emoluments)}): ${formatMontant(res.emoluments.total)}\n`;
+        }
+
+        if (res.actes > 0) {
+            text += `\nCOÛT DES ACTES DE PROCÉDURE: ${formatMontant(res.actes)}\n`;
+            actes.forEach(a => {
+                text += ` - ${a.libelle} : ${formatMontant(a.montant)}\n`;
+            });
+        }
+
+        text += `\nTOTAL GÉNÉRAL: ${formatMontant(res.total)}`;
+        return text;
+    }
+
+    function copyText() {
+        const text = document.getElementById('resultText').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Texte copié !');
+        });
+    }
+
+    function saveCalcul() {
+        if (!resultats) return;
+        const nom = document.getElementById('nomCalcul').value || `Calcul du ${new Date().toLocaleString('fr-FR')}`;
+        historique.unshift({ nom, date: new Date().toLocaleString('fr-FR'), total: resultats.total });
+        document.getElementById('nomCalcul').value = '';
+        alert('Calcul sauvegardé !');
+    }
+
+    function toggleHistorique() {
+        const overlay = document.getElementById('historiqueOverlay');
+        overlay.classList.toggle('open');
+
+        if (historique.length === 0) {
+            document.getElementById('historiqueList').innerHTML = '<p style="text-align:center;color:var(--neutral-500);">Aucun historique.</p>';
+        } else {
+            let html = '<table style="width:100%;"><thead><tr><th>Nom</th><th>Date</th><th>Total</th></tr></thead><tbody>';
+            historique.forEach(h => {
+                html += `<tr><td style="font-weight:500;">${h.nom}</td><td style="color:var(--neutral-500);">${h.date}</td><td style="font-weight:700;">${formatMontant(h.total)}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('historiqueList').innerHTML = html;
+        }
+    }
+</script>
+{% endblock %}

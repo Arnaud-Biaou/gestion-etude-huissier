@@ -1,0 +1,223 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="{% url 'dashboard' %}" class="logo">
+                    <div class="logo-icon">MAB</div>
+                    <div>
+                        <div class="logo-text">Étude BIAOU</div>
+                        <div class="logo-subtitle">Huissier de Justice</div>
+                    </div>
+                </a>
+            </div>
+            <nav class="sidebar-nav">
+                <!-- Principal -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Principal</div>
+                    {% for m in modules %}
+                        {% if m.category == 'main' %}
+                        <a href="{% url m.url %}" class="nav-item {% if active_module == m.id %}active{% endif %}">
+                            <i data-lucide="{{ m.icon }}"></i>
+                            {{ m.label }}
+                            {% if m.badge %}
+                            <span class="nav-badge">{{ m.badge }}</span>
+                            {% endif %}
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Finance -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Finance</div>
+                    {% for m in modules %}
+                        {% if m.category == 'finance' %}
+                        <a href="{% url m.url %}" class="nav-item {% if active_module == m.id %}active{% endif %}">
+                            <i data-lucide="{{ m.icon }}"></i>
+                            {{ m.label }}
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Gestion -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Gestion</div>
+                    {% for m in modules %}
+                        {% if m.category == 'gestion' %}
+                        <a href="{% url m.url %}" class="nav-item {% if active_module == m.id %}active{% endif %}">
+                            <i data-lucide="{{ m.icon }}"></i>
+                            {{ m.label }}
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Administration -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Administration</div>
+                    {% for m in modules %}
+                        {% if m.category == 'admin' %}
+                        <a href="{% url m.url %}" class="nav-item {% if active_module == m.id %}active{% endif %}">
+                            <i data-lucide="{{ m.icon }}"></i>
+                            {{ m.label }}
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-card">
+                    <div class="user-avatar">{{ current_user.initials }}</div>
+                    <div class="user-info">
+                        <div class="user-name">{{ current_user.nom }}</div>
+                        <div class="user-role">Administrateur</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <i data-lucide="menu"></i>
+                </button>
+                <h1 class="page-title">{{ page_title }}</h1>
+                <div class="search-bar">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Rechercher...">
+                </div>
+                <div class="topbar-actions">
+                    <button class="icon-btn">
+                        <i data-lucide="bell"></i>
+                    </button>
+                    <button class="icon-btn">
+                        <i data-lucide="user"></i>
+                    </button>
+                </div>
+            </header>
+            <div class="page-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+
+        <!-- Chatbot -->
+        <div class="chatbot-container no-print">
+            <div class="chatbot-window" id="chatbotWindow">
+                <div class="chatbot-header">
+                    <i data-lucide="bot"></i>
+                    <span class="chatbot-header-title">Assistant Juridique</span>
+                    <button class="chatbot-close" onclick="toggleChatbot()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="chatbot-messages" id="chatMessages">
+                    <div class="chat-message bot">Bonjour Maître, je suis votre assistant. Comment puis-je vous aider ?</div>
+                </div>
+                <div class="chatbot-input-area">
+                    <input type="text" class="form-input" id="chatInput" placeholder="Votre question..." onkeydown="if(event.key==='Enter')sendMessage()">
+                    <button class="btn btn-primary" onclick="sendMessage()">
+                        <i data-lucide="send"></i>
+                    </button>
+                </div>
+            </div>
+            <button class="chatbot-btn" onclick="toggleChatbot()">
+                <i data-lucide="message-square"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div class="modal-overlay" id="modalOverlay">
+        {% block modal %}{% endblock %}
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Sidebar toggle
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // Chatbot toggle
+        function toggleChatbot() {
+            document.getElementById('chatbotWindow').classList.toggle('open');
+        }
+
+        // Send chat message
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            input.value = '';
+
+            // Send to API
+            fetch('{% url "api_chatbot" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    user_role: '{{ current_user.role }}'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addChatMessage(data.reponse, 'bot');
+                }
+            })
+            .catch(error => {
+                addChatMessage("Désolé, une erreur est survenue.", 'bot');
+            });
+        }
+
+        function addChatMessage(text, type) {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'chat-message ' + type;
+            div.textContent = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Modal functions
+        function openModal() {
+            document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('open');
+        }
+
+        // Close modal on overlay click
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

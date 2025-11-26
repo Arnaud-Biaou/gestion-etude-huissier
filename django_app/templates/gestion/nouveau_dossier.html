@@ -1,0 +1,503 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Création d'un nouveau dossier</h3>
+        <a href="{% url 'dossiers' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="x"></i> Annuler
+        </a>
+    </div>
+    <div class="card-body">
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
+            <div class="progress-bar-header">
+                <span class="progress-bar-label">Progression</span>
+                <span class="progress-bar-percent" id="progressPercent">17%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressFill" style="width: 17%;"></div>
+            </div>
+        </div>
+
+        <!-- Stepper -->
+        <div class="stepper" id="stepper">
+            <div class="step active" data-step="1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Type & Affectation</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step pending" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Demandeur(s)</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step pending" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Défendeur(s)</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step pending" data-step="4">
+                <div class="step-circle">4</div>
+                <div class="step-label">Documents</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step pending" data-step="5">
+                <div class="step-circle">5</div>
+                <div class="step-label">Récapitulatif</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step pending" data-step="6">
+                <div class="step-circle">6</div>
+                <div class="step-label">Impression</div>
+            </div>
+        </div>
+
+        <form id="dossierForm" method="post">
+            {% csrf_token %}
+
+            <!-- Step 1: Type & Affectation -->
+            <div class="step-content" id="step1">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label">Nature</label>
+                        <div class="toggle-group">
+                            <div class="toggle-option active" id="nonContentieux" onclick="setNature(false)">Non contentieux</div>
+                            <div class="toggle-option" id="contentieux" onclick="setNature(true)">Contentieux</div>
+                        </div>
+                        <input type="hidden" name="is_contentieux" id="isContentieux" value="false">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Affecté à <span style="color:red;">*</span></label>
+                        <select class="form-select" name="affecte_a" id="affecteA">
+                            <option value="">Sélectionner...</option>
+                            {% for c in collaborateurs %}
+                            <option value="{{ c.id }}">{{ c.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" name="type_dossier" id="typeDossier">
+                            <option value="">Sélectionner...</option>
+                            {% for code, label in types_dossier %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-textarea" name="description" id="description" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Demandeurs -->
+            <div class="step-content" id="step2" style="display: none;">
+                <div class="alert alert-info">
+                    <i data-lucide="info"></i>
+                    <div>Renseignez le(s) demandeur(s).</div>
+                </div>
+                <div id="demandeursList">
+                    <!-- Demandeur forms will be added here -->
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="addPartie('demandeur')">
+                    <i data-lucide="plus"></i> Ajouter
+                </button>
+            </div>
+
+            <!-- Step 3: Défendeurs -->
+            <div class="step-content" id="step3" style="display: none;">
+                <div id="defendeursContent">
+                    <div id="defendeursList">
+                        <!-- Defendeur forms will be added here -->
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="addPartie('defendeur')">
+                        <i data-lucide="plus"></i> Ajouter
+                    </button>
+                </div>
+                <div id="noDefendeur" style="display: none; text-align: center; padding: 40px;">
+                    <p>Pas de partie adverse pour ce type de dossier.</p>
+                </div>
+            </div>
+
+            <!-- Step 4: Documents -->
+            <div class="step-content" id="step4" style="display: none;">
+                <div class="alert alert-info">
+                    <i data-lucide="info"></i>
+                    <div>Structure automatique Drive générée.</div>
+                </div>
+                <div style="background: var(--neutral-50); padding: 20px; border-radius: var(--radius-lg);">
+                    📂 DOSSIERS 2025 / <span id="nomDossierDrive"></span>
+                </div>
+            </div>
+
+            <!-- Step 5: Récapitulatif -->
+            <div class="step-content" id="step5" style="display: none;">
+                <div style="background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); color: white; padding: 24px; border-radius: var(--radius-lg); margin-bottom: 24px;">
+                    <div style="font-size: 12px; opacity: 0.8; margin-bottom: 8px;">RÉFÉRENCE DU DOSSIER</div>
+                    <div style="font-size: 24px; font-weight: 700; margin-bottom: 16px;" id="refDossier">{{ reference }}</div>
+                    <div style="font-size: 14px;" id="nomDossier"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Informations générales</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span style="color: var(--neutral-500); font-size: 12px;">Nature</span>
+                                <p style="font-weight: 500;" id="recapNature">Non contentieux</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--neutral-500); font-size: 12px;">Type</span>
+                                <p style="font-weight: 500;" id="recapType">-</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--neutral-500); font-size: 12px;">Montant créance</span>
+                                <p style="font-weight: 500;" id="recapMontant">-</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--neutral-500); font-size: 12px;">Affecté à</span>
+                                <p style="font-weight: 500;" id="recapAffecte">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Impression -->
+            <div class="step-content" id="step6" style="display: none;">
+                <div class="alert alert-success">
+                    <i data-lucide="check-circle"></i>
+                    <div>Dossier créé !</div>
+                </div>
+                <div class="dossier-card-paper" id="printableCard">
+                    <div class="dossier-card-header">
+                        <div style="font-size: 14px; font-weight: bold; color: var(--primary); text-transform: uppercase;">Étude de Maître BIAOU</div>
+                        <div style="font-size: 12px; color: var(--neutral-600);">Huissier de Justice - Parakou</div>
+                    </div>
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        <div style="font-size: 10px; text-transform: uppercase; color: var(--neutral-500);">Référence Dossier</div>
+                        <div class="dossier-ref" id="cardRef">{{ reference }}</div>
+                    </div>
+                    <div class="dossier-parties-box">
+                        <div class="dossier-party-col">
+                            <div class="dossier-party-title" style="color: var(--primary);">DEMANDEUR / CLIENT</div>
+                            <div class="dossier-party-name" id="cardDemandeur">-</div>
+                        </div>
+                        <div class="dossier-party-col">
+                            <div class="dossier-party-title" style="color: var(--accent-dark);">DÉFENDEUR / ADVERSAIRE</div>
+                            <div id="cardDefendeur" style="font-style: italic; color: var(--neutral-400); margin-top: 10px;">Sans objet</div>
+                        </div>
+                    </div>
+                    <div class="dossier-details-grid">
+                        <div class="dossier-detail-item">
+                            <span class="dossier-label">NATURE</span>
+                            <span class="dossier-value" id="cardNature">Non Contentieux</span>
+                        </div>
+                        <div class="dossier-detail-item">
+                            <span class="dossier-label">TYPE</span>
+                            <span class="dossier-value" id="cardType">-</span>
+                        </div>
+                        <div class="dossier-detail-item">
+                            <span class="dossier-label">MONTANT CRÉANCE</span>
+                            <span class="dossier-value" id="cardMontant">0 FCFA</span>
+                        </div>
+                        <div class="dossier-detail-item">
+                            <span class="dossier-label">DATE OUVERTURE</span>
+                            <span class="dossier-value" id="cardDate"></span>
+                        </div>
+                    </div>
+                    <div style="border: 1px dashed var(--neutral-300); padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 12px;">
+                        <span class="dossier-label">OBJET :</span>
+                        <span id="cardDescription">Aucune description</span>
+                    </div>
+                    <div class="dossier-footer">
+                        <div>
+                            <div class="dossier-label">AFFECTÉ À :</div>
+                            <div style="font-weight: bold;" id="cardAffecte">Non assigné</div>
+                        </div>
+                        <div style="width: 100px; height: 100px; background: var(--neutral-100); display: flex; align-items: center; justify-content: center; font-size: 10px; text-align: center; border: 1px solid var(--neutral-300); border-radius: 8px;">
+                            QR MECeF<br>{{ reference|slice:":8" }}...
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-center mt-4">
+                    <button type="button" class="btn btn-primary" onclick="window.print()">
+                        <i data-lucide="printer"></i> Imprimer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer" style="border-top: 1px solid var(--neutral-200); padding: 16px 24px; display: flex; justify-content: space-between;">
+        <button type="button" class="btn btn-secondary" id="prevBtn" onclick="prevStep()" disabled>Précédent</button>
+        <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">Suivant</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // State
+    let currentStep = 1;
+    const totalSteps = 6;
+    let isContentieux = false;
+    let demandeurs = [{ typePersonne: 'physique' }];
+    let defendeurs = [{ typePersonne: 'physique' }];
+    const reference = '{{ reference }}';
+    const collaborateurs = {{ collaborateurs|safe }};
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        renderPartie('demandeur', 0);
+        renderPartie('defendeur', 0);
+        document.getElementById('cardDate').textContent = new Date().toLocaleDateString('fr-FR');
+    });
+
+    function setNature(contentieux) {
+        isContentieux = contentieux;
+        document.getElementById('isContentieux').value = contentieux;
+        document.getElementById('nonContentieux').classList.toggle('active', !contentieux);
+        document.getElementById('contentieux').classList.toggle('active', contentieux);
+    }
+
+    function updateStepper() {
+        const steps = document.querySelectorAll('.step');
+        steps.forEach((step, index) => {
+            const stepNum = index + 1;
+            step.classList.remove('completed', 'active', 'pending');
+            if (stepNum < currentStep) {
+                step.classList.add('completed');
+                step.querySelector('.step-circle').innerHTML = '<i data-lucide="check" style="width:18px;height:18px;"></i>';
+            } else if (stepNum === currentStep) {
+                step.classList.add('active');
+                step.querySelector('.step-circle').textContent = stepNum;
+            } else {
+                step.classList.add('pending');
+                step.querySelector('.step-circle').textContent = stepNum;
+            }
+        });
+
+        // Progress bar
+        const percent = Math.round((currentStep / totalSteps) * 100);
+        document.getElementById('progressPercent').textContent = percent + '%';
+        document.getElementById('progressFill').style.width = percent + '%';
+
+        // Show/hide step content
+        for (let i = 1; i <= totalSteps; i++) {
+            document.getElementById('step' + i).style.display = i === currentStep ? 'block' : 'none';
+        }
+
+        // Handle step 3 (defendeurs)
+        if (currentStep === 3) {
+            document.getElementById('defendeursContent').style.display = isContentieux ? 'block' : 'none';
+            document.getElementById('noDefendeur').style.display = isContentieux ? 'none' : 'block';
+        }
+
+        // Update buttons
+        document.getElementById('prevBtn').disabled = currentStep === 1;
+        document.getElementById('nextBtn').textContent = currentStep === totalSteps ? 'Terminer' : 'Suivant';
+
+        lucide.createIcons();
+    }
+
+    function nextStep() {
+        if (currentStep < totalSteps) {
+            // Before moving to step 4, update drive name
+            if (currentStep === 3) {
+                document.getElementById('nomDossierDrive').textContent = getNomDossier();
+            }
+            // Before moving to step 5, update recap
+            if (currentStep === 4) {
+                updateRecap();
+            }
+            // Before moving to step 6, update card
+            if (currentStep === 5) {
+                updateCard();
+            }
+            currentStep++;
+            updateStepper();
+        } else {
+            // Submit form
+            window.location.href = "{% url 'dossiers' %}";
+        }
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateStepper();
+        }
+    }
+
+    function getNomDossier() {
+        const dem = demandeurs[0]?.nom || demandeurs[0]?.denomination || 'Client';
+        const def = defendeurs[0]?.nom || defendeurs[0]?.denomination || 'Adversaire';
+        return isContentieux ? `${dem} C/ ${def}` : dem;
+    }
+
+    function getPartieNom(partie) {
+        if (partie.typePersonne === 'morale') {
+            return partie.denomination || 'Personne morale';
+        }
+        return `${partie.nom || ''} ${partie.prenoms || ''}`.trim() || 'Personne physique';
+    }
+
+    function updateRecap() {
+        document.getElementById('nomDossier').textContent = getNomDossier();
+        document.getElementById('recapNature').textContent = isContentieux ? 'Contentieux' : 'Non contentieux';
+        document.getElementById('recapType').textContent = document.getElementById('typeDossier').options[document.getElementById('typeDossier').selectedIndex]?.text || '-';
+        document.getElementById('recapAffecte').textContent = document.getElementById('affecteA').options[document.getElementById('affecteA').selectedIndex]?.text || '-';
+    }
+
+    function updateCard() {
+        document.getElementById('cardRef').textContent = reference;
+        document.getElementById('cardDemandeur').textContent = getPartieNom(demandeurs[0]);
+        if (isContentieux && defendeurs[0]) {
+            document.getElementById('cardDefendeur').innerHTML = `<div class="dossier-party-name">${getPartieNom(defendeurs[0])}</div>`;
+        } else {
+            document.getElementById('cardDefendeur').innerHTML = '<span style="font-style: italic; color: var(--neutral-400);">Sans objet</span>';
+        }
+        document.getElementById('cardNature').textContent = isContentieux ? 'Contentieux' : 'Non Contentieux';
+        document.getElementById('cardType').textContent = document.getElementById('typeDossier').options[document.getElementById('typeDossier').selectedIndex]?.text || '-';
+        document.getElementById('cardDescription').textContent = document.getElementById('description').value || 'Aucune description';
+        document.getElementById('cardAffecte').textContent = document.getElementById('affecteA').options[document.getElementById('affecteA').selectedIndex]?.text || 'Non assigné';
+    }
+
+    function addPartie(type) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr.push({ typePersonne: 'physique' });
+        renderPartie(type, arr.length - 1);
+    }
+
+    function removePartie(type, index) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        if (arr.length > 1) {
+            arr.splice(index, 1);
+            renderAllParties(type);
+        }
+    }
+
+    function renderAllParties(type) {
+        const container = document.getElementById(type + 'sList');
+        container.innerHTML = '';
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr.forEach((_, i) => renderPartie(type, i));
+    }
+
+    function renderPartie(type, index) {
+        const container = document.getElementById(type + 'sList');
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        const partie = arr[index];
+        const roleLabel = type === 'demandeur' ? (isContentieux ? 'Demandeur/Créancier' : 'Client/Requérant') : 'Défendeur/Débiteur';
+
+        const div = document.createElement('div');
+        div.id = `${type}_${index}`;
+        div.style.cssText = 'border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; background: var(--neutral-50);';
+
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: ${partie.typePersonne === 'physique' ? 'var(--info-light)' : 'var(--accent-light)'}; color: ${partie.typePersonne === 'physique' ? 'white' : 'var(--primary-dark)'};">
+                        ${partie.typePersonne}
+                    </span>
+                    <h4 style="margin-top: 5px; font-size: 14px; font-weight: 600;">${roleLabel} #${index + 1}</h4>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    ${index > 0 ? `<button type="button" class="btn btn-sm btn-danger" onclick="removePartie('${type}', ${index})"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>` : ''}
+                </div>
+            </div>
+            <div class="toggle-group" style="margin-bottom: 12px;">
+                <div class="toggle-option ${partie.typePersonne === 'physique' ? 'active' : ''}" onclick="setTypePersonne('${type}', ${index}, 'physique')">Personne physique</div>
+                <div class="toggle-option ${partie.typePersonne === 'morale' ? 'active' : ''}" onclick="setTypePersonne('${type}', ${index}, 'morale')">Personne morale</div>
+            </div>
+            <div class="form-grid" id="${type}_${index}_fields">
+                ${partie.typePersonne === 'physique' ? `
+                    <div class="form-group">
+                        <label class="form-label">Nom <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.nom || ''}" onchange="updatePartie('${type}', ${index}, 'nom', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prénoms <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.prenoms || ''}" onchange="updatePartie('${type}', ${index}, 'prenoms', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nationalité <span style="color:red;">*</span></label>
+                        <input class="form-input" placeholder="Ex: Béninoise" value="${partie.nationalite || ''}" onchange="updatePartie('${type}', ${index}, 'nationalite', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Profession</label>
+                        <input class="form-input" value="${partie.profession || ''}" onchange="updatePartie('${type}', ${index}, 'profession', this.value)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Domicile <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.domicile || ''}" onchange="updatePartie('${type}', ${index}, 'domicile', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU</label>
+                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                ` : `
+                    <div class="form-group full-width">
+                        <label class="form-label">Dénomination Sociale <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.denomination || ''}" onchange="updatePartie('${type}', ${index}, 'denomination', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Capital Social <span style="color:red;">*</span></label>
+                        <input class="form-input" type="number" placeholder="FCFA" value="${partie.capitalSocial || ''}" onchange="updatePartie('${type}', ${index}, 'capitalSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Forme Juridique</label>
+                        <select class="form-select" onchange="updatePartie('${type}', ${index}, 'formeJuridique', this.value)">
+                            <option ${partie.formeJuridique === 'SARL' ? 'selected' : ''}>SARL</option>
+                            <option ${partie.formeJuridique === 'SA' ? 'selected' : ''}>SA</option>
+                            <option ${partie.formeJuridique === 'SAS' ? 'selected' : ''}>SAS</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Siège Social <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.siegeSocial || ''}" onchange="updatePartie('${type}', ${index}, 'siegeSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Représentant Légal</label>
+                        <input class="form-input" value="${partie.representant || ''}" onchange="updatePartie('${type}', ${index}, 'representant', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                `}
+            </div>
+        `;
+
+        // Check if element already exists, replace it
+        const existing = document.getElementById(`${type}_${index}`);
+        if (existing) {
+            existing.replaceWith(div);
+        } else {
+            container.appendChild(div);
+        }
+
+        lucide.createIcons();
+    }
+
+    function setTypePersonne(type, index, typePersonne) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index].typePersonne = typePersonne;
+        renderPartie(type, index);
+    }
+
+    function updatePartie(type, index, field, value) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index][field] = value;
+    }
+</script>
+{% endblock %}
