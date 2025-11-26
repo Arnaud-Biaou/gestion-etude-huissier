@@ -1,0 +1,1479 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="tresorerie-module">
+    <!-- Onglets de navigation -->
+    <div class="tabs tabs-scrollable">
+        {% for tab in tabs %}
+        <a href="?tab={{ tab.id }}" class="tab {% if current_tab == tab.id %}active{% endif %}">
+            <i data-lucide="{{ tab.icon }}"></i>
+            {{ tab.label }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Contenu des onglets -->
+    <div class="tab-content">
+        {% if current_tab == 'dashboard' %}
+        <!-- ============================================ -->
+        <!-- TABLEAU DE BORD -->
+        <!-- ============================================ -->
+        <div class="dashboard-tresorerie">
+            <!-- Cartes statistiques principales -->
+            <div class="grid grid-cols-4 gap-4">
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-icon">
+                        <i data-lucide="wallet"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ stats.solde_total|floatformat:0 }} FCFA</div>
+                        <div class="stat-label">Solde Total Caisses</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon">
+                        <i data-lucide="trending-up"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ stats.encaissements.mois|floatformat:0 }} FCFA</div>
+                        <div class="stat-label">Encaissements du mois</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon">
+                        <i data-lucide="trending-down"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ stats.decaissements.mois|floatformat:0 }} FCFA</div>
+                        <div class="stat-label">Decaissements du mois</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon">
+                        <i data-lucide="lock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ consignations|length }}</div>
+                        <div class="stat-label">Consignations actives</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alertes -->
+            {% if stats.alertes.consignations_a_reverser > 0 or stats.alertes.decaissements_en_attente > 0 or stats.alertes.caisses_solde_faible > 0 %}
+            <div class="alerts-section">
+                <h3 class="section-title"><i data-lucide="alert-triangle"></i> Alertes</h3>
+                <div class="alerts-grid">
+                    {% if stats.alertes.consignations_a_reverser > 0 %}
+                    <div class="alert alert-warning">
+                        <i data-lucide="clock"></i>
+                        <span><strong>{{ stats.alertes.consignations_a_reverser }}</strong> consignation(s) a reverser sous 7 jours</span>
+                        <a href="?tab=consignations&filtre_cons=retard" class="btn btn-sm btn-secondary">Voir</a>
+                    </div>
+                    {% endif %}
+                    {% if stats.alertes.decaissements_en_attente > 0 %}
+                    <div class="alert alert-info">
+                        <i data-lucide="hourglass"></i>
+                        <span><strong>{{ stats.alertes.decaissements_en_attente }}</strong> decaissement(s) en attente d'approbation</span>
+                        <a href="?tab=decaissements&filtre_dec=attente" class="btn btn-sm btn-secondary">Voir</a>
+                    </div>
+                    {% endif %}
+                    {% if stats.alertes.caisses_solde_faible > 0 %}
+                    <div class="alert alert-danger">
+                        <i data-lucide="alert-circle"></i>
+                        <span><strong>{{ stats.alertes.caisses_solde_faible }}</strong> caisse(s) avec solde faible</span>
+                        <a href="?tab=caisses" class="btn btn-sm btn-secondary">Voir</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Graphique et resume -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Evolution sur 30 jours</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartTresorerie" height="250"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Resume de la periode</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="resume-item">
+                            <span class="resume-label">Encaissements aujourd'hui</span>
+                            <span class="resume-value text-success">+{{ stats.encaissements.jour|floatformat:0 }} FCFA</span>
+                        </div>
+                        <div class="resume-item">
+                            <span class="resume-label">Decaissements aujourd'hui</span>
+                            <span class="resume-value text-danger">-{{ stats.decaissements.jour|floatformat:0 }} FCFA</span>
+                        </div>
+                        <div class="resume-divider"></div>
+                        <div class="resume-item">
+                            <span class="resume-label">Encaissements semaine</span>
+                            <span class="resume-value text-success">+{{ stats.encaissements.semaine|floatformat:0 }} FCFA</span>
+                        </div>
+                        <div class="resume-item">
+                            <span class="resume-label">Decaissements semaine</span>
+                            <span class="resume-value text-danger">-{{ stats.decaissements.semaine|floatformat:0 }} FCFA</span>
+                        </div>
+                        <div class="resume-divider"></div>
+                        <div class="resume-item highlight">
+                            <span class="resume-label">Solde net mensuel</span>
+                            <span class="resume-value {% if stats.encaissements.mois > stats.decaissements.mois %}text-success{% else %}text-danger{% endif %}">
+                                {% with net=stats.encaissements.mois|add:stats.decaissements.mois|stringformat:"s" %}
+                                {{ stats.encaissements.mois|add:"-"|add:stats.decaissements.mois|floatformat:0 }} FCFA
+                                {% endwith %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operations recentes -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Operations recentes</h3>
+                    <a href="?tab=journal" class="btn btn-sm btn-secondary">Voir tout</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Type</th>
+                                    <th>Categorie</th>
+                                    <th>Montant</th>
+                                    <th>Date</th>
+                                    <th>Caisse</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for op in operations_recentes %}
+                                <tr>
+                                    <td><strong>{{ op.reference }}</strong></td>
+                                    <td>
+                                        {% if op.type_operation == 'encaissement' %}
+                                        <span class="badge badge-success">Encaissement</span>
+                                        {% else %}
+                                        <span class="badge badge-warning">Decaissement</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ op.get_categorie_display|default:op.categorie }}</td>
+                                    <td class="{% if op.type_operation == 'encaissement' %}text-success{% else %}text-danger{% endif %}">
+                                        {% if op.type_operation == 'encaissement' %}+{% else %}-{% endif %}{{ op.montant|floatformat:0 }} FCFA
+                                    </td>
+                                    <td>{{ op.date_operation|date:"d/m/Y" }}</td>
+                                    <td>{{ op.caisse.nom }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ op.statut }}">{{ op.get_statut_display }}</span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Aucune operation recente</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif current_tab == 'caisses' %}
+        <!-- ============================================ -->
+        <!-- GESTION DES CAISSES -->
+        <!-- ============================================ -->
+        <div class="caisses-section">
+            <div class="section-header">
+                <h2 class="section-title">Gestion des Caisses</h2>
+                <button class="btn btn-primary" onclick="openModalNouvelleCaisse()">
+                    <i data-lucide="plus"></i> Nouvelle caisse
+                </button>
+            </div>
+
+            <div class="caisses-grid">
+                {% for caisse in caisses %}
+                <div class="caisse-card {% if caisse.statut == 'ouverte' %}caisse-ouverte{% else %}caisse-fermee{% endif %}">
+                    <div class="caisse-header">
+                        <div class="caisse-status">
+                            {% if caisse.statut == 'ouverte' %}
+                            <span class="status-indicator status-open"></span> Ouverte
+                            {% elif caisse.statut == 'verification' %}
+                            <span class="status-indicator status-pending"></span> En verification
+                            {% else %}
+                            <span class="status-indicator status-closed"></span> Fermee
+                            {% endif %}
+                        </div>
+                        <div class="caisse-actions">
+                            {% if caisse.statut == 'ouverte' %}
+                            <button class="btn btn-sm btn-warning" onclick="fermerCaisse({{ caisse.id }}, '{{ caisse.nom }}')">
+                                <i data-lucide="lock"></i> Fermer
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-success" onclick="ouvrirCaisse({{ caisse.id }}, '{{ caisse.nom }}')">
+                                <i data-lucide="unlock"></i> Ouvrir
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="caisse-body">
+                        <h3 class="caisse-nom">{{ caisse.nom }}</h3>
+                        <div class="caisse-site"><i data-lucide="map-pin"></i> {{ caisse.site }}</div>
+                        <div class="caisse-solde">
+                            <span class="solde-label">Solde actuel</span>
+                            <span class="solde-value">{{ caisse.solde_actuel|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% if caisse.responsable %}
+                        <div class="caisse-responsable">
+                            <i data-lucide="user"></i> {{ caisse.responsable.nom }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="caisse-footer">
+                        <a href="?tab=journal&caisse={{ caisse.id }}" class="btn btn-sm btn-secondary">
+                            <i data-lucide="book-open"></i> Journal
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state">
+                    <i data-lucide="inbox"></i>
+                    <p>Aucune caisse configuree</p>
+                    <button class="btn btn-primary" onclick="openModalNouvelleCaisse()">Creer une caisse</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% elif current_tab == 'encaissements' %}
+        <!-- ============================================ -->
+        <!-- ENCAISSEMENTS -->
+        <!-- ============================================ -->
+        <div class="encaissements-section">
+            <div class="section-header">
+                <h2 class="section-title">Encaissements</h2>
+                <div class="section-actions">
+                    <div class="filter-group">
+                        <select class="form-select" onchange="window.location.href='?tab=encaissements&filtre_enc='+this.value">
+                            <option value="tous" {% if request.GET.filtre_enc == 'tous' %}selected{% endif %}>Tous</option>
+                            <option value="attente" {% if request.GET.filtre_enc == 'attente' %}selected{% endif %}>En attente</option>
+                            <option value="valide" {% if request.GET.filtre_enc == 'valide' %}selected{% endif %}>Valides</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-success" onclick="openModalEncaissement()">
+                        <i data-lucide="plus"></i> Nouvel encaissement
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Date</th>
+                                    <th>Categorie</th>
+                                    <th>Emetteur</th>
+                                    <th>Mode</th>
+                                    <th>Montant</th>
+                                    <th>Caisse</th>
+                                    <th>Dossier</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enc in encaissements %}
+                                <tr>
+                                    <td><strong>{{ enc.reference }}</strong></td>
+                                    <td>{{ enc.date_operation|date:"d/m/Y" }}</td>
+                                    <td>{{ enc.get_categorie_display|default:enc.categorie }}</td>
+                                    <td>{{ enc.emetteur|default:"-" }}</td>
+                                    <td>{{ enc.get_mode_paiement_display }}</td>
+                                    <td class="text-success"><strong>+{{ enc.montant|floatformat:0 }} FCFA</strong></td>
+                                    <td>{{ enc.caisse.nom }}</td>
+                                    <td>{{ enc.dossier.reference|default:"-" }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ enc.statut }}">{{ enc.get_statut_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="table-actions">
+                                            <button class="btn-icon" title="Voir details" onclick="voirOperation({{ enc.id }})">
+                                                <i data-lucide="eye"></i>
+                                            </button>
+                                            <button class="btn-icon" title="Imprimer recu" onclick="imprimerRecu({{ enc.id }})">
+                                                <i data-lucide="printer"></i>
+                                            </button>
+                                            {% if enc.statut != 'annule' %}
+                                            <button class="btn-icon text-danger" title="Annuler" onclick="annulerOperation({{ enc.id }}, '{{ enc.reference }}')">
+                                                <i data-lucide="x-circle"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted">Aucun encaissement trouve</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif current_tab == 'decaissements' %}
+        <!-- ============================================ -->
+        <!-- DECAISSEMENTS -->
+        <!-- ============================================ -->
+        <div class="decaissements-section">
+            <div class="section-header">
+                <h2 class="section-title">Decaissements</h2>
+                <div class="section-actions">
+                    <div class="filter-group">
+                        <select class="form-select" onchange="window.location.href='?tab=decaissements&filtre_dec='+this.value">
+                            <option value="tous" {% if request.GET.filtre_dec == 'tous' %}selected{% endif %}>Tous</option>
+                            <option value="attente" {% if request.GET.filtre_dec == 'attente' %}selected{% endif %}>En attente</option>
+                            <option value="approuve" {% if request.GET.filtre_dec == 'approuve' %}selected{% endif %}>Approuves</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-warning" onclick="openModalDecaissement()">
+                        <i data-lucide="plus"></i> Nouveau decaissement
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Date</th>
+                                    <th>Categorie</th>
+                                    <th>Beneficiaire</th>
+                                    <th>Mode</th>
+                                    <th>Montant</th>
+                                    <th>Caisse</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dec in decaissements %}
+                                <tr>
+                                    <td><strong>{{ dec.reference }}</strong></td>
+                                    <td>{{ dec.date_operation|date:"d/m/Y" }}</td>
+                                    <td>{{ dec.get_categorie_display|default:dec.categorie }}</td>
+                                    <td>{{ dec.beneficiaire|default:"-" }}</td>
+                                    <td>{{ dec.get_mode_paiement_display }}</td>
+                                    <td class="text-danger"><strong>-{{ dec.montant|floatformat:0 }} FCFA</strong></td>
+                                    <td>{{ dec.caisse.nom }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ dec.statut }}">{{ dec.get_statut_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="table-actions">
+                                            <button class="btn-icon" title="Voir details" onclick="voirOperation({{ dec.id }})">
+                                                <i data-lucide="eye"></i>
+                                            </button>
+                                            {% if dec.statut == 'en_attente_approbation' %}
+                                            <button class="btn-icon text-success" title="Approuver" onclick="approuverDecaissement({{ dec.id }})">
+                                                <i data-lucide="check-circle"></i>
+                                            </button>
+                                            <button class="btn-icon text-danger" title="Rejeter" onclick="rejeterDecaissement({{ dec.id }})">
+                                                <i data-lucide="x-circle"></i>
+                                            </button>
+                                            {% elif dec.statut == 'approuve' %}
+                                            <button class="btn-icon text-primary" title="Payer" onclick="payerDecaissement({{ dec.id }})">
+                                                <i data-lucide="banknote"></i>
+                                            </button>
+                                            {% endif %}
+                                            {% if dec.statut not in 'annule,paye' %}
+                                            <button class="btn-icon text-danger" title="Annuler" onclick="annulerOperation({{ dec.id }}, '{{ dec.reference }}')">
+                                                <i data-lucide="trash-2"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">Aucun decaissement trouve</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif current_tab == 'consignations' %}
+        <!-- ============================================ -->
+        <!-- CONSIGNATIONS -->
+        <!-- ============================================ -->
+        <div class="consignations-section">
+            <div class="section-header">
+                <h2 class="section-title">Compte Sequestre / Consignations</h2>
+                <div class="section-actions">
+                    <div class="filter-group">
+                        <select class="form-select" onchange="window.location.href='?tab=consignations&filtre_cons='+this.value">
+                            <option value="actives" {% if request.GET.filtre_cons == 'actives' or not request.GET.filtre_cons %}selected{% endif %}>Actives</option>
+                            <option value="reversees" {% if request.GET.filtre_cons == 'reversees' %}selected{% endif %}>Reversees</option>
+                            <option value="retard" {% if request.GET.filtre_cons == 'retard' %}selected{% endif %}>En retard</option>
+                            <option value="toutes" {% if request.GET.filtre_cons == 'toutes' %}selected{% endif %}>Toutes</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="openModalConsignation()">
+                        <i data-lucide="plus"></i> Nouvelle consignation
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resume des consignations -->
+            <div class="consignations-summary">
+                <div class="summary-card">
+                    <i data-lucide="lock"></i>
+                    <div class="summary-content">
+                        <span class="summary-value">{% widthratio consignations|length 1 1 %}</span>
+                        <span class="summary-label">Consignations actives</span>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <i data-lucide="wallet"></i>
+                    <div class="summary-content">
+                        <span class="summary-value">
+                            {% with total=0 %}
+                            {% for c in consignations %}{{ c.montant_restant|add:total|floatformat:0 }}{% endfor %}
+                            {% endwith %} FCFA
+                        </span>
+                        <span class="summary-label">Total a reverser</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Client</th>
+                                    <th>Dossier</th>
+                                    <th>Objet</th>
+                                    <th>Montant initial</th>
+                                    <th>Montant restant</th>
+                                    <th>Date reception</th>
+                                    <th>Echeance</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cons in consignations %}
+                                <tr class="{% if cons.est_en_retard %}row-warning{% endif %}">
+                                    <td><strong>{{ cons.reference }}</strong></td>
+                                    <td>{{ cons.client }}</td>
+                                    <td>{{ cons.dossier.reference|default:"-" }}</td>
+                                    <td>{{ cons.objet|truncatechars:30 }}</td>
+                                    <td>{{ cons.montant_initial|floatformat:0 }} FCFA</td>
+                                    <td class="{% if cons.montant_restant > 0 %}text-warning{% else %}text-success{% endif %}">
+                                        <strong>{{ cons.montant_restant|floatformat:0 }} FCFA</strong>
+                                    </td>
+                                    <td>{{ cons.date_reception|date:"d/m/Y" }}</td>
+                                    <td>
+                                        {% if cons.date_echeance_reversement %}
+                                        <span class="{% if cons.est_en_retard %}text-danger{% endif %}">
+                                            {{ cons.date_echeance_reversement|date:"d/m/Y" }}
+                                        </span>
+                                        {% else %}-{% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ cons.statut }}">{{ cons.get_statut_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="table-actions">
+                                            <button class="btn-icon" title="Voir historique" onclick="voirConsignation({{ cons.id }})">
+                                                <i data-lucide="history"></i>
+                                            </button>
+                                            {% if cons.montant_restant > 0 %}
+                                            <button class="btn-icon text-success" title="Reverser" onclick="reverserConsignation({{ cons.id }}, '{{ cons.reference }}', {{ cons.montant_restant }})">
+                                                <i data-lucide="send"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted">Aucune consignation trouvee</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif current_tab == 'rapprochement' %}
+        <!-- ============================================ -->
+        <!-- RAPPROCHEMENT BANCAIRE -->
+        <!-- ============================================ -->
+        <div class="rapprochement-section">
+            <div class="section-header">
+                <h2 class="section-title">Rapprochement Bancaire</h2>
+                <button class="btn btn-primary" onclick="openModalRapprochement()">
+                    <i data-lucide="plus"></i> Nouveau rapprochement
+                </button>
+            </div>
+
+            <!-- Comptes bancaires -->
+            <div class="comptes-bancaires">
+                <h3>Comptes bancaires</h3>
+                <div class="comptes-grid">
+                    {% for compte in comptes_bancaires %}
+                    <div class="compte-card">
+                        <div class="compte-icon">
+                            <i data-lucide="building-2"></i>
+                        </div>
+                        <div class="compte-info">
+                            <div class="compte-nom">{{ compte.nom }}</div>
+                            <div class="compte-banque">{{ compte.banque }}</div>
+                            <div class="compte-numero">{{ compte.numero_compte }}</div>
+                        </div>
+                        <div class="compte-solde">
+                            <span class="solde-label">Solde</span>
+                            <span class="solde-value">{{ compte.solde_actuel|floatformat:0 }} FCFA</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state-inline">
+                        <p>Aucun compte bancaire configure</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Historique des rapprochements -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">Historique des rapprochements</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Compte</th>
+                                    <th>Periode</th>
+                                    <th>Solde releve</th>
+                                    <th>Solde comptable</th>
+                                    <th>Ecart</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rap in rapprochements %}
+                                <tr>
+                                    <td>{{ rap.compte.nom }}</td>
+                                    <td>{{ rap.date_debut|date:"d/m/Y" }} - {{ rap.date_fin|date:"d/m/Y" }}</td>
+                                    <td>{{ rap.solde_releve|floatformat:0|default:"-" }} FCFA</td>
+                                    <td>{{ rap.solde_comptable|floatformat:0|default:"-" }} FCFA</td>
+                                    <td class="{% if rap.ecart and rap.ecart != 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {{ rap.ecart|floatformat:0|default:"0" }} FCFA
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ rap.statut }}">{{ rap.get_statut_display }}</span>
+                                    </td>
+                                    <td>
+                                        <button class="btn-icon" title="Voir details">
+                                            <i data-lucide="eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Aucun rapprochement effectue</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif current_tab == 'journal' %}
+        <!-- ============================================ -->
+        <!-- JOURNAL DES OPERATIONS -->
+        <!-- ============================================ -->
+        <div class="journal-section">
+            <div class="section-header">
+                <h2 class="section-title">Journal des Operations</h2>
+                <div class="section-actions">
+                    <div class="filter-group">
+                        <select class="form-select" onchange="window.location.href='?tab=journal&periode_journal='+this.value">
+                            <option value="jour" {% if request.GET.periode_journal == 'jour' %}selected{% endif %}>Aujourd'hui</option>
+                            <option value="semaine" {% if request.GET.periode_journal == 'semaine' %}selected{% endif %}>Cette semaine</option>
+                            <option value="mois" {% if request.GET.periode_journal == 'mois' or not request.GET.periode_journal %}selected{% endif %}>Ce mois</option>
+                            <option value="tout" {% if request.GET.periode_journal == 'tout' %}selected{% endif %}>Tout</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" onclick="exporterJournal('excel')">
+                        <i data-lucide="file-spreadsheet"></i> Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="exporterJournal('pdf')">
+                        <i data-lucide="file-text"></i> PDF
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Reference</th>
+                                    <th>Type</th>
+                                    <th>Categorie</th>
+                                    <th>Tiers</th>
+                                    <th>Mode</th>
+                                    <th>Debit</th>
+                                    <th>Credit</th>
+                                    <th>Caisse</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for op in journal_operations %}
+                                <tr>
+                                    <td>{{ op.date_operation|date:"d/m/Y" }}</td>
+                                    <td><strong>{{ op.reference }}</strong></td>
+                                    <td>
+                                        {% if op.type_operation == 'encaissement' %}
+                                        <span class="badge badge-success-light">ENC</span>
+                                        {% else %}
+                                        <span class="badge badge-danger-light">DEC</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ op.get_categorie_display|default:op.categorie }}</td>
+                                    <td>{{ op.emetteur|default:op.beneficiaire|default:"-" }}</td>
+                                    <td>{{ op.get_mode_paiement_display }}</td>
+                                    <td class="text-danger">
+                                        {% if op.type_operation == 'decaissement' %}{{ op.montant|floatformat:0 }}{% endif %}
+                                    </td>
+                                    <td class="text-success">
+                                        {% if op.type_operation == 'encaissement' %}{{ op.montant|floatformat:0 }}{% endif %}
+                                    </td>
+                                    <td>{{ op.caisse.nom }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ op.statut }}">{{ op.get_statut_display }}</span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted">Aucune operation pour cette periode</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif current_tab == 'rapports' %}
+        <!-- ============================================ -->
+        <!-- RAPPORTS -->
+        <!-- ============================================ -->
+        <div class="rapports-section">
+            <div class="section-header">
+                <h2 class="section-title">Rapports et Exports</h2>
+            </div>
+
+            <div class="rapports-grid">
+                <div class="rapport-card" onclick="genererRapport('situation_caisse')">
+                    <div class="rapport-icon">
+                        <i data-lucide="file-text"></i>
+                    </div>
+                    <h3>Situation de caisse</h3>
+                    <p>Etat journalier detaille de chaque caisse</p>
+                    <div class="rapport-actions">
+                        <button class="btn btn-sm btn-primary">Generer PDF</button>
+                        <button class="btn btn-sm btn-secondary">Excel</button>
+                    </div>
+                </div>
+
+                <div class="rapport-card" onclick="genererRapport('mensuel')">
+                    <div class="rapport-icon">
+                        <i data-lucide="calendar"></i>
+                    </div>
+                    <h3>Rapport mensuel</h3>
+                    <p>Synthese des mouvements du mois</p>
+                    <div class="rapport-actions">
+                        <button class="btn btn-sm btn-primary">Generer PDF</button>
+                        <button class="btn btn-sm btn-secondary">Excel</button>
+                    </div>
+                </div>
+
+                <div class="rapport-card" onclick="genererRapport('consignations')">
+                    <div class="rapport-icon">
+                        <i data-lucide="lock"></i>
+                    </div>
+                    <h3>Etat des consignations</h3>
+                    <p>Liste des fonds clients en depot</p>
+                    <div class="rapport-actions">
+                        <button class="btn btn-sm btn-primary">Generer PDF</button>
+                        <button class="btn btn-sm btn-secondary">Excel</button>
+                    </div>
+                </div>
+
+                <div class="rapport-card" onclick="genererRapport('grand_livre')">
+                    <div class="rapport-icon">
+                        <i data-lucide="book"></i>
+                    </div>
+                    <h3>Grand livre</h3>
+                    <p>Operations par categorie/compte</p>
+                    <div class="rapport-actions">
+                        <button class="btn btn-sm btn-primary">Generer PDF</button>
+                        <button class="btn btn-sm btn-secondary">Excel</button>
+                    </div>
+                </div>
+
+                <div class="rapport-card" onclick="genererRapport('decaissements_attente')">
+                    <div class="rapport-icon">
+                        <i data-lucide="hourglass"></i>
+                    </div>
+                    <h3>Decaissements en attente</h3>
+                    <p>Liste des paiements a valider</p>
+                    <div class="rapport-actions">
+                        <button class="btn btn-sm btn-primary">Generer PDF</button>
+                        <button class="btn btn-sm btn-secondary">Excel</button>
+                    </div>
+                </div>
+
+                <div class="rapport-card" onclick="genererRapport('audit')">
+                    <div class="rapport-icon">
+                        <i data-lucide="shield-check"></i>
+                    </div>
+                    <h3>Journal d'audit</h3>
+                    <p>Trace de toutes les operations</p>
+                    <div class="rapport-actions">
+                        <button class="btn btn-sm btn-primary">Generer PDF</button>
+                        <button class="btn btn-sm btn-secondary">Excel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODALS -->
+<!-- ============================================ -->
+
+<!-- Modal Nouvelle Caisse -->
+<div class="modal" id="modalNouvelleCaisse">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Nouvelle Caisse</h2>
+            <button class="modal-close" onclick="closeModalNouvelleCaisse()">&times;</button>
+        </div>
+        <form id="formNouvelleCaisse" onsubmit="creerCaisse(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Nom de la caisse *</label>
+                    <input type="text" class="form-input" name="nom" required placeholder="Ex: Caisse principale">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Site / Localisation *</label>
+                    <input type="text" class="form-input" name="site" required placeholder="Ex: Siege - Cotonou">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Solde initial (FCFA)</label>
+                    <input type="number" class="form-input" name="solde_initial" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Responsable</label>
+                    <select class="form-select" name="responsable_id">
+                        <option value="">-- Selectionner --</option>
+                        {% for collab in collaborateurs %}
+                        <option value="{{ collab.id }}">{{ collab.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalNouvelleCaisse()">Annuler</button>
+                <button type="submit" class="btn btn-primary">Creer la caisse</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Encaissement -->
+<div class="modal" id="modalEncaissement">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2>Nouvel Encaissement</h2>
+            <button class="modal-close" onclick="closeModalEncaissement()">&times;</button>
+        </div>
+        <form id="formEncaissement" onsubmit="creerEncaissement(event)">
+            <div class="modal-body">
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Caisse *</label>
+                        <select class="form-select" name="caisse_id" required>
+                            <option value="">-- Selectionner --</option>
+                            {% for caisse in caisses %}
+                            {% if caisse.statut == 'ouverte' %}
+                            <option value="{{ caisse.id }}">{{ caisse.nom }} ({{ caisse.solde_actuel|floatformat:0 }} FCFA)</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Categorie *</label>
+                        <select class="form-select" name="categorie" required>
+                            <option value="">-- Selectionner --</option>
+                            {% for code, label in types_encaissement %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Montant (FCFA) *</label>
+                        <input type="number" class="form-input" name="montant" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mode de paiement *</label>
+                        <select class="form-select" name="mode_paiement" required>
+                            {% for code, label in modes_paiement %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Emetteur du paiement</label>
+                        <input type="text" class="form-input" name="emetteur" placeholder="Nom de la personne/societe">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Reference paiement</label>
+                        <input type="text" class="form-input" name="reference_paiement" placeholder="N cheque, ref virement...">
+                    </div>
+                </div>
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Dossier lie</label>
+                        <select class="form-select" name="dossier_id">
+                            <option value="">-- Aucun --</option>
+                            {% for dossier in dossiers_actifs %}
+                            <option value="{{ dossier.id }}">{{ dossier.reference }} - {{ dossier.get_intitule }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Partie concernee</label>
+                        <select class="form-select" name="partie_id">
+                            <option value="">-- Aucune --</option>
+                            {% for partie in parties %}
+                            <option value="{{ partie.id }}">{{ partie }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Motif / Observation</label>
+                    <textarea class="form-input" name="motif" rows="2" placeholder="Details sur l'encaissement"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalEncaissement()">Annuler</button>
+                <button type="submit" class="btn btn-success">Enregistrer l'encaissement</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Decaissement -->
+<div class="modal" id="modalDecaissement">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2>Nouveau Decaissement</h2>
+            <button class="modal-close" onclick="closeModalDecaissement()">&times;</button>
+        </div>
+        <form id="formDecaissement" onsubmit="creerDecaissement(event)">
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i data-lucide="info"></i>
+                    Les decaissements superieurs a 100 000 FCFA necessitent une approbation de l'huissier titulaire.
+                </div>
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Caisse *</label>
+                        <select class="form-select" name="caisse_id" required>
+                            <option value="">-- Selectionner --</option>
+                            {% for caisse in caisses %}
+                            {% if caisse.statut == 'ouverte' %}
+                            <option value="{{ caisse.id }}">{{ caisse.nom }} ({{ caisse.solde_actuel|floatformat:0 }} FCFA)</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Categorie *</label>
+                        <select class="form-select" name="categorie" required>
+                            <option value="">-- Selectionner --</option>
+                            {% for code, label in types_decaissement %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Montant (FCFA) *</label>
+                        <input type="number" class="form-input" name="montant" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mode de paiement *</label>
+                        <select class="form-select" name="mode_paiement" required>
+                            {% for code, label in modes_paiement %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-grid cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Beneficiaire *</label>
+                        <input type="text" class="form-input" name="beneficiaire" required placeholder="Nom du beneficiaire">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Reference paiement</label>
+                        <input type="text" class="form-input" name="reference_paiement" placeholder="N cheque...">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dossier lie</label>
+                    <select class="form-select" name="dossier_id">
+                        <option value="">-- Aucun --</option>
+                        {% for dossier in dossiers_actifs %}
+                        <option value="{{ dossier.id }}">{{ dossier.reference }} - {{ dossier.get_intitule }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Motif detaille *</label>
+                    <textarea class="form-input" name="motif" rows="2" required placeholder="Justification du decaissement"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalDecaissement()">Annuler</button>
+                <button type="submit" class="btn btn-warning">Enregistrer le decaissement</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Fermeture Caisse -->
+<div class="modal" id="modalFermerCaisse">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Fermeture de Caisse</h2>
+            <button class="modal-close" onclick="closeModalFermerCaisse()">&times;</button>
+        </div>
+        <form id="formFermerCaisse" onsubmit="confirmerFermetureCaisse(event)">
+            <div class="modal-body">
+                <input type="hidden" name="caisse_id" id="fermer_caisse_id">
+                <p>Vous allez fermer la caisse: <strong id="fermer_caisse_nom"></strong></p>
+                <div class="form-group">
+                    <label class="form-label">Solde compte physique (FCFA) *</label>
+                    <input type="number" class="form-input" name="solde_compte" required min="0" placeholder="Montant en caisse apres comptage">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Observations</label>
+                    <textarea class="form-input" name="observations" rows="2" placeholder="Remarques eventuelles"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalFermerCaisse()">Annuler</button>
+                <button type="submit" class="btn btn-warning">Fermer la caisse</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Re-initialize Lucide icons
+    lucide.createIcons();
+
+    // Variables globales
+    const csrfToken = '{{ csrf_token }}';
+    const userRole = '{{ current_user.role }}';
+    const userId = {{ current_user.id }};
+
+    // ============================================
+    // GRAPHIQUE TABLEAU DE BORD
+    // ============================================
+    {% if current_tab == 'dashboard' %}
+    const graphiqueData = {{ graphique_data|safe }};
+    const ctx = document.getElementById('chartTresorerie');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: graphiqueData.map(d => d.date),
+                datasets: [{
+                    label: 'Encaissements',
+                    data: graphiqueData.map(d => d.encaissements),
+                    borderColor: '#2f855a',
+                    backgroundColor: 'rgba(47, 133, 90, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }, {
+                    label: 'Decaissements',
+                    data: graphiqueData.map(d => d.decaissements),
+                    borderColor: '#c53030',
+                    backgroundColor: 'rgba(197, 48, 48, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString() + ' F';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // ============================================
+    // FONCTIONS MODALS
+    // ============================================
+    function openModalNouvelleCaisse() {
+        document.getElementById('modalNouvelleCaisse').classList.add('open');
+    }
+    function closeModalNouvelleCaisse() {
+        document.getElementById('modalNouvelleCaisse').classList.remove('open');
+    }
+
+    function openModalEncaissement() {
+        document.getElementById('modalEncaissement').classList.add('open');
+    }
+    function closeModalEncaissement() {
+        document.getElementById('modalEncaissement').classList.remove('open');
+    }
+
+    function openModalDecaissement() {
+        document.getElementById('modalDecaissement').classList.add('open');
+    }
+    function closeModalDecaissement() {
+        document.getElementById('modalDecaissement').classList.remove('open');
+    }
+
+    function closeModalFermerCaisse() {
+        document.getElementById('modalFermerCaisse').classList.remove('open');
+    }
+
+    // ============================================
+    // GESTION DES CAISSES
+    // ============================================
+    function ouvrirCaisse(caisseId, nom) {
+        if (!confirm(`Ouvrir la caisse "${nom}" ?`)) return;
+
+        fetch('{% url "api_caisse_ouvrir" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                caisse_id: caisseId,
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    function fermerCaisse(caisseId, nom) {
+        document.getElementById('fermer_caisse_id').value = caisseId;
+        document.getElementById('fermer_caisse_nom').textContent = nom;
+        document.getElementById('modalFermerCaisse').classList.add('open');
+    }
+
+    function confirmerFermetureCaisse(e) {
+        e.preventDefault();
+        const form = document.getElementById('formFermerCaisse');
+        const formData = new FormData(form);
+
+        fetch('{% url "api_caisse_fermer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                caisse_id: parseInt(formData.get('caisse_id')),
+                solde_compte: parseFloat(formData.get('solde_compte')),
+                observations: formData.get('observations'),
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                if (data.ecart !== 0) {
+                    alert(`Attention: ecart de ${data.ecart} FCFA constate !`);
+                }
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    function creerCaisse(e) {
+        e.preventDefault();
+        const form = document.getElementById('formNouvelleCaisse');
+        const formData = new FormData(form);
+
+        fetch('{% url "api_caisse_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                nom: formData.get('nom'),
+                site: formData.get('site'),
+                solde_initial: parseFloat(formData.get('solde_initial') || 0),
+                responsable_id: formData.get('responsable_id') || null,
+                user_id: userId,
+                user_role: userRole
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    // ============================================
+    // ENCAISSEMENTS
+    // ============================================
+    function creerEncaissement(e) {
+        e.preventDefault();
+        const form = document.getElementById('formEncaissement');
+        const formData = new FormData(form);
+
+        fetch('{% url "api_encaissement_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                caisse_id: parseInt(formData.get('caisse_id')),
+                categorie: formData.get('categorie'),
+                montant: parseFloat(formData.get('montant')),
+                mode_paiement: formData.get('mode_paiement'),
+                emetteur: formData.get('emetteur'),
+                reference_paiement: formData.get('reference_paiement'),
+                dossier_id: formData.get('dossier_id') || null,
+                partie_id: formData.get('partie_id') || null,
+                motif: formData.get('motif'),
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    // ============================================
+    // DECAISSEMENTS
+    // ============================================
+    function creerDecaissement(e) {
+        e.preventDefault();
+        const form = document.getElementById('formDecaissement');
+        const formData = new FormData(form);
+
+        fetch('{% url "api_decaissement_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                caisse_id: parseInt(formData.get('caisse_id')),
+                categorie: formData.get('categorie'),
+                montant: parseFloat(formData.get('montant')),
+                mode_paiement: formData.get('mode_paiement'),
+                beneficiaire: formData.get('beneficiaire'),
+                reference_paiement: formData.get('reference_paiement'),
+                dossier_id: formData.get('dossier_id') || null,
+                motif: formData.get('motif'),
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let msg = data.message;
+                if (data.necessite_approbation) {
+                    msg += '\n\nCe decaissement necessite une approbation avant paiement.';
+                }
+                alert(msg);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    function approuverDecaissement(operationId) {
+        if (!confirm('Approuver ce decaissement ?')) return;
+
+        fetch('{% url "api_decaissement_approuver" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                operation_id: operationId,
+                user_id: userId,
+                user_role: userRole
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    function rejeterDecaissement(operationId) {
+        const motif = prompt('Motif du rejet:');
+        if (!motif) return;
+
+        fetch('{% url "api_decaissement_rejeter" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                operation_id: operationId,
+                motif: motif,
+                user_id: userId,
+                user_role: userRole
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    function payerDecaissement(operationId) {
+        if (!confirm('Confirmer le paiement de ce decaissement ?')) return;
+
+        fetch('{% url "api_decaissement_payer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                operation_id: operationId,
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    // ============================================
+    // OPERATIONS GENERALES
+    // ============================================
+    function annulerOperation(operationId, reference) {
+        const motif = prompt(`Motif d'annulation de l'operation ${reference}:`);
+        if (!motif) return;
+
+        fetch('{% url "api_operation_annuler" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                operation_id: operationId,
+                motif: motif,
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    }
+
+    function voirOperation(id) {
+        alert('Fonctionnalite a implementer: afficher les details de l\'operation #' + id);
+    }
+
+    function imprimerRecu(id) {
+        alert('Fonctionnalite a implementer: imprimer le recu de l\'operation #' + id);
+    }
+
+    // ============================================
+    // CONSIGNATIONS
+    // ============================================
+    function openModalConsignation() {
+        alert('Fonctionnalite a implementer: formulaire de consignation');
+    }
+
+    function voirConsignation(id) {
+        alert('Fonctionnalite a implementer: historique de la consignation #' + id);
+    }
+
+    function reverserConsignation(id, reference, montantRestant) {
+        const montant = prompt(`Montant a reverser (max: ${montantRestant} FCFA):`, montantRestant);
+        if (!montant) return;
+
+        alert('Fonctionnalite a implementer: reversement de consignation via decaissement');
+    }
+
+    // ============================================
+    // RAPPROCHEMENT
+    // ============================================
+    function openModalRapprochement() {
+        alert('Fonctionnalite a implementer: formulaire de rapprochement bancaire');
+    }
+
+    // ============================================
+    // RAPPORTS
+    // ============================================
+    function genererRapport(type) {
+        alert(`Generation du rapport "${type}" - Fonctionnalite a implementer`);
+    }
+
+    function exporterJournal(format) {
+        alert(`Export du journal en ${format} - Fonctionnalite a implementer`);
+    }
+</script>
+{% endblock %}

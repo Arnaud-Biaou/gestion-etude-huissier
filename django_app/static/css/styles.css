@@ -332,3 +332,183 @@ tr:hover { background: var(--neutral-50); }
 .empty-state i { font-size: 48px; color: var(--neutral-300); margin-bottom: 16px; }
 .empty-state h3 { color: var(--neutral-500); margin-bottom: 8px; }
 .empty-state p { font-size: 14px; color: var(--neutral-400); }
+
+/* ============================================
+   MODULE TRÉSORERIE - STYLES
+   ============================================ */
+
+/* Tabs with icons */
+.tabs-scrollable { display: flex; gap: 4px; border-bottom: 1px solid var(--neutral-200); margin-bottom: 20px; overflow-x: auto; padding-bottom: 2px; }
+.tabs-scrollable .tab { display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--neutral-500); cursor: pointer; border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; white-space: nowrap; transition: all 0.2s; text-decoration: none; }
+.tabs-scrollable .tab i { width: 16px; height: 16px; }
+.tabs-scrollable .tab:hover { color: var(--primary); }
+.tabs-scrollable .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(26, 54, 93, 0.05); border-radius: var(--radius-md) var(--radius-md) 0 0; }
+
+/* Stat cards for treasury */
+.stat-card { padding: 20px; background: white; border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); display: flex; align-items: center; gap: 16px; }
+.stat-card-primary { border-left: 4px solid var(--primary); }
+.stat-card-success { border-left: 4px solid var(--success); }
+.stat-card-warning { border-left: 4px solid var(--warning); }
+.stat-card-danger { border-left: 4px solid var(--danger); }
+.stat-card-info { border-left: 4px solid var(--info); }
+.stat-card .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.stat-card-primary .stat-icon { background: rgba(26, 54, 93, 0.1); color: var(--primary); }
+.stat-card-success .stat-icon { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+.stat-card-warning .stat-icon { background: rgba(192, 86, 33, 0.1); color: var(--warning); }
+.stat-card-danger .stat-icon { background: rgba(197, 48, 48, 0.1); color: var(--danger); }
+.stat-card-info .stat-icon { background: rgba(43, 108, 176, 0.1); color: var(--info); }
+.stat-card .stat-content { flex: 1; }
+.stat-card .stat-value { font-size: 20px; font-weight: 700; color: var(--neutral-800); }
+.stat-card .stat-label { font-size: 12px; color: var(--neutral-500); margin-top: 4px; }
+
+/* Section styles */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.section-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+.section-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filter-group { display: flex; gap: 8px; }
+.form-select { padding: 8px 12px; border: 1px solid var(--neutral-300); border-radius: var(--radius-md); font-size: 13px; background: white; min-width: 150px; }
+
+/* Alerts for treasury */
+.alerts-section { margin: 20px 0; }
+.alerts-grid { display: flex; flex-direction: column; gap: 8px; }
+.alert { padding: 12px 16px; border-radius: var(--radius-md); display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.alert-danger { background: rgba(197, 48, 48, 0.1); border: 1px solid rgba(197, 48, 48, 0.2); color: var(--danger); }
+.alert i { width: 20px; height: 20px; flex-shrink: 0; }
+.alert span { flex: 1; }
+
+/* Caisses grid */
+.caisses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.caisse-card { background: white; border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; }
+.caisse-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.caisse-ouverte { border-left: 4px solid var(--success); }
+.caisse-fermee { border-left: 4px solid var(--neutral-300); }
+.caisse-header { padding: 12px 16px; background: var(--neutral-50); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--neutral-200); }
+.caisse-status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.status-indicator { width: 8px; height: 8px; border-radius: 50%; }
+.status-indicator.status-open { background: var(--success); }
+.status-indicator.status-closed { background: var(--neutral-400); }
+.status-indicator.status-pending { background: var(--warning); }
+.caisse-body { padding: 16px; }
+.caisse-nom { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--primary); margin-bottom: 4px; }
+.caisse-site { font-size: 13px; color: var(--neutral-500); display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+.caisse-site i { width: 14px; height: 14px; }
+.caisse-solde { background: var(--neutral-50); padding: 12px; border-radius: var(--radius-md); text-align: center; margin-bottom: 12px; }
+.solde-label { font-size: 11px; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.5px; }
+.solde-value { font-size: 24px; font-weight: 700; color: var(--primary); }
+.caisse-responsable { font-size: 12px; color: var(--neutral-600); display: flex; align-items: center; gap: 4px; }
+.caisse-responsable i { width: 14px; height: 14px; }
+.caisse-footer { padding: 12px 16px; border-top: 1px solid var(--neutral-100); display: flex; justify-content: flex-end; }
+.caisse-actions { display: flex; gap: 6px; }
+
+/* Resume items */
+.resume-item { display: flex; justify-content: space-between; padding: 8px 0; }
+.resume-label { font-size: 13px; color: var(--neutral-600); }
+.resume-value { font-size: 13px; font-weight: 600; }
+.resume-value.text-success { color: var(--success); }
+.resume-value.text-danger { color: var(--danger); }
+.resume-divider { height: 1px; background: var(--neutral-200); margin: 8px 0; }
+.resume-item.highlight { background: var(--neutral-50); margin: 0 -20px; padding: 12px 20px; border-radius: var(--radius-md); }
+
+/* Table actions */
+.table-actions { display: flex; gap: 4px; }
+.btn-icon { width: 32px; height: 32px; padding: 0; border: none; background: transparent; color: var(--neutral-500); cursor: pointer; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.btn-icon:hover { background: var(--neutral-100); color: var(--primary); }
+.btn-icon.text-success:hover { color: var(--success); background: rgba(47, 133, 90, 0.1); }
+.btn-icon.text-danger:hover { color: var(--danger); background: rgba(197, 48, 48, 0.1); }
+.btn-icon.text-primary:hover { color: var(--primary); background: rgba(26, 54, 93, 0.1); }
+.btn-icon i { width: 16px; height: 16px; }
+
+/* Status badges for treasury */
+.status-badge.status-en_attente { background: rgba(192, 86, 33, 0.1); color: var(--warning); }
+.status-badge.status-en_attente_approbation { background: rgba(43, 108, 176, 0.1); color: var(--info); }
+.status-badge.status-approuve { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+.status-badge.status-valide { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+.status-badge.status-paye { background: rgba(47, 133, 90, 0.15); color: var(--success); }
+.status-badge.status-rejete { background: rgba(197, 48, 48, 0.1); color: var(--danger); }
+.status-badge.status-annule { background: var(--neutral-100); color: var(--neutral-500); text-decoration: line-through; }
+.status-badge.status-ouverte { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+.status-badge.status-fermee { background: var(--neutral-100); color: var(--neutral-500); }
+.status-badge.status-verification { background: rgba(192, 86, 33, 0.1); color: var(--warning); }
+.status-badge.status-active { background: rgba(43, 108, 176, 0.1); color: var(--info); }
+.status-badge.status-partielle { background: rgba(192, 86, 33, 0.1); color: var(--warning); }
+.status-badge.status-reversee { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+.status-badge.status-bloquee { background: rgba(197, 48, 48, 0.1); color: var(--danger); }
+.status-badge.status-en_cours { background: rgba(43, 108, 176, 0.1); color: var(--info); }
+.status-badge.status-termine { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+
+/* Badge variants */
+.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.badge-success { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+.badge-warning { background: rgba(192, 86, 33, 0.1); color: var(--warning); }
+.badge-danger { background: rgba(197, 48, 48, 0.1); color: var(--danger); }
+.badge-info { background: rgba(43, 108, 176, 0.1); color: var(--info); }
+.badge-success-light { background: var(--success); color: white; }
+.badge-danger-light { background: var(--danger); color: white; }
+
+/* Text colors */
+.text-success { color: var(--success) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-info { color: var(--info) !important; }
+.text-muted { color: var(--neutral-500) !important; }
+
+/* Row styles */
+.row-warning { background: rgba(192, 86, 33, 0.05); }
+
+/* Consignations summary */
+.consignations-summary { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary-card { display: flex; align-items: center; gap: 12px; padding: 16px 20px; background: white; border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); flex: 1; min-width: 200px; }
+.summary-card i { width: 24px; height: 24px; color: var(--primary); }
+.summary-content { display: flex; flex-direction: column; }
+.summary-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+.summary-label { font-size: 12px; color: var(--neutral-500); }
+
+/* Comptes bancaires */
+.comptes-bancaires { margin-bottom: 20px; }
+.comptes-bancaires h3 { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--primary); margin-bottom: 12px; }
+.comptes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.compte-card { display: flex; align-items: center; gap: 12px; padding: 16px; background: white; border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); }
+.compte-icon { width: 40px; height: 40px; background: rgba(26, 54, 93, 0.1); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--primary); }
+.compte-icon i { width: 20px; height: 20px; }
+.compte-info { flex: 1; }
+.compte-nom { font-weight: 600; color: var(--neutral-800); }
+.compte-banque { font-size: 12px; color: var(--neutral-500); }
+.compte-numero { font-size: 11px; color: var(--neutral-400); font-family: monospace; }
+.compte-solde { text-align: right; }
+.compte-solde .solde-label { font-size: 10px; color: var(--neutral-500); }
+.compte-solde .solde-value { font-size: 14px; font-weight: 600; color: var(--primary); }
+
+/* Rapports grid */
+.rapports-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.rapport-card { background: white; border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); padding: 20px; cursor: pointer; transition: all 0.2s; }
+.rapport-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--primary); }
+.rapport-icon { width: 48px; height: 48px; background: rgba(26, 54, 93, 0.1); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: 12px; }
+.rapport-icon i { width: 24px; height: 24px; }
+.rapport-card h3 { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--primary); margin-bottom: 8px; }
+.rapport-card p { font-size: 13px; color: var(--neutral-500); margin-bottom: 12px; }
+.rapport-actions { display: flex; gap: 8px; }
+
+/* Modal styles for treasury */
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+.modal.open { display: flex; }
+.modal-content { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 500px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; animation: slideUp 0.3s ease; }
+.modal-content.modal-lg { max-width: 700px; }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--neutral-200); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h2 { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--primary); margin: 0; }
+.modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--neutral-400); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); }
+.modal-close:hover { background: var(--neutral-100); color: var(--neutral-700); }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 16px 20px; border-top: 1px solid var(--neutral-200); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Form styles for modals */
+.form-grid.cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) {
+  .form-grid.cols-2 { grid-template-columns: 1fr; }
+}
+
+/* Empty state inline */
+.empty-state-inline { text-align: center; padding: 20px; color: var(--neutral-500); font-size: 13px; }
+
+/* Button variants */
+.btn-warning { background: var(--warning); color: white; }
+.btn-warning:hover { opacity: 0.9; }

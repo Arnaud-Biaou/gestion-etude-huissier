@@ -12,7 +12,11 @@ import json
 
 from .models import (
     Dossier, Facture, Collaborateur, Partie, ActeProcedure,
-    HistoriqueCalcul, TauxLegal, Utilisateur
+    HistoriqueCalcul, TauxLegal, Utilisateur,
+    # Modèles Trésorerie
+    Caisse, JournalCaisse, OperationTresorerie, Consignation,
+    MouvementConsignation, CompteBancaire, RapprochementBancaire,
+    LigneRapprochement, AuditTresorerie
 )
 
 
@@ -540,6 +544,944 @@ def api_supprimer_dossier(request):
         # Dossier.objects.filter(id=dossier_id).delete()
 
         return JsonResponse({'success': True, 'message': 'Dossier supprimé'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# MODULE TRÉSORERIE - VUES
+# ============================================
+
+def tresorerie(request):
+    """Vue principale du module trésorerie"""
+    context = get_default_context(request)
+    context['active_module'] = 'tresorerie'
+    context['page_title'] = 'Trésorerie'
+
+    tab = request.GET.get('tab', 'dashboard')
+    context['current_tab'] = tab
+
+    # Onglets du module
+    context['tabs'] = [
+        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard'},
+        {'id': 'caisses', 'label': 'Caisses', 'icon': 'landmark'},
+        {'id': 'encaissements', 'label': 'Encaissements', 'icon': 'trending-up'},
+        {'id': 'decaissements', 'label': 'Décaissements', 'icon': 'trending-down'},
+        {'id': 'consignations', 'label': 'Consignations', 'icon': 'lock'},
+        {'id': 'rapprochement', 'label': 'Rapprochement', 'icon': 'git-compare'},
+        {'id': 'journal', 'label': 'Journal', 'icon': 'book-open'},
+        {'id': 'rapports', 'label': 'Rapports', 'icon': 'file-bar-chart'},
+    ]
+
+    # Récupérer les données
+    caisses = Caisse.objects.filter(actif=True)
+    today = timezone.now().date()
+    debut_mois = today.replace(day=1)
+    debut_semaine = today - timedelta(days=today.weekday())
+
+    # Statistiques du tableau de bord
+    solde_total = sum(c.solde_actuel for c in caisses) if caisses.exists() else 0
+
+    # Encaissements
+    encaissements_jour = OperationTresorerie.objects.filter(
+        type_operation='encaissement',
+        date_operation=today,
+        statut__in=['valide', 'paye']
+    ).aggregate(total=Sum('montant'))['total'] or 0
+
+    encaissements_semaine = OperationTresorerie.objects.filter(
+        type_operation='encaissement',
+        date_operation__gte=debut_semaine,
+        statut__in=['valide', 'paye']
+    ).aggregate(total=Sum('montant'))['total'] or 0
+
+    encaissements_mois = OperationTresorerie.objects.filter(
+        type_operation='encaissement',
+        date_operation__gte=debut_mois,
+        statut__in=['valide', 'paye']
+    ).aggregate(total=Sum('montant'))['total'] or 0
+
+    # Décaissements
+    decaissements_jour = OperationTresorerie.objects.filter(
+        type_operation='decaissement',
+        date_operation=today,
+        statut__in=['valide', 'paye']
+    ).aggregate(total=Sum('montant'))['total'] or 0
+
+    decaissements_semaine = OperationTresorerie.objects.filter(
+        type_operation='decaissement',
+        date_operation__gte=debut_semaine,
+        statut__in=['valide', 'paye']
+    ).aggregate(total=Sum('montant'))['total'] or 0
+
+    decaissements_mois = OperationTresorerie.objects.filter(
+        type_operation='decaissement',
+        date_operation__gte=debut_mois,
+        statut__in=['valide', 'paye']
+    ).aggregate(total=Sum('montant'))['total'] or 0
+
+    # Alertes
+    consignations_a_reverser = Consignation.objects.filter(
+        statut__in=['active', 'partielle'],
+        date_echeance_reversement__lte=today + timedelta(days=7)
+    ).count()
+
+    decaissements_en_attente = OperationTresorerie.objects.filter(
+        type_operation='decaissement',
+        statut='en_attente_approbation'
+    ).count()
+
+    caisses_solde_faible = Caisse.objects.filter(
+        actif=True,
+        solde_actuel__lt=50000
+    ).count()
+
+    context['stats'] = {
+        'solde_total': solde_total,
+        'encaissements': {
+            'jour': encaissements_jour,
+            'semaine': encaissements_semaine,
+            'mois': encaissements_mois,
+        },
+        'decaissements': {
+            'jour': decaissements_jour,
+            'semaine': decaissements_semaine,
+            'mois': decaissements_mois,
+        },
+        'alertes': {
+            'consignations_a_reverser': consignations_a_reverser,
+            'decaissements_en_attente': decaissements_en_attente,
+            'caisses_solde_faible': caisses_solde_faible,
+        }
+    }
+
+    # Données pour les onglets
+    context['caisses'] = caisses
+    context['comptes_bancaires'] = CompteBancaire.objects.filter(actif=True)
+
+    # Operations récentes
+    context['operations_recentes'] = OperationTresorerie.objects.all()[:10]
+
+    # Encaissements (filtré par onglet)
+    encaissements_qs = OperationTresorerie.objects.filter(type_operation='encaissement')
+    filtre_encaissement = request.GET.get('filtre_enc', 'tous')
+    if filtre_encaissement == 'attente':
+        encaissements_qs = encaissements_qs.filter(statut='en_attente')
+    elif filtre_encaissement == 'valide':
+        encaissements_qs = encaissements_qs.filter(statut__in=['valide', 'paye'])
+    context['encaissements'] = encaissements_qs[:50]
+
+    # Décaissements
+    decaissements_qs = OperationTresorerie.objects.filter(type_operation='decaissement')
+    filtre_decaissement = request.GET.get('filtre_dec', 'tous')
+    if filtre_decaissement == 'attente':
+        decaissements_qs = decaissements_qs.filter(statut__in=['en_attente', 'en_attente_approbation'])
+    elif filtre_decaissement == 'approuve':
+        decaissements_qs = decaissements_qs.filter(statut__in=['approuve', 'paye'])
+    context['decaissements'] = decaissements_qs[:50]
+
+    # Consignations
+    consignations_qs = Consignation.objects.all()
+    filtre_cons = request.GET.get('filtre_cons', 'actives')
+    if filtre_cons == 'actives':
+        consignations_qs = consignations_qs.filter(statut__in=['active', 'partielle'])
+    elif filtre_cons == 'reversees':
+        consignations_qs = consignations_qs.filter(statut='reversee')
+    elif filtre_cons == 'retard':
+        consignations_qs = consignations_qs.filter(
+            date_echeance_reversement__lt=today,
+            statut__in=['active', 'partielle']
+        )
+    context['consignations'] = consignations_qs[:50]
+
+    # Rapprochements bancaires
+    context['rapprochements'] = RapprochementBancaire.objects.all()[:20]
+
+    # Journal des opérations
+    periode_journal = request.GET.get('periode_journal', 'mois')
+    journal_qs = OperationTresorerie.objects.all()
+    if periode_journal == 'jour':
+        journal_qs = journal_qs.filter(date_operation=today)
+    elif periode_journal == 'semaine':
+        journal_qs = journal_qs.filter(date_operation__gte=debut_semaine)
+    elif periode_journal == 'mois':
+        journal_qs = journal_qs.filter(date_operation__gte=debut_mois)
+    context['journal_operations'] = journal_qs[:100]
+
+    # Types pour les formulaires
+    context['types_encaissement'] = OperationTresorerie.TYPE_ENCAISSEMENT_CHOICES
+    context['types_decaissement'] = OperationTresorerie.TYPE_DECAISSEMENT_CHOICES
+    context['modes_paiement'] = OperationTresorerie.MODE_PAIEMENT_CHOICES
+
+    # Parties (pour les formulaires)
+    context['parties'] = Partie.objects.all()[:100]
+
+    # Dossiers actifs (pour les formulaires)
+    context['dossiers_actifs'] = Dossier.objects.filter(statut__in=['actif', 'urgent'])[:50]
+
+    # Données pour les graphiques (30 derniers jours)
+    graphique_data = []
+    for i in range(30, -1, -1):
+        date_i = today - timedelta(days=i)
+        enc = OperationTresorerie.objects.filter(
+            type_operation='encaissement',
+            date_operation=date_i,
+            statut__in=['valide', 'paye']
+        ).aggregate(total=Sum('montant'))['total'] or 0
+        dec = OperationTresorerie.objects.filter(
+            type_operation='decaissement',
+            date_operation=date_i,
+            statut__in=['valide', 'paye']
+        ).aggregate(total=Sum('montant'))['total'] or 0
+        graphique_data.append({
+            'date': date_i.strftime('%d/%m'),
+            'encaissements': float(enc),
+            'decaissements': float(dec),
+        })
+    context['graphique_data'] = json.dumps(graphique_data)
+
+    return render(request, 'gestion/tresorerie.html', context)
+
+
+# ============================================
+# API TRÉSORERIE
+# ============================================
+
+@require_POST
+def api_caisse_ouvrir(request):
+    """Ouvrir une caisse"""
+    try:
+        data = json.loads(request.body)
+        caisse_id = data.get('caisse_id')
+        user_id = data.get('user_id', 1)
+
+        caisse = get_object_or_404(Caisse, id=caisse_id)
+
+        if caisse.statut == 'ouverte':
+            return JsonResponse({'success': False, 'error': 'La caisse est déjà ouverte'})
+
+        # Vérifier si un journal existe déjà pour aujourd'hui
+        today = timezone.now().date()
+        journal, created = JournalCaisse.objects.get_or_create(
+            caisse=caisse,
+            date=today,
+            defaults={
+                'solde_ouverture': caisse.solde_actuel,
+                'date_ouverture': timezone.now(),
+                'ouvert_par_id': user_id,
+            }
+        )
+
+        if not created:
+            journal.date_ouverture = timezone.now()
+            journal.ouvert_par_id = user_id
+            journal.save()
+
+        caisse.statut = 'ouverte'
+        caisse.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='ouverture_caisse',
+            entite_type='Caisse',
+            entite_id=caisse.id,
+            entite_reference=caisse.nom,
+            description=f"Ouverture de la caisse {caisse.nom}",
+            utilisateur_id=user_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Caisse '{caisse.nom}' ouverte avec succès",
+            'solde': float(caisse.solde_actuel)
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_caisse_fermer(request):
+    """Fermer une caisse"""
+    try:
+        data = json.loads(request.body)
+        caisse_id = data.get('caisse_id')
+        solde_compte = Decimal(str(data.get('solde_compte', 0)))
+        observations = data.get('observations', '')
+        user_id = data.get('user_id', 1)
+
+        caisse = get_object_or_404(Caisse, id=caisse_id)
+
+        if caisse.statut != 'ouverte':
+            return JsonResponse({'success': False, 'error': 'La caisse n\'est pas ouverte'})
+
+        today = timezone.now().date()
+        journal = JournalCaisse.objects.filter(caisse=caisse, date=today).first()
+
+        if journal:
+            # Calculer le solde théorique
+            encaissements = OperationTresorerie.objects.filter(
+                caisse=caisse,
+                type_operation='encaissement',
+                date_operation=today,
+                statut__in=['valide', 'paye']
+            ).aggregate(total=Sum('montant'))['total'] or 0
+
+            decaissements = OperationTresorerie.objects.filter(
+                caisse=caisse,
+                type_operation='decaissement',
+                date_operation=today,
+                statut__in=['valide', 'paye']
+            ).aggregate(total=Sum('montant'))['total'] or 0
+
+            solde_theorique = journal.solde_ouverture + encaissements - decaissements
+
+            journal.date_fermeture = timezone.now()
+            journal.solde_fermeture = solde_compte
+            journal.solde_theorique = solde_theorique
+            journal.ecart = solde_compte - solde_theorique
+            journal.observations = observations
+            journal.ferme_par_id = user_id
+            journal.save()
+
+        caisse.solde_actuel = solde_compte
+        caisse.statut = 'fermee'
+        caisse.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='fermeture_caisse',
+            entite_type='Caisse',
+            entite_id=caisse.id,
+            entite_reference=caisse.nom,
+            description=f"Fermeture de la caisse {caisse.nom}. Solde: {solde_compte} FCFA",
+            utilisateur_id=user_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Caisse '{caisse.nom}' fermée avec succès",
+            'ecart': float(journal.ecart) if journal else 0
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_caisse_creer(request):
+    """Créer une nouvelle caisse (admin only)"""
+    try:
+        data = json.loads(request.body)
+        user_role = data.get('user_role', 'user')
+
+        if user_role != 'admin':
+            return JsonResponse({
+                'success': False,
+                'error': "Seul l'administrateur peut créer une caisse"
+            }, status=403)
+
+        caisse = Caisse.objects.create(
+            nom=data.get('nom'),
+            site=data.get('site'),
+            solde_initial=Decimal(str(data.get('solde_initial', 0))),
+            solde_actuel=Decimal(str(data.get('solde_initial', 0))),
+            responsable_id=data.get('responsable_id'),
+        )
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='creation',
+            entite_type='Caisse',
+            entite_id=caisse.id,
+            entite_reference=caisse.nom,
+            description=f"Création de la caisse {caisse.nom}",
+            utilisateur_id=data.get('user_id', 1)
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Caisse '{caisse.nom}' créée avec succès",
+            'caisse_id': caisse.id
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_encaissement_creer(request):
+    """Créer un encaissement"""
+    try:
+        data = json.loads(request.body)
+
+        caisse = get_object_or_404(Caisse, id=data.get('caisse_id'))
+
+        # Vérifier que la caisse est ouverte
+        if caisse.statut != 'ouverte':
+            return JsonResponse({
+                'success': False,
+                'error': "La caisse doit être ouverte pour enregistrer un encaissement"
+            })
+
+        reference = OperationTresorerie.generer_reference('encaissement')
+
+        operation = OperationTresorerie.objects.create(
+            reference=reference,
+            type_operation='encaissement',
+            categorie=data.get('categorie'),
+            montant=Decimal(str(data.get('montant'))),
+            date_operation=data.get('date_operation', timezone.now().date()),
+            mode_paiement=data.get('mode_paiement', 'especes'),
+            reference_paiement=data.get('reference_paiement', ''),
+            caisse=caisse,
+            dossier_id=data.get('dossier_id'),
+            partie_id=data.get('partie_id'),
+            emetteur=data.get('emetteur', ''),
+            motif=data.get('motif', ''),
+            statut='valide',
+            cree_par_id=data.get('user_id', 1)
+        )
+
+        # Mettre à jour le solde de la caisse
+        caisse.solde_actuel += operation.montant
+        caisse.save()
+
+        # Si c'est une consignation, créer l'entrée
+        if data.get('categorie') == 'consignation' and data.get('partie_id'):
+            cons_ref = Consignation.generer_reference()
+            consignation = Consignation.objects.create(
+                reference=cons_ref,
+                client_id=data.get('partie_id'),
+                dossier_id=data.get('dossier_id'),
+                montant_initial=operation.montant,
+                montant_restant=operation.montant,
+                objet=data.get('motif', 'Consignation'),
+                debiteur=data.get('emetteur', ''),
+                cree_par_id=data.get('user_id', 1)
+            )
+
+            # Créer le mouvement
+            MouvementConsignation.objects.create(
+                consignation=consignation,
+                type_mouvement='reception',
+                montant=operation.montant,
+                mode_paiement=operation.mode_paiement,
+                reference_paiement=operation.reference_paiement,
+                operation=operation,
+                cree_par_id=data.get('user_id', 1)
+            )
+
+            operation.consignation = consignation
+            operation.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='creation',
+            entite_type='OperationTresorerie',
+            entite_id=operation.id,
+            entite_reference=reference,
+            description=f"Encaissement de {operation.montant:,.0f} FCFA - {data.get('categorie')}",
+            utilisateur_id=data.get('user_id', 1)
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Encaissement {reference} créé avec succès",
+            'operation_id': operation.id,
+            'reference': reference
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_decaissement_creer(request):
+    """Créer un décaissement"""
+    try:
+        data = json.loads(request.body)
+
+        caisse = get_object_or_404(Caisse, id=data.get('caisse_id'))
+
+        # Vérifier que la caisse est ouverte
+        if caisse.statut != 'ouverte':
+            return JsonResponse({
+                'success': False,
+                'error': "La caisse doit être ouverte pour enregistrer un décaissement"
+            })
+
+        montant = Decimal(str(data.get('montant')))
+
+        # Vérifier le solde disponible
+        if montant > caisse.solde_actuel:
+            return JsonResponse({
+                'success': False,
+                'error': f"Solde insuffisant. Disponible: {caisse.solde_actuel:,.0f} FCFA"
+            })
+
+        reference = OperationTresorerie.generer_reference('decaissement')
+        seuil_validation = Decimal(str(data.get('seuil_validation', 100000)))
+
+        # Déterminer le statut initial
+        statut_initial = 'en_attente'
+        if montant >= seuil_validation:
+            statut_initial = 'en_attente_approbation'
+
+        operation = OperationTresorerie.objects.create(
+            reference=reference,
+            type_operation='decaissement',
+            categorie=data.get('categorie'),
+            montant=montant,
+            date_operation=data.get('date_operation', timezone.now().date()),
+            mode_paiement=data.get('mode_paiement', 'especes'),
+            reference_paiement=data.get('reference_paiement', ''),
+            caisse=caisse,
+            dossier_id=data.get('dossier_id'),
+            partie_id=data.get('partie_id'),
+            beneficiaire=data.get('beneficiaire', ''),
+            motif=data.get('motif', ''),
+            statut=statut_initial,
+            montant_seuil_validation=seuil_validation,
+            cree_par_id=data.get('user_id', 1)
+        )
+
+        # Si le décaissement est automatiquement validé (sous le seuil)
+        if statut_initial == 'en_attente':
+            operation.statut = 'paye'
+            operation.save()
+            caisse.solde_actuel -= montant
+            caisse.save()
+
+        # Si c'est un reversement de consignation
+        if data.get('categorie') == 'reversement_client' and data.get('consignation_id'):
+            consignation = get_object_or_404(Consignation, id=data.get('consignation_id'))
+            MouvementConsignation.objects.create(
+                consignation=consignation,
+                type_mouvement='reversement',
+                montant=montant,
+                mode_paiement=operation.mode_paiement,
+                reference_paiement=operation.reference_paiement,
+                operation=operation,
+                cree_par_id=data.get('user_id', 1)
+            )
+            consignation.montant_reverse += montant
+            consignation.montant_restant -= montant
+            consignation.mettre_a_jour_statut()
+
+            operation.consignation = consignation
+            operation.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='creation',
+            entite_type='OperationTresorerie',
+            entite_id=operation.id,
+            entite_reference=reference,
+            description=f"Décaissement de {montant:,.0f} FCFA - {data.get('categorie')}",
+            utilisateur_id=data.get('user_id', 1)
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Décaissement {reference} créé avec succès",
+            'operation_id': operation.id,
+            'reference': reference,
+            'statut': operation.statut,
+            'necessite_approbation': statut_initial == 'en_attente_approbation'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_decaissement_approuver(request):
+    """Approuver un décaissement"""
+    try:
+        data = json.loads(request.body)
+        operation_id = data.get('operation_id')
+        user_id = data.get('user_id', 1)
+        user_role = data.get('user_role', 'user')
+
+        # Seul huissier ou admin peut approuver
+        if user_role not in ['admin', 'huissier']:
+            return JsonResponse({
+                'success': False,
+                'error': "Seul l'huissier titulaire ou l'admin peut approuver un décaissement"
+            }, status=403)
+
+        operation = get_object_or_404(OperationTresorerie, id=operation_id)
+
+        if operation.statut != 'en_attente_approbation':
+            return JsonResponse({
+                'success': False,
+                'error': "Cette opération n'est pas en attente d'approbation"
+            })
+
+        operation.statut = 'approuve'
+        operation.approuve_par_id = user_id
+        operation.date_approbation = timezone.now()
+        operation.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='approbation',
+            entite_type='OperationTresorerie',
+            entite_id=operation.id,
+            entite_reference=operation.reference,
+            description=f"Approbation du décaissement {operation.reference}",
+            utilisateur_id=user_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Décaissement {operation.reference} approuvé"
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_decaissement_rejeter(request):
+    """Rejeter un décaissement"""
+    try:
+        data = json.loads(request.body)
+        operation_id = data.get('operation_id')
+        motif = data.get('motif', '')
+        user_id = data.get('user_id', 1)
+        user_role = data.get('user_role', 'user')
+
+        if user_role not in ['admin', 'huissier']:
+            return JsonResponse({
+                'success': False,
+                'error': "Seul l'huissier titulaire ou l'admin peut rejeter un décaissement"
+            }, status=403)
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': "Le motif de rejet est obligatoire"
+            })
+
+        operation = get_object_or_404(OperationTresorerie, id=operation_id)
+
+        operation.statut = 'rejete'
+        operation.motif_rejet = motif
+        operation.approuve_par_id = user_id
+        operation.date_approbation = timezone.now()
+        operation.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='rejet',
+            entite_type='OperationTresorerie',
+            entite_id=operation.id,
+            entite_reference=operation.reference,
+            description=f"Rejet du décaissement {operation.reference}: {motif}",
+            utilisateur_id=user_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Décaissement {operation.reference} rejeté"
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_decaissement_payer(request):
+    """Marquer un décaissement comme payé"""
+    try:
+        data = json.loads(request.body)
+        operation_id = data.get('operation_id')
+        user_id = data.get('user_id', 1)
+
+        operation = get_object_or_404(OperationTresorerie, id=operation_id)
+
+        if operation.statut != 'approuve':
+            return JsonResponse({
+                'success': False,
+                'error': "Le décaissement doit être approuvé avant d'être payé"
+            })
+
+        caisse = operation.caisse
+        if operation.montant > caisse.solde_actuel:
+            return JsonResponse({
+                'success': False,
+                'error': f"Solde insuffisant. Disponible: {caisse.solde_actuel:,.0f} FCFA"
+            })
+
+        operation.statut = 'paye'
+        operation.save()
+
+        caisse.solde_actuel -= operation.montant
+        caisse.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='validation',
+            entite_type='OperationTresorerie',
+            entite_id=operation.id,
+            entite_reference=operation.reference,
+            description=f"Paiement du décaissement {operation.reference}",
+            utilisateur_id=user_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Décaissement {operation.reference} payé"
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_operation_annuler(request):
+    """Annuler une opération"""
+    try:
+        data = json.loads(request.body)
+        operation_id = data.get('operation_id')
+        motif = data.get('motif', '')
+        user_id = data.get('user_id', 1)
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': "Le motif d'annulation est obligatoire"
+            })
+
+        operation = get_object_or_404(OperationTresorerie, id=operation_id)
+
+        if operation.statut == 'annule':
+            return JsonResponse({
+                'success': False,
+                'error': "Cette opération est déjà annulée"
+            })
+
+        # Reverser les montants si l'opération était validée
+        if operation.statut in ['valide', 'paye']:
+            caisse = operation.caisse
+            if operation.type_operation == 'encaissement':
+                caisse.solde_actuel -= operation.montant
+            else:
+                caisse.solde_actuel += operation.montant
+            caisse.save()
+
+        operation.statut = 'annule'
+        operation.motif_annulation = motif
+        operation.annule_par_id = user_id
+        operation.date_annulation = timezone.now()
+        operation.save()
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='annulation',
+            entite_type='OperationTresorerie',
+            entite_id=operation.id,
+            entite_reference=operation.reference,
+            description=f"Annulation de l'opération {operation.reference}: {motif}",
+            utilisateur_id=user_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Opération {operation.reference} annulée"
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_consignation_creer(request):
+    """Créer une consignation directement"""
+    try:
+        data = json.loads(request.body)
+
+        reference = Consignation.generer_reference()
+        montant = Decimal(str(data.get('montant')))
+
+        consignation = Consignation.objects.create(
+            reference=reference,
+            client_id=data.get('client_id'),
+            dossier_id=data.get('dossier_id'),
+            montant_initial=montant,
+            montant_restant=montant,
+            objet=data.get('objet', ''),
+            debiteur=data.get('debiteur', ''),
+            date_reception=data.get('date_reception', timezone.now().date()),
+            date_echeance_reversement=data.get('date_echeance'),
+            cree_par_id=data.get('user_id', 1)
+        )
+
+        # Audit
+        AuditTresorerie.objects.create(
+            action='creation',
+            entite_type='Consignation',
+            entite_id=consignation.id,
+            entite_reference=reference,
+            description=f"Création consignation {reference} - {montant:,.0f} FCFA",
+            utilisateur_id=data.get('user_id', 1)
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Consignation {reference} créée",
+            'consignation_id': consignation.id,
+            'reference': reference
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_consignation_reverser(request):
+    """Reverser une consignation (via décaissement)"""
+    try:
+        data = json.loads(request.body)
+        consignation_id = data.get('consignation_id')
+        montant = Decimal(str(data.get('montant')))
+
+        consignation = get_object_or_404(Consignation, id=consignation_id)
+
+        if montant > consignation.montant_restant:
+            return JsonResponse({
+                'success': False,
+                'error': f"Le montant dépasse le restant à reverser ({consignation.montant_restant:,.0f} FCFA)"
+            })
+
+        # Créer le décaissement de reversement
+        data['categorie'] = 'reversement_client'
+        data['beneficiaire'] = str(consignation.client)
+        data['motif'] = f"Reversement consignation {consignation.reference}"
+
+        # Appeler api_decaissement_creer en interne
+        return api_decaissement_creer(request)
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_rapprochement_creer(request):
+    """Créer un nouveau rapprochement bancaire"""
+    try:
+        data = json.loads(request.body)
+
+        rapprochement = RapprochementBancaire.objects.create(
+            compte_id=data.get('compte_id'),
+            date_debut=data.get('date_debut'),
+            date_fin=data.get('date_fin'),
+            solde_releve=Decimal(str(data.get('solde_releve', 0))),
+            cree_par_id=data.get('user_id', 1)
+        )
+
+        # Calculer le solde comptable
+        operations = OperationTresorerie.objects.filter(
+            date_operation__range=[rapprochement.date_debut, rapprochement.date_fin],
+            statut__in=['valide', 'paye']
+        )
+
+        encaissements = operations.filter(type_operation='encaissement').aggregate(
+            total=Sum('montant'))['total'] or 0
+        decaissements = operations.filter(type_operation='decaissement').aggregate(
+            total=Sum('montant'))['total'] or 0
+
+        rapprochement.solde_comptable = encaissements - decaissements
+        rapprochement.calculer_ecart()
+        rapprochement.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': "Rapprochement créé",
+            'rapprochement_id': rapprochement.id,
+            'ecart': float(rapprochement.ecart) if rapprochement.ecart else 0
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_tresorerie_stats(request):
+    """Obtenir les statistiques de trésorerie"""
+    try:
+        today = timezone.now().date()
+        debut_mois = today.replace(day=1)
+
+        caisses = Caisse.objects.filter(actif=True)
+        solde_total = sum(c.solde_actuel for c in caisses)
+
+        encaissements_mois = OperationTresorerie.objects.filter(
+            type_operation='encaissement',
+            date_operation__gte=debut_mois,
+            statut__in=['valide', 'paye']
+        ).aggregate(total=Sum('montant'))['total'] or 0
+
+        decaissements_mois = OperationTresorerie.objects.filter(
+            type_operation='decaissement',
+            date_operation__gte=debut_mois,
+            statut__in=['valide', 'paye']
+        ).aggregate(total=Sum('montant'))['total'] or 0
+
+        consignations_actives = Consignation.objects.filter(
+            statut__in=['active', 'partielle']
+        ).aggregate(total=Sum('montant_restant'))['total'] or 0
+
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'solde_total': float(solde_total),
+                'encaissements_mois': float(encaissements_mois),
+                'decaissements_mois': float(decaissements_mois),
+                'consignations_actives': float(consignations_actives),
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_journal_tresorerie(request):
+    """Obtenir le journal des opérations"""
+    try:
+        date_debut = request.GET.get('date_debut')
+        date_fin = request.GET.get('date_fin')
+        type_op = request.GET.get('type')
+        caisse_id = request.GET.get('caisse_id')
+
+        operations = OperationTresorerie.objects.all()
+
+        if date_debut:
+            operations = operations.filter(date_operation__gte=date_debut)
+        if date_fin:
+            operations = operations.filter(date_operation__lte=date_fin)
+        if type_op:
+            operations = operations.filter(type_operation=type_op)
+        if caisse_id:
+            operations = operations.filter(caisse_id=caisse_id)
+
+        data = [{
+            'id': op.id,
+            'reference': op.reference,
+            'type': op.type_operation,
+            'categorie': op.categorie,
+            'montant': float(op.montant),
+            'date': op.date_operation.strftime('%d/%m/%Y'),
+            'mode': op.get_mode_paiement_display(),
+            'statut': op.statut,
+            'caisse': op.caisse.nom,
+        } for op in operations[:200]]
+
+        return JsonResponse({'success': True, 'operations': data})
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
