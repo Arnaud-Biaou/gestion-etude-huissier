@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Header with tabs and button -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div class="tabs" style="margin-bottom: 0; border-bottom: none;">
+        {% for tab in tabs %}
+        <a href="?tab={{ tab.id }}" class="tab {% if current_tab == tab.id %}active{% endif %}">
+            {{ tab.label }} ({{ tab.count }})
+        </a>
+        {% endfor %}
+    </div>
+    <a href="{% url 'nouveau_dossier' %}" class="btn btn-primary">
+        <i data-lucide="plus"></i> Nouveau dossier
+    </a>
+</div>
+
+<!-- Dossiers Card -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex gap-4 flex-wrap" style="flex: 1;">
+            <div class="search-bar" style="max-width: 300px;">
+                <i data-lucide="search"></i>
+                <input type="text" placeholder="Rechercher..." value="{{ filters.search }}" id="searchInput">
+            </div>
+            <select class="form-select" style="width: 180px;" id="typeFilter">
+                <option value="all" {% if filters.type == 'all' %}selected{% endif %}>Tous types</option>
+                <option value="recouvrement" {% if filters.type == 'recouvrement' %}selected{% endif %}>Recouvrement</option>
+                <option value="constat" {% if filters.type == 'constat' %}selected{% endif %}>Constat</option>
+                <option value="expulsion" {% if filters.type == 'expulsion' %}selected{% endif %}>Expulsion</option>
+            </select>
+            <select class="form-select" style="width: 180px;" id="assignedFilter">
+                <option value="all" {% if filters.assigned == 'all' %}selected{% endif %}>Tous collaborateurs</option>
+                {% for c in collaborateurs %}
+                <option value="{{ c.id }}" {% if filters.assigned == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm">
+                <i data-lucide="filter"></i> Filtres
+            </button>
+            <button class="btn btn-secondary btn-sm">
+                <i data-lucide="download"></i> Exporter
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Intitulé / Parties</th>
+                    <th>Type</th>
+                    <th>Nature</th>
+                    <th>Montant</th>
+                    <th>Affecté à</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dossier in dossiers_list %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ dossier.reference }}</td>
+                    <td>{{ dossier.intitule }}</td>
+                    <td>{{ dossier.type }}</td>
+                    <td>
+                        <span class="status-badge {{ dossier.nature }}">{{ dossier.nature|title }}</span>
+                    </td>
+                    <td>{{ dossier.montant }} F</td>
+                    <td>{{ dossier.affecte_a }}</td>
+                    <td>
+                        <span class="status-badge {{ dossier.statut }}">
+                            {% if dossier.statut == 'actif' %}
+                            <i data-lucide="check-circle" style="width: 10px; height: 10px;"></i> Actif
+                            {% elif dossier.statut == 'urgent' %}
+                            <i data-lucide="alert-circle" style="width: 10px; height: 10px;"></i> Urgent
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Voir">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            <button class="icon-btn" title="Modifier">
+                                <i data-lucide="edit"></i>
+                            </button>
+                            <button class="icon-btn" title="QR Code">
+                                <i data-lucide="qr-code"></i>
+                            </button>
+                            <button class="icon-btn" style="color: var(--danger);" title="Supprimer" onclick="deleteDossier('{{ dossier.reference }}')">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        Aucun dossier trouvé
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function deleteDossier(reference) {
+        const userRole = '{{ current_user.role }}';
+        if (userRole !== 'admin') {
+            alert("Action non autorisée : Seul l'administrateur peut supprimer un dossier.");
+            return;
+        }
+        if (confirm("Confirmer la suppression définitive de ce dossier ?")) {
+            fetch('{% url "api_supprimer_dossier" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    dossier_id: reference,
+                    user_role: userRole
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Erreur lors de la suppression');
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

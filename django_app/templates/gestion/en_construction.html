@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body empty-state">
+        <i data-lucide="settings"></i>
+        <h3>Module en construction</h3>
+        <p>Ce module sera bientôt disponible.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

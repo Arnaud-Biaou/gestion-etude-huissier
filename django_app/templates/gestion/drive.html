@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="drive-layout">
+    <!-- Folders Panel -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Dossiers</h3>
+        </div>
+        <div class="card-body">
+            <div class="folder-tree">
+                <div>📂 DOSSIERS 2025</div>
+                {% for dossier in dossiers_drive %}
+                <div style="padding-left: 20px;">📁 {{ dossier.nom }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Panel -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Contenu</h3>
+        </div>
+        <div class="card-body">
+            <div class="empty-state">
+                <i data-lucide="folder"></i>
+                <p>Sélectionnez un dossier pour voir les fichiers</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
