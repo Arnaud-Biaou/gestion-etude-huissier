@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Recherche et filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Plan comptable OHADA</h3>
+            <span class="text-muted">{{ total_comptes }} compte(s)</span>
+        </div>
+        <div class="card-body">
+            <form method="get" class="flex" style="gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                    <label class="form-label">Rechercher</label>
+                    <input type="text" name="search" class="form-input" value="{{ request.GET.search }}" placeholder="N° ou libellé du compte...">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Classe</label>
+                    <select name="classe" class="form-select">
+                        <option value="">Toutes les classes</option>
+                        {% for code, label in classes %}
+                        <option value="{{ code }}" {% if request.GET.classe == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="search"></i>
+                    Rechercher
+                </button>
+                <a href="{% url 'comptabilite:plan_comptable' %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i>
+                    Reset
+                </a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Plan comptable par classe -->
+    {% for classe_code, comptes_list in comptes_par_classe.items %}
+    <div class="card">
+        <div class="card-header" style="cursor: pointer;" onclick="toggleClasse('classe-{{ classe_code }}')">
+            <h3>
+                <i data-lucide="chevron-down" id="icon-classe-{{ classe_code }}"></i>
+                {% for code, label in classes %}
+                    {% if code == classe_code %}{{ label }}{% endif %}
+                {% endfor %}
+            </h3>
+            <span class="badge">{{ comptes_list|length }} compte(s)</span>
+        </div>
+        <div class="card-body" id="classe-{{ classe_code }}" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">N° Compte</th>
+                        <th style="width: 40%;">Libellé</th>
+                        <th style="width: 15%;">Type</th>
+                        <th style="width: 15%;">Solde normal</th>
+                        <th style="width: 10%;">Statut</th>
+                        <th style="width: 8%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for compte in comptes_list %}
+                    <tr>
+                        <td><strong>{{ compte.numero }}</strong></td>
+                        <td>
+                            {{ compte.libelle }}
+                            {% if compte.description %}
+                            <i data-lucide="info" style="font-size: 0.875rem; color: var(--info-500); cursor: help;" title="{{ compte.description }}"></i>
+                            {% endif %}
+                        </td>
+                        <td>{{ compte.get_type_compte_display }}</td>
+                        <td>
+                            {% if compte.solde_normal == 'debiteur' %}
+                            <span class="badge badge-danger">Débiteur</span>
+                            {% else %}
+                            <span class="badge badge-success">Créditeur</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if compte.actif %}
+                            <span class="badge badge-success">Actif</span>
+                            {% else %}
+                            <span class="badge badge-secondary">Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'comptabilite:grand_livre' %}?compte={{ compte.id }}" class="btn btn-sm btn-secondary" title="Voir le grand livre">
+                                <i data-lucide="book-open"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">
+        <i data-lucide="info"></i>
+        Aucun compte trouvé avec les critères de recherche.
+    </div>
+    {% endfor %}
+
+    <!-- Légende -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Légende des classes OHADA</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-4" style="gap: 1rem;">
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #1a365d;">1</span>
+                    <span>Comptes de capitaux</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #2d3748;">2</span>
+                    <span>Comptes d'immobilisations</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #4a5568;">3</span>
+                    <span>Comptes de stocks</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #718096;">4</span>
+                    <span>Comptes de tiers</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #2f855a;">5</span>
+                    <span>Comptes de trésorerie</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #c53030;">6</span>
+                    <span>Comptes de charges</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #2f855a;">7</span>
+                    <span>Comptes de produits</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge" style="background: #805ad5;">8</span>
+                    <span>Comptes spéciaux</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleClasse(id) {
+        const element = document.getElementById(id);
+        const icon = document.getElementById('icon-' + id);
+        if (element.style.display === 'none') {
+            element.style.display = 'block';
+            icon.setAttribute('data-lucide', 'chevron-down');
+        } else {
+            element.style.display = 'none';
+            icon.setAttribute('data-lucide', 'chevron-right');
+        }
+        lucide.createIcons();
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .legend-badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}

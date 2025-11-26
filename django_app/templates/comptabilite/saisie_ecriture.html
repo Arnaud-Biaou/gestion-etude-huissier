@@ -1,0 +1,672 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Mode selector -->
+    <div class="card">
+        <div class="card-body" style="padding: 1rem;">
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button class="btn mode-btn active" data-mode="facile" onclick="switchMode('facile')">
+                    <i data-lucide="wand-2"></i>
+                    Mode Facile
+                </button>
+                <button class="btn mode-btn" data-mode="guide" onclick="switchMode('guide')">
+                    <i data-lucide="compass"></i>
+                    Mode Guidé
+                </button>
+                <button class="btn mode-btn" data-mode="expert" onclick="switchMode('expert')">
+                    <i data-lucide="code"></i>
+                    Mode Expert
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Facile -->
+    <div id="mode-facile" class="mode-content active">
+        <div class="card">
+            <div class="card-header">
+                <h3><i data-lucide="wand-2"></i> Saisie simplifiée</h3>
+                <p class="text-muted" style="margin: 0;">Sélectionnez le type d'opération et renseignez les informations. L'écriture comptable sera générée automatiquement.</p>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+                    <i data-lucide="info"></i>
+                    <div>
+                        <strong>Comment ça marche ?</strong>
+                        <p style="margin: 0.5rem 0 0;">Choisissez simplement ce que vous avez fait (ex: "J'ai encaissé des honoraires"), remplissez le montant et la date. Le système génère l'écriture comptable correcte automatiquement.</p>
+                    </div>
+                </div>
+
+                <h4 style="margin-bottom: 1rem;">Que voulez-vous enregistrer ?</h4>
+
+                <div class="operations-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                    {% for op in types_operations %}
+                    <div class="operation-card" data-code="{{ op.code }}" onclick="selectOperation('{{ op.code }}')">
+                        <div class="operation-icon">
+                            <i data-lucide="{{ op.icone }}"></i>
+                        </div>
+                        <div class="operation-label">{{ op.libelle }}</div>
+                        <div class="operation-desc">{{ op.description|truncatechars:60 }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="col-span-3">
+                        <div class="alert alert-warning">
+                            <i data-lucide="alert-triangle"></i>
+                            Aucun type d'opération configuré. Contactez l'administrateur.
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Formulaire pour le mode facile -->
+                <div id="facile-form" style="display: none;">
+                    <hr style="margin: 1.5rem 0;">
+                    <h4 id="facile-operation-title" style="margin-bottom: 1rem;"></h4>
+
+                    <div class="grid grid-cols-2">
+                        <div class="form-group">
+                            <label class="form-label">Date de l'opération *</label>
+                            <input type="date" class="form-input" id="facile-date" value="{{ today|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Montant (FCFA) *</label>
+                            <input type="number" class="form-input" id="facile-montant" placeholder="0" min="1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-input" id="facile-description" placeholder="Ex: Honoraires dossier DUPONT">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Pièce justificative</label>
+                        <input type="file" class="form-input" id="facile-piece">
+                        <span class="form-help">Facture, reçu, relevé bancaire...</span>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetFacileForm()">
+                            Annuler
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="submitFacile()">
+                            <i data-lucide="check"></i>
+                            Enregistrer l'opération
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Guidé -->
+    <div id="mode-guide" class="mode-content">
+        <div class="card">
+            <div class="card-header">
+                <h3><i data-lucide="compass"></i> Saisie guidée</h3>
+                <p class="text-muted" style="margin: 0;">Sélectionnez les comptes à débiter et créditer. Le système vérifie automatiquement l'équilibre.</p>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Date *</label>
+                        <input type="date" class="form-input" id="guide-date" value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Journal *</label>
+                        <select class="form-select" id="guide-journal">
+                            <option value="">-- Sélectionnez --</option>
+                            {% for j in journaux %}
+                            <option value="{{ j.id }}">{{ j.code }} - {{ j.libelle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé de l'opération *</label>
+                    <input type="text" class="form-input" id="guide-libelle" placeholder="Ex: Règlement facture n°123">
+                </div>
+
+                <div class="grid grid-cols-2" style="gap: 2rem;">
+                    <!-- Compte à débiter -->
+                    <div>
+                        <h4 style="color: var(--danger-500); margin-bottom: 1rem;">
+                            <i data-lucide="arrow-up-circle"></i> Compte à DÉBITER
+                        </h4>
+                        <div class="form-group">
+                            <label class="form-label">Classe</label>
+                            <select class="form-select" id="guide-classe-debit" onchange="filterComptes('debit')">
+                                <option value="">Toutes les classes</option>
+                                {% for code, label in classes %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Compte</label>
+                            <select class="form-select" id="guide-compte-debit">
+                                <option value="">-- Sélectionnez --</option>
+                                {% for compte in comptes %}
+                                <option value="{{ compte.id }}" data-classe="{{ compte.classe }}">{{ compte.numero }} - {{ compte.libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="aide-debit" class="alert alert-info" style="display: none; font-size: 0.85rem;">
+                        </div>
+                    </div>
+
+                    <!-- Compte à créditer -->
+                    <div>
+                        <h4 style="color: var(--success-500); margin-bottom: 1rem;">
+                            <i data-lucide="arrow-down-circle"></i> Compte à CRÉDITER
+                        </h4>
+                        <div class="form-group">
+                            <label class="form-label">Classe</label>
+                            <select class="form-select" id="guide-classe-credit" onchange="filterComptes('credit')">
+                                <option value="">Toutes les classes</option>
+                                {% for code, label in classes %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Compte</label>
+                            <select class="form-select" id="guide-compte-credit">
+                                <option value="">-- Sélectionnez --</option>
+                                {% for compte in comptes %}
+                                <option value="{{ compte.id }}" data-classe="{{ compte.classe }}">{{ compte.numero }} - {{ compte.libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="aide-credit" class="alert alert-info" style="display: none; font-size: 0.85rem;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Montant (FCFA) *</label>
+                    <input type="number" class="form-input" id="guide-montant" placeholder="0" min="1" style="max-width: 300px;">
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="resetGuideForm()">
+                        Annuler
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="submitGuide()">
+                        <i data-lucide="check"></i>
+                        Enregistrer l'écriture
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Expert -->
+    <div id="mode-expert" class="mode-content">
+        <div class="card">
+            <div class="card-header">
+                <h3><i data-lucide="code"></i> Saisie experte</h3>
+                <p class="text-muted" style="margin: 0;">Saisie libre multi-lignes pour les écritures complexes.</p>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-3">
+                    <div class="form-group">
+                        <label class="form-label">Date *</label>
+                        <input type="date" class="form-input" id="expert-date" value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Journal *</label>
+                        <select class="form-select" id="expert-journal">
+                            <option value="">-- Sélectionnez --</option>
+                            {% for j in journaux %}
+                            <option value="{{ j.id }}">{{ j.code }} - {{ j.libelle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Libellé général *</label>
+                        <input type="text" class="form-input" id="expert-libelle" placeholder="Ex: Opération diverse">
+                    </div>
+                </div>
+
+                <h4 style="margin: 1.5rem 0 1rem;">Lignes d'écriture</h4>
+
+                <table class="table" id="expert-lignes-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Compte</th>
+                            <th style="width: 25%;">Libellé ligne</th>
+                            <th style="width: 15%;">Débit</th>
+                            <th style="width: 15%;">Crédit</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="expert-lignes">
+                        <tr>
+                            <td>
+                                <select class="form-select" name="compte">
+                                    <option value="">-- Compte --</option>
+                                    {% for compte in comptes %}
+                                    <option value="{{ compte.id }}">{{ compte.numero }} - {{ compte.libelle }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" class="form-input" name="libelle" placeholder="Libellé"></td>
+                            <td><input type="number" class="form-input" name="debit" value="0" min="0" onchange="updateTotals()"></td>
+                            <td><input type="number" class="form-input" name="credit" value="0" min="0" onchange="updateTotals()"></td>
+                            <td><button type="button" class="btn btn-danger btn-sm" onclick="removeLigne(this)"><i data-lucide="trash-2"></i></button></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <select class="form-select" name="compte">
+                                    <option value="">-- Compte --</option>
+                                    {% for compte in comptes %}
+                                    <option value="{{ compte.id }}">{{ compte.numero }} - {{ compte.libelle }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" class="form-input" name="libelle" placeholder="Libellé"></td>
+                            <td><input type="number" class="form-input" name="debit" value="0" min="0" onchange="updateTotals()"></td>
+                            <td><input type="number" class="form-input" name="credit" value="0" min="0" onchange="updateTotals()"></td>
+                            <td><button type="button" class="btn btn-danger btn-sm" onclick="removeLigne(this)"><i data-lucide="trash-2"></i></button></td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="addLigne()">
+                                    <i data-lucide="plus"></i> Ajouter une ligne
+                                </button>
+                            </td>
+                            <td><strong id="total-debit">0</strong></td>
+                            <td><strong id="total-credit">0</strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div id="equilibre-warning" class="alert alert-danger" style="display: none; margin-top: 1rem;">
+                    <i data-lucide="alert-circle"></i>
+                    L'écriture n'est pas équilibrée. Le total des débits doit égaler le total des crédits.
+                </div>
+
+                <div id="equilibre-ok" class="alert alert-success" style="display: none; margin-top: 1rem;">
+                    <i data-lucide="check-circle"></i>
+                    L'écriture est équilibrée.
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="resetExpertForm()">
+                        Annuler
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="submitExpert()">
+                        <i data-lucide="check"></i>
+                        Enregistrer l'écriture
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message de succès -->
+    <div id="success-message" class="alert alert-success" style="display: none;">
+        <i data-lucide="check-circle"></i>
+        <div>
+            <strong>Écriture créée avec succès !</strong>
+            <p style="margin: 0.5rem 0 0;" id="success-details"></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedOperation = null;
+    const comptesData = [
+        {% for compte in comptes %}
+        {id: {{ compte.id }}, numero: '{{ compte.numero }}', libelle: '{{ compte.libelle }}', classe: '{{ compte.classe }}', description: '{{ compte.description|escapejs }}'},
+        {% endfor %}
+    ];
+
+    function switchMode(mode) {
+        // Update buttons
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.mode-btn[data-mode="${mode}"]`).classList.add('active');
+
+        // Update content
+        document.querySelectorAll('.mode-content').forEach(content => content.classList.remove('active'));
+        document.getElementById('mode-' + mode).classList.add('active');
+
+        lucide.createIcons();
+    }
+
+    function selectOperation(code) {
+        selectedOperation = code;
+
+        // Highlight selected
+        document.querySelectorAll('.operation-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        document.querySelector(`.operation-card[data-code="${code}"]`).classList.add('selected');
+
+        // Show form
+        document.getElementById('facile-form').style.display = 'block';
+        const op = document.querySelector(`.operation-card[data-code="${code}"] .operation-label`).textContent;
+        document.getElementById('facile-operation-title').textContent = op;
+
+        // Focus on amount
+        document.getElementById('facile-montant').focus();
+    }
+
+    function resetFacileForm() {
+        selectedOperation = null;
+        document.querySelectorAll('.operation-card').forEach(card => card.classList.remove('selected'));
+        document.getElementById('facile-form').style.display = 'none';
+        document.getElementById('facile-montant').value = '';
+        document.getElementById('facile-description').value = '';
+    }
+
+    function submitFacile() {
+        if (!selectedOperation) {
+            alert('Veuillez sélectionner un type d\'opération');
+            return;
+        }
+
+        const montant = document.getElementById('facile-montant').value;
+        const date = document.getElementById('facile-date').value;
+        const description = document.getElementById('facile-description').value;
+
+        if (!montant || montant <= 0) {
+            alert('Veuillez entrer un montant valide');
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_ecriture_facile" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                type_operation: selectedOperation,
+                montant: montant,
+                date: date,
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showSuccess(result.numero, result.message);
+                resetFacileForm();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    function filterComptes(type) {
+        const classeSelect = document.getElementById('guide-classe-' + type);
+        const compteSelect = document.getElementById('guide-compte-' + type);
+        const classe = classeSelect.value;
+
+        compteSelect.querySelectorAll('option').forEach(opt => {
+            if (!opt.value) return;
+            const optClasse = opt.dataset.classe;
+            opt.style.display = (!classe || optClasse === classe) ? '' : 'none';
+        });
+    }
+
+    function resetGuideForm() {
+        document.getElementById('guide-journal').value = '';
+        document.getElementById('guide-libelle').value = '';
+        document.getElementById('guide-compte-debit').value = '';
+        document.getElementById('guide-compte-credit').value = '';
+        document.getElementById('guide-montant').value = '';
+        document.getElementById('guide-classe-debit').value = '';
+        document.getElementById('guide-classe-credit').value = '';
+    }
+
+    function submitGuide() {
+        const journal = document.getElementById('guide-journal').value;
+        const libelle = document.getElementById('guide-libelle').value;
+        const compteDebit = document.getElementById('guide-compte-debit').value;
+        const compteCredit = document.getElementById('guide-compte-credit').value;
+        const montant = document.getElementById('guide-montant').value;
+        const date = document.getElementById('guide-date').value;
+
+        if (!journal || !libelle || !compteDebit || !compteCredit || !montant) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_ecriture_guidee" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                journal: journal,
+                libelle: libelle,
+                compte_debit: compteDebit,
+                compte_credit: compteCredit,
+                montant: montant,
+                date: date
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showSuccess(result.numero, result.message);
+                resetGuideForm();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    function addLigne() {
+        const tbody = document.getElementById('expert-lignes');
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <select class="form-select" name="compte">
+                    <option value="">-- Compte --</option>
+                    {% for compte in comptes %}
+                    <option value="{{ compte.id }}">{{ compte.numero }} - {{ compte.libelle }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td><input type="text" class="form-input" name="libelle" placeholder="Libellé"></td>
+            <td><input type="number" class="form-input" name="debit" value="0" min="0" onchange="updateTotals()"></td>
+            <td><input type="number" class="form-input" name="credit" value="0" min="0" onchange="updateTotals()"></td>
+            <td><button type="button" class="btn btn-danger btn-sm" onclick="removeLigne(this)"><i data-lucide="trash-2"></i></button></td>
+        `;
+        tbody.appendChild(row);
+        lucide.createIcons();
+    }
+
+    function removeLigne(btn) {
+        const tbody = document.getElementById('expert-lignes');
+        if (tbody.children.length > 2) {
+            btn.closest('tr').remove();
+            updateTotals();
+        }
+    }
+
+    function updateTotals() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        document.querySelectorAll('#expert-lignes tr').forEach(row => {
+            totalDebit += parseInt(row.querySelector('[name="debit"]').value) || 0;
+            totalCredit += parseInt(row.querySelector('[name="credit"]').value) || 0;
+        });
+
+        document.getElementById('total-debit').textContent = totalDebit.toLocaleString('fr-FR');
+        document.getElementById('total-credit').textContent = totalCredit.toLocaleString('fr-FR');
+
+        if (totalDebit === totalCredit && totalDebit > 0) {
+            document.getElementById('equilibre-ok').style.display = 'flex';
+            document.getElementById('equilibre-warning').style.display = 'none';
+        } else if (totalDebit > 0 || totalCredit > 0) {
+            document.getElementById('equilibre-ok').style.display = 'none';
+            document.getElementById('equilibre-warning').style.display = 'flex';
+        } else {
+            document.getElementById('equilibre-ok').style.display = 'none';
+            document.getElementById('equilibre-warning').style.display = 'none';
+        }
+    }
+
+    function resetExpertForm() {
+        document.getElementById('expert-journal').value = '';
+        document.getElementById('expert-libelle').value = '';
+        const tbody = document.getElementById('expert-lignes');
+        while (tbody.children.length > 2) {
+            tbody.removeChild(tbody.lastChild);
+        }
+        tbody.querySelectorAll('input, select').forEach(input => {
+            if (input.type === 'number') input.value = '0';
+            else input.value = '';
+        });
+        updateTotals();
+    }
+
+    function submitExpert() {
+        const journal = document.getElementById('expert-journal').value;
+        const libelle = document.getElementById('expert-libelle').value;
+        const date = document.getElementById('expert-date').value;
+
+        if (!journal || !libelle) {
+            alert('Veuillez remplir le journal et le libellé');
+            return;
+        }
+
+        const lignes = [];
+        document.querySelectorAll('#expert-lignes tr').forEach(row => {
+            const compte = row.querySelector('[name="compte"]').value;
+            const lib = row.querySelector('[name="libelle"]').value;
+            const debit = parseInt(row.querySelector('[name="debit"]').value) || 0;
+            const credit = parseInt(row.querySelector('[name="credit"]').value) || 0;
+
+            if (compte && (debit > 0 || credit > 0)) {
+                lignes.push({ compte, libelle: lib || libelle, debit, credit });
+            }
+        });
+
+        if (lignes.length < 2) {
+            alert('L\'écriture doit avoir au moins 2 lignes avec des montants');
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_ecriture_expert" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                journal: journal,
+                libelle: libelle,
+                date: date,
+                lignes: lignes
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showSuccess(result.numero, result.message);
+                resetExpertForm();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    function showSuccess(numero, message) {
+        const msg = document.getElementById('success-message');
+        document.getElementById('success-details').innerHTML =
+            `Écriture n° <strong>${numero}</strong> créée. <a href="{% url 'comptabilite:ecritures' %}">Voir les écritures</a>`;
+        msg.style.display = 'flex';
+        setTimeout(() => { msg.style.display = 'none'; }, 10000);
+        lucide.createIcons();
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    .mode-btn {
+        background: var(--neutral-100);
+        color: var(--neutral-700);
+        border: 2px solid transparent;
+    }
+    .mode-btn:hover {
+        background: var(--neutral-200);
+    }
+    .mode-btn.active {
+        background: var(--primary-500);
+        color: white;
+        border-color: var(--primary-600);
+    }
+    .mode-content {
+        display: none;
+    }
+    .mode-content.active {
+        display: block;
+    }
+    .operation-card {
+        padding: 1.5rem;
+        border: 2px solid var(--neutral-200);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+    .operation-card:hover {
+        border-color: var(--accent-400);
+        background: var(--accent-50);
+    }
+    .operation-card.selected {
+        border-color: var(--accent-500);
+        background: var(--accent-100);
+    }
+    .operation-icon {
+        font-size: 2rem;
+        color: var(--accent-500);
+        margin-bottom: 0.5rem;
+    }
+    .operation-label {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    .operation-desc {
+        font-size: 0.85rem;
+        color: var(--neutral-500);
+    }
+    .classes-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .classes-nav button {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--neutral-300);
+        border-radius: 0.25rem;
+        background: white;
+        cursor: pointer;
+    }
+    .classes-nav button:hover, .classes-nav button.active {
+        background: var(--primary-500);
+        color: white;
+        border-color: var(--primary-500);
+    }
+</style>
+{% endblock %}

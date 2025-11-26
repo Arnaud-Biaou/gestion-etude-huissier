@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Introduction -->
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 2rem;">
+            <div style="font-size: 4rem; color: var(--accent-500); margin-bottom: 1rem;">
+                <i data-lucide="help-circle"></i>
+            </div>
+            <h2>Aide - Module Comptabilité</h2>
+            <p class="text-muted">Découvrez comment utiliser le module comptabilité OHADA pour votre étude d'huissier.</p>
+        </div>
+    </div>
+
+    <!-- Tutoriels -->
+    <div class="grid grid-cols-3">
+        <div class="card">
+            <div class="card-header">
+                <h4><i data-lucide="play-circle"></i> Démarrage rapide</h4>
+            </div>
+            <div class="card-body">
+                <ol style="padding-left: 1.5rem; color: var(--neutral-600);">
+                    <li style="margin-bottom: 0.5rem;">Configurez votre exercice comptable</li>
+                    <li style="margin-bottom: 0.5rem;">Le plan comptable OHADA est automatiquement créé</li>
+                    <li style="margin-bottom: 0.5rem;">Commencez à saisir vos écritures</li>
+                    <li style="margin-bottom: 0.5rem;">Consultez vos états financiers</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h4><i data-lucide="layers"></i> Les 3 modes de saisie</h4>
+            </div>
+            <div class="card-body">
+                <div class="space-y-3">
+                    <div>
+                        <strong>Mode Facile</strong>
+                        <p class="text-muted" style="margin: 0;">Pour les non-comptables. Sélectionnez simplement le type d'opération.</p>
+                    </div>
+                    <div>
+                        <strong>Mode Guidé</strong>
+                        <p class="text-muted" style="margin: 0;">Choisissez les comptes avec aide contextuelle.</p>
+                    </div>
+                    <div>
+                        <strong>Mode Expert</strong>
+                        <p class="text-muted" style="margin: 0;">Saisie libre multi-lignes pour comptables.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h4><i data-lucide="shield-check"></i> Bonnes pratiques</h4>
+            </div>
+            <div class="card-body">
+                <ul style="padding-left: 1.5rem; color: var(--neutral-600);">
+                    <li style="margin-bottom: 0.5rem;">Validez régulièrement vos écritures</li>
+                    <li style="margin-bottom: 0.5rem;">Vérifiez la balance mensuelle</li>
+                    <li style="margin-bottom: 0.5rem;">Conservez vos pièces justificatives</li>
+                    <li style="margin-bottom: 0.5rem;">Effectuez des sauvegardes régulières</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Glossaire -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i data-lucide="book-open"></i> Glossaire comptable</h3>
+        </div>
+        <div class="card-body">
+            <div class="glossaire">
+                <div class="glossaire-item">
+                    <dt>Débit</dt>
+                    <dd>Côté gauche d'un compte. Augmente les comptes d'actif et de charges.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Crédit</dt>
+                    <dd>Côté droit d'un compte. Augmente les comptes de passif et de produits.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Exercice comptable</dt>
+                    <dd>Période (généralement 12 mois) sur laquelle sont enregistrées les opérations.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Journal</dt>
+                    <dd>Livre comptable où sont enregistrées les opérations par catégorie.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Grand livre</dt>
+                    <dd>Document regroupant tous les mouvements compte par compte.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Balance</dt>
+                    <dd>État récapitulatif de tous les comptes avec leurs soldes.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Bilan</dt>
+                    <dd>État financier présentant l'actif et le passif de l'entreprise.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>Compte de résultat</dt>
+                    <dd>État financier présentant les produits et charges de l'exercice.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>TVA</dt>
+                    <dd>Taxe sur la Valeur Ajoutée (18% au Bénin).</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>OHADA</dt>
+                    <dd>Organisation pour l'Harmonisation en Afrique du Droit des Affaires.</dd>
+                </div>
+                <div class="glossaire-item">
+                    <dt>SYSCOHADA</dt>
+                    <dd>Système Comptable OHADA - référentiel comptable applicable.</dd>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classes comptables -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i data-lucide="folder-tree"></i> Les classes du plan comptable OHADA</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-2" style="gap: 1.5rem;">
+                <div>
+                    <h4 style="color: var(--primary-500);">Comptes de bilan (Classes 1-5)</h4>
+                    <div class="classe-item">
+                        <span class="classe-badge">1</span>
+                        <div>
+                            <strong>Comptes de capitaux</strong>
+                            <p class="text-muted">Capital, réserves, résultat, emprunts</p>
+                        </div>
+                    </div>
+                    <div class="classe-item">
+                        <span class="classe-badge">2</span>
+                        <div>
+                            <strong>Comptes d'immobilisations</strong>
+                            <p class="text-muted">Bâtiments, matériel, véhicules, mobilier</p>
+                        </div>
+                    </div>
+                    <div class="classe-item">
+                        <span class="classe-badge">3</span>
+                        <div>
+                            <strong>Comptes de stocks</strong>
+                            <p class="text-muted">Fournitures, consommables</p>
+                        </div>
+                    </div>
+                    <div class="classe-item">
+                        <span class="classe-badge">4</span>
+                        <div>
+                            <strong>Comptes de tiers</strong>
+                            <p class="text-muted">Clients, fournisseurs, personnel, État</p>
+                        </div>
+                    </div>
+                    <div class="classe-item">
+                        <span class="classe-badge">5</span>
+                        <div>
+                            <strong>Comptes de trésorerie</strong>
+                            <p class="text-muted">Banque, caisse, valeurs à encaisser</p>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="color: var(--accent-500);">Comptes de gestion (Classes 6-7)</h4>
+                    <div class="classe-item">
+                        <span class="classe-badge danger">6</span>
+                        <div>
+                            <strong>Comptes de charges</strong>
+                            <p class="text-muted">Achats, loyers, salaires, impôts, déplacements</p>
+                        </div>
+                    </div>
+                    <div class="classe-item">
+                        <span class="classe-badge success">7</span>
+                        <div>
+                            <strong>Comptes de produits</strong>
+                            <p class="text-muted">Honoraires, émoluments, frais recouvrés</p>
+                        </div>
+                    </div>
+                    <div class="classe-item">
+                        <span class="classe-badge special">8</span>
+                        <div>
+                            <strong>Comptes spéciaux</strong>
+                            <p class="text-muted">Engagements hors bilan</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact support -->
+    <div class="card">
+        <div class="card-body" style="text-align: center;">
+            <h4>Besoin d'aide supplémentaire ?</h4>
+            <p class="text-muted">Notre équipe support est à votre disposition pour vous accompagner.</p>
+            <div class="flex" style="gap: 1rem; justify-content: center; margin-top: 1rem;">
+                <button class="btn btn-primary">
+                    <i data-lucide="message-circle"></i>
+                    Contacter le support
+                </button>
+                <button class="btn btn-secondary">
+                    <i data-lucide="video"></i>
+                    Tutoriels vidéo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+
+<style>
+    .glossaire {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    .glossaire-item {
+        padding: 1rem;
+        background: var(--neutral-50);
+        border-radius: 0.5rem;
+    }
+    .glossaire-item dt {
+        font-weight: 600;
+        color: var(--primary-600);
+        margin-bottom: 0.25rem;
+    }
+    .glossaire-item dd {
+        margin: 0;
+        color: var(--neutral-600);
+        font-size: 0.9rem;
+    }
+    .classe-item {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        background: var(--neutral-50);
+        border-radius: 0.5rem;
+    }
+    .classe-item p {
+        margin: 0;
+        font-size: 0.85rem;
+    }
+    .classe-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 0.25rem;
+        background: var(--primary-500);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+    .classe-badge.danger {
+        background: var(--danger-500);
+    }
+    .classe-badge.success {
+        background: var(--success-500);
+    }
+    .classe-badge.special {
+        background: var(--info-500);
+    }
+</style>
+{% endblock %}

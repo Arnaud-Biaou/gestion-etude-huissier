@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Sélection du journal -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Sélectionner un journal</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-5" style="gap: 1rem;">
+                {% for journal in journaux %}
+                <a href="?journal={{ journal.id }}" class="journal-card {% if journal_selectionne.id == journal.id %}active{% endif %}">
+                    <div class="journal-icon">
+                        {% if journal.type_journal == 'AC' %}
+                        <i data-lucide="shopping-cart"></i>
+                        {% elif journal.type_journal == 'VE' %}
+                        <i data-lucide="receipt"></i>
+                        {% elif journal.type_journal == 'BQ' %}
+                        <i data-lucide="landmark"></i>
+                        {% elif journal.type_journal == 'CA' %}
+                        <i data-lucide="wallet"></i>
+                        {% else %}
+                        <i data-lucide="file-text"></i>
+                        {% endif %}
+                    </div>
+                    <div class="journal-code">{{ journal.code }}</div>
+                    <div class="journal-label">{{ journal.libelle }}</div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if journal_selectionne %}
+    <!-- Filtres de période -->
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="flex" style="gap: 1rem; align-items: flex-end;">
+                <input type="hidden" name="journal" value="{{ journal_selectionne.id }}">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Du</label>
+                    <input type="date" name="date_debut" class="form-input" value="{{ request.GET.date_debut }}">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Au</label>
+                    <input type="date" name="date_fin" class="form-input" value="{{ request.GET.date_fin }}">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="filter"></i>
+                    Filtrer
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="window.print()">
+                    <i data-lucide="printer"></i>
+                    Imprimer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenu du journal -->
+    <div class="card">
+        <div class="card-header">
+            <h3>{{ journal_selectionne.code }} - {{ journal_selectionne.libelle }}</h3>
+            {% if exercice %}
+            <span class="badge badge-info">{{ exercice.libelle }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>N° Pièce</th>
+                        <th>Compte</th>
+                        <th>Libellé</th>
+                        <th class="text-right">Débit</th>
+                        <th class="text-right">Crédit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ecriture in ecritures %}
+                    <tr class="ecriture-header">
+                        <td colspan="6" style="background: var(--neutral-100); font-weight: 600;">
+                            {{ ecriture.date|date:"d/m/Y" }} - {{ ecriture.numero }} - {{ ecriture.libelle }}
+                        </td>
+                    </tr>
+                    {% for ligne in ecriture.lignes.all %}
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td><strong>{{ ligne.compte.numero }}</strong> {{ ligne.compte.libelle }}</td>
+                        <td>{{ ligne.libelle }}</td>
+                        <td class="text-right">{% if ligne.debit > 0 %}{{ ligne.debit|floatformat:0 }}{% endif %}</td>
+                        <td class="text-right">{% if ligne.credit > 0 %}{{ ligne.credit|floatformat:0 }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted" style="padding: 2rem;">
+                            Aucune écriture dans ce journal pour la période sélectionnée
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i data-lucide="info"></i>
+        Sélectionnez un journal ci-dessus pour afficher son contenu.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+
+<style>
+    .journal-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem 1rem;
+        border: 2px solid var(--neutral-200);
+        border-radius: 0.5rem;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+    }
+    .journal-card:hover {
+        border-color: var(--accent-400);
+        background: var(--accent-50);
+    }
+    .journal-card.active {
+        border-color: var(--accent-500);
+        background: var(--accent-100);
+    }
+    .journal-icon {
+        font-size: 1.5rem;
+        color: var(--accent-500);
+        margin-bottom: 0.5rem;
+    }
+    .journal-code {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    .journal-label {
+        font-size: 0.85rem;
+        color: var(--neutral-500);
+        text-align: center;
+    }
+    .ecriture-header td {
+        border-top: 2px solid var(--neutral-300);
+    }
+
+    @media print {
+        .journal-card, form, .btn {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}

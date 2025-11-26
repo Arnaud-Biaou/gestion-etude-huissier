@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Résumé TVA -->
+    <div class="grid grid-cols-3">
+        <div class="card stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="arrow-down-circle"></i>
+            </div>
+            <div class="stat-value text-success">{{ tva_collectee|floatformat:0 }} FCFA</div>
+            <div class="stat-label">TVA Collectée</div>
+            <div class="stat-change">Sur les ventes</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="arrow-up-circle"></i>
+            </div>
+            <div class="stat-value text-danger">{{ tva_deductible|floatformat:0 }} FCFA</div>
+            <div class="stat-label">TVA Déductible</div>
+            <div class="stat-change">Sur les achats</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-icon {% if tva_a_payer >= 0 %}warning{% else %}info{% endif %}">
+                <i data-lucide="calculator"></i>
+            </div>
+            <div class="stat-value">{{ tva_a_payer|floatformat:0 }} FCFA</div>
+            <div class="stat-label">{% if tva_a_payer >= 0 %}TVA à payer{% else %}Crédit de TVA{% endif %}</div>
+            <div class="stat-change">Solde actuel</div>
+        </div>
+    </div>
+
+    {% if exercice %}
+    <!-- Déclarations -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Déclarations de TVA - {{ exercice.libelle }}</h3>
+            <button class="btn btn-primary" onclick="nouvelleDéclaration()">
+                <i data-lucide="plus"></i>
+                Nouvelle déclaration
+            </button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Période</th>
+                        <th class="text-right">TVA Collectée</th>
+                        <th class="text-right">TVA Déductible</th>
+                        <th class="text-right">TVA à payer</th>
+                        <th>Statut</th>
+                        <th>Date déclaration</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for decl in declarations %}
+                    <tr>
+                        <td><strong>{{ decl.periode_debut|date:"m/Y" }}</strong></td>
+                        <td class="text-right">{{ decl.tva_collectee|floatformat:0 }}</td>
+                        <td class="text-right">{{ decl.tva_deductible|floatformat:0 }}</td>
+                        <td class="text-right">
+                            {% if decl.tva_a_payer > 0 %}
+                            <span class="text-warning">{{ decl.tva_a_payer|floatformat:0 }}</span>
+                            {% else %}
+                            <span class="text-info">{{ decl.credit_tva|floatformat:0 }} (crédit)</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if decl.statut == 'payee' %}
+                            <span class="badge badge-success">Payée</span>
+                            {% elif decl.statut == 'declaree' %}
+                            <span class="badge badge-info">Déclarée</span>
+                            {% elif decl.statut == 'validee' %}
+                            <span class="badge badge-warning">Validée</span>
+                            {% else %}
+                            <span class="badge badge-secondary">Brouillon</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ decl.date_declaration|date:"d/m/Y"|default:"-" }}</td>
+                        <td>
+                            <div class="flex" style="gap: 0.25rem;">
+                                <button class="btn btn-sm btn-secondary" title="Voir">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-secondary" title="Imprimer">
+                                    <i data-lucide="printer"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="padding: 2rem;">
+                            Aucune déclaration de TVA enregistrée
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Calendrier fiscal -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Rappels et échéances fiscales</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <i data-lucide="calendar"></i>
+                <div>
+                    <strong>Prochaine échéance TVA</strong>
+                    <p style="margin: 0;">Déclaration de TVA du mois courant à déposer avant le 10 du mois suivant.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2" style="margin-top: 1rem;">
+                <div>
+                    <h4>Échéances mensuelles</h4>
+                    <ul style="padding-left: 1.5rem; color: var(--neutral-600);">
+                        <li>TVA : avant le 10 de chaque mois</li>
+                        <li>Acompte IS : 15 de chaque mois (si applicable)</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Échéances annuelles</h4>
+                    <ul style="padding-left: 1.5rem; color: var(--neutral-600);">
+                        <li>Déclaration IS : 30 avril</li>
+                        <li>Patente : 31 mars</li>
+                        <li>États financiers : 30 avril</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i data-lucide="alert-triangle"></i>
+        Aucun exercice comptable en cours.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function nouvelleDéclaration() {
+        alert('Création de déclaration TVA - Fonctionnalité en développement');
+    }
+
+    lucide.createIcons();
+</script>
+{% endblock %}

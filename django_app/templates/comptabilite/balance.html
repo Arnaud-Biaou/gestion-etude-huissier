@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Balance générale</h3>
+            {% if exercice %}
+            <span class="badge badge-info">{{ exercice.libelle }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <form method="get" class="flex" style="gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Classe</label>
+                    <select name="classe" class="form-select">
+                        <option value="">Toutes les classes</option>
+                        {% for code, label in classes %}
+                        <option value="{{ code }}" {% if request.GET.classe == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Arrêtée au</label>
+                    <input type="date" name="date_fin" class="form-input" value="{{ date_fin|date:'Y-m-d' }}">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="refresh-cw"></i>
+                    Actualiser
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="window.print()">
+                    <i data-lucide="printer"></i>
+                    Imprimer
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="exportExcel()">
+                    <i data-lucide="file-spreadsheet"></i>
+                    Export Excel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Balance -->
+    <div class="card">
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">N° Compte</th>
+                        <th style="width: 36%;">Libellé</th>
+                        <th class="text-right" style="width: 13%;">Débit</th>
+                        <th class="text-right" style="width: 13%;">Crédit</th>
+                        <th class="text-right" style="width: 13%;">Solde Débiteur</th>
+                        <th class="text-right" style="width: 13%;">Solde Créditeur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in balance %}
+                    <tr>
+                        <td><strong>{{ b.compte.numero }}</strong></td>
+                        <td>{{ b.compte.libelle }}</td>
+                        <td class="text-right">{{ b.debit|floatformat:0 }}</td>
+                        <td class="text-right">{{ b.credit|floatformat:0 }}</td>
+                        <td class="text-right">{% if b.solde_debiteur > 0 %}{{ b.solde_debiteur|floatformat:0 }}{% endif %}</td>
+                        <td class="text-right">{% if b.solde_crediteur > 0 %}{{ b.solde_crediteur|floatformat:0 }}{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted" style="padding: 2rem;">
+                            Aucun compte avec mouvement
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--neutral-100); font-weight: bold;">
+                        <td colspan="2">TOTAUX</td>
+                        <td class="text-right">{{ totaux.debit|floatformat:0 }}</td>
+                        <td class="text-right">{{ totaux.credit|floatformat:0 }}</td>
+                        <td class="text-right">{{ totaux.solde_debiteur|floatformat:0 }}</td>
+                        <td class="text-right">{{ totaux.solde_crediteur|floatformat:0 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Vérification -->
+    {% if totaux.debit == totaux.credit %}
+    <div class="alert alert-success">
+        <i data-lucide="check-circle"></i>
+        <div>
+            <strong>Balance équilibrée</strong>
+            <p style="margin: 0;">Total Débit = Total Crédit = {{ totaux.debit|floatformat:0 }} FCFA</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-danger">
+        <i data-lucide="alert-circle"></i>
+        <div>
+            <strong>Balance déséquilibrée !</strong>
+            <p style="margin: 0;">Écart de {{ totaux.debit|add:totaux.credit|floatformat:0 }} FCFA</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exportExcel() {
+        alert('Export Excel en cours de développement');
+    }
+
+    lucide.createIcons();
+</script>
+{% endblock %}
