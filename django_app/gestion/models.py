@@ -5,13 +5,13 @@ import json
 
 
 class Utilisateur(AbstractUser):
-    """Modèle utilisateur personnalisé"""
+    """Modele utilisateur personnalise"""
     ROLE_CHOICES = [
         ('admin', 'Administrateur'),
         ('huissier', 'Huissier'),
         ('clerc_principal', 'Clerc Principal'),
         ('clerc', 'Clerc'),
-        ('secretaire', 'Secrétaire'),
+        ('secretaire', 'Secretaire'),
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='clerc')
     telephone = models.CharField(max_length=20, blank=True)
@@ -30,12 +30,12 @@ class Utilisateur(AbstractUser):
 
 
 class Collaborateur(models.Model):
-    """Collaborateurs de l'étude"""
+    """Collaborateurs de l'etude"""
     ROLE_CHOICES = [
         ('huissier', 'Huissier'),
         ('clerc_principal', 'Clerc Principal'),
         ('clerc', 'Clerc'),
-        ('secretaire', 'Secrétaire'),
+        ('secretaire', 'Secretaire'),
     ]
     nom = models.CharField(max_length=100)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
@@ -55,7 +55,7 @@ class Collaborateur(models.Model):
 
 
 class Partie(models.Model):
-    """Parties (demandeur ou défendeur) d'un dossier"""
+    """Parties (demandeur ou defendeur) d'un dossier"""
     TYPE_PERSONNE_CHOICES = [
         ('physique', 'Personne physique'),
         ('morale', 'Personne morale'),
@@ -74,7 +74,7 @@ class Partie(models.Model):
     # Personne physique
     nom = models.CharField(max_length=100, blank=True)
     prenoms = models.CharField(max_length=150, blank=True)
-    nationalite = models.CharField(max_length=50, blank=True, default='Béninoise')
+    nationalite = models.CharField(max_length=50, blank=True, default='Beninoise')
     profession = models.CharField(max_length=100, blank=True)
     domicile = models.TextField(blank=True)
 
@@ -105,7 +105,7 @@ class Partie(models.Model):
 
 
 class Dossier(models.Model):
-    """Dossier de l'étude"""
+    """Dossier de l'etude"""
     TYPE_DOSSIER_CHOICES = [
         ('recouvrement', 'Recouvrement'),
         ('expulsion', 'Expulsion'),
@@ -117,8 +117,8 @@ class Dossier(models.Model):
     STATUT_CHOICES = [
         ('actif', 'Actif'),
         ('urgent', 'Urgent'),
-        ('archive', 'Archivé'),
-        ('cloture', 'Clôturé'),
+        ('archive', 'Archive'),
+        ('cloture', 'Cloture'),
     ]
 
     reference = models.CharField(max_length=20, unique=True)
@@ -162,12 +162,12 @@ class Dossier(models.Model):
     @classmethod
     def generer_reference(cls):
         now = timezone.now()
-        prefix = 175  # Numéro de la loi
+        prefix = 175  # Numero de la loi
         mois = str(now.month).zfill(2)
         annee = str(now.year)[-2:]
         suffix = "MAB"  # Initiales de l'huissier
 
-        # Trouver le prochain numéro
+        # Trouver le prochain numero
         derniers = cls.objects.filter(
             reference__startswith=f"{prefix}_{mois}{annee}"
         ).count()
@@ -176,12 +176,12 @@ class Dossier(models.Model):
 
 
 class Facture(models.Model):
-    """Factures de l'étude"""
+    """Factures de l'etude"""
     STATUT_CHOICES = [
         ('brouillon', 'Brouillon'),
         ('attente', 'En attente'),
-        ('payee', 'Payée'),
-        ('annulee', 'Annulée'),
+        ('payee', 'Payee'),
+        ('annulee', 'Annulee'),
     ]
 
     numero = models.CharField(max_length=20, unique=True)
@@ -189,6 +189,7 @@ class Facture(models.Model):
         Dossier, on_delete=models.SET_NULL, null=True, blank=True, related_name='factures'
     )
     client = models.CharField(max_length=200)
+    ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
     montant_ht = models.DecimalField(max_digits=15, decimal_places=0)
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
@@ -196,9 +197,13 @@ class Facture(models.Model):
     date_emission = models.DateField(default=timezone.now)
     date_echeance = models.DateField(null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='attente')
+    observations = models.TextField(blank=True)
 
+    # MECeF
     mecef_qr = models.TextField(blank=True, verbose_name='QR Code MECeF')
-    mecef_numero = models.CharField(max_length=50, blank=True, verbose_name='Numéro MECeF')
+    mecef_numero = models.CharField(max_length=50, blank=True, verbose_name='Numero MECeF')
+    nim = models.CharField(max_length=20, blank=True, verbose_name='NIM')
+    date_mecef = models.DateTimeField(null=True, blank=True, verbose_name='Date normalisation MECeF')
 
     date_creation = models.DateTimeField(auto_now_add=True)
 
@@ -224,16 +229,35 @@ class Facture(models.Model):
         return f"FAC-{now.year}-{str(count).zfill(3)}"
 
 
+class LigneFacture(models.Model):
+    """Lignes de facture"""
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
+    description = models.CharField(max_length=500)
+    quantite = models.IntegerField(default=1)
+    prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+
+    class Meta:
+        verbose_name = 'Ligne de facture'
+        verbose_name_plural = 'Lignes de facture'
+
+    def __str__(self):
+        return f"{self.description} x {self.quantite}"
+
+    @property
+    def total(self):
+        return self.quantite * self.prix_unitaire
+
+
 class ActeProcedure(models.Model):
-    """Actes de procédure du catalogue"""
+    """Actes de procedure du catalogue"""
     code = models.CharField(max_length=20, unique=True)
     libelle = models.CharField(max_length=200)
     tarif = models.DecimalField(max_digits=10, decimal_places=0)
     actif = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = 'Acte de procédure'
-        verbose_name_plural = 'Actes de procédure'
+        verbose_name = 'Acte de procedure'
+        verbose_name_plural = 'Actes de procedure'
         ordering = ['libelle']
 
     def __str__(self):
@@ -244,13 +268,13 @@ class HistoriqueCalcul(models.Model):
     """Historique des calculs de recouvrement"""
     MODE_CHOICES = [
         ('complet', 'Calcul complet'),
-        ('emoluments', 'Émoluments seuls'),
+        ('emoluments', 'Emoluments seuls'),
     ]
 
     nom = models.CharField(max_length=200)
     mode = models.CharField(max_length=20, choices=MODE_CHOICES)
-    donnees = models.JSONField()  # Stocke toutes les données du calcul
-    resultats = models.JSONField()  # Stocke les résultats
+    donnees = models.JSONField()  # Stocke toutes les donnees du calcul
+    resultats = models.JSONField()  # Stocke les resultats
     total = models.DecimalField(max_digits=15, decimal_places=0)
 
     utilisateur = models.ForeignKey(
@@ -268,14 +292,14 @@ class HistoriqueCalcul(models.Model):
 
 
 class TauxLegal(models.Model):
-    """Taux légaux UEMOA par année"""
+    """Taux legaux UEMOA par annee"""
     annee = models.IntegerField(unique=True)
     taux = models.DecimalField(max_digits=6, decimal_places=4)
     source = models.CharField(max_length=100, default='BCEAO')
 
     class Meta:
-        verbose_name = 'Taux légal'
-        verbose_name_plural = 'Taux légaux'
+        verbose_name = 'Taux legal'
+        verbose_name_plural = 'Taux legaux'
         ordering = ['-annee']
 
     def __str__(self):

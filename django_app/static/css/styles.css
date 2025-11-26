@@ -332,3 +332,59 @@ tr:hover { background: var(--neutral-50); }
 .empty-state i { font-size: 48px; color: var(--neutral-300); margin-bottom: 16px; }
 .empty-state h3 { color: var(--neutral-500); margin-bottom: 8px; }
 .empty-state p { font-size: 14px; color: var(--neutral-400); }
+
+/* Ligne Facture */
+.ligne-facture { background: var(--neutral-50); padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--neutral-200); }
+.ligne-facture:hover { border-color: var(--neutral-300); }
+
+/* Additional status badges */
+.status-badge.brouillon { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
+.status-badge.annulee { background: rgba(107, 114, 128, 0.1); color: #6b7280; text-decoration: line-through; }
+
+/* Gap utilities */
+.gap-1 { gap: 4px; }
+
+/* Modal adjustments for invoice view */
+.invoice-logo { width: 60px; height: 60px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%); color: var(--primary-dark); font-weight: 700; font-size: 18px; border-radius: 8px; font-family: var(--font-display); }
+
+/* Step content */
+.step-content { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Btn icon in forms */
+.btn.btn-icon i { width: 18px; height: 18px; }
+
+/* Historique modal */
+#historiqueOverlay .modal { max-width: 800px; }
+#historiqueOverlay table th { background: var(--primary); color: white; }
+#historiqueOverlay table td { padding: 10px 12px; }
+#historiqueOverlay table tr:hover { background: var(--neutral-50); }
+
+/* Result card grid responsive */
+@media (max-width: 768px) {
+  #resultSummary { grid-template-columns: repeat(2, 1fr); }
+  .result-card.primary { grid-column: span 2; }
+}
+
+/* Invoice paper responsive */
+@media (max-width: 640px) {
+  .invoice-paper { padding: 20px; }
+  .invoice-header { flex-direction: column; gap: 20px; }
+  .invoice-title { text-align: left; }
+}
+
+/* QR Code placeholder */
+#voirQRCode { background: linear-gradient(135deg, var(--neutral-100) 0%, var(--neutral-200) 100%); border: 2px dashed var(--neutral-300); }
+#voirQRCode svg { opacity: 0.4; }
+
+/* Btn sm additional */
+.btn-sm i { width: 14px; height: 14px; }
+
+/* Form group input alignment */
+.form-group input[type="checkbox"] { width: auto; margin-right: 4px; }
+
+/* Alert flex alignment */
+.alert i { flex-shrink: 0; margin-top: 2px; }
+
+/* Results card purple bg fix */
+.result-card.purple { background: rgba(128, 90, 213, 0.12); }
