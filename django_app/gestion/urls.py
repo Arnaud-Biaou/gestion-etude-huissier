@@ -6,6 +6,8 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('dossiers/', views.dossiers, name='dossiers'),
     path('dossiers/nouveau/', views.nouveau_dossier, name='nouveau_dossier'),
+    path('dossiers/<str:reference>/', views.voir_dossier, name='voir_dossier'),
+    path('dossiers/<str:reference>/modifier/', views.modifier_dossier, name='modifier_dossier'),
     path('facturation/', views.facturation, name='facturation'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
     path('drive/', views.drive, name='drive'),
@@ -24,4 +26,6 @@ urlpatterns = [
     path('api/calculer-emoluments/', views.api_calculer_emoluments, name='api_calculer_emoluments'),
     path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
     path('api/supprimer-dossier/', views.api_supprimer_dossier, name='api_supprimer_dossier'),
+    path('api/creer-dossier/', views.api_creer_dossier, name='api_creer_dossier'),
+    path('api/modifier-dossier/', views.api_modifier_dossier, name='api_modifier_dossier'),
 ]

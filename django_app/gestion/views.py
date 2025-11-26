@@ -89,33 +89,63 @@ def dossiers(request):
     assigned_filter = request.GET.get('assigned', 'all')
     tab = request.GET.get('tab', 'all')
 
-    # Données de démonstration (comme dans React)
-    context['dossiers_list'] = [
-        {
-            'reference': '173_1125_MAB',
-            'intitule': 'SODECO SA C/ SOGEMA Sarl',
-            'type': 'Recouvrement',
-            'nature': 'contentieux',
-            'montant': '15 750 000',
-            'affecte_a': 'Me BIAOU',
-            'statut': 'actif',
-        },
-        {
-            'reference': '174_1125_MAB',
-            'intitule': 'Banque Atlantique C/ TECH SOLUTIONS',
-            'type': 'Recouvrement',
-            'nature': 'contentieux',
-            'montant': '8 500 000',
-            'affecte_a': 'ADJOVI Carine',
-            'statut': 'urgent',
-        },
-    ]
+    # Récupérer les dossiers depuis la base de données
+    dossiers_queryset = Dossier.objects.all().select_related('affecte_a').prefetch_related('demandeurs', 'defendeurs')
+
+    # Filtrage par onglet
+    if tab == 'actifs':
+        dossiers_queryset = dossiers_queryset.filter(statut='actif')
+    elif tab == 'urgents':
+        dossiers_queryset = dossiers_queryset.filter(statut='urgent')
+    elif tab == 'archives':
+        dossiers_queryset = dossiers_queryset.filter(statut__in=['archive', 'cloture'])
+
+    # Filtrage par recherche
+    if search:
+        dossiers_queryset = dossiers_queryset.filter(
+            Q(reference__icontains=search) |
+            Q(demandeurs__nom__icontains=search) |
+            Q(demandeurs__denomination__icontains=search) |
+            Q(defendeurs__nom__icontains=search) |
+            Q(defendeurs__denomination__icontains=search)
+        ).distinct()
+
+    # Filtrage par type
+    if type_filter and type_filter != 'all':
+        dossiers_queryset = dossiers_queryset.filter(type_dossier=type_filter)
+
+    # Filtrage par collaborateur
+    if assigned_filter and assigned_filter != 'all':
+        dossiers_queryset = dossiers_queryset.filter(affecte_a_id=assigned_filter)
+
+    # Construire la liste des dossiers pour le template
+    dossiers_list = []
+    for dossier in dossiers_queryset:
+        montant = f"{int(dossier.montant_creance):,}".replace(',', ' ') if dossier.montant_creance else '0'
+        dossiers_list.append({
+            'id': dossier.id,
+            'reference': dossier.reference,
+            'intitule': dossier.get_intitule(),
+            'type': dict(Dossier.TYPE_DOSSIER_CHOICES).get(dossier.type_dossier, '-'),
+            'nature': 'contentieux' if dossier.is_contentieux else 'non-contentieux',
+            'montant': montant,
+            'affecte_a': dossier.affecte_a.nom if dossier.affecte_a else '-',
+            'statut': dossier.statut,
+        })
+
+    context['dossiers_list'] = dossiers_list
+
+    # Compter pour les onglets
+    all_count = Dossier.objects.count()
+    actifs_count = Dossier.objects.filter(statut='actif').count()
+    urgents_count = Dossier.objects.filter(statut='urgent').count()
+    archives_count = Dossier.objects.filter(statut__in=['archive', 'cloture']).count()
 
     context['tabs'] = [
-        {'id': 'all', 'label': 'Tous', 'count': 127},
-        {'id': 'actifs', 'label': 'Actifs', 'count': 89},
-        {'id': 'urgents', 'label': 'Urgents', 'count': 14},
-        {'id': 'archives', 'label': 'Archivés', 'count': 24},
+        {'id': 'all', 'label': 'Tous', 'count': all_count},
+        {'id': 'actifs', 'label': 'Actifs', 'count': actifs_count},
+        {'id': 'urgents', 'label': 'Urgents', 'count': urgents_count},
+        {'id': 'archives', 'label': 'Archivés', 'count': archives_count},
     ]
     context['current_tab'] = tab
     context['filters'] = {
@@ -536,10 +566,291 @@ def api_supprimer_dossier(request):
                 'error': "Action non autorisée : Seul l'administrateur peut supprimer un dossier."
             }, status=403)
 
-        # Ici, on supprimerait le dossier en base
-        # Dossier.objects.filter(id=dossier_id).delete()
+        # Supprimer le dossier en base
+        try:
+            dossier = Dossier.objects.get(reference=dossier_id)
+            # Supprimer les parties associées si elles ne sont plus utilisées
+            for partie in list(dossier.demandeurs.all()) + list(dossier.defendeurs.all()):
+                if not partie.dossiers_demandeur.exclude(id=dossier.id).exists() and \
+                   not partie.dossiers_defendeur.exclude(id=dossier.id).exists():
+                    partie.delete()
+            dossier.delete()
+        except Dossier.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Dossier non trouvé'}, status=404)
 
         return JsonResponse({'success': True, 'message': 'Dossier supprimé'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_creer_dossier(request):
+    """API pour créer un nouveau dossier"""
+    try:
+        data = json.loads(request.body)
+
+        # Créer le dossier
+        dossier = Dossier(
+            reference=data.get('reference'),
+            is_contentieux=data.get('is_contentieux', False),
+            type_dossier=data.get('type_dossier', ''),
+            description=data.get('description', ''),
+            montant_creance=Decimal(str(data.get('montant_creance', 0))) if data.get('montant_creance') else None,
+            statut='actif'
+        )
+
+        # Affecter le collaborateur
+        affecte_a_id = data.get('affecte_a')
+        if affecte_a_id:
+            try:
+                dossier.affecte_a = Collaborateur.objects.get(id=affecte_a_id)
+            except Collaborateur.DoesNotExist:
+                pass
+
+        dossier.save()
+
+        # Créer les demandeurs
+        demandeurs_data = data.get('demandeurs', [])
+        for dem_data in demandeurs_data:
+            partie = Partie(
+                type_personne=dem_data.get('typePersonne', 'physique'),
+                nom=dem_data.get('nom', ''),
+                prenoms=dem_data.get('prenoms', ''),
+                nationalite=dem_data.get('nationalite', 'Béninoise'),
+                profession=dem_data.get('profession', ''),
+                domicile=dem_data.get('domicile', ''),
+                enseigne_commerciale=dem_data.get('enseigneCommerciale', ''),
+                denomination=dem_data.get('denomination', ''),
+                capital_social=Decimal(str(dem_data.get('capitalSocial', 0))) if dem_data.get('capitalSocial') else None,
+                forme_juridique=dem_data.get('formeJuridique', ''),
+                siege_social=dem_data.get('siegeSocial', ''),
+                representant=dem_data.get('representant', ''),
+                rccm=dem_data.get('rccm', ''),
+                telephone=dem_data.get('telephone', ''),
+                ifu=dem_data.get('ifu', '')
+            )
+            partie.save()
+            dossier.demandeurs.add(partie)
+
+        # Créer les défendeurs (si contentieux)
+        if data.get('is_contentieux'):
+            defendeurs_data = data.get('defendeurs', [])
+            for def_data in defendeurs_data:
+                partie = Partie(
+                    type_personne=def_data.get('typePersonne', 'physique'),
+                    nom=def_data.get('nom', ''),
+                    prenoms=def_data.get('prenoms', ''),
+                    nationalite=def_data.get('nationalite', 'Béninoise'),
+                    profession=def_data.get('profession', ''),
+                    domicile=def_data.get('domicile', ''),
+                    enseigne_commerciale=def_data.get('enseigneCommerciale', ''),
+                    denomination=def_data.get('denomination', ''),
+                    capital_social=Decimal(str(def_data.get('capitalSocial', 0))) if def_data.get('capitalSocial') else None,
+                    forme_juridique=def_data.get('formeJuridique', ''),
+                    siege_social=def_data.get('siegeSocial', ''),
+                    representant=def_data.get('representant', ''),
+                    rccm=def_data.get('rccm', ''),
+                    telephone=def_data.get('telephone', ''),
+                    ifu=def_data.get('ifu', '')
+                )
+                partie.save()
+                dossier.defendeurs.add(partie)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Dossier créé avec succès',
+            'dossier_id': dossier.id,
+            'reference': dossier.reference
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+def voir_dossier(request, reference):
+    """Vue pour voir les détails d'un dossier"""
+    context = get_default_context(request)
+    context['active_module'] = 'dossiers'
+
+    try:
+        dossier = Dossier.objects.select_related('affecte_a').prefetch_related(
+            'demandeurs', 'defendeurs'
+        ).get(reference=reference)
+    except Dossier.DoesNotExist:
+        messages.error(request, 'Dossier non trouvé')
+        return redirect('dossiers')
+
+    context['page_title'] = f'Dossier {dossier.reference}'
+    context['dossier'] = dossier
+    context['demandeurs'] = list(dossier.demandeurs.all())
+    context['defendeurs'] = list(dossier.defendeurs.all())
+
+    return render(request, 'gestion/voir_dossier.html', context)
+
+
+def modifier_dossier(request, reference):
+    """Vue pour modifier un dossier"""
+    context = get_default_context(request)
+    context['active_module'] = 'dossiers'
+
+    try:
+        dossier = Dossier.objects.select_related('affecte_a').prefetch_related(
+            'demandeurs', 'defendeurs'
+        ).get(reference=reference)
+    except Dossier.DoesNotExist:
+        messages.error(request, 'Dossier non trouvé')
+        return redirect('dossiers')
+
+    context['page_title'] = f'Modifier - {dossier.reference}'
+    context['dossier'] = dossier
+    context['types_dossier'] = Dossier.TYPE_DOSSIER_CHOICES
+    context['statuts'] = Dossier.STATUT_CHOICES
+
+    # Préparer les données pour le JavaScript
+    demandeurs_json = []
+    for dem in dossier.demandeurs.all():
+        demandeurs_json.append({
+            'id': dem.id,
+            'typePersonne': dem.type_personne,
+            'nom': dem.nom,
+            'prenoms': dem.prenoms,
+            'nationalite': dem.nationalite,
+            'profession': dem.profession,
+            'domicile': dem.domicile,
+            'telephone': dem.telephone,
+            'ifu': dem.ifu,
+            'enseigneCommerciale': dem.enseigne_commerciale,
+            'denomination': dem.denomination,
+            'capitalSocial': str(dem.capital_social) if dem.capital_social else '',
+            'formeJuridique': dem.forme_juridique,
+            'siegeSocial': dem.siege_social,
+            'representant': dem.representant,
+            'rccm': dem.rccm,
+        })
+
+    defendeurs_json = []
+    for def_ in dossier.defendeurs.all():
+        defendeurs_json.append({
+            'id': def_.id,
+            'typePersonne': def_.type_personne,
+            'nom': def_.nom,
+            'prenoms': def_.prenoms,
+            'nationalite': def_.nationalite,
+            'profession': def_.profession,
+            'domicile': def_.domicile,
+            'telephone': def_.telephone,
+            'ifu': def_.ifu,
+            'enseigneCommerciale': def_.enseigne_commerciale,
+            'denomination': def_.denomination,
+            'capitalSocial': str(def_.capital_social) if def_.capital_social else '',
+            'formeJuridique': def_.forme_juridique,
+            'siegeSocial': def_.siege_social,
+            'representant': def_.representant,
+            'rccm': def_.rccm,
+        })
+
+    context['demandeurs_json'] = json.dumps(demandeurs_json)
+    context['defendeurs_json'] = json.dumps(defendeurs_json)
+
+    return render(request, 'gestion/modifier_dossier.html', context)
+
+
+@require_POST
+def api_modifier_dossier(request):
+    """API pour modifier un dossier existant"""
+    try:
+        data = json.loads(request.body)
+        reference = data.get('reference')
+
+        try:
+            dossier = Dossier.objects.get(reference=reference)
+        except Dossier.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Dossier non trouvé'}, status=404)
+
+        # Mettre à jour le dossier
+        dossier.is_contentieux = data.get('is_contentieux', dossier.is_contentieux)
+        dossier.type_dossier = data.get('type_dossier', dossier.type_dossier)
+        dossier.description = data.get('description', dossier.description)
+        dossier.statut = data.get('statut', dossier.statut)
+
+        if data.get('montant_creance'):
+            dossier.montant_creance = Decimal(str(data.get('montant_creance')))
+
+        affecte_a_id = data.get('affecte_a')
+        if affecte_a_id:
+            try:
+                dossier.affecte_a = Collaborateur.objects.get(id=affecte_a_id)
+            except Collaborateur.DoesNotExist:
+                pass
+
+        dossier.save()
+
+        # Mettre à jour les demandeurs
+        if 'demandeurs' in data:
+            # Supprimer les anciens demandeurs
+            for partie in dossier.demandeurs.all():
+                if not partie.dossiers_demandeur.exclude(id=dossier.id).exists() and \
+                   not partie.dossiers_defendeur.exists():
+                    partie.delete()
+            dossier.demandeurs.clear()
+
+            # Ajouter les nouveaux
+            for dem_data in data.get('demandeurs', []):
+                partie = Partie(
+                    type_personne=dem_data.get('typePersonne', 'physique'),
+                    nom=dem_data.get('nom', ''),
+                    prenoms=dem_data.get('prenoms', ''),
+                    nationalite=dem_data.get('nationalite', 'Béninoise'),
+                    profession=dem_data.get('profession', ''),
+                    domicile=dem_data.get('domicile', ''),
+                    enseigne_commerciale=dem_data.get('enseigneCommerciale', ''),
+                    denomination=dem_data.get('denomination', ''),
+                    capital_social=Decimal(str(dem_data.get('capitalSocial', 0))) if dem_data.get('capitalSocial') else None,
+                    forme_juridique=dem_data.get('formeJuridique', ''),
+                    siege_social=dem_data.get('siegeSocial', ''),
+                    representant=dem_data.get('representant', ''),
+                    rccm=dem_data.get('rccm', ''),
+                    telephone=dem_data.get('telephone', ''),
+                    ifu=dem_data.get('ifu', '')
+                )
+                partie.save()
+                dossier.demandeurs.add(partie)
+
+        # Mettre à jour les défendeurs
+        if 'defendeurs' in data:
+            for partie in dossier.defendeurs.all():
+                if not partie.dossiers_demandeur.exists() and \
+                   not partie.dossiers_defendeur.exclude(id=dossier.id).exists():
+                    partie.delete()
+            dossier.defendeurs.clear()
+
+            if data.get('is_contentieux'):
+                for def_data in data.get('defendeurs', []):
+                    partie = Partie(
+                        type_personne=def_data.get('typePersonne', 'physique'),
+                        nom=def_data.get('nom', ''),
+                        prenoms=def_data.get('prenoms', ''),
+                        nationalite=def_data.get('nationalite', 'Béninoise'),
+                        profession=def_data.get('profession', ''),
+                        domicile=def_data.get('domicile', ''),
+                        enseigne_commerciale=def_data.get('enseigneCommerciale', ''),
+                        denomination=def_data.get('denomination', ''),
+                        capital_social=Decimal(str(def_data.get('capitalSocial', 0))) if def_data.get('capitalSocial') else None,
+                        forme_juridique=def_data.get('formeJuridique', ''),
+                        siege_social=def_data.get('siegeSocial', ''),
+                        representant=def_data.get('representant', ''),
+                        rccm=def_data.get('rccm', ''),
+                        telephone=def_data.get('telephone', ''),
+                        ifu=def_data.get('ifu', '')
+                    )
+                    partie.save()
+                    dossier.defendeurs.add(partie)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Dossier modifié avec succès'
+        })
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)

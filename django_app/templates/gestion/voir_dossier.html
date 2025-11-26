@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="margin-bottom: 4px;">{{ dossier.reference }}</h3>
+            <p style="color: var(--neutral-500); font-size: 14px;">{{ dossier.get_intitule }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'modifier_dossier' dossier.reference %}" class="btn btn-primary btn-sm">
+                <i data-lucide="edit"></i> Modifier
+            </a>
+            <a href="{% url 'dossiers' %}" class="btn btn-secondary btn-sm">
+                <i data-lucide="arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Informations générales -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="card" style="background: var(--neutral-50); border: none;">
+                <div class="card-body">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--primary);">Informations générales</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Référence</span>
+                            <p style="font-weight: 600;">{{ dossier.reference }}</p>
+                        </div>
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Nature</span>
+                            <p>
+                                <span class="status-badge {% if dossier.is_contentieux %}contentieux{% else %}non-contentieux{% endif %}">
+                                    {% if dossier.is_contentieux %}Contentieux{% else %}Non contentieux{% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Type</span>
+                            <p style="font-weight: 500;">{{ dossier.get_type_dossier_display|default:"-" }}</p>
+                        </div>
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Statut</span>
+                            <p>
+                                <span class="status-badge {{ dossier.statut }}">
+                                    {% if dossier.statut == 'actif' %}
+                                    <i data-lucide="check-circle" style="width: 10px; height: 10px;"></i> Actif
+                                    {% elif dossier.statut == 'urgent' %}
+                                    <i data-lucide="alert-circle" style="width: 10px; height: 10px;"></i> Urgent
+                                    {% elif dossier.statut == 'archive' %}
+                                    <i data-lucide="archive" style="width: 10px; height: 10px;"></i> Archivé
+                                    {% elif dossier.statut == 'cloture' %}
+                                    <i data-lucide="lock" style="width: 10px; height: 10px;"></i> Clôturé
+                                    {% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Date d'ouverture</span>
+                            <p style="font-weight: 500;">{{ dossier.date_ouverture|date:"d/m/Y" }}</p>
+                        </div>
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Affecté à</span>
+                            <p style="font-weight: 500;">{{ dossier.affecte_a.nom|default:"-" }}</p>
+                        </div>
+                        {% if dossier.montant_creance %}
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Montant créance</span>
+                            <p style="font-weight: 600; color: var(--primary);">{{ dossier.montant_creance|floatformat:0 }} FCFA</p>
+                        </div>
+                        {% endif %}
+                        {% if dossier.date_creance %}
+                        <div>
+                            <span style="color: var(--neutral-500); font-size: 12px;">Date créance</span>
+                            <p style="font-weight: 500;">{{ dossier.date_creance|date:"d/m/Y" }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if dossier.description %}
+                    <div style="margin-top: 16px;">
+                        <span style="color: var(--neutral-500); font-size: 12px;">Description</span>
+                        <p style="margin-top: 4px;">{{ dossier.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Parties -->
+        <div class="grid grid-cols-2 gap-4">
+            <!-- Demandeurs -->
+            <div class="card" style="border: 1px solid var(--primary-light);">
+                <div class="card-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white;">
+                    <h4 class="card-title" style="color: white; font-size: 14px;">
+                        <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+                        {% if dossier.is_contentieux %}Demandeur(s) / Créancier(s){% else %}Client(s) / Requérant(s){% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% for partie in demandeurs %}
+                    <div style="{% if not forloop.last %}border-bottom: 1px solid var(--neutral-200); margin-bottom: 16px; padding-bottom: 16px;{% endif %}">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: {% if partie.type_personne == 'physique' %}var(--info-light){% else %}var(--accent-light){% endif %}; color: {% if partie.type_personne == 'physique' %}white{% else %}var(--primary-dark){% endif %};">
+                                {{ partie.get_type_personne_display }}
+                            </span>
+                        </div>
+                        {% if partie.type_personne == 'physique' %}
+                        <p style="font-weight: 600; font-size: 16px;">{{ partie.nom }} {{ partie.prenoms }}</p>
+                        <div class="grid grid-cols-2 gap-2" style="margin-top: 8px; font-size: 13px;">
+                            {% if partie.nationalite %}<div><span style="color: var(--neutral-500);">Nationalité:</span> {{ partie.nationalite }}</div>{% endif %}
+                            {% if partie.profession %}<div><span style="color: var(--neutral-500);">Profession:</span> {{ partie.profession }}</div>{% endif %}
+                            {% if partie.domicile %}<div class="full-width"><span style="color: var(--neutral-500);">Domicile:</span> {{ partie.domicile }}</div>{% endif %}
+                            {% if partie.telephone %}<div><span style="color: var(--neutral-500);">Tél:</span> {{ partie.telephone }}</div>{% endif %}
+                            {% if partie.ifu %}<div><span style="color: var(--neutral-500);">IFU:</span> {{ partie.ifu }}</div>{% endif %}
+                            {% if partie.enseigne_commerciale %}<div class="full-width"><span style="color: var(--neutral-500);">Enseigne:</span> {{ partie.enseigne_commerciale }}</div>{% endif %}
+                        </div>
+                        {% else %}
+                        <p style="font-weight: 600; font-size: 16px;">{{ partie.denomination }}</p>
+                        <div class="grid grid-cols-2 gap-2" style="margin-top: 8px; font-size: 13px;">
+                            {% if partie.forme_juridique %}<div><span style="color: var(--neutral-500);">Forme:</span> {{ partie.forme_juridique }}</div>{% endif %}
+                            {% if partie.capital_social %}<div><span style="color: var(--neutral-500);">Capital:</span> {{ partie.capital_social|floatformat:0 }} FCFA</div>{% endif %}
+                            {% if partie.siege_social %}<div class="full-width"><span style="color: var(--neutral-500);">Siège:</span> {{ partie.siege_social }}</div>{% endif %}
+                            {% if partie.rccm %}<div><span style="color: var(--neutral-500);">RCCM:</span> {{ partie.rccm }}</div>{% endif %}
+                            {% if partie.representant %}<div><span style="color: var(--neutral-500);">Représentant:</span> {{ partie.representant }}</div>{% endif %}
+                            {% if partie.ifu %}<div><span style="color: var(--neutral-500);">IFU:</span> {{ partie.ifu }}</div>{% endif %}
+                            {% if partie.telephone %}<div><span style="color: var(--neutral-500);">Tél:</span> {{ partie.telephone }}</div>{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p style="color: var(--neutral-500); text-align: center; padding: 20px;">Aucun demandeur</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Défendeurs -->
+            <div class="card" style="border: 1px solid {% if dossier.is_contentieux %}var(--accent){% else %}var(--neutral-200){% endif %};">
+                <div class="card-header" style="background: {% if dossier.is_contentieux %}linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%){% else %}var(--neutral-100){% endif %}; color: {% if dossier.is_contentieux %}var(--primary-dark){% else %}var(--neutral-500){% endif %};">
+                    <h4 class="card-title" style="color: {% if dossier.is_contentieux %}var(--primary-dark){% else %}var(--neutral-500){% endif %}; font-size: 14px;">
+                        <i data-lucide="user-x" style="width: 16px; height: 16px;"></i>
+                        Défendeur(s) / Débiteur(s)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if dossier.is_contentieux %}
+                        {% for partie in defendeurs %}
+                        <div style="{% if not forloop.last %}border-bottom: 1px solid var(--neutral-200); margin-bottom: 16px; padding-bottom: 16px;{% endif %}">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: {% if partie.type_personne == 'physique' %}var(--info-light){% else %}var(--accent-light){% endif %}; color: {% if partie.type_personne == 'physique' %}white{% else %}var(--primary-dark){% endif %};">
+                                    {{ partie.get_type_personne_display }}
+                                </span>
+                            </div>
+                            {% if partie.type_personne == 'physique' %}
+                            <p style="font-weight: 600; font-size: 16px;">{{ partie.nom }} {{ partie.prenoms }}</p>
+                            <div class="grid grid-cols-2 gap-2" style="margin-top: 8px; font-size: 13px;">
+                                {% if partie.nationalite %}<div><span style="color: var(--neutral-500);">Nationalité:</span> {{ partie.nationalite }}</div>{% endif %}
+                                {% if partie.profession %}<div><span style="color: var(--neutral-500);">Profession:</span> {{ partie.profession }}</div>{% endif %}
+                                {% if partie.domicile %}<div class="full-width"><span style="color: var(--neutral-500);">Domicile:</span> {{ partie.domicile }}</div>{% endif %}
+                                {% if partie.telephone %}<div><span style="color: var(--neutral-500);">Tél:</span> {{ partie.telephone }}</div>{% endif %}
+                                {% if partie.ifu %}<div><span style="color: var(--neutral-500);">IFU:</span> {{ partie.ifu }}</div>{% endif %}
+                                {% if partie.enseigne_commerciale %}<div class="full-width"><span style="color: var(--neutral-500);">Enseigne:</span> {{ partie.enseigne_commerciale }}</div>{% endif %}
+                            </div>
+                            {% else %}
+                            <p style="font-weight: 600; font-size: 16px;">{{ partie.denomination }}</p>
+                            <div class="grid grid-cols-2 gap-2" style="margin-top: 8px; font-size: 13px;">
+                                {% if partie.forme_juridique %}<div><span style="color: var(--neutral-500);">Forme:</span> {{ partie.forme_juridique }}</div>{% endif %}
+                                {% if partie.capital_social %}<div><span style="color: var(--neutral-500);">Capital:</span> {{ partie.capital_social|floatformat:0 }} FCFA</div>{% endif %}
+                                {% if partie.siege_social %}<div class="full-width"><span style="color: var(--neutral-500);">Siège:</span> {{ partie.siege_social }}</div>{% endif %}
+                                {% if partie.rccm %}<div><span style="color: var(--neutral-500);">RCCM:</span> {{ partie.rccm }}</div>{% endif %}
+                                {% if partie.representant %}<div><span style="color: var(--neutral-500);">Représentant:</span> {{ partie.representant }}</div>{% endif %}
+                                {% if partie.ifu %}<div><span style="color: var(--neutral-500);">IFU:</span> {{ partie.ifu }}</div>{% endif %}
+                                {% if partie.telephone %}<div><span style="color: var(--neutral-500);">Tél:</span> {{ partie.telephone }}</div>{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <p style="color: var(--neutral-500); text-align: center; padding: 20px;">Aucun défendeur</p>
+                        {% endfor %}
+                    {% else %}
+                    <p style="color: var(--neutral-400); text-align: center; padding: 40px; font-style: italic;">
+                        Sans objet (dossier non contentieux)
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

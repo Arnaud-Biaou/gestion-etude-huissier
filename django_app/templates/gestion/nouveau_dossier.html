@@ -315,16 +315,62 @@
             if (currentStep === 4) {
                 updateRecap();
             }
-            // Before moving to step 6, update card
+            // Before moving to step 6, save dossier and update card
             if (currentStep === 5) {
-                updateCard();
+                saveDossier();
+                return; // Wait for save to complete
             }
             currentStep++;
             updateStepper();
         } else {
-            // Submit form
+            // Go to dossiers list
             window.location.href = "{% url 'dossiers' %}";
         }
+    }
+
+    function saveDossier() {
+        const data = {
+            reference: reference,
+            is_contentieux: isContentieux,
+            type_dossier: document.getElementById('typeDossier').value,
+            description: document.getElementById('description').value,
+            affecte_a: document.getElementById('affecteA').value,
+            demandeurs: demandeurs,
+            defendeurs: isContentieux ? defendeurs : []
+        };
+
+        // Show loading state
+        document.getElementById('nextBtn').disabled = true;
+        document.getElementById('nextBtn').textContent = 'Enregistrement...';
+
+        fetch('{% url "api_creer_dossier" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Update card and move to step 6
+                updateCard();
+                currentStep = 6;
+                updateStepper();
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('nextBtn').textContent = 'Terminer';
+            } else {
+                alert('Erreur lors de la création: ' + (result.error || 'Erreur inconnue'));
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('nextBtn').textContent = 'Suivant';
+            }
+        })
+        .catch(error => {
+            alert('Erreur de connexion: ' + error);
+            document.getElementById('nextBtn').disabled = false;
+            document.getElementById('nextBtn').textContent = 'Suivant';
+        });
     }
 
     function prevStep() {
@@ -445,6 +491,10 @@
                         <label class="form-label">IFU</label>
                         <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
                     </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Enseigne commerciale / Nom commercial</label>
+                        <input class="form-input" placeholder="Pour les commerçants" value="${partie.enseigneCommerciale || ''}" onchange="updatePartie('${type}', ${index}, 'enseigneCommerciale', this.value)">
+                    </div>
                 ` : `
                     <div class="form-group full-width">
                         <label class="form-label">Dénomination Sociale <span style="color:red;">*</span></label>
@@ -460,11 +510,17 @@
                             <option ${partie.formeJuridique === 'SARL' ? 'selected' : ''}>SARL</option>
                             <option ${partie.formeJuridique === 'SA' ? 'selected' : ''}>SA</option>
                             <option ${partie.formeJuridique === 'SAS' ? 'selected' : ''}>SAS</option>
+                            <option ${partie.formeJuridique === 'SNC' ? 'selected' : ''}>SNC</option>
+                            <option ${partie.formeJuridique === 'GIE' ? 'selected' : ''}>GIE</option>
                         </select>
                     </div>
                     <div class="form-group full-width">
                         <label class="form-label">Siège Social <span style="color:red;">*</span></label>
                         <input class="form-input" value="${partie.siegeSocial || ''}" onchange="updatePartie('${type}', ${index}, 'siegeSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RCCM (Registre du Commerce)</label>
+                        <input class="form-input" placeholder="Ex: BJ-CTO-01-A-12345" value="${partie.rccm || ''}" onchange="updatePartie('${type}', ${index}, 'rccm', this.value)">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Représentant Légal</label>
@@ -473,6 +529,10 @@
                     <div class="form-group">
                         <label class="form-label">IFU <span style="color:red;">*</span></label>
                         <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
                     </div>
                 `}
             </div>

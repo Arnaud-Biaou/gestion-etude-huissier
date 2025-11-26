@@ -78,12 +78,16 @@ class Partie(models.Model):
     profession = models.CharField(max_length=100, blank=True)
     domicile = models.TextField(blank=True)
 
+    # Personne physique commerçante
+    enseigne_commerciale = models.CharField(max_length=200, blank=True, verbose_name='Enseigne commerciale / Nom commercial')
+
     # Personne morale
     denomination = models.CharField(max_length=200, blank=True)
     capital_social = models.DecimalField(max_digits=15, decimal_places=0, null=True, blank=True)
     forme_juridique = models.CharField(max_length=10, choices=FORME_JURIDIQUE_CHOICES, blank=True)
     siege_social = models.TextField(blank=True)
     representant = models.CharField(max_length=150, blank=True)
+    rccm = models.CharField(max_length=50, blank=True, verbose_name='RCCM (Registre du Commerce)')
 
     # Commun
     telephone = models.CharField(max_length=20, blank=True)

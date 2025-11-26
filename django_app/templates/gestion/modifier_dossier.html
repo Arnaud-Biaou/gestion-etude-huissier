@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Modifier le dossier {{ dossier.reference }}</h3>
+        <a href="{% url 'voir_dossier' dossier.reference %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="x"></i> Annuler
+        </a>
+    </div>
+    <div class="card-body">
+        <form id="editDossierForm">
+            {% csrf_token %}
+            <input type="hidden" id="reference" value="{{ dossier.reference }}">
+
+            <!-- Informations générales -->
+            <div class="card" style="background: var(--neutral-50); border: none; margin-bottom: 24px;">
+                <div class="card-body">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--primary);">Informations générales</h4>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label class="form-label">Nature</label>
+                            <div class="toggle-group">
+                                <div class="toggle-option {% if not dossier.is_contentieux %}active{% endif %}" id="nonContentieux" onclick="setNature(false)">Non contentieux</div>
+                                <div class="toggle-option {% if dossier.is_contentieux %}active{% endif %}" id="contentieux" onclick="setNature(true)">Contentieux</div>
+                            </div>
+                            <input type="hidden" name="is_contentieux" id="isContentieux" value="{{ dossier.is_contentieux|yesno:'true,false' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Affecté à <span style="color:red;">*</span></label>
+                            <select class="form-select" name="affecte_a" id="affecteA">
+                                <option value="">Sélectionner...</option>
+                                {% for c in collaborateurs %}
+                                <option value="{{ c.id }}" {% if dossier.affecte_a.id == c.id %}selected{% endif %}>{{ c.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Type</label>
+                            <select class="form-select" name="type_dossier" id="typeDossier">
+                                <option value="">Sélectionner...</option>
+                                {% for code, label in types_dossier %}
+                                <option value="{{ code }}" {% if dossier.type_dossier == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" name="statut" id="statut">
+                                {% for code, label in statuts %}
+                                <option value="{{ code }}" {% if dossier.statut == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Montant créance (FCFA)</label>
+                            <input type="number" class="form-input" name="montant_creance" id="montantCreance" value="{{ dossier.montant_creance|default:'' }}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" name="description" id="description" rows="3">{{ dossier.description }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demandeurs -->
+            <div class="card" style="border: 1px solid var(--primary-light); margin-bottom: 24px;">
+                <div class="card-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white;">
+                    <h4 class="card-title" style="color: white; font-size: 14px;">
+                        <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+                        <span id="demandeurLabel">{% if dossier.is_contentieux %}Demandeur(s) / Créancier(s){% else %}Client(s) / Requérant(s){% endif %}</span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="demandeursList"></div>
+                    <button type="button" class="btn btn-secondary" onclick="addPartie('demandeur')">
+                        <i data-lucide="plus"></i> Ajouter un demandeur
+                    </button>
+                </div>
+            </div>
+
+            <!-- Défendeurs -->
+            <div class="card" style="border: 1px solid var(--accent); margin-bottom: 24px;" id="defendeursCard">
+                <div class="card-header" style="background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%); color: var(--primary-dark);">
+                    <h4 class="card-title" style="color: var(--primary-dark); font-size: 14px;">
+                        <i data-lucide="user-x" style="width: 16px; height: 16px;"></i>
+                        Défendeur(s) / Débiteur(s)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="defendeursList"></div>
+                    <button type="button" class="btn btn-secondary" onclick="addPartie('defendeur')">
+                        <i data-lucide="plus"></i> Ajouter un défendeur
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer" style="border-top: 1px solid var(--neutral-200); padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <a href="{% url 'voir_dossier' dossier.reference %}" class="btn btn-secondary">Annuler</a>
+        <button type="button" class="btn btn-primary" onclick="saveDossier()">
+            <i data-lucide="save"></i> Enregistrer
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // State
+    let isContentieux = {{ dossier.is_contentieux|yesno:'true,false' }};
+    let demandeurs = {{ demandeurs_json|safe }};
+    let defendeurs = {{ defendeurs_json|safe }};
+
+    // Ensure arrays have at least one item
+    if (demandeurs.length === 0) {
+        demandeurs = [{ typePersonne: 'physique' }];
+    }
+    if (defendeurs.length === 0) {
+        defendeurs = [{ typePersonne: 'physique' }];
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        renderAllParties('demandeur');
+        renderAllParties('defendeur');
+        updateDefendeursVisibility();
+    });
+
+    function setNature(contentieux) {
+        isContentieux = contentieux;
+        document.getElementById('isContentieux').value = contentieux;
+        document.getElementById('nonContentieux').classList.toggle('active', !contentieux);
+        document.getElementById('contentieux').classList.toggle('active', contentieux);
+        document.getElementById('demandeurLabel').textContent = contentieux ? 'Demandeur(s) / Créancier(s)' : 'Client(s) / Requérant(s)';
+        updateDefendeursVisibility();
+    }
+
+    function updateDefendeursVisibility() {
+        document.getElementById('defendeursCard').style.display = isContentieux ? 'block' : 'none';
+    }
+
+    function addPartie(type) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr.push({ typePersonne: 'physique' });
+        renderPartie(type, arr.length - 1);
+        lucide.createIcons();
+    }
+
+    function removePartie(type, index) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        if (arr.length > 1) {
+            arr.splice(index, 1);
+            renderAllParties(type);
+        }
+    }
+
+    function renderAllParties(type) {
+        const container = document.getElementById(type + 'sList');
+        container.innerHTML = '';
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr.forEach((_, i) => renderPartie(type, i));
+        lucide.createIcons();
+    }
+
+    function renderPartie(type, index) {
+        const container = document.getElementById(type + 'sList');
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        const partie = arr[index];
+        const roleLabel = type === 'demandeur' ? (isContentieux ? 'Demandeur/Créancier' : 'Client/Requérant') : 'Défendeur/Débiteur';
+
+        const div = document.createElement('div');
+        div.id = `${type}_${index}`;
+        div.style.cssText = 'border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; background: var(--neutral-50);';
+
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: ${partie.typePersonne === 'physique' ? 'var(--info-light)' : 'var(--accent-light)'}; color: ${partie.typePersonne === 'physique' ? 'white' : 'var(--primary-dark)'};">
+                        ${partie.typePersonne === 'physique' ? 'Personne physique' : 'Personne morale'}
+                    </span>
+                    <h4 style="margin-top: 5px; font-size: 14px; font-weight: 600;">${roleLabel} #${index + 1}</h4>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    ${index > 0 ? `<button type="button" class="btn btn-sm btn-danger" onclick="removePartie('${type}', ${index})"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>` : ''}
+                </div>
+            </div>
+            <div class="toggle-group" style="margin-bottom: 12px;">
+                <div class="toggle-option ${partie.typePersonne === 'physique' ? 'active' : ''}" onclick="setTypePersonne('${type}', ${index}, 'physique')">Personne physique</div>
+                <div class="toggle-option ${partie.typePersonne === 'morale' ? 'active' : ''}" onclick="setTypePersonne('${type}', ${index}, 'morale')">Personne morale</div>
+            </div>
+            <div class="form-grid" id="${type}_${index}_fields">
+                ${partie.typePersonne === 'physique' ? `
+                    <div class="form-group">
+                        <label class="form-label">Nom <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.nom || ''}" onchange="updatePartie('${type}', ${index}, 'nom', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prénoms <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.prenoms || ''}" onchange="updatePartie('${type}', ${index}, 'prenoms', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nationalité <span style="color:red;">*</span></label>
+                        <input class="form-input" placeholder="Ex: Béninoise" value="${partie.nationalite || ''}" onchange="updatePartie('${type}', ${index}, 'nationalite', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Profession</label>
+                        <input class="form-input" value="${partie.profession || ''}" onchange="updatePartie('${type}', ${index}, 'profession', this.value)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Domicile <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.domicile || ''}" onchange="updatePartie('${type}', ${index}, 'domicile', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU</label>
+                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Enseigne commerciale / Nom commercial</label>
+                        <input class="form-input" placeholder="Pour les commerçants" value="${partie.enseigneCommerciale || ''}" onchange="updatePartie('${type}', ${index}, 'enseigneCommerciale', this.value)">
+                    </div>
+                ` : `
+                    <div class="form-group full-width">
+                        <label class="form-label">Dénomination Sociale <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.denomination || ''}" onchange="updatePartie('${type}', ${index}, 'denomination', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Capital Social <span style="color:red;">*</span></label>
+                        <input class="form-input" type="number" placeholder="FCFA" value="${partie.capitalSocial || ''}" onchange="updatePartie('${type}', ${index}, 'capitalSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Forme Juridique</label>
+                        <select class="form-select" onchange="updatePartie('${type}', ${index}, 'formeJuridique', this.value)">
+                            <option ${partie.formeJuridique === 'SARL' ? 'selected' : ''}>SARL</option>
+                            <option ${partie.formeJuridique === 'SA' ? 'selected' : ''}>SA</option>
+                            <option ${partie.formeJuridique === 'SAS' ? 'selected' : ''}>SAS</option>
+                            <option ${partie.formeJuridique === 'SNC' ? 'selected' : ''}>SNC</option>
+                            <option ${partie.formeJuridique === 'GIE' ? 'selected' : ''}>GIE</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Siège Social <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.siegeSocial || ''}" onchange="updatePartie('${type}', ${index}, 'siegeSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RCCM (Registre du Commerce)</label>
+                        <input class="form-input" placeholder="Ex: BJ-CTO-01-A-12345" value="${partie.rccm || ''}" onchange="updatePartie('${type}', ${index}, 'rccm', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Représentant Légal</label>
+                        <input class="form-input" value="${partie.representant || ''}" onchange="updatePartie('${type}', ${index}, 'representant', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU <span style="color:red;">*</span></label>
+                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
+                    </div>
+                `}
+            </div>
+        `;
+
+        const existing = document.getElementById(`${type}_${index}`);
+        if (existing) {
+            existing.replaceWith(div);
+        } else {
+            container.appendChild(div);
+        }
+
+        lucide.createIcons();
+    }
+
+    function setTypePersonne(type, index, typePersonne) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index].typePersonne = typePersonne;
+        renderPartie(type, index);
+    }
+
+    function updatePartie(type, index, field, value) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index][field] = value;
+    }
+
+    function saveDossier() {
+        const data = {
+            reference: document.getElementById('reference').value,
+            is_contentieux: isContentieux,
+            type_dossier: document.getElementById('typeDossier').value,
+            description: document.getElementById('description').value,
+            statut: document.getElementById('statut').value,
+            affecte_a: document.getElementById('affecteA').value,
+            montant_creance: document.getElementById('montantCreance').value || null,
+            demandeurs: demandeurs,
+            defendeurs: isContentieux ? defendeurs : []
+        };
+
+        fetch('{% url "api_modifier_dossier" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Dossier modifié avec succès !');
+                window.location.href = "{% url 'voir_dossier' dossier.reference %}";
+            } else {
+                alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            alert('Erreur de connexion: ' + error);
+        });
+    }
+</script>
+{% endblock %}
