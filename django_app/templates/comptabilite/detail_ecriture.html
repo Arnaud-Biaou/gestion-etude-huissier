@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Breadcrumb -->
+    <div class="flex" style="gap: 0.5rem; align-items: center;">
+        <a href="{% url 'comptabilite:ecritures' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left"></i>
+            Retour à la liste
+        </a>
+        <span class="text-muted">/</span>
+        <span>Écriture {{ ecriture.numero }}</span>
+    </div>
+
+    <!-- En-tête -->
+    <div class="card">
+        <div class="card-header">
+            <div class="flex" style="justify-content: space-between; align-items: center; width: 100%;">
+                <h3>{{ ecriture.numero }}</h3>
+                <div class="flex" style="gap: 0.5rem;">
+                    {% if ecriture.statut == 'valide' %}
+                    <span class="badge badge-success badge-lg">Validée</span>
+                    {% elif ecriture.statut == 'brouillon' %}
+                    <span class="badge badge-warning badge-lg">Brouillon</span>
+                    <button class="btn btn-success" onclick="validerEcriture()">
+                        <i data-lucide="check"></i>
+                        Valider l'écriture
+                    </button>
+                    {% else %}
+                    <span class="badge badge-danger badge-lg">Annulée</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-4">
+                <div>
+                    <span class="text-muted">Date</span>
+                    <p><strong>{{ ecriture.date|date:"d/m/Y" }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Journal</span>
+                    <p><strong>{{ ecriture.journal.code }} - {{ ecriture.journal.libelle }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Exercice</span>
+                    <p><strong>{{ ecriture.exercice.libelle }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Origine</span>
+                    <p><strong>{{ ecriture.get_origine_display }}</strong></p>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 1rem; margin-bottom: 0;">
+                <span class="text-muted">Libellé</span>
+                <p><strong>{{ ecriture.libelle }}</strong></p>
+            </div>
+            {% if ecriture.reference %}
+            <div class="form-group" style="margin-top: 1rem; margin-bottom: 0;">
+                <span class="text-muted">Référence</span>
+                <p>{{ ecriture.reference }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Lignes d'écriture -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Détail des mouvements</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Compte</th>
+                        <th style="width: 40%;">Libellé</th>
+                        <th style="width: 15%;">Tiers</th>
+                        <th class="text-right" style="width: 15%;">Débit</th>
+                        <th class="text-right" style="width: 15%;">Crédit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td>
+                            <strong>{{ ligne.compte.numero }}</strong>
+                            <br>
+                            <small class="text-muted">{{ ligne.compte.libelle }}</small>
+                        </td>
+                        <td>{{ ligne.libelle }}</td>
+                        <td>{{ ligne.tiers|default:"-" }}</td>
+                        <td class="text-right">
+                            {% if ligne.debit > 0 %}
+                            <strong class="text-danger">{{ ligne.debit|floatformat:0 }}</strong>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if ligne.credit > 0 %}
+                            <strong class="text-success">{{ ligne.credit|floatformat:0 }}</strong>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--neutral-100);">
+                        <td colspan="3"><strong>TOTAUX</strong></td>
+                        <td class="text-right"><strong>{{ ecriture.total_debit|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ ecriture.total_credit|floatformat:0 }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Vérification équilibre -->
+    {% if ecriture.est_equilibree %}
+    <div class="alert alert-success">
+        <i data-lucide="check-circle"></i>
+        <div>
+            <strong>Écriture équilibrée</strong>
+            <p style="margin: 0;">Total débit = Total crédit = {{ ecriture.total_debit|floatformat:0 }} FCFA</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-danger">
+        <i data-lucide="alert-circle"></i>
+        <div>
+            <strong>Écriture déséquilibrée</strong>
+            <p style="margin: 0;">Débit: {{ ecriture.total_debit|floatformat:0 }} FCFA / Crédit: {{ ecriture.total_credit|floatformat:0 }} FCFA</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Informations de traçabilité -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Traçabilité</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-3">
+                <div>
+                    <span class="text-muted">Créé le</span>
+                    <p>{{ ecriture.date_creation|date:"d/m/Y H:i" }}</p>
+                </div>
+                <div>
+                    <span class="text-muted">Créé par</span>
+                    <p>{{ ecriture.cree_par|default:"Système" }}</p>
+                </div>
+                {% if ecriture.date_validation %}
+                <div>
+                    <span class="text-muted">Validé le</span>
+                    <p>{{ ecriture.date_validation|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% if ecriture.facture %}
+            <div style="margin-top: 1rem;">
+                <span class="text-muted">Facture liée</span>
+                <p><a href="#">{{ ecriture.facture.numero }}</a></p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function validerEcriture() {
+        if (!confirm('Valider cette écriture ? Cette action est irréversible.')) return;
+
+        fetch('{% url "comptabilite:api_valider_ecriture" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ ecriture_id: {{ ecriture.id }} })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    lucide.createIcons();
+</script>
+{% endblock %}

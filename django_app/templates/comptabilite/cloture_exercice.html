@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    {% if not exercice %}
+    <div class="alert alert-warning">
+        <i data-lucide="alert-triangle"></i>
+        Aucun exercice comptable en cours à clôturer.
+    </div>
+    {% else %}
+
+    <!-- En-tête -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Clôture de l'exercice {{ exercice.libelle }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-3">
+                <div>
+                    <span class="text-muted">Exercice</span>
+                    <p><strong>{{ exercice.libelle }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Période</span>
+                    <p><strong>{{ exercice.date_debut|date:"d/m/Y" }} - {{ exercice.date_fin|date:"d/m/Y" }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Statut</span>
+                    <p><span class="badge badge-success">{{ exercice.get_statut_display }}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vérifications -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Vérifications avant clôture</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-4">
+                {% for verif in verifications %}
+                <div class="verification-item {% if verif.ok %}ok{% else %}error{% endif %}">
+                    <div class="verification-icon">
+                        {% if verif.ok %}
+                        <i data-lucide="check-circle"></i>
+                        {% else %}
+                        <i data-lucide="alert-circle"></i>
+                        {% endif %}
+                    </div>
+                    <div class="verification-content">
+                        <div class="verification-label">{{ verif.label }}</div>
+                        <div class="verification-message">{{ verif.message }}</div>
+                    </div>
+                    <div class="verification-value">{{ verif.valeur }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Étapes de clôture -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Processus de clôture</h3>
+        </div>
+        <div class="card-body">
+            <div class="stepper-vertical">
+                <div class="step-v">
+                    <div class="step-v-number">1</div>
+                    <div class="step-v-content">
+                        <h4>Vérifier les écritures</h4>
+                        <p class="text-muted">Assurez-vous que toutes les écritures sont validées et équilibrées.</p>
+                        <a href="{% url 'comptabilite:ecritures' %}?statut=brouillon" class="btn btn-secondary btn-sm">
+                            <i data-lucide="search"></i>
+                            Voir les brouillons
+                        </a>
+                    </div>
+                </div>
+                <div class="step-v">
+                    <div class="step-v-number">2</div>
+                    <div class="step-v-content">
+                        <h4>Générer les états financiers</h4>
+                        <p class="text-muted">Vérifiez le bilan et le compte de résultat avant la clôture.</p>
+                        <a href="{% url 'comptabilite:etats_financiers' %}" class="btn btn-secondary btn-sm">
+                            <i data-lucide="file-text"></i>
+                            États financiers
+                        </a>
+                    </div>
+                </div>
+                <div class="step-v">
+                    <div class="step-v-number">3</div>
+                    <div class="step-v-content">
+                        <h4>Passer les écritures d'inventaire</h4>
+                        <p class="text-muted">Amortissements, provisions, régularisations...</p>
+                    </div>
+                </div>
+                <div class="step-v">
+                    <div class="step-v-number">4</div>
+                    <div class="step-v-content">
+                        <h4>Déterminer le résultat</h4>
+                        <p class="text-muted">Solder les comptes de charges et produits vers le résultat.</p>
+                    </div>
+                </div>
+                <div class="step-v">
+                    <div class="step-v-number">5</div>
+                    <div class="step-v-content">
+                        <h4>Clôturer l'exercice</h4>
+                        <p class="text-muted">Générer les écritures de clôture et ouvrir le nouvel exercice.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+        <div class="card-body">
+            <div class="alert alert-warning" style="margin-bottom: 1rem;">
+                <i data-lucide="alert-triangle"></i>
+                <div>
+                    <strong>Attention</strong>
+                    <p style="margin: 0;">La clôture de l'exercice est une opération irréversible. Assurez-vous d'avoir sauvegardé vos données.</p>
+                </div>
+            </div>
+
+            <div class="flex" style="gap: 1rem; justify-content: flex-end;">
+                <a href="{% url 'comptabilite:dashboard' %}" class="btn btn-secondary">
+                    <i data-lucide="arrow-left"></i>
+                    Retour
+                </a>
+                <button class="btn btn-primary" onclick="lancerPreCloture()">
+                    <i data-lucide="play"></i>
+                    Lancer la pré-clôture
+                </button>
+                <button class="btn btn-danger" onclick="cloturerExercice()" disabled id="btnCloturer">
+                    <i data-lucide="lock"></i>
+                    Clôturer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function lancerPreCloture() {
+        alert('Pré-clôture en cours de développement.\n\nCette fonctionnalité générera automatiquement :\n- Les écritures d\'amortissement\n- Le calcul du résultat\n- Les écritures de report à nouveau');
+    }
+
+    function cloturerExercice() {
+        if (!confirm('Êtes-vous sûr de vouloir clôturer cet exercice ? Cette action est IRRÉVERSIBLE.')) {
+            return;
+        }
+        alert('Clôture en cours de développement.');
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    .verification-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        gap: 1rem;
+    }
+    .verification-item.ok {
+        background: var(--success-50);
+        border: 1px solid var(--success-200);
+    }
+    .verification-item.error {
+        background: var(--danger-50);
+        border: 1px solid var(--danger-200);
+    }
+    .verification-icon {
+        font-size: 1.5rem;
+    }
+    .verification-item.ok .verification-icon {
+        color: var(--success-500);
+    }
+    .verification-item.error .verification-icon {
+        color: var(--danger-500);
+    }
+    .verification-content {
+        flex: 1;
+    }
+    .verification-label {
+        font-weight: 600;
+    }
+    .verification-message {
+        font-size: 0.875rem;
+        color: var(--neutral-600);
+    }
+    .verification-value {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .stepper-vertical {
+        position: relative;
+        padding-left: 2rem;
+    }
+    .stepper-vertical::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--neutral-300);
+    }
+    .step-v {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+    .step-v-number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--primary-500);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        flex-shrink: 0;
+        z-index: 1;
+    }
+    .step-v-content h4 {
+        margin: 0 0 0.25rem;
+    }
+    .step-v-content p {
+        margin: 0 0 0.5rem;
+    }
+</style>
+{% endblock %}

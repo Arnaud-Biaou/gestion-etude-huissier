@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Sélecteur d'état -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex" style="gap: 1rem; justify-content: center;">
+                <a href="?type=bilan" class="btn {% if type_etat == 'bilan' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i data-lucide="scale"></i>
+                    Bilan
+                </a>
+                <a href="?type=resultat" class="btn {% if type_etat == 'resultat' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i data-lucide="trending-up"></i>
+                    Compte de résultat
+                </a>
+                <a href="?type=flux" class="btn {% if type_etat == 'flux' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i data-lucide="arrow-right-left"></i>
+                    Flux de trésorerie
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if not exercice %}
+    <div class="alert alert-warning">
+        <i data-lucide="alert-triangle"></i>
+        Aucun exercice comptable en cours. Veuillez d'abord créer un exercice.
+    </div>
+    {% else %}
+
+    {% if type_etat == 'bilan' and bilan %}
+    <!-- BILAN -->
+    <div class="card">
+        <div class="card-header">
+            <h3>BILAN - {{ exercice.libelle }}</h3>
+            <div class="flex" style="gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()">
+                    <i data-lucide="printer"></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="grid grid-cols-2" style="gap: 0;">
+                <!-- ACTIF -->
+                <div style="border-right: 1px solid var(--neutral-200);">
+                    <table class="table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--primary-500); color: white;">
+                                <th colspan="2">ACTIF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: var(--neutral-100);">
+                                <td colspan="2"><strong>ACTIF IMMOBILISÉ</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Immobilisations</td>
+                                <td class="text-right">{{ bilan.actif.immobilisations|floatformat:0 }}</td>
+                            </tr>
+                            <tr style="background: var(--neutral-100);">
+                                <td colspan="2"><strong>ACTIF CIRCULANT</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Stocks</td>
+                                <td class="text-right">{{ bilan.actif.stocks|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Créances clients</td>
+                                <td class="text-right">{{ bilan.actif.creances_clients|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Autres créances</td>
+                                <td class="text-right">{{ bilan.actif.autres_creances|floatformat:0 }}</td>
+                            </tr>
+                            <tr style="background: var(--neutral-100);">
+                                <td colspan="2"><strong>TRÉSORERIE ACTIF</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Banque</td>
+                                <td class="text-right">{{ bilan.actif.banque|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Caisse</td>
+                                <td class="text-right">{{ bilan.actif.caisse|floatformat:0 }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: var(--primary-500); color: white;">
+                                <td><strong>TOTAL ACTIF</strong></td>
+                                <td class="text-right"><strong>{{ bilan.total_actif|floatformat:0 }}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- PASSIF -->
+                <div>
+                    <table class="table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--accent-500); color: white;">
+                                <th colspan="2">PASSIF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: var(--neutral-100);">
+                                <td colspan="2"><strong>CAPITAUX PROPRES</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Capital</td>
+                                <td class="text-right">{{ bilan.passif.capital|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Réserves</td>
+                                <td class="text-right">{{ bilan.passif.reserves|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Résultat de l'exercice</td>
+                                <td class="text-right {% if bilan.passif.resultat < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ bilan.passif.resultat|floatformat:0 }}
+                                </td>
+                            </tr>
+                            <tr style="background: var(--neutral-100);">
+                                <td colspan="2"><strong>DETTES</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Dettes fournisseurs</td>
+                                <td class="text-right">{{ bilan.passif.dettes_fournisseurs|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Dettes fiscales et sociales</td>
+                                <td class="text-right">{{ bilan.passif.dettes_fiscales|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Autres dettes</td>
+                                <td class="text-right">{{ bilan.passif.autres_dettes|floatformat:0 }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: var(--accent-500); color: white;">
+                                <td><strong>TOTAL PASSIF</strong></td>
+                                <td class="text-right"><strong>{{ bilan.total_passif|floatformat:0 }}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if type_etat == 'resultat' and resultat %}
+    <!-- COMPTE DE RÉSULTAT -->
+    <div class="card">
+        <div class="card-header">
+            <h3>COMPTE DE RÉSULTAT - {{ exercice.libelle }}</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()">
+                <i data-lucide="printer"></i>
+            </button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr style="background: var(--success-500); color: white;">
+                        <th colspan="2">PRODUITS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Honoraires</td>
+                        <td class="text-right">{{ resultat.produits.honoraires|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Émoluments</td>
+                        <td class="text-right">{{ resultat.produits.emoluments|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Autres produits</td>
+                        <td class="text-right">{{ resultat.produits.autres_produits|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Produits financiers</td>
+                        <td class="text-right">{{ resultat.produits.produits_financiers|floatformat:0 }}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--success-100);">
+                        <td><strong>TOTAL PRODUITS</strong></td>
+                        <td class="text-right"><strong>{{ resultat.total_produits|floatformat:0 }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <table class="table" style="margin-top: 0;">
+                <thead>
+                    <tr style="background: var(--danger-500); color: white;">
+                        <th colspan="2">CHARGES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Achats</td>
+                        <td class="text-right">{{ resultat.charges.achats|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Services extérieurs</td>
+                        <td class="text-right">{{ resultat.charges.services_exterieurs|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Charges de personnel</td>
+                        <td class="text-right">{{ resultat.charges.charges_personnel|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Impôts et taxes</td>
+                        <td class="text-right">{{ resultat.charges.impots_taxes|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Dotations aux amortissements</td>
+                        <td class="text-right">{{ resultat.charges.dotations_amortissements|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Charges financières</td>
+                        <td class="text-right">{{ resultat.charges.charges_financieres|floatformat:0 }}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--danger-100);">
+                        <td><strong>TOTAL CHARGES</strong></td>
+                        <td class="text-right"><strong>{{ resultat.total_charges|floatformat:0 }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <table class="table" style="margin-top: 0;">
+                <tbody>
+                    <tr style="background: {% if resultat.resultat_net >= 0 %}var(--success-100){% else %}var(--danger-100){% endif %};">
+                        <td><strong style="font-size: 1.1rem;">RÉSULTAT NET</strong></td>
+                        <td class="text-right">
+                            <strong style="font-size: 1.25rem; {% if resultat.resultat_net >= 0 %}color: var(--success-600){% else %}color: var(--danger-600){% endif %};">
+                                {{ resultat.resultat_net|floatformat:0 }} FCFA
+                            </strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if type_etat == 'flux' %}
+    <!-- FLUX DE TRÉSORERIE -->
+    <div class="card">
+        <div class="card-header">
+            <h3>TABLEAU DE FLUX DE TRÉSORERIE (Simplifié) - {{ exercice.libelle }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i data-lucide="info"></i>
+                Le tableau des flux de trésorerie détaillé sera disponible dans une prochaine version.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

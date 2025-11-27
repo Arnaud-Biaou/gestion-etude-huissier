@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+        <div class="card-header" style="text-align: center; border-bottom: none; padding-bottom: 0;">
+            <div style="font-size: 4rem; color: var(--accent-500); margin-bottom: 1rem;">
+                <i data-lucide="book-open-check"></i>
+            </div>
+            <h2 style="font-size: 1.75rem; margin-bottom: 0.5rem;">Bienvenue dans le module Comptabilité</h2>
+            <p class="text-muted">Configurons ensemble votre comptabilité OHADA en quelques étapes simples.</p>
+        </div>
+        <div class="card-body">
+            <!-- Stepper -->
+            <div class="stepper" style="margin-bottom: 2rem;">
+                <div class="step active" id="step1-indicator">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Exercice</div>
+                </div>
+                <div class="step" id="step2-indicator">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Fiscalité</div>
+                </div>
+                <div class="step" id="step3-indicator">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Confirmation</div>
+                </div>
+            </div>
+
+            <!-- Step 1: Exercice comptable -->
+            <div id="step1" class="step-content active">
+                <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+                    <i data-lucide="info"></i>
+                    <div>
+                        <strong>Qu'est-ce qu'un exercice comptable ?</strong>
+                        <p style="margin: 0.5rem 0 0;">L'exercice comptable est la période (généralement 12 mois) sur laquelle vous enregistrez vos opérations comptables. Au Bénin, il correspond souvent à l'année civile (1er janvier - 31 décembre).</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé de l'exercice</label>
+                    <input type="text" class="form-input" id="exercice_libelle" value="Exercice 2025" placeholder="Ex: Exercice 2025">
+                </div>
+
+                <div class="grid grid-cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" class="form-input" id="exercice_debut" value="2025-01-01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" class="form-input" id="exercice_fin" value="2025-12-31">
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button class="btn btn-primary" onclick="nextStep(2)">
+                        Suivant
+                        <i data-lucide="arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Paramètres fiscaux -->
+            <div id="step2" class="step-content">
+                <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+                    <i data-lucide="info"></i>
+                    <div>
+                        <strong>Paramètres fiscaux</strong>
+                        <p style="margin: 0.5rem 0 0;">Le taux de TVA au Bénin est de 18%. La déclaration peut être mensuelle ou trimestrielle selon votre régime fiscal.</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Taux de TVA (%)</label>
+                    <input type="number" class="form-input" id="taux_tva" value="18" min="0" max="100" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Périodicité de déclaration TVA</label>
+                    <select class="form-select" id="periodicite_tva">
+                        <option value="mensuel">Mensuelle</option>
+                        <option value="trimestriel">Trimestrielle</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+                    <button class="btn btn-secondary" onclick="prevStep(1)">
+                        <i data-lucide="arrow-left"></i>
+                        Précédent
+                    </button>
+                    <button class="btn btn-primary" onclick="nextStep(3)">
+                        Suivant
+                        <i data-lucide="arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Confirmation -->
+            <div id="step3" class="step-content">
+                <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+                    <i data-lucide="check-circle"></i>
+                    <div>
+                        <strong>Tout est prêt !</strong>
+                        <p style="margin: 0.5rem 0 0;">Le plan comptable OHADA adapté aux études d'huissier sera automatiquement créé avec tous les comptes nécessaires.</p>
+                    </div>
+                </div>
+
+                <div class="card" style="background: var(--neutral-50); margin-bottom: 1.5rem;">
+                    <div class="card-body">
+                        <h4 style="margin-bottom: 1rem;">Récapitulatif</h4>
+                        <table class="table">
+                            <tr>
+                                <td class="text-muted">Exercice</td>
+                                <td id="recap_libelle" class="text-right"><strong>-</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Période</td>
+                                <td id="recap_periode" class="text-right"><strong>-</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Taux TVA</td>
+                                <td id="recap_tva" class="text-right"><strong>-</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Déclaration TVA</td>
+                                <td id="recap_periodicite" class="text-right"><strong>-</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning">
+                    <i data-lucide="alert-triangle"></i>
+                    <div>
+                        <strong>Note importante</strong>
+                        <p style="margin: 0.5rem 0 0;">Une fois la configuration terminée, vous pourrez modifier ces paramètres dans les réglages du module comptabilité.</p>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+                    <button class="btn btn-secondary" onclick="prevStep(2)">
+                        <i data-lucide="arrow-left"></i>
+                        Précédent
+                    </button>
+                    <button class="btn btn-success" onclick="configurerComptabilite()" id="btnConfigurer">
+                        <i data-lucide="check"></i>
+                        Terminer la configuration
+                    </button>
+                </div>
+            </div>
+
+            <!-- Message de succès -->
+            <div id="stepSuccess" class="step-content" style="text-align: center;">
+                <div style="font-size: 5rem; color: var(--success-500); margin-bottom: 1rem;">
+                    <i data-lucide="check-circle-2"></i>
+                </div>
+                <h3 style="margin-bottom: 1rem;">Configuration terminée avec succès !</h3>
+                <p class="text-muted" style="margin-bottom: 2rem;">
+                    Votre module comptabilité est maintenant prêt à être utilisé. Le plan comptable OHADA a été créé avec tous les comptes nécessaires pour votre activité d'huissier de justice.
+                </p>
+                <a href="{% url 'comptabilite:dashboard' %}" class="btn btn-primary btn-lg">
+                    <i data-lucide="arrow-right"></i>
+                    Accéder à la comptabilité
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ce que le module va créer -->
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+        <div class="card-header">
+            <h3>Ce qui sera automatiquement configuré</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-2" style="gap: 1.5rem;">
+                <div>
+                    <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <i data-lucide="folder-tree" style="color: var(--accent-500);"></i>
+                        Plan comptable OHADA
+                    </h4>
+                    <ul style="color: var(--neutral-600); padding-left: 1.5rem;">
+                        <li>Classe 1 - Capitaux</li>
+                        <li>Classe 2 - Immobilisations</li>
+                        <li>Classe 4 - Tiers (clients, fournisseurs)</li>
+                        <li>Classe 5 - Trésorerie</li>
+                        <li>Classe 6 - Charges</li>
+                        <li>Classe 7 - Produits</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <i data-lucide="book-open" style="color: var(--accent-500);"></i>
+                        Journaux comptables
+                    </h4>
+                    <ul style="color: var(--neutral-600); padding-left: 1.5rem;">
+                        <li>Journal des achats</li>
+                        <li>Journal des ventes</li>
+                        <li>Journal de banque</li>
+                        <li>Journal de caisse</li>
+                        <li>Journal des opérations diverses</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <i data-lucide="wand-2" style="color: var(--accent-500);"></i>
+                        Opérations simplifiées
+                    </h4>
+                    <ul style="color: var(--neutral-600); padding-left: 1.5rem;">
+                        <li>Encaissement d'honoraires</li>
+                        <li>Paiement de loyer</li>
+                        <li>Achat de fournitures</li>
+                        <li>Paiement de salaires</li>
+                        <li>Consignations clients</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <i data-lucide="file-text" style="color: var(--accent-500);"></i>
+                        États financiers
+                    </h4>
+                    <ul style="color: var(--neutral-600); padding-left: 1.5rem;">
+                        <li>Bilan OHADA</li>
+                        <li>Compte de résultat</li>
+                        <li>Balance générale</li>
+                        <li>Grand livre</li>
+                        <li>Journaux comptables</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentStep = 1;
+
+    function nextStep(step) {
+        // Validation
+        if (currentStep === 1) {
+            const libelle = document.getElementById('exercice_libelle').value;
+            const debut = document.getElementById('exercice_debut').value;
+            const fin = document.getElementById('exercice_fin').value;
+
+            if (!libelle || !debut || !fin) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+
+            if (new Date(fin) <= new Date(debut)) {
+                alert('La date de fin doit être postérieure à la date de début');
+                return;
+            }
+        }
+
+        // Update recap if going to step 3
+        if (step === 3) {
+            updateRecap();
+        }
+
+        // Hide current step
+        document.getElementById('step' + currentStep).classList.remove('active');
+        document.getElementById('step' + currentStep + '-indicator').classList.remove('active');
+
+        // Show next step
+        currentStep = step;
+        document.getElementById('step' + step).classList.add('active');
+        document.getElementById('step' + step + '-indicator').classList.add('active');
+
+        // Mark previous steps as completed
+        for (let i = 1; i < step; i++) {
+            document.getElementById('step' + i + '-indicator').classList.add('completed');
+        }
+
+        lucide.createIcons();
+    }
+
+    function prevStep(step) {
+        document.getElementById('step' + currentStep).classList.remove('active');
+        currentStep = step;
+        document.getElementById('step' + step).classList.add('active');
+    }
+
+    function updateRecap() {
+        const libelle = document.getElementById('exercice_libelle').value;
+        const debut = new Date(document.getElementById('exercice_debut').value);
+        const fin = new Date(document.getElementById('exercice_fin').value);
+        const tva = document.getElementById('taux_tva').value;
+        const periodicite = document.getElementById('periodicite_tva').value;
+
+        document.getElementById('recap_libelle').innerHTML = '<strong>' + libelle + '</strong>';
+        document.getElementById('recap_periode').innerHTML = '<strong>' + debut.toLocaleDateString('fr-FR') + ' - ' + fin.toLocaleDateString('fr-FR') + '</strong>';
+        document.getElementById('recap_tva').innerHTML = '<strong>' + tva + '%</strong>';
+        document.getElementById('recap_periodicite').innerHTML = '<strong>' + (periodicite === 'mensuel' ? 'Mensuelle' : 'Trimestrielle') + '</strong>';
+    }
+
+    function configurerComptabilite() {
+        const btn = document.getElementById('btnConfigurer');
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Configuration en cours...';
+
+        const data = {
+            libelle: document.getElementById('exercice_libelle').value,
+            date_debut: document.getElementById('exercice_debut').value,
+            date_fin: document.getElementById('exercice_fin').value,
+            taux_tva: document.getElementById('taux_tva').value,
+            periodicite_tva: document.getElementById('periodicite_tva').value
+        };
+
+        fetch('{% url "comptabilite:api_configurer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                document.getElementById('step3').classList.remove('active');
+                document.getElementById('stepSuccess').classList.add('active');
+                document.getElementById('step3-indicator').classList.add('completed');
+                lucide.createIcons();
+            } else {
+                alert('Erreur: ' + result.error);
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check"></i> Terminer la configuration';
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la configuration: ' + error);
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="check"></i> Terminer la configuration';
+        });
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    .step-content {
+        display: none;
+    }
+    .step-content.active {
+        display: block;
+    }
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}

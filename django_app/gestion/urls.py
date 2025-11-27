@@ -13,7 +13,6 @@ urlpatterns = [
 
     # Modules en construction
     path('tresorerie/', views.module_en_construction, {'module_name': 'tresorerie'}, name='tresorerie'),
-    path('comptabilite/', views.module_en_construction, {'module_name': 'comptabilite'}, name='comptabilite'),
     path('rh/', views.module_en_construction, {'module_name': 'rh'}, name='rh'),
     path('gerance/', views.module_en_construction, {'module_name': 'gerance'}, name='gerance'),
     path('agenda/', views.module_en_construction, {'module_name': 'agenda'}, name='agenda'),

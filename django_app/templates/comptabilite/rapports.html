@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="card">
+        <div class="card-header">
+            <h3>Rapports comptables</h3>
+            {% if exercice %}
+            <span class="badge badge-info">{{ exercice.libelle }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Générez et exportez vos états comptables au format PDF ou Excel.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3">
+        <!-- États financiers -->
+        <div class="card">
+            <div class="card-header">
+                <h4><i data-lucide="file-bar-chart"></i> États financiers</h4>
+            </div>
+            <div class="card-body">
+                <div class="space-y-3">
+                    <a href="{% url 'comptabilite:etats_financiers' %}?type=bilan" class="report-link">
+                        <i data-lucide="scale"></i>
+                        <span>Bilan</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    <a href="{% url 'comptabilite:etats_financiers' %}?type=resultat" class="report-link">
+                        <i data-lucide="trending-up"></i>
+                        <span>Compte de résultat</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    <a href="{% url 'comptabilite:etats_financiers' %}?type=flux" class="report-link">
+                        <i data-lucide="arrow-right-left"></i>
+                        <span>Tableau de flux</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documents comptables -->
+        <div class="card">
+            <div class="card-header">
+                <h4><i data-lucide="book"></i> Documents comptables</h4>
+            </div>
+            <div class="card-body">
+                <div class="space-y-3">
+                    <a href="{% url 'comptabilite:balance' %}" class="report-link">
+                        <i data-lucide="scale"></i>
+                        <span>Balance générale</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    <a href="{% url 'comptabilite:grand_livre' %}" class="report-link">
+                        <i data-lucide="book-open"></i>
+                        <span>Grand livre</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    <a href="{% url 'comptabilite:journaux' %}" class="report-link">
+                        <i data-lucide="list"></i>
+                        <span>Journaux comptables</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rapports fiscaux -->
+        <div class="card">
+            <div class="card-header">
+                <h4><i data-lucide="receipt"></i> Rapports fiscaux</h4>
+            </div>
+            <div class="card-body">
+                <div class="space-y-3">
+                    <a href="{% url 'comptabilite:tva' %}" class="report-link">
+                        <i data-lucide="percent"></i>
+                        <span>Déclarations TVA</span>
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    <div class="report-link disabled">
+                        <i data-lucide="file-text"></i>
+                        <span>États DSF (bientôt)</span>
+                        <i data-lucide="chevron-right"></i>
+                    </div>
+                    <div class="report-link disabled">
+                        <i data-lucide="building"></i>
+                        <span>Liasse fiscale (bientôt)</span>
+                        <i data-lucide="chevron-right"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export global -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Export des données</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-4" style="gap: 1rem;">
+                <button class="btn btn-secondary btn-lg" onclick="exporterDonnees('excel')" style="flex-direction: column; padding: 1.5rem;">
+                    <i data-lucide="file-spreadsheet" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Export Excel
+                </button>
+                <button class="btn btn-secondary btn-lg" onclick="exporterDonnees('pdf')" style="flex-direction: column; padding: 1.5rem;">
+                    <i data-lucide="file-text" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Export PDF
+                </button>
+                <button class="btn btn-secondary btn-lg" onclick="exporterDonnees('csv')" style="flex-direction: column; padding: 1.5rem;">
+                    <i data-lucide="file-code" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Export CSV
+                </button>
+                <button class="btn btn-secondary btn-lg" onclick="exporterDonnees('backup')" style="flex-direction: column; padding: 1.5rem;">
+                    <i data-lucide="hard-drive" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Sauvegarde
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export expert-comptable -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Export pour expert-comptable</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted" style="margin-bottom: 1rem;">
+                Générez un fichier d'export compatible avec les principaux logiciels comptables.
+            </p>
+            <div class="flex" style="gap: 1rem;">
+                <button class="btn btn-primary" onclick="exportExpertComptable()">
+                    <i data-lucide="download"></i>
+                    Générer le fichier d'export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exporterDonnees(format) {
+        alert('Export au format ' + format.toUpperCase() + ' - Fonctionnalité en développement');
+    }
+
+    function exportExpertComptable() {
+        alert('Export expert-comptable - Fonctionnalité en développement');
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    .report-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid var(--neutral-200);
+        border-radius: 0.5rem;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+    }
+    .report-link:hover {
+        background: var(--accent-50);
+        border-color: var(--accent-300);
+    }
+    .report-link span {
+        flex: 1;
+    }
+    .report-link.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}

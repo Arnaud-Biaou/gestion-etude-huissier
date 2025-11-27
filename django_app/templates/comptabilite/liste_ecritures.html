@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Actions -->
+    <div class="flex" style="justify-content: space-between; align-items: center;">
+        <div>
+            {% if exercice %}
+            <span class="badge badge-info">{{ exercice.libelle }}</span>
+            {% endif %}
+        </div>
+        <a href="{% url 'comptabilite:saisie' %}" class="btn btn-primary">
+            <i data-lucide="plus"></i>
+            Nouvelle écriture
+        </a>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="flex" style="gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+                    <label class="form-label">Recherche</label>
+                    <input type="text" name="search" class="form-input" value="{{ request.GET.search }}" placeholder="N° pièce, libellé...">
+                </div>
+                <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+                    <label class="form-label">Journal</label>
+                    <select name="journal" class="form-select">
+                        <option value="">Tous</option>
+                        {% for j in journaux %}
+                        <option value="{{ j.id }}" {% if request.GET.journal == j.id|stringformat:'i' %}selected{% endif %}>{{ j.code }} - {{ j.libelle }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0; min-width: 120px;">
+                    <label class="form-label">Statut</label>
+                    <select name="statut" class="form-select">
+                        <option value="">Tous</option>
+                        {% for code, label in statuts %}
+                        <option value="{{ code }}" {% if request.GET.statut == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+                    <label class="form-label">Du</label>
+                    <input type="date" name="date_debut" class="form-input" value="{{ request.GET.date_debut }}">
+                </div>
+                <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+                    <label class="form-label">Au</label>
+                    <input type="date" name="date_fin" class="form-input" value="{{ request.GET.date_fin }}">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="search"></i>
+                    Filtrer
+                </button>
+                <a href="{% url 'comptabilite:ecritures' %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i>
+                    Reset
+                </a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des écritures -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Écritures comptables</h3>
+            <span class="text-muted">{{ ecritures.paginator.count }} écriture(s)</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>N° Pièce</th>
+                        <th>Date</th>
+                        <th>Journal</th>
+                        <th>Libellé</th>
+                        <th class="text-right">Débit</th>
+                        <th class="text-right">Crédit</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ecriture in ecritures %}
+                    <tr>
+                        <td><strong>{{ ecriture.numero }}</strong></td>
+                        <td>{{ ecriture.date|date:"d/m/Y" }}</td>
+                        <td><span class="badge">{{ ecriture.journal.code }}</span></td>
+                        <td>{{ ecriture.libelle|truncatechars:50 }}</td>
+                        <td class="text-right">{{ ecriture.total_debit|floatformat:0 }}</td>
+                        <td class="text-right">{{ ecriture.total_credit|floatformat:0 }}</td>
+                        <td>
+                            {% if ecriture.statut == 'valide' %}
+                            <span class="badge badge-success">Validée</span>
+                            {% elif ecriture.statut == 'brouillon' %}
+                            <span class="badge badge-warning">Brouillon</span>
+                            {% else %}
+                            <span class="badge badge-danger">Annulée</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="flex" style="gap: 0.25rem;">
+                                <a href="{% url 'comptabilite:detail_ecriture' ecriture.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                    <i data-lucide="eye"></i>
+                                </a>
+                                {% if ecriture.statut == 'brouillon' %}
+                                <button class="btn btn-sm btn-success" onclick="validerEcriture({{ ecriture.id }})" title="Valider">
+                                    <i data-lucide="check"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted" style="padding: 2rem;">
+                            <i data-lucide="inbox" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                            Aucune écriture trouvée
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if ecritures.has_other_pages %}
+        <div class="card-footer">
+            <nav class="pagination">
+                {% if ecritures.has_previous %}
+                <a href="?page={{ ecritures.previous_page_number }}&{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">
+                    <i data-lucide="chevron-left"></i> Précédent
+                </a>
+                {% endif %}
+                <span class="text-muted">Page {{ ecritures.number }} sur {{ ecritures.paginator.num_pages }}</span>
+                {% if ecritures.has_next %}
+                <a href="?page={{ ecritures.next_page_number }}&{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">
+                    Suivant <i data-lucide="chevron-right"></i>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function validerEcriture(id) {
+        if (!confirm('Valider cette écriture ? Cette action est irréversible.')) return;
+
+        fetch('{% url "comptabilite:api_valider_ecriture" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ ecriture_id: id })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    lucide.createIcons();
+</script>
+{% endblock %}
