@@ -2130,3 +2130,618 @@ class ActeDestinataire(models.Model):
 
         # Mettre à jour le destinataire parent
         self.destinataire.calculer_totaux()
+
+
+# =============================================================================
+# MODELES POUR LE MODULE SÉCURITÉ
+# =============================================================================
+
+class Role(models.Model):
+    """Rôles utilisateurs avec leurs permissions associées"""
+    ROLES_SYSTEME = [
+        ('admin', 'Administrateur (Huissier titulaire)'),
+        ('clerc_principal', 'Clerc principal'),
+        ('clerc', 'Clerc'),
+        ('secretaire', 'Secrétaire'),
+        ('agent_recouvrement', 'Agent de recouvrement'),
+        ('comptable', 'Comptable'),
+        ('stagiaire', 'Stagiaire'),
+        ('consultant', 'Consultant (lecture seule)'),
+    ]
+
+    code = models.CharField(max_length=50, unique=True, verbose_name='Code du rôle')
+    nom = models.CharField(max_length=100, verbose_name='Nom du rôle')
+    description = models.TextField(blank=True, verbose_name='Description')
+    est_systeme = models.BooleanField(
+        default=False,
+        verbose_name='Rôle système',
+        help_text='Les rôles système ne peuvent pas être supprimés'
+    )
+    actif = models.BooleanField(default=True)
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Rôle'
+        verbose_name_plural = 'Rôles'
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+
+class Permission(models.Model):
+    """Permissions granulaires pour les différents modules"""
+    MODULES = [
+        ('dossiers', 'Dossiers'),
+        ('facturation', 'Facturation'),
+        ('tresorerie', 'Trésorerie'),
+        ('comptabilite', 'Comptabilité'),
+        ('recouvrement', 'Recouvrement'),
+        ('gerance', 'Gérance Immobilière'),
+        ('rh', 'Ressources Humaines'),
+        ('agenda', 'Agenda'),
+        ('memoires', 'Mémoires Cédules'),
+        ('parametres', 'Paramètres'),
+        ('securite', 'Sécurité'),
+    ]
+
+    code = models.CharField(
+        max_length=100, unique=True, verbose_name='Code permission',
+        help_text='Ex: dossiers.creer, tresorerie.voir'
+    )
+    nom = models.CharField(max_length=200, verbose_name='Nom de la permission')
+    module = models.CharField(max_length=50, choices=MODULES, verbose_name='Module')
+    description = models.TextField(blank=True)
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Permission'
+        verbose_name_plural = 'Permissions'
+        ordering = ['module', 'code']
+
+    def __str__(self):
+        return f"{self.module} - {self.nom}"
+
+
+class RolePermission(models.Model):
+    """Association rôle-permission"""
+    role = models.ForeignKey(
+        Role, on_delete=models.CASCADE, related_name='permissions_role'
+    )
+    permission = models.ForeignKey(
+        Permission, on_delete=models.CASCADE, related_name='roles_permission'
+    )
+
+    class Meta:
+        verbose_name = 'Permission du rôle'
+        verbose_name_plural = 'Permissions des rôles'
+        unique_together = ['role', 'permission']
+
+    def __str__(self):
+        return f"{self.role.nom} - {self.permission.code}"
+
+
+class PermissionUtilisateur(models.Model):
+    """Surcharge des permissions pour un utilisateur spécifique"""
+    utilisateur = models.ForeignKey(
+        Utilisateur, on_delete=models.CASCADE, related_name='permissions_personnalisees'
+    )
+    permission = models.ForeignKey(
+        Permission, on_delete=models.CASCADE, related_name='utilisateurs_permission'
+    )
+    autorise = models.BooleanField(
+        default=True,
+        verbose_name='Autorisé',
+        help_text='True pour accorder, False pour refuser (surcharge le rôle)'
+    )
+
+    date_modification = models.DateTimeField(auto_now=True)
+    modifie_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='permissions_modifiees'
+    )
+
+    class Meta:
+        verbose_name = 'Permission utilisateur'
+        verbose_name_plural = 'Permissions utilisateurs'
+        unique_together = ['utilisateur', 'permission']
+
+    def __str__(self):
+        status = "✓" if self.autorise else "✗"
+        return f"{self.utilisateur} - {self.permission.code} [{status}]"
+
+
+class SessionUtilisateur(models.Model):
+    """Sessions utilisateurs pour le suivi des connexions"""
+    utilisateur = models.ForeignKey(
+        Utilisateur, on_delete=models.CASCADE, related_name='sessions_securite'
+    )
+    token = models.CharField(max_length=255, unique=True)
+    adresse_ip = models.GenericIPAddressField(verbose_name='Adresse IP')
+    user_agent = models.TextField(blank=True, verbose_name='Navigateur/Agent')
+
+    # Informations sur le navigateur décomposées
+    navigateur = models.CharField(max_length=100, blank=True)
+    systeme_os = models.CharField(max_length=100, blank=True, verbose_name='Système d\'exploitation')
+
+    # Timestamps
+    date_creation = models.DateTimeField(auto_now_add=True, verbose_name='Date de connexion')
+    date_derniere_activite = models.DateTimeField(auto_now=True, verbose_name='Dernière activité')
+    date_expiration = models.DateTimeField(verbose_name='Date d\'expiration')
+
+    # État
+    active = models.BooleanField(default=True)
+    module_actuel = models.CharField(max_length=100, blank=True, verbose_name='Module actuel')
+
+    class Meta:
+        verbose_name = 'Session utilisateur'
+        verbose_name_plural = 'Sessions utilisateurs'
+        ordering = ['-date_derniere_activite']
+
+    def __str__(self):
+        return f"Session {self.utilisateur} - {self.adresse_ip}"
+
+    def est_inactive(self, minutes_inactivite=30):
+        """Vérifie si la session est inactive depuis X minutes"""
+        from datetime import timedelta
+        seuil = timezone.now() - timedelta(minutes=minutes_inactivite)
+        return self.date_derniere_activite < seuil
+
+    def forcer_deconnexion(self):
+        """Force la déconnexion de cette session"""
+        self.active = False
+        self.save()
+
+
+class JournalAudit(models.Model):
+    """Journal d'audit pour tracer toutes les actions importantes"""
+    ACTIONS = [
+        ('connexion', 'Connexion'),
+        ('deconnexion', 'Déconnexion'),
+        ('echec_connexion', 'Échec de connexion'),
+        ('creation', 'Création'),
+        ('modification', 'Modification'),
+        ('suppression', 'Suppression'),
+        ('consultation', 'Consultation'),
+        ('export', 'Export'),
+        ('import', 'Import'),
+        ('approbation', 'Approbation'),
+        ('rejet', 'Rejet'),
+        ('changement_mdp', 'Changement de mot de passe'),
+        ('reset_mdp', 'Réinitialisation de mot de passe'),
+        ('acces_refuse', 'Accès refusé'),
+        ('parametrage', 'Modification paramètres'),
+    ]
+
+    MODULES = [
+        ('connexion', 'Connexion'),
+        ('dossiers', 'Dossiers'),
+        ('facturation', 'Facturation'),
+        ('tresorerie', 'Trésorerie'),
+        ('comptabilite', 'Comptabilité'),
+        ('recouvrement', 'Recouvrement'),
+        ('gerance', 'Gérance'),
+        ('rh', 'Ressources Humaines'),
+        ('agenda', 'Agenda'),
+        ('memoires', 'Mémoires'),
+        ('parametres', 'Paramètres'),
+        ('securite', 'Sécurité'),
+        ('systeme', 'Système'),
+    ]
+
+    date_heure = models.DateTimeField(auto_now_add=True, verbose_name='Date/Heure')
+    utilisateur = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='actions_audit'
+    )
+    utilisateur_nom = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Nom utilisateur',
+        help_text='Sauvegardé en cas de suppression de l\'utilisateur'
+    )
+
+    action = models.CharField(max_length=50, choices=ACTIONS, verbose_name='Action')
+    module = models.CharField(max_length=50, choices=MODULES, verbose_name='Module')
+    details = models.TextField(blank=True, verbose_name='Détails')
+
+    # Données avant/après modification (JSON)
+    donnees_avant = models.JSONField(null=True, blank=True, verbose_name='Données avant')
+    donnees_apres = models.JSONField(null=True, blank=True, verbose_name='Données après')
+
+    # Informations techniques
+    adresse_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name='Adresse IP')
+    user_agent = models.TextField(blank=True, verbose_name='Navigateur')
+
+    # Référence à l'objet concerné
+    objet_type = models.CharField(max_length=100, blank=True, verbose_name='Type d\'objet')
+    objet_id = models.CharField(max_length=100, blank=True, verbose_name='ID de l\'objet')
+    objet_representation = models.CharField(max_length=500, blank=True, verbose_name='Représentation')
+
+    class Meta:
+        verbose_name = 'Entrée du journal d\'audit'
+        verbose_name_plural = 'Journal d\'audit'
+        ordering = ['-date_heure']
+        indexes = [
+            models.Index(fields=['date_heure']),
+            models.Index(fields=['utilisateur']),
+            models.Index(fields=['action']),
+            models.Index(fields=['module']),
+        ]
+
+    def __str__(self):
+        return f"{self.date_heure.strftime('%d/%m/%Y %H:%M')} - {self.utilisateur_nom} - {self.get_action_display()}"
+
+    def save(self, *args, **kwargs):
+        # Sauvegarder le nom de l'utilisateur
+        if self.utilisateur and not self.utilisateur_nom:
+            self.utilisateur_nom = str(self.utilisateur)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def log_action(cls, utilisateur, action, module, details='', objet=None,
+                   donnees_avant=None, donnees_apres=None, request=None):
+        """Méthode utilitaire pour créer une entrée d'audit"""
+        entry = cls(
+            utilisateur=utilisateur,
+            action=action,
+            module=module,
+            details=details,
+            donnees_avant=donnees_avant,
+            donnees_apres=donnees_apres,
+        )
+
+        if objet:
+            entry.objet_type = objet.__class__.__name__
+            entry.objet_id = str(objet.pk) if hasattr(objet, 'pk') else ''
+            entry.objet_representation = str(objet)[:500]
+
+        if request:
+            entry.adresse_ip = cls.get_client_ip(request)
+            entry.user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+
+        entry.save()
+        return entry
+
+    @staticmethod
+    def get_client_ip(request):
+        """Récupère l'adresse IP réelle du client"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+
+class AlerteSecurite(models.Model):
+    """Alertes de sécurité générées par le système"""
+    TYPES = [
+        ('echec_connexion', 'Échec de connexion répété'),
+        ('nouvelle_ip', 'Connexion depuis nouvelle IP'),
+        ('hors_horaires', 'Connexion hors horaires'),
+        ('acces_refuse', 'Tentative d\'accès non autorisé'),
+        ('export_massif', 'Export massif de données'),
+        ('modif_securite', 'Modification paramètres sécurité'),
+        ('utilisateur_cree', 'Création utilisateur'),
+        ('utilisateur_supprime', 'Suppression utilisateur'),
+        ('mdp_admin_change', 'Changement mot de passe admin'),
+        ('session_suspecte', 'Session suspecte'),
+    ]
+
+    GRAVITES = [
+        ('info', 'Information'),
+        ('warning', 'Avertissement'),
+        ('critical', 'Critique'),
+    ]
+
+    date_heure = models.DateTimeField(auto_now_add=True, verbose_name='Date/Heure')
+    type_alerte = models.CharField(max_length=50, choices=TYPES, verbose_name='Type')
+    gravite = models.CharField(max_length=20, choices=GRAVITES, default='info', verbose_name='Gravité')
+    description = models.TextField(verbose_name='Description')
+
+    # Utilisateur concerné
+    utilisateur_concerne = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='alertes_securite'
+    )
+    utilisateur_nom = models.CharField(max_length=200, blank=True)
+
+    # Informations techniques
+    adresse_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name='Adresse IP')
+    donnees_supplementaires = models.JSONField(null=True, blank=True, verbose_name='Données')
+
+    # Traitement
+    traitee = models.BooleanField(default=False, verbose_name='Traitée')
+    date_traitement = models.DateTimeField(null=True, blank=True)
+    traite_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='alertes_traitees'
+    )
+    commentaire_traitement = models.TextField(blank=True, verbose_name='Commentaire')
+
+    class Meta:
+        verbose_name = 'Alerte de sécurité'
+        verbose_name_plural = 'Alertes de sécurité'
+        ordering = ['-date_heure']
+
+    def __str__(self):
+        return f"{self.get_gravite_display()} - {self.get_type_alerte_display()} - {self.date_heure.strftime('%d/%m/%Y %H:%M')}"
+
+    def marquer_traitee(self, utilisateur, commentaire=''):
+        """Marque l'alerte comme traitée"""
+        self.traitee = True
+        self.date_traitement = timezone.now()
+        self.traite_par = utilisateur
+        self.commentaire_traitement = commentaire
+        self.save()
+
+    @classmethod
+    def creer_alerte(cls, type_alerte, description, gravite='info',
+                     utilisateur=None, adresse_ip=None, donnees=None):
+        """Crée une nouvelle alerte de sécurité"""
+        alerte = cls(
+            type_alerte=type_alerte,
+            description=description,
+            gravite=gravite,
+            utilisateur_concerne=utilisateur,
+            adresse_ip=adresse_ip,
+            donnees_supplementaires=donnees,
+        )
+        if utilisateur:
+            alerte.utilisateur_nom = str(utilisateur)
+        alerte.save()
+        return alerte
+
+
+class AdresseIPAutorisee(models.Model):
+    """Liste blanche des adresses IP autorisées"""
+    adresse_ip = models.GenericIPAddressField(verbose_name='Adresse IP')
+    description = models.CharField(max_length=200, blank=True, verbose_name='Description')
+    active = models.BooleanField(default=True)
+
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    ajoute_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='ips_ajoutees'
+    )
+
+    class Meta:
+        verbose_name = 'Adresse IP autorisée'
+        verbose_name_plural = 'Adresses IP autorisées'
+        ordering = ['adresse_ip']
+
+    def __str__(self):
+        return f"{self.adresse_ip} - {self.description}"
+
+
+class AdresseIPBloquee(models.Model):
+    """Liste noire des adresses IP bloquées"""
+    adresse_ip = models.GenericIPAddressField(verbose_name='Adresse IP')
+    raison = models.TextField(verbose_name='Raison du blocage')
+    active = models.BooleanField(default=True)
+
+    date_blocage = models.DateTimeField(auto_now_add=True)
+    bloque_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='ips_bloquees'
+    )
+    date_expiration = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date d\'expiration',
+        help_text='Laisser vide pour un blocage permanent'
+    )
+
+    class Meta:
+        verbose_name = 'Adresse IP bloquée'
+        verbose_name_plural = 'Adresses IP bloquées'
+        ordering = ['-date_blocage']
+
+    def __str__(self):
+        return f"🚫 {self.adresse_ip} - {self.raison[:50]}"
+
+
+class PolitiqueSecurite(models.Model):
+    """Configuration des politiques de sécurité"""
+    # Mot de passe
+    mdp_longueur_min = models.PositiveSmallIntegerField(default=8, verbose_name='Longueur minimale MDP')
+    mdp_exiger_majuscule = models.BooleanField(default=True, verbose_name='Exiger majuscule')
+    mdp_exiger_minuscule = models.BooleanField(default=True, verbose_name='Exiger minuscule')
+    mdp_exiger_chiffre = models.BooleanField(default=True, verbose_name='Exiger chiffre')
+    mdp_exiger_special = models.BooleanField(default=False, verbose_name='Exiger caractère spécial')
+    mdp_expiration_jours = models.PositiveSmallIntegerField(
+        default=90, verbose_name='Expiration MDP (jours)',
+        help_text='0 = jamais'
+    )
+    mdp_historique = models.PositiveSmallIntegerField(
+        default=5, verbose_name='Historique MDP',
+        help_text='Empêche la réutilisation des X derniers mots de passe'
+    )
+    mdp_tentatives_blocage = models.PositiveSmallIntegerField(
+        default=5, verbose_name='Tentatives avant blocage'
+    )
+    mdp_duree_blocage = models.PositiveSmallIntegerField(
+        default=30, verbose_name='Durée de blocage (minutes)',
+        help_text='0 = déblocage manuel'
+    )
+
+    # Sessions
+    session_duree_heures = models.PositiveSmallIntegerField(
+        default=8, verbose_name='Durée de session (heures)'
+    )
+    session_inactivite_minutes = models.PositiveSmallIntegerField(
+        default=30, verbose_name='Déconnexion après inactivité (minutes)'
+    )
+    session_simultanees = models.PositiveSmallIntegerField(
+        default=1, verbose_name='Sessions simultanées autorisées'
+    )
+    session_forcer_deconnexion = models.BooleanField(
+        default=True, verbose_name='Forcer déconnexion si nouvelle session'
+    )
+    session_multi_appareils = models.BooleanField(
+        default=False, verbose_name='Autoriser plusieurs appareils'
+    )
+
+    # 2FA
+    CHOIX_2FA = [
+        ('desactive', 'Désactivée'),
+        ('optionnel', 'Optionnelle'),
+        ('obligatoire_tous', 'Obligatoire pour tous'),
+        ('obligatoire_admin', 'Obligatoire pour administrateurs'),
+    ]
+    mode_2fa = models.CharField(
+        max_length=20, choices=CHOIX_2FA, default='optionnel',
+        verbose_name='Authentification à deux facteurs'
+    )
+
+    # Restrictions d'accès
+    restriction_ip_active = models.BooleanField(
+        default=False, verbose_name='Restriction par IP activée'
+    )
+    restriction_horaires_active = models.BooleanField(
+        default=False, verbose_name='Restriction horaires activée'
+    )
+    horaire_debut = models.TimeField(
+        default='06:00', verbose_name='Heure début autorisée'
+    )
+    horaire_fin = models.TimeField(
+        default='22:00', verbose_name='Heure fin autorisée'
+    )
+    jours_autorises = models.JSONField(
+        default=list, verbose_name='Jours autorisés',
+        help_text='Liste des jours (1=Lundi, 7=Dimanche)'
+    )
+
+    # Journal d'audit
+    audit_conservation_jours = models.PositiveSmallIntegerField(
+        default=365, verbose_name='Conservation des logs (jours)'
+    )
+    audit_archive_auto = models.BooleanField(
+        default=True, verbose_name='Archivage automatique'
+    )
+    audit_export_periodique = models.CharField(
+        max_length=20, default='mensuel',
+        choices=[('mensuel', 'Mensuel'), ('trimestriel', 'Trimestriel'), ('annuel', 'Annuel')],
+        verbose_name='Export périodique'
+    )
+
+    # Alertes
+    alerte_email = models.EmailField(
+        blank=True, verbose_name='Email de notification des alertes'
+    )
+    alerte_echec_connexion = models.BooleanField(default=True)
+    alerte_nouvelle_ip = models.BooleanField(default=True)
+    alerte_hors_horaires = models.BooleanField(default=True)
+    alerte_acces_refuse = models.BooleanField(default=True)
+    alerte_export_massif = models.BooleanField(default=True)
+    alerte_modif_securite = models.BooleanField(default=True)
+    alerte_utilisateur_cree = models.BooleanField(default=True)
+    alerte_mdp_admin = models.BooleanField(default=True)
+
+    # Maintenance
+    maintenance_active = models.BooleanField(default=False, verbose_name='Mode maintenance')
+    maintenance_message = models.TextField(
+        blank=True, default='L\'application est temporairement indisponible pour maintenance.',
+        verbose_name='Message de maintenance'
+    )
+    maintenance_admin_autorise = models.BooleanField(
+        default=True, verbose_name='Autoriser admin pendant maintenance'
+    )
+
+    # Méta
+    date_modification = models.DateTimeField(auto_now=True)
+    modifie_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='politiques_modifiees'
+    )
+
+    class Meta:
+        verbose_name = 'Politique de sécurité'
+        verbose_name_plural = 'Politique de sécurité'
+
+    def __str__(self):
+        return f"Politique de sécurité (modifiée le {self.date_modification.strftime('%d/%m/%Y')})"
+
+    def save(self, *args, **kwargs):
+        # Assurer qu'il n'y a qu'une seule politique
+        if not self.pk and PolitiqueSecurite.objects.exists():
+            raise ValueError("Une seule politique de sécurité peut exister")
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_politique(cls):
+        """Récupère ou crée la politique de sécurité unique"""
+        politique, created = cls.objects.get_or_create(pk=1)
+        if created:
+            # Définir les jours autorisés par défaut (Lundi à Vendredi)
+            politique.jours_autorises = [1, 2, 3, 4, 5]
+            politique.save()
+        return politique
+
+
+class CleRecuperation(models.Model):
+    """Clés de récupération pour l'accès administrateur"""
+    cle_hash = models.CharField(max_length=255, verbose_name='Hash de la clé')
+    active = models.BooleanField(default=True)
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+    creee_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cles_creees'
+    )
+
+    date_utilisation = models.DateTimeField(null=True, blank=True)
+    utilisee_par_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Clé de récupération'
+        verbose_name_plural = 'Clés de récupération'
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        status = "Active" if self.active else "Inactive"
+        return f"Clé de récupération ({status}) - {self.date_creation.strftime('%d/%m/%Y')}"
+
+    @classmethod
+    def generer_nouvelle_cle(cls, utilisateur=None):
+        """Génère une nouvelle clé de récupération"""
+        import secrets
+        import hashlib
+
+        # Désactiver les anciennes clés
+        cls.objects.filter(active=True).update(active=False)
+
+        # Générer une nouvelle clé (format: XXXX-XXXX-XXXX-XXXX)
+        parties = [secrets.token_hex(2).upper() for _ in range(4)]
+        cle_claire = '-'.join(parties)
+
+        # Hasher la clé
+        cle_hash = hashlib.sha256(cle_claire.encode()).hexdigest()
+
+        # Sauvegarder
+        nouvelle_cle = cls.objects.create(
+            cle_hash=cle_hash,
+            creee_par=utilisateur,
+        )
+
+        # Retourner la clé en clair (à afficher une seule fois)
+        return cle_claire, nouvelle_cle
+
+
+class HistoriqueMdpUtilisateur(models.Model):
+    """Historique des mots de passe pour éviter la réutilisation"""
+    utilisateur = models.ForeignKey(
+        Utilisateur, on_delete=models.CASCADE, related_name='historique_mdp'
+    )
+    mdp_hash = models.CharField(max_length=255)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Historique mot de passe'
+        verbose_name_plural = 'Historiques mots de passe'
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"MDP {self.utilisateur} - {self.date_creation.strftime('%d/%m/%Y')}"
