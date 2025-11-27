@@ -138,3 +138,26 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user model
 AUTH_USER_MODEL = 'gestion.Utilisateur'
+
+# Authentication settings
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+# Session settings
+SESSION_COOKIE_AGE = 86400  # 24 heures en secondes
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Email settings (pour le mot de passe oublié)
+# En développement, les emails sont affichés dans la console
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# En production, configurez un vrai serveur SMTP :
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.example.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'votre-email@example.com'
+# EMAIL_HOST_PASSWORD = 'votre-mot-de-passe'
+# DEFAULT_FROM_EMAIL = 'Étude Me BIAOU <no-reply@etude-biaou.com>'
