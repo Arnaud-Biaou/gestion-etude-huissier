@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item active">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- En-tête avec filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="users"></i> Liste des employés
+            </h3>
+            <a href="{% url 'rh:nouveau_employe' %}" class="btn btn-primary">
+                <i data-lucide="user-plus"></i> Nouvel employé
+            </a>
+        </div>
+        <div class="card-body">
+            <!-- Filtres -->
+            <form method="GET" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for code, label in statuts %}
+                            <option value="{{ code }}" {% if filtres.statut == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Type de contrat</label>
+                        <select name="type_contrat" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for code, label in types_contrat %}
+                            <option value="{{ code }}" {% if filtres.type_contrat == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Site</label>
+                        <select name="site" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for site in sites %}
+                            <option value="{{ site.id }}" {% if filtres.site == site.id|stringformat:"i" %}selected{% endif %}>{{ site.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group search-group">
+                        <label>Rechercher</label>
+                        <div class="search-input">
+                            <input type="text" name="q" class="form-input" placeholder="Nom, prénom, matricule..." value="{{ filtres.q }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Liste des employés -->
+            <div class="table-container mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Matricule</th>
+                            <th>Nom & Prénoms</th>
+                            <th>Poste</th>
+                            <th>Type contrat</th>
+                            <th>Date embauche</th>
+                            <th>Salaire</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employe in employes %}
+                        <tr>
+                            <td><strong>{{ employe.matricule }}</strong></td>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar">{{ employe.get_initiales }}</div>
+                                    <div>
+                                        <div class="employe-nom">{{ employe.get_nom_complet }}</div>
+                                        <div class="employe-email">{{ employe.email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ employe.poste.libelle|default:"-" }}</td>
+                            <td>
+                                <span class="badge badge-{{ employe.type_contrat }}">
+                                    {{ employe.get_type_contrat_display }}
+                                </span>
+                            </td>
+                            <td>{{ employe.date_embauche|date:"d/m/Y" }}</td>
+                            <td>{{ employe.salaire_base|floatformat:0 }} F</td>
+                            <td>
+                                <span class="status-badge {{ employe.statut }}">
+                                    {{ employe.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="{% url 'rh:detail_employe' employe.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-secondary" onclick="modifierEmploye({{ employe.id }})" title="Modifier">
+                                        <i data-lucide="edit"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">Aucun employé trouvé</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if employes.has_other_pages %}
+            <div class="pagination-container">
+                <nav class="pagination">
+                    {% if employes.has_previous %}
+                    <a href="?page={{ employes.previous_page_number }}&statut={{ filtres.statut }}&type_contrat={{ filtres.type_contrat }}&site={{ filtres.site }}&q={{ filtres.q }}" class="pagination-btn">
+                        <i data-lucide="chevron-left"></i>
+                    </a>
+                    {% endif %}
+
+                    <span class="pagination-info">
+                        Page {{ employes.number }} sur {{ employes.paginator.num_pages }}
+                    </span>
+
+                    {% if employes.has_next %}
+                    <a href="?page={{ employes.next_page_number }}&statut={{ filtres.statut }}&type_contrat={{ filtres.type_contrat }}&site={{ filtres.site }}&q={{ filtres.q }}" class="pagination-btn">
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function modifierEmploye(id) {
+        window.location.href = '{% url "rh:nouveau_employe" %}?edit=' + id;
+    }
+</script>
+{% endblock %}

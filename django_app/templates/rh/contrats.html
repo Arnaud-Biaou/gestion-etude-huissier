@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item active">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="file-signature"></i> Gestion des contrats
+            </h3>
+        </div>
+        <div class="card-body">
+            <!-- Filtres -->
+            <form method="GET" class="filters-form mb-4">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for code, label in statuts %}
+                            <option value="{{ code }}" {% if request.GET.statut == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Type</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for code, label in types_contrat %}
+                            <option value="{{ code }}" {% if request.GET.type == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            {% if contrats %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th>Employé</th>
+                            <th>Type</th>
+                            <th>Poste</th>
+                            <th>Début</th>
+                            <th>Fin</th>
+                            <th>Salaire</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contrat in contrats %}
+                        <tr>
+                            <td><strong>{{ contrat.reference }}</strong></td>
+                            <td>
+                                <a href="{% url 'rh:detail_employe' contrat.employe.id %}">
+                                    {{ contrat.employe.get_nom_complet }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge badge-{{ contrat.type_contrat }}">
+                                    {{ contrat.get_type_contrat_display }}
+                                </span>
+                            </td>
+                            <td>{{ contrat.poste.libelle }}</td>
+                            <td>{{ contrat.date_debut|date:"d/m/Y" }}</td>
+                            <td>{{ contrat.date_fin|date:"d/m/Y"|default:"-" }}</td>
+                            <td>{{ contrat.salaire_base|floatformat:0 }} F</td>
+                            <td>
+                                <span class="status-badge {{ contrat.statut }}">
+                                    {{ contrat.get_statut_display }}
+                                </span>
+                                {% if contrat.est_en_periode_essai %}
+                                <span class="badge badge-warning">Essai</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <button class="btn btn-sm btn-secondary" onclick="voirContrat({{ contrat.id }})" title="Détails">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                    {% if contrat.statut == 'actif' %}
+                                    <button class="btn btn-sm btn-primary" onclick="creerAvenant({{ contrat.id }})" title="Avenant">
+                                        <i data-lucide="file-plus"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if contrats.has_other_pages %}
+            <div class="pagination-container">
+                <nav class="pagination">
+                    {% if contrats.has_previous %}
+                    <a href="?page={{ contrats.previous_page_number }}" class="pagination-btn">
+                        <i data-lucide="chevron-left"></i>
+                    </a>
+                    {% endif %}
+
+                    <span class="pagination-info">
+                        Page {{ contrats.number }} sur {{ contrats.paginator.num_pages }}
+                    </span>
+
+                    {% if contrats.has_next %}
+                    <a href="?page={{ contrats.next_page_number }}" class="pagination-btn">
+                        <i data-lucide="chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </nav>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="file-x"></i>
+                <h3>Aucun contrat trouvé</h3>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Avenant -->
+<div class="modal" id="modalAvenant" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Créer un avenant</h3>
+            <button class="modal-close" onclick="fermerModalAvenant()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formAvenant">
+                <input type="hidden" id="avenant_contrat_id" value="">
+                <div class="form-group">
+                    <label class="form-label">Type d'avenant</label>
+                    <select id="type_avenant" class="form-select" required>
+                        <option value="salaire">Modification de salaire</option>
+                        <option value="poste">Changement de poste</option>
+                        <option value="site">Changement de site</option>
+                        <option value="categorie">Changement de catégorie</option>
+                        <option value="renouvellement">Renouvellement CDD</option>
+                        <option value="autre">Autre modification</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date d'effet</label>
+                    <input type="date" id="date_effet" class="form-input" required>
+                </div>
+                <div class="form-group" id="groupe_nouveau_salaire" style="display:none;">
+                    <label class="form-label">Nouveau salaire (FCFA)</label>
+                    <input type="number" id="nouveau_salaire" class="form-input" min="52000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description des modifications</label>
+                    <textarea id="avenant_description" class="form-textarea" rows="3" required></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalAvenant()">Annuler</button>
+            <button class="btn btn-primary" onclick="soumettreAvenant()">Créer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function voirContrat(id) {
+        alert('Fonctionnalité à implémenter - Détails contrat ' + id);
+    }
+
+    function creerAvenant(contratId) {
+        document.getElementById('avenant_contrat_id').value = contratId;
+        document.getElementById('modalAvenant').style.display = 'flex';
+    }
+
+    function fermerModalAvenant() {
+        document.getElementById('modalAvenant').style.display = 'none';
+    }
+
+    document.getElementById('type_avenant').addEventListener('change', function() {
+        const groupe = document.getElementById('groupe_nouveau_salaire');
+        groupe.style.display = this.value === 'salaire' ? 'block' : 'none';
+    });
+
+    function soumettreAvenant() {
+        const data = {
+            contrat_id: document.getElementById('avenant_contrat_id').value,
+            type_avenant: document.getElementById('type_avenant').value,
+            date_effet: document.getElementById('date_effet').value,
+            nouveau_salaire: document.getElementById('nouveau_salaire').value || null,
+            description: document.getElementById('avenant_description').value,
+        };
+
+        fetch('{% url "rh:creer_avenant" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                fermerModalAvenant();
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item active">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Constantes légales -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="scale"></i> Constantes légales Bénin
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="legal-constants">
+                <div class="constant-item">
+                    <span class="constant-label">SMIG</span>
+                    <span class="constant-value">{{ constantes.smig|floatformat:0 }} FCFA</span>
+                </div>
+                <div class="constant-item">
+                    <span class="constant-label">Plafond CNSS</span>
+                    <span class="constant-value">{{ constantes.plafond_cnss|floatformat:0 }} FCFA/mois</span>
+                </div>
+                <div class="constant-item">
+                    <span class="constant-label">CNSS Salariale (Vieillesse)</span>
+                    <span class="constant-value">3,6%</span>
+                </div>
+                <div class="constant-item">
+                    <span class="constant-label">CNSS Patronale (Total)</span>
+                    <span class="constant-value">~15,4%</span>
+                </div>
+                <div class="constant-item">
+                    <span class="constant-label">VPS</span>
+                    <span class="constant-value">4%</span>
+                </div>
+                <div class="constant-item">
+                    <span class="constant-label">Congés annuels</span>
+                    <span class="constant-value">24 jours + ancienneté</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration employeur -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="building"></i> Informations employeur
+            </h3>
+        </div>
+        <div class="card-body">
+            <form id="formConfig">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label">Nom de l'entreprise</label>
+                        <input type="text" id="nom_entreprise" class="form-input" value="{{ config.nom_entreprise }}">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Adresse</label>
+                        <textarea id="adresse_entreprise" class="form-textarea" rows="2">{{ config.adresse_entreprise }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input type="tel" id="telephone_entreprise" class="form-input" value="{{ config.telephone_entreprise }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="email_entreprise" class="form-input" value="{{ config.email_entreprise }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">N° CNSS Employeur</label>
+                        <input type="text" id="numero_cnss_employeur" class="form-input" value="{{ config.numero_cnss_employeur }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">N° IFU</label>
+                        <input type="text" id="numero_ifu_employeur" class="form-input" value="{{ config.numero_ifu_employeur }}">
+                    </div>
+                </div>
+
+                <h4 class="mt-4 mb-3">Paramètres de paie</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Jour de paiement des salaires</label>
+                        <input type="number" id="jour_paiement_salaire" class="form-input" min="1" max="31" value="{{ config.jour_paiement_salaire }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Taux risques professionnels (%)</label>
+                        <input type="number" id="taux_risques_professionnels" class="form-input" step="0.1" min="1" max="4" value="{{ config.taux_risques_professionnels }}">
+                        <small class="form-help">Entre 1% et 4% selon l'activité</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Plafond avance salaire (%)</label>
+                        <input type="number" id="plafond_avance_salaire" class="form-input" step="5" min="0" max="100" value="{{ config.plafond_avance_salaire }}">
+                    </div>
+                </div>
+
+                <div class="form-actions mt-4">
+                    <button type="button" class="btn btn-primary" onclick="sauvegarderConfig()">
+                        <i data-lucide="save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Catégories professionnelles -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="layers"></i> Catégories professionnelles
+                </h3>
+                <a href="/admin/rh/categorieemploye/" class="btn btn-sm btn-secondary" target="_blank">
+                    <i data-lucide="edit"></i> Gérer
+                </a>
+            </div>
+            <div class="card-body">
+                {% if categories %}
+                <div class="table-container">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Libellé</th>
+                                <th>Salaire min</th>
+                                <th>Essai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cat in categories %}
+                            <tr>
+                                <td>{{ cat.code }}</td>
+                                <td>{{ cat.libelle }}</td>
+                                <td>{{ cat.salaire_minimum|floatformat:0 }}</td>
+                                <td>{{ cat.duree_essai_mois }} mois</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Aucune catégorie configurée</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Postes -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="briefcase"></i> Postes
+                </h3>
+                <a href="/admin/rh/poste/" class="btn btn-sm btn-secondary" target="_blank">
+                    <i data-lucide="edit"></i> Gérer
+                </a>
+            </div>
+            <div class="card-body">
+                {% if postes %}
+                <div class="table-container">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Libellé</th>
+                                <th>Catégorie</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for poste in postes %}
+                            <tr>
+                                <td>{{ poste.code }}</td>
+                                <td>{{ poste.libelle }}</td>
+                                <td>{{ poste.categorie.code }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Aucun poste configuré</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2 mt-4">
+        <!-- Types de congés -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="calendar"></i> Types de congés
+                </h3>
+                <a href="/admin/rh/typeconge/" class="btn btn-sm btn-secondary" target="_blank">
+                    <i data-lucide="edit"></i> Gérer
+                </a>
+            </div>
+            <div class="card-body">
+                {% if types_conge %}
+                <div class="table-container">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Libellé</th>
+                                <th>Durée max</th>
+                                <th>Payé</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for type in types_conge %}
+                            <tr>
+                                <td>{{ type.libelle }}</td>
+                                <td>{{ type.duree_max|default:"-" }}</td>
+                                <td>{% if type.est_paye %}<i data-lucide="check" style="color:green;width:16px;"></i>{% else %}<i data-lucide="x" style="color:red;width:16px;"></i>{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Aucun type de congé configuré</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Éléments de paie -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="list"></i> Éléments de paie
+                </h3>
+                <a href="/admin/rh/elementpaie/" class="btn btn-sm btn-secondary" target="_blank">
+                    <i data-lucide="edit"></i> Gérer
+                </a>
+            </div>
+            <div class="card-body">
+                {% if elements_paie %}
+                <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Libellé</th>
+                                <th>Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for elem in elements_paie %}
+                            <tr>
+                                <td>{{ elem.code }}</td>
+                                <td>{{ elem.libelle }}</td>
+                                <td>
+                                    <span class="badge badge-{{ elem.type_element }}">
+                                        {{ elem.get_type_element_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Aucun élément de paie configuré</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Barème IPTS -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="percent"></i> Barème IPTS (Impôt Progressif sur Traitements et Salaires)
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Tranche de revenu (FCFA)</th>
+                            <th>Taux</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>0 - 50 000</td><td>0%</td></tr>
+                        <tr><td>50 001 - 130 000</td><td>10%</td></tr>
+                        <tr><td>130 001 - 280 000</td><td>15%</td></tr>
+                        <tr><td>280 001 - 530 000</td><td>19%</td></tr>
+                        <tr><td>530 001 - 880 000</td><td>24%</td></tr>
+                        <tr><td>880 001 - 1 380 000</td><td>28%</td></tr>
+                        <tr><td>1 380 001 - 2 030 000</td><td>32%</td></tr>
+                        <tr><td>2 030 001 - 2 830 000</td><td>35%</td></tr>
+                        <tr><td>2 830 001 - 3 780 000</td><td>37%</td></tr>
+                        <tr><td>Au-delà de 3 780 000</td><td>40%</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted mt-2">
+                <i data-lucide="info" style="width:14px;"></i>
+                Abattement pour charges de famille: 5% par enfant à charge, maximum 25%
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function sauvegarderConfig() {
+        const data = {
+            nom_entreprise: document.getElementById('nom_entreprise').value,
+            adresse_entreprise: document.getElementById('adresse_entreprise').value,
+            telephone_entreprise: document.getElementById('telephone_entreprise').value,
+            email_entreprise: document.getElementById('email_entreprise').value,
+            numero_cnss_employeur: document.getElementById('numero_cnss_employeur').value,
+            numero_ifu_employeur: document.getElementById('numero_ifu_employeur').value,
+            jour_paiement_salaire: document.getElementById('jour_paiement_salaire').value,
+            taux_risques_professionnels: document.getElementById('taux_risques_professionnels').value,
+            plafond_avance_salaire: document.getElementById('plafond_avance_salaire').value,
+        };
+
+        fetch('{% url "rh:sauvegarder_configuration" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

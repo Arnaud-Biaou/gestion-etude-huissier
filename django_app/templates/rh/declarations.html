@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item active">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Échéances -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="clock"></i> Prochaines échéances
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="echeances-grid">
+                {% for echeance in echeances %}
+                <div class="echeance-item {% if echeance.jours_restants <= 5 %}urgent{% endif %}">
+                    <div class="echeance-type">{{ echeance.type }}</div>
+                    <div class="echeance-date">{{ echeance.date_limite|date:"d/m/Y" }}</div>
+                    <div class="echeance-jours">
+                        {% if echeance.jours_restants <= 0 %}
+                        <span class="text-danger">Échue</span>
+                        {% else %}
+                        {{ echeance.jours_restants }} jours
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques annuelles -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="shield"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_cotisations_cnss|floatformat:0 }}</div>
+                <div class="stat-label">Cotisations CNSS {{ annee }}</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="landmark"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_ipts|floatformat:0 }}</div>
+                <div class="stat-label">IPTS {{ annee }}</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon accent">
+                <i data-lucide="building"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_vps|floatformat:0 }}</div>
+                <div class="stat-label">VPS {{ annee }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des déclarations -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="file-text"></i> Déclarations {{ annee }}
+            </h3>
+            <button class="btn btn-primary" onclick="ouvrirModalDeclaration()">
+                <i data-lucide="plus"></i> Nouvelle déclaration
+            </button>
+        </div>
+        <div class="card-body">
+            {% if declarations %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Période</th>
+                            <th>Salariés</th>
+                            <th>Masse salariale</th>
+                            <th>Cotisations</th>
+                            <th>IPTS</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for decl in declarations %}
+                        <tr>
+                            <td>{{ decl.get_type_declaration_display }}</td>
+                            <td>{{ decl.periode_debut|date:"d/m" }} - {{ decl.periode_fin|date:"d/m/Y" }}</td>
+                            <td>{{ decl.nombre_salaries }}</td>
+                            <td>{{ decl.masse_salariale|floatformat:0 }}</td>
+                            <td>{{ decl.total_cotisations|floatformat:0 }}</td>
+                            <td>{{ decl.total_ipts|floatformat:0 }}</td>
+                            <td>
+                                <span class="status-badge {{ decl.statut }}">
+                                    {{ decl.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <button class="btn btn-sm btn-secondary" onclick="voirDeclaration({{ decl.id }})" title="Détails">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                    {% if decl.fichier %}
+                                    <a href="{{ decl.fichier.url }}" class="btn btn-sm btn-secondary" title="Télécharger" target="_blank">
+                                        <i data-lucide="download"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="file-x"></i>
+                <h3>Aucune déclaration pour cette année</h3>
+                <p>Cliquez sur "Nouvelle déclaration" pour en créer une.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle déclaration -->
+<div class="modal" id="modalDeclaration" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Générer une déclaration</h3>
+            <button class="modal-close" onclick="fermerModalDeclaration()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formDeclaration">
+                <div class="form-group">
+                    <label class="form-label">Type de déclaration</label>
+                    <select id="type_declaration" class="form-select" required onchange="togglePeriode()">
+                        <option value="dns_mensuelle">DNS Mensuelle (CNSS)</option>
+                        <option value="ipts_mensuel">État IPTS Mensuel</option>
+                        <option value="vps_mensuel">VPS Mensuel</option>
+                        <option value="dns_trimestrielle">DNS Trimestrielle (CNSS)</option>
+                        <option value="disa">DISA - Déclaration annuelle</option>
+                        <option value="das">DAS - Déclaration annuelle salaires</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Année</label>
+                    <input type="number" id="decl_annee" class="form-input" value="{{ annee }}" required>
+                </div>
+                <div class="form-group" id="groupe_mois">
+                    <label class="form-label">Mois</label>
+                    <select id="decl_mois" class="form-select">
+                        <option value="1">Janvier</option>
+                        <option value="2">Février</option>
+                        <option value="3">Mars</option>
+                        <option value="4">Avril</option>
+                        <option value="5">Mai</option>
+                        <option value="6">Juin</option>
+                        <option value="7">Juillet</option>
+                        <option value="8">Août</option>
+                        <option value="9">Septembre</option>
+                        <option value="10">Octobre</option>
+                        <option value="11">Novembre</option>
+                        <option value="12">Décembre</option>
+                    </select>
+                </div>
+                <div class="form-group" id="groupe_trimestre" style="display:none;">
+                    <label class="form-label">Trimestre</label>
+                    <select id="decl_trimestre" class="form-select">
+                        <option value="1">1er trimestre (Jan-Mar)</option>
+                        <option value="2">2ème trimestre (Avr-Juin)</option>
+                        <option value="3">3ème trimestre (Juil-Sep)</option>
+                        <option value="4">4ème trimestre (Oct-Déc)</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalDeclaration()">Annuler</button>
+            <button class="btn btn-primary" onclick="genererDeclaration()">Générer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function ouvrirModalDeclaration() {
+        document.getElementById('modalDeclaration').style.display = 'flex';
+        togglePeriode();
+    }
+
+    function fermerModalDeclaration() {
+        document.getElementById('modalDeclaration').style.display = 'none';
+    }
+
+    function togglePeriode() {
+        const type = document.getElementById('type_declaration').value;
+        const groupeMois = document.getElementById('groupe_mois');
+        const groupeTrimestre = document.getElementById('groupe_trimestre');
+
+        if (type.includes('mensuel')) {
+            groupeMois.style.display = 'block';
+            groupeTrimestre.style.display = 'none';
+        } else if (type.includes('trimestriel')) {
+            groupeMois.style.display = 'none';
+            groupeTrimestre.style.display = 'block';
+        } else {
+            groupeMois.style.display = 'none';
+            groupeTrimestre.style.display = 'none';
+        }
+    }
+
+    function genererDeclaration() {
+        const type = document.getElementById('type_declaration').value;
+        const data = {
+            type_declaration: type,
+            annee: document.getElementById('decl_annee').value,
+        };
+
+        if (type.includes('mensuel')) {
+            data.mois = document.getElementById('decl_mois').value;
+        } else if (type.includes('trimestriel')) {
+            data.trimestre = document.getElementById('decl_trimestre').value;
+        }
+
+        fetch('{% url "rh:generer_declaration" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                fermerModalDeclaration();
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function voirDeclaration(id) {
+        alert('Fonctionnalité à implémenter - Détails déclaration ' + id);
+    }
+</script>
+{% endblock %}

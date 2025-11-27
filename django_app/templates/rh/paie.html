@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item active">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques de paie -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="file-text"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.nb_bulletins }}</div>
+                <div class="stat-label">Bulletins générés</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.nb_valides }}</div>
+                <div class="stat-label">Validés</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="wallet"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_brut|floatformat:0 }}</div>
+                <div class="stat-label">Masse salariale brute</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon accent">
+                <i data-lucide="banknote"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_net|floatformat:0 }}</div>
+                <div class="stat-label">Total net à payer</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cotisations -->
+    <div class="grid-3 mt-4">
+        <div class="card info-card">
+            <div class="card-body">
+                <div class="info-card-content">
+                    <div class="info-card-icon">
+                        <i data-lucide="shield"></i>
+                    </div>
+                    <div>
+                        <div class="info-card-label">CNSS Salariale</div>
+                        <div class="info-card-value">{{ stats.total_cnss_salariale|floatformat:0 }} F</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card info-card">
+            <div class="card-body">
+                <div class="info-card-content">
+                    <div class="info-card-icon">
+                        <i data-lucide="building"></i>
+                    </div>
+                    <div>
+                        <div class="info-card-label">CNSS Patronale</div>
+                        <div class="info-card-value">{{ stats.total_cnss_patronale|floatformat:0 }} F</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card info-card">
+            <div class="card-body">
+                <div class="info-card-content">
+                    <div class="info-card-icon">
+                        <i data-lucide="landmark"></i>
+                    </div>
+                    <div>
+                        <div class="info-card-label">IPTS</div>
+                        <div class="info-card-value">{{ stats.total_ipts|floatformat:0 }} F</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des bulletins -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="file-text"></i> Bulletins de paie - {{ periode }}
+            </h3>
+            <div class="flex gap-2">
+                <select id="selectPeriode" class="form-select" onchange="changerPeriode()">
+                    {% for p in periodes %}
+                    <option value="{{ p.id }}" {% if p.id == periode.id %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-primary" onclick="genererBulletins()">
+                    <i data-lucide="plus"></i> Générer les bulletins
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if bulletins %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                            <th>Référence</th>
+                            <th>Employé</th>
+                            <th>Salaire brut</th>
+                            <th>CNSS</th>
+                            <th>IPTS</th>
+                            <th>Net à payer</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bulletin in bulletins %}
+                        <tr data-id="{{ bulletin.id }}">
+                            <td><input type="checkbox" class="bulletin-checkbox" value="{{ bulletin.id }}"></td>
+                            <td>{{ bulletin.reference }}</td>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar-sm">{{ bulletin.employe.get_initiales }}</div>
+                                    {{ bulletin.employe.get_nom_complet }}
+                                </div>
+                            </td>
+                            <td>{{ bulletin.salaire_brut|floatformat:0 }}</td>
+                            <td>{{ bulletin.cnss_salariale|floatformat:0 }}</td>
+                            <td>{{ bulletin.ipts|floatformat:0 }}</td>
+                            <td><strong>{{ bulletin.net_a_payer|floatformat:0 }}</strong></td>
+                            <td>
+                                <span class="status-badge {{ bulletin.statut }}">
+                                    {{ bulletin.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="{% url 'rh:detail_bulletin' bulletin.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    <a href="{% url 'rh:imprimer_bulletin' bulletin.id %}" class="btn btn-sm btn-secondary" target="_blank" title="Imprimer">
+                                        <i data-lucide="printer"></i>
+                                    </a>
+                                    {% if bulletin.statut == 'brouillon' %}
+                                    <button class="btn btn-sm btn-success" onclick="validerBulletin({{ bulletin.id }})" title="Valider">
+                                        <i data-lucide="check"></i>
+                                    </button>
+                                    {% elif bulletin.statut == 'valide' %}
+                                    <button class="btn btn-sm btn-primary" onclick="payerBulletin({{ bulletin.id }})" title="Marquer payé">
+                                        <i data-lucide="banknote"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Actions groupées -->
+            <div class="bulk-actions mt-4">
+                <button class="btn btn-success" onclick="validerSelection()">
+                    <i data-lucide="check-circle"></i> Valider la sélection
+                </button>
+                <button class="btn btn-primary" onclick="payerSelection()">
+                    <i data-lucide="banknote"></i> Marquer comme payés
+                </button>
+                <a href="{% url 'rh:livre_paie' %}?annee={{ periode.annee }}&mois={{ periode.mois }}" class="btn btn-secondary">
+                    <i data-lucide="file-spreadsheet"></i> Livre de paie
+                </a>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="file-x"></i>
+                <h3>Aucun bulletin pour cette période</h3>
+                <p>Cliquez sur "Générer les bulletins" pour créer les bulletins de paie.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function changerPeriode() {
+        const periodeId = document.getElementById('selectPeriode').value;
+        window.location.href = '{% url "rh:paie" %}?periode=' + periodeId;
+    }
+
+    function genererBulletins() {
+        if (!confirm('Générer les bulletins de paie pour tous les employés actifs ?')) return;
+
+        fetch('{% url "rh:generer_bulletins" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({periode_id: {{ periode.id }}})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function validerBulletin(bulletinId) {
+        fetch('{% url "rh:valider_bulletin" 0 %}'.replace('0', bulletinId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function payerBulletin(bulletinId) {
+        fetch('{% url "rh:payer_bulletin" 0 %}'.replace('0', bulletinId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.bulletin-checkbox').forEach(cb => {
+            cb.checked = selectAll;
+        });
+    }
+
+    function getSelectedBulletins() {
+        const checkboxes = document.querySelectorAll('.bulletin-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    function validerSelection() {
+        const ids = getSelectedBulletins();
+        if (ids.length === 0) {
+            alert('Veuillez sélectionner au moins un bulletin');
+            return;
+        }
+
+        ids.forEach(id => validerBulletin(id));
+    }
+
+    function payerSelection() {
+        const ids = getSelectedBulletins();
+        if (ids.length === 0) {
+            alert('Veuillez sélectionner au moins un bulletin');
+            return;
+        }
+
+        ids.forEach(id => payerBulletin(id));
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item active">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <div class="grid-2">
+        <!-- Demandes en attente -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="clock"></i> Demandes en attente
+                </h3>
+                <button class="btn btn-primary" onclick="ouvrirModalDemande()">
+                    <i data-lucide="plus"></i> Nouvelle demande
+                </button>
+            </div>
+            <div class="card-body">
+                {% if demandes_en_attente %}
+                <div class="demandes-list">
+                    {% for conge in demandes_en_attente %}
+                    <div class="demande-item">
+                        <div class="demande-employe">
+                            <div class="employe-avatar">{{ conge.employe.get_initiales }}</div>
+                            <div class="employe-info">
+                                <div class="employe-nom">{{ conge.employe.get_nom_complet }}</div>
+                                <div class="employe-type">{{ conge.type_conge.libelle }}</div>
+                            </div>
+                        </div>
+                        <div class="demande-dates">
+                            <div>{{ conge.date_debut|date:"d/m/Y" }} - {{ conge.date_fin|date:"d/m/Y" }}</div>
+                            <div class="demande-jours">{{ conge.nombre_jours }} jours</div>
+                        </div>
+                        <div class="demande-actions">
+                            <button class="btn btn-sm btn-success" onclick="approuverConge({{ conge.id }})">
+                                <i data-lucide="check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="refuserConge({{ conge.id }})">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune demande en attente</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Congés en cours -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="palm-tree"></i> Congés en cours
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if conges_en_cours %}
+                <div class="conges-list">
+                    {% for conge in conges_en_cours %}
+                    <div class="conge-item en-cours">
+                        <div class="conge-employe">
+                            <div class="employe-avatar">{{ conge.employe.get_initiales }}</div>
+                            <div class="employe-info">
+                                <div class="employe-nom">{{ conge.employe.get_nom_complet }}</div>
+                                <div class="employe-type">{{ conge.type_conge.libelle }}</div>
+                            </div>
+                        </div>
+                        <div class="conge-dates">
+                            <div>Jusqu'au {{ conge.date_fin|date:"d/m/Y" }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun employé en congé actuellement</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendrier des congés -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="calendar"></i> Congés planifiés (30 prochains jours)
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if conges_planifies %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>Type</th>
+                            <th>Début</th>
+                            <th>Fin</th>
+                            <th>Jours</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conge in conges_planifies %}
+                        <tr>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar-sm">{{ conge.employe.get_initiales }}</div>
+                                    {{ conge.employe.get_nom_complet }}
+                                </div>
+                            </td>
+                            <td>{{ conge.type_conge.libelle }}</td>
+                            <td>{{ conge.date_debut|date:"d/m/Y" }}</td>
+                            <td>{{ conge.date_fin|date:"d/m/Y" }}</td>
+                            <td>{{ conge.nombre_jours }}</td>
+                            <td>
+                                <span class="status-badge {{ conge.statut }}">
+                                    {{ conge.get_statut_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">Aucun congé planifié</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Soldes de congés -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="bar-chart-2"></i> Soldes de congés
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if soldes %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>Acquis</th>
+                            <th>Reportés</th>
+                            <th>Pris</th>
+                            <th>Disponible</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for solde in soldes %}
+                        <tr>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar-sm">{{ solde.employe.get_initiales }}</div>
+                                    {{ solde.employe.get_nom_complet }}
+                                </div>
+                            </td>
+                            <td>{{ solde.jours_acquis }}</td>
+                            <td>{{ solde.jours_reportes }}</td>
+                            <td>{{ solde.jours_pris }}</td>
+                            <td>
+                                <strong class="{% if solde.solde_disponible <= 5 %}text-warning{% endif %}">
+                                    {{ solde.solde_disponible }} jours
+                                </strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">Aucun solde enregistré</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle demande -->
+<div class="modal" id="modalDemande" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouvelle demande de congé</h3>
+            <button class="modal-close" onclick="fermerModalDemande()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formConge">
+                <div class="form-group">
+                    <label class="form-label">Employé</label>
+                    <select id="employe_id" class="form-select" required>
+                        <option value="">-- Sélectionner --</option>
+                        {% for solde in soldes %}
+                        <option value="{{ solde.employe.id }}">{{ solde.employe.get_nom_complet }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type de congé</label>
+                    <select id="type_conge_id" class="form-select" required>
+                        {% for type in types_conge %}
+                        <option value="{{ type.id }}">{{ type.libelle }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" id="date_debut" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" id="date_fin" class="form-input" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Motif (optionnel)</label>
+                    <textarea id="motif" class="form-textarea" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalDemande()">Annuler</button>
+            <button class="btn btn-primary" onclick="soumettreDemandeConge()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function ouvrirModalDemande() {
+        document.getElementById('modalDemande').style.display = 'flex';
+    }
+
+    function fermerModalDemande() {
+        document.getElementById('modalDemande').style.display = 'none';
+    }
+
+    function soumettreDemandeConge() {
+        const data = {
+            employe_id: document.getElementById('employe_id').value,
+            type_conge_id: document.getElementById('type_conge_id').value,
+            date_debut: document.getElementById('date_debut').value,
+            date_fin: document.getElementById('date_fin').value,
+            motif: document.getElementById('motif').value,
+        };
+
+        fetch('{% url "rh:demander_conge" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                fermerModalDemande();
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function approuverConge(congeId) {
+        fetch('{% url "rh:approuver_conge" 0 %}'.replace('0', congeId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({action: 'approuver'})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function refuserConge(congeId) {
+        const motif = prompt('Motif du refus:');
+        if (motif === null) return;
+
+        fetch('{% url "rh:approuver_conge" 0 %}'.replace('0', congeId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({action: 'refuser', motif_refus: motif})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

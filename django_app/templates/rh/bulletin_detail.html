@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item active">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{% url 'rh:paie' %}"><i data-lucide="arrow-left"></i> Retour à la paie</a>
+    </div>
+
+    <div class="bulletin-container">
+        <!-- En-tête du bulletin -->
+        <div class="bulletin-header">
+            <div class="bulletin-header-left">
+                <h2>Bulletin de paie</h2>
+                <span class="status-badge {{ bulletin.statut }}">{{ bulletin.get_statut_display }}</span>
+            </div>
+            <div class="bulletin-header-right">
+                <a href="{% url 'rh:imprimer_bulletin' bulletin.id %}" class="btn btn-secondary" target="_blank">
+                    <i data-lucide="printer"></i> Imprimer
+                </a>
+                {% if bulletin.statut == 'brouillon' %}
+                <button class="btn btn-success" onclick="validerBulletin()">
+                    <i data-lucide="check"></i> Valider
+                </button>
+                {% elif bulletin.statut == 'valide' %}
+                <button class="btn btn-primary" onclick="payerBulletin()">
+                    <i data-lucide="banknote"></i> Marquer payé
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informations employeur/employé -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Employeur</h4>
+                </div>
+                <div class="card-body">
+                    <p><strong>{{ config.nom_entreprise }}</strong></p>
+                    <p>{{ config.adresse_entreprise }}</p>
+                    <p>N° CNSS: {{ config.numero_cnss_employeur }}</p>
+                    <p>N° IFU: {{ config.numero_ifu_employeur }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Employé</h4>
+                </div>
+                <div class="card-body">
+                    <p><strong>{{ bulletin.employe.get_nom_complet }}</strong></p>
+                    <p>Matricule: {{ bulletin.employe.matricule }}</p>
+                    <p>N° CNSS: {{ bulletin.employe.numero_cnss|default:"-" }}</p>
+                    <p>Poste: {{ bulletin.employe.poste|default:"-" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Période et éléments de base -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="card-title">Période: {{ bulletin.periode }}</h4>
+                <span>Référence: {{ bulletin.reference }}</span>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Salaire de base</span>
+                        <span class="info-value">{{ bulletin.salaire_base|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Jours travaillés</span>
+                        <span class="info-value">{{ bulletin.jours_travailles }} jours</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Jours d'absence</span>
+                        <span class="info-value">{{ bulletin.jours_absence }} jours</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Heures supplémentaires</span>
+                        <span class="info-value">{{ bulletin.heures_supplementaires }} h</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Détail des éléments -->
+        <div class="grid-2 mt-4">
+            <!-- Gains -->
+            <div class="card">
+                <div class="card-header gains-header">
+                    <h4 class="card-title"><i data-lucide="plus-circle"></i> Gains</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Libellé</th>
+                                <th>Base</th>
+                                <th>Taux</th>
+                                <th>Montant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Salaire de base</td>
+                                <td></td>
+                                <td></td>
+                                <td>{{ bulletin.salaire_base|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Prime d'ancienneté</td>
+                                <td>{{ bulletin.salaire_base|floatformat:0 }}</td>
+                                <td>{{ bulletin.employe.prime_anciennete_taux }}%</td>
+                                <td>{{ bulletin.employe.prime_anciennete_montant|floatformat:0 }}</td>
+                            </tr>
+                            {% for ligne in lignes %}
+                            {% if ligne.element.type_element == 'gain' %}
+                            <tr>
+                                <td>{{ ligne.libelle }}</td>
+                                <td>{{ ligne.base|floatformat:0|default:"" }}</td>
+                                <td>{% if ligne.taux %}{{ ligne.taux }}%{% endif %}</td>
+                                <td>{{ ligne.montant|floatformat:0 }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="total-row">
+                                <td colspan="3"><strong>Total gains</strong></td>
+                                <td><strong>{{ bulletin.total_gains|floatformat:0 }}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Retenues -->
+            <div class="card">
+                <div class="card-header retenues-header">
+                    <h4 class="card-title"><i data-lucide="minus-circle"></i> Retenues</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Libellé</th>
+                                <th>Base</th>
+                                <th>Taux</th>
+                                <th>Montant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CNSS Salariale (Vieillesse)</td>
+                                <td>{{ bulletin.base_cotisable|floatformat:0 }}</td>
+                                <td>3,6%</td>
+                                <td>{{ bulletin.cnss_salariale|floatformat:0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>IPTS</td>
+                                <td>{{ bulletin.base_imposable|floatformat:0 }}</td>
+                                <td>Barème</td>
+                                <td>{{ bulletin.ipts|floatformat:0 }}</td>
+                            </tr>
+                            {% for ligne in lignes %}
+                            {% if ligne.element.type_element == 'retenue' %}
+                            <tr>
+                                <td>{{ ligne.libelle }}</td>
+                                <td>{{ ligne.base|floatformat:0|default:"" }}</td>
+                                <td>{% if ligne.taux %}{{ ligne.taux }}%{% endif %}</td>
+                                <td>{{ ligne.montant|floatformat:0 }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="total-row">
+                                <td colspan="3"><strong>Total retenues</strong></td>
+                                <td><strong>{{ bulletin.total_retenues|floatformat:0 }}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Récapitulatif -->
+        <div class="card mt-4 recap-card">
+            <div class="card-body">
+                <div class="recap-grid">
+                    <div class="recap-item">
+                        <span class="recap-label">Salaire brut</span>
+                        <span class="recap-value">{{ bulletin.salaire_brut|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="recap-item">
+                        <span class="recap-label">Total retenues</span>
+                        <span class="recap-value text-danger">- {{ bulletin.total_retenues|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="recap-item net-a-payer">
+                        <span class="recap-label">NET À PAYER</span>
+                        <span class="recap-value">{{ bulletin.net_a_payer|floatformat:0 }} FCFA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charges patronales -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="card-title"><i data-lucide="building"></i> Charges patronales</h4>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">CNSS Patronale</span>
+                        <span class="info-value">{{ bulletin.cnss_patronale|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">VPS (4%)</span>
+                        <span class="info-value">{{ bulletin.vps|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Coût total employeur</span>
+                        <span class="info-value"><strong>{{ bulletin.salaire_brut|add:bulletin.cnss_patronale|add:bulletin.vps|floatformat:0 }} FCFA</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cumuls annuels -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="card-title"><i data-lucide="trending-up"></i> Cumuls annuels</h4>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Cumul brut</span>
+                        <span class="info-value">{{ bulletin.cumul_brut|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Cumul CNSS</span>
+                        <span class="info-value">{{ bulletin.cumul_cnss|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Cumul IPTS</span>
+                        <span class="info-value">{{ bulletin.cumul_ipts|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Cumul net</span>
+                        <span class="info-value">{{ bulletin.cumul_net|floatformat:0 }} FCFA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations de paiement -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="card-title"><i data-lucide="credit-card"></i> Mode de paiement</h4>
+            </div>
+            <div class="card-body">
+                <p>{{ bulletin.get_mode_paiement_display }}</p>
+                {% if bulletin.date_paiement %}
+                <p>Date de paiement: {{ bulletin.date_paiement|date:"d/m/Y" }}</p>
+                {% endif %}
+                {% if bulletin.employe.rib_complet %}
+                <p>RIB: {{ bulletin.employe.rib_complet }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function validerBulletin() {
+        fetch('{% url "rh:valider_bulletin" bulletin.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function payerBulletin() {
+        fetch('{% url "rh:payer_bulletin" bulletin.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+</script>
+{% endblock %}
