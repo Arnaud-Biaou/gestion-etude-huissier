@@ -3114,3 +3114,554 @@ def api_memoire_export_pdf(request, memoire_id):
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API TABLEAU DE BORD AVANCÉ
+# ============================================
+
+@require_GET
+def api_dashboard_data(request):
+    """
+    API pour récupérer toutes les données du tableau de bord avancé.
+    Agrège les données de tous les modules de l'application.
+    """
+    try:
+        today = timezone.now().date()
+        now = timezone.now()
+        debut_mois = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        debut_jour = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Importer les modèles des autres apps si disponibles
+        try:
+            from agenda.models import RendezVous, Tache, Notification
+            has_agenda = True
+        except ImportError:
+            has_agenda = False
+
+        try:
+            from rh.models import Employe, Conge, Contrat
+            has_rh = True
+        except ImportError:
+            has_rh = False
+
+        try:
+            from comptabilite.models import EcritureComptable, ExerciceComptable
+            has_compta = True
+        except ImportError:
+            has_compta = False
+
+        # ===== SECTION 1: KPIs RÉSUMÉ =====
+        dossiers_actifs = Dossier.objects.filter(statut__in=['actif', 'urgent']).count()
+        dossiers_nouveaux_mois = Dossier.objects.filter(date_ouverture__gte=debut_mois.date()).count()
+
+        # Solde trésorerie (somme des encaissements - décaissements)
+        total_encaissements = Encaissement.objects.filter(
+            statut='valide'
+        ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+        total_reversements = Reversement.objects.filter(
+            statut='effectue'
+        ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+        solde_tresorerie = total_encaissements - total_reversements
+
+        # Encaissements du jour
+        encaissements_jour = Encaissement.objects.filter(
+            date_encaissement__date=today,
+            statut='valide'
+        ).aggregate(
+            total=Sum('montant'),
+            count=Count('id')
+        )
+
+        # Alertes urgentes
+        dossiers_urgents = Dossier.objects.filter(statut='urgent').count()
+        reversements_attente = Reversement.objects.filter(statut='en_attente').count()
+
+        # ===== SECTION 2: DOSSIERS =====
+        dossiers_en_cours = Dossier.objects.filter(statut='actif').count()
+        dossiers_en_attente = Dossier.objects.filter(statut='archive').count()
+        dossiers_clotures_mois = Dossier.objects.filter(
+            statut='cloture',
+            date_ouverture__gte=debut_mois.date()
+        ).count()
+
+        # Répartition par type
+        repartition_types = list(Dossier.objects.filter(
+            statut__in=['actif', 'urgent']
+        ).values('type_dossier').annotate(
+            count=Count('id')
+        ).order_by('-count'))
+
+        # Derniers dossiers ouverts
+        derniers_dossiers = list(Dossier.objects.order_by('-date_ouverture')[:5].values(
+            'reference', 'type_dossier', 'date_ouverture', 'statut'
+        ))
+
+        # Dossiers sans activité depuis 30 jours
+        date_30j = today - timedelta(days=30)
+        dossiers_sans_activite = Dossier.objects.filter(
+            statut='actif',
+            date_ouverture__lt=date_30j
+        ).count()
+
+        # ===== SECTION 3: AGENDA =====
+        agenda_data = {
+            'rendez_vous': [],
+            'taches': [],
+            'taches_retard': 0
+        }
+
+        if has_agenda:
+            # RDV du jour
+            rdvs_jour = RendezVous.objects.filter(
+                date_debut__date=today
+            ).order_by('date_debut')[:10]
+
+            agenda_data['rendez_vous'] = [{
+                'heure': rdv.date_debut.strftime('%H:%M'),
+                'titre': rdv.titre,
+                'type': rdv.type_rdv,
+                'dossier_ref': rdv.dossier.reference if rdv.dossier else None,
+                'lieu': rdv.lieu
+            } for rdv in rdvs_jour]
+
+            # Tâches du jour
+            taches_jour = Tache.objects.filter(
+                date_echeance__date=today
+            ).order_by('priorite', 'date_echeance')[:10]
+
+            agenda_data['taches'] = [{
+                'titre': t.titre,
+                'priorite': t.priorite,
+                'statut': t.statut,
+                'dossier_ref': t.dossier.reference if t.dossier else None
+            } for t in taches_jour]
+
+            # Tâches en retard
+            agenda_data['taches_retard'] = Tache.objects.filter(
+                date_echeance__lt=today,
+                statut__in=['a_faire', 'en_cours']
+            ).count()
+
+        # ===== SECTION 4: TRÉSORERIE =====
+        # Soldes des caisses (simulé - à adapter avec un modèle Caisse si existant)
+        caisses = [
+            {'nom': 'Caisse principale Parakou', 'solde': float(solde_tresorerie * Decimal('0.6'))},
+            {'nom': 'Caisse secondaire', 'solde': float(solde_tresorerie * Decimal('0.25'))},
+            {'nom': 'Compte séquestre', 'solde': float(solde_tresorerie * Decimal('0.15'))},
+        ]
+
+        # Décaissements du jour
+        decaissements_jour = Reversement.objects.filter(
+            date_reversement__date=today,
+            statut='effectue'
+        ).aggregate(
+            total=Sum('montant'),
+            count=Count('id')
+        )
+
+        # Décaissements en attente d'approbation
+        decaissements_attente = Reversement.objects.filter(
+            statut='en_attente'
+        ).count()
+
+        tresorerie_data = {
+            'caisses': caisses,
+            'total': float(solde_tresorerie),
+            'encaissements_jour': {
+                'montant': float(encaissements_jour['total'] or 0),
+                'count': encaissements_jour['count'] or 0
+            },
+            'decaissements_jour': {
+                'montant': float(decaissements_jour['total'] or 0),
+                'count': decaissements_jour['count'] or 0
+            },
+            'solde_net_jour': float((encaissements_jour['total'] or 0) - (decaissements_jour['total'] or 0)),
+            'decaissements_attente': decaissements_attente
+        }
+
+        # ===== SECTION 5: FACTURATION =====
+        factures_mois = Facture.objects.filter(date_emission__gte=debut_mois)
+
+        factures_emises = factures_mois.aggregate(
+            count=Count('id'),
+            total=Sum('montant_ttc')
+        )
+
+        factures_payees = factures_mois.filter(statut='payee').aggregate(
+            count=Count('id'),
+            total=Sum('montant_ttc')
+        )
+
+        factures_attente = factures_mois.filter(statut='attente').aggregate(
+            count=Count('id'),
+            total=Sum('montant_ttc')
+        )
+
+        # Factures impayées > 30 jours
+        date_30j_ago = today - timedelta(days=30)
+        factures_impayees = list(Facture.objects.filter(
+            statut='attente',
+            date_emission__lt=date_30j_ago
+        ).values('numero', 'montant_ttc', 'date_emission')[:5])
+
+        for f in factures_impayees:
+            f['jours'] = (today - f['date_emission']).days
+            f['montant_ttc'] = float(f['montant_ttc']) if f['montant_ttc'] else 0
+
+        # Taux de recouvrement
+        taux_recouvrement = 0
+        if factures_emises['total'] and factures_emises['total'] > 0:
+            taux_recouvrement = int((factures_payees['total'] or 0) / factures_emises['total'] * 100)
+
+        facturation_data = {
+            'emises': {
+                'count': factures_emises['count'] or 0,
+                'total': float(factures_emises['total'] or 0)
+            },
+            'payees': {
+                'count': factures_payees['count'] or 0,
+                'total': float(factures_payees['total'] or 0)
+            },
+            'attente': {
+                'count': factures_attente['count'] or 0,
+                'total': float(factures_attente['total'] or 0)
+            },
+            'impayees_30j': factures_impayees,
+            'taux_recouvrement': taux_recouvrement
+        }
+
+        # ===== SECTION 6: COMPTABILITÉ =====
+        compta_data = {
+            'chiffre_affaires': 0,
+            'charges': 0,
+            'resultat_net': 0,
+            'evolution_ca': [],
+            'tva_a_declarer': 0
+        }
+
+        if has_compta:
+            # Calcul du CA, charges et résultat (à adapter selon les comptes OHADA)
+            pass
+        else:
+            # Données simulées basées sur les factures
+            ca_mois = float(factures_payees['total'] or 0)
+            compta_data['chiffre_affaires'] = ca_mois
+            compta_data['charges'] = ca_mois * 0.45  # Estimation
+            compta_data['resultat_net'] = ca_mois - compta_data['charges']
+            compta_data['tva_a_declarer'] = ca_mois * 0.18 * 0.3  # TVA collectée estimée
+
+        # ===== SECTION 7: RECOUVREMENT =====
+        # Dossiers amiables
+        dossiers_amiables = Dossier.objects.filter(
+            phase='amiable',
+            statut__in=['actif', 'urgent']
+        ).aggregate(
+            count=Count('id'),
+            total=Sum('montant_creance')
+        )
+
+        # Dossiers forcés
+        dossiers_forces = Dossier.objects.filter(
+            phase='force',
+            statut__in=['actif', 'urgent']
+        ).aggregate(
+            count=Count('id'),
+            total=Sum('montant_creance')
+        )
+
+        # Encaissements du mois
+        encaissements_mois = Encaissement.objects.filter(
+            date_encaissement__gte=debut_mois,
+            statut='valide'
+        ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+        # Reversements du mois
+        reversements_mois = Reversement.objects.filter(
+            date_reversement__gte=debut_mois,
+            statut='effectue'
+        ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+        # Émoluments générés (estimation 10% des encaissements)
+        emoluments_mois = float(encaissements_mois) * 0.10
+
+        # Taux de recouvrement global
+        total_creances = (dossiers_amiables['total'] or 0) + (dossiers_forces['total'] or 0)
+        taux_recouvrement_global = 0
+        if total_creances > 0:
+            taux_recouvrement_global = int(float(total_encaissements) / float(total_creances) * 100)
+
+        # Reversements en attente
+        reversements_en_attente = Reversement.objects.filter(
+            statut='en_attente'
+        ).aggregate(
+            count=Count('id'),
+            total=Sum('montant')
+        )
+
+        # Dossiers sans activité 60 jours
+        date_60j = today - timedelta(days=60)
+        dossiers_sans_activite_60j = Dossier.objects.filter(
+            statut='actif',
+            date_ouverture__lt=date_60j
+        ).count()
+
+        recouvrement_data = {
+            'amiables': {
+                'count': dossiers_amiables['count'] or 0,
+                'total': float(dossiers_amiables['total'] or 0)
+            },
+            'forces': {
+                'count': dossiers_forces['count'] or 0,
+                'total': float(dossiers_forces['total'] or 0)
+            },
+            'total_creances': float(total_creances),
+            'encaissements_mois': float(encaissements_mois),
+            'reversements_mois': float(reversements_mois),
+            'emoluments_mois': emoluments_mois,
+            'taux_recouvrement': taux_recouvrement_global,
+            'reversements_attente': {
+                'count': reversements_en_attente['count'] or 0,
+                'total': float(reversements_en_attente['total'] or 0)
+            },
+            'dossiers_sans_activite': dossiers_sans_activite_60j
+        }
+
+        # ===== SECTION 8: GÉRANCE IMMOBILIÈRE =====
+        # Données simulées (à connecter avec le module gérance quand disponible)
+        gerance_data = {
+            'biens_gestion': 28,
+            'biens_loues': 24,
+            'biens_vacants': 4,
+            'taux_occupation': 86,
+            'loyers_attendus': 4200000,
+            'loyers_encaisses': 3650000,
+            'loyers_impayes': 550000,
+            'locataires_impayes': 5,
+            'etats_lieux_a_faire': 2,
+            'reversements_proprietaires': 2890000,
+            'baux_expirent_30j': 1
+        }
+
+        # ===== SECTION 9: RESSOURCES HUMAINES =====
+        rh_data = {
+            'effectif_total': 8,
+            'presents_aujourdhui': 7,
+            'en_conge': 1,
+            'absents': 0,
+            'conges_en_cours': [],
+            'alertes': []
+        }
+
+        if has_rh:
+            # Effectif total
+            rh_data['effectif_total'] = Employe.objects.filter(actif=True).count()
+
+            # Congés en cours
+            conges_en_cours = Conge.objects.filter(
+                date_debut__lte=today,
+                date_fin__gte=today,
+                statut='approuve'
+            )
+            rh_data['en_conge'] = conges_en_cours.count()
+            rh_data['presents_aujourdhui'] = rh_data['effectif_total'] - rh_data['en_conge']
+
+            rh_data['conges_en_cours'] = [{
+                'employe': c.employe.nom_complet,
+                'type': c.type_conge.nom if c.type_conge else 'Congé',
+                'date_fin': c.date_fin.strftime('%d/%m')
+            } for c in conges_en_cours[:3]]
+
+            # Alertes RH
+            # Fins de période d'essai
+            date_15j = today + timedelta(days=15)
+            fins_essai = Contrat.objects.filter(
+                date_fin_essai__lte=date_15j,
+                date_fin_essai__gte=today,
+                statut='actif'
+            )
+            for c in fins_essai:
+                rh_data['alertes'].append({
+                    'type': 'fin_essai',
+                    'message': f"Fin période essai : {c.employe.nom_complet}",
+                    'date': c.date_fin_essai.strftime('%d/%m')
+                })
+
+            # Fins de CDD
+            date_60j = today + timedelta(days=60)
+            fins_cdd = Contrat.objects.filter(
+                type_contrat='CDD',
+                date_fin__lte=date_60j,
+                date_fin__gte=today,
+                statut='actif'
+            )
+            for c in fins_cdd:
+                rh_data['alertes'].append({
+                    'type': 'fin_cdd',
+                    'message': f"Fin CDD : {c.employe.nom_complet}",
+                    'date': c.date_fin.strftime('%d/%m')
+                })
+
+        # ===== SECTION 10: MÉMOIRES DE CÉDULES =====
+        memoires_attente_paiement = Memoire.objects.filter(
+            statut__in=['soumis', 'certifie']
+        ).aggregate(
+            count=Count('id'),
+            total=Sum('montant_total')
+        )
+
+        memoires_payes_mois = Memoire.objects.filter(
+            statut='paye',
+            date_paiement__gte=debut_mois
+        ).aggregate(
+            count=Count('id'),
+            total=Sum('montant_total')
+        )
+
+        # Cédules en cours de signification (approximation via les affaires)
+        cedules_en_cours = AffaireMemoire.objects.filter(
+            memoire__statut='brouillon'
+        ).count()
+
+        # Derniers paiements
+        derniers_paiements = list(Memoire.objects.filter(
+            statut='paye'
+        ).order_by('-date_paiement')[:3].values(
+            'numero', 'montant_total', 'date_paiement'
+        ))
+
+        for p in derniers_paiements:
+            p['montant_total'] = float(p['montant_total']) if p['montant_total'] else 0
+
+        # Mémoires en attente depuis longtemps
+        date_60j_ago = today - timedelta(days=60)
+        memoires_attente_longue = list(Memoire.objects.filter(
+            statut__in=['soumis', 'certifie'],
+            date_creation__lt=date_60j_ago
+        ).values('numero', 'montant_total', 'date_creation')[:3])
+
+        for m in memoires_attente_longue:
+            m['jours'] = (today - m['date_creation'].date()).days if m['date_creation'] else 0
+            m['montant_total'] = float(m['montant_total']) if m['montant_total'] else 0
+
+        memoires_data = {
+            'attente_paiement': {
+                'count': memoires_attente_paiement['count'] or 0,
+                'total': float(memoires_attente_paiement['total'] or 0)
+            },
+            'payes_mois': {
+                'count': memoires_payes_mois['count'] or 0,
+                'total': float(memoires_payes_mois['total'] or 0)
+            },
+            'cedules_en_cours': cedules_en_cours,
+            'derniers_paiements': derniers_paiements,
+            'attente_longue': memoires_attente_longue
+        }
+
+        # ===== SECTION 11: ALERTES =====
+        alertes = {
+            'urgentes': [],
+            'importantes': [],
+            'informations': []
+        }
+
+        # Alertes urgentes
+        if dossiers_urgents > 0:
+            alertes['urgentes'].append({
+                'type': 'dossier_urgent',
+                'message': f'{dossiers_urgents} dossier(s) urgent(s) à traiter'
+            })
+
+        if decaissements_attente > 0:
+            alertes['urgentes'].append({
+                'type': 'decaissement_attente',
+                'message': f'{decaissements_attente} décaissement(s) en attente d\'approbation'
+            })
+
+        if has_agenda:
+            if agenda_data['taches_retard'] > 0:
+                alertes['urgentes'].append({
+                    'type': 'taches_retard',
+                    'message': f'{agenda_data["taches_retard"]} tâche(s) en retard'
+                })
+
+        # Alertes importantes
+        if reversements_en_attente['count'] > 0:
+            alertes['importantes'].append({
+                'type': 'reversements',
+                'message': f'{reversements_en_attente["count"]} reversement(s) créanciers à effectuer'
+            })
+
+        if compta_data['tva_a_declarer'] > 0:
+            alertes['importantes'].append({
+                'type': 'tva',
+                'message': f"TVA à déclarer : {compta_data['tva_a_declarer']:,.0f} F"
+            })
+
+        # Informations
+        if len(factures_impayees) > 0:
+            alertes['informations'].append({
+                'type': 'factures_impayees',
+                'message': f'{len(factures_impayees)} facture(s) impayée(s) > 30 jours'
+            })
+
+        if dossiers_sans_activite > 0:
+            alertes['informations'].append({
+                'type': 'dossiers_inactifs',
+                'message': f'{dossiers_sans_activite} dossier(s) sans activité > 30 jours'
+            })
+
+        # ===== CONSTRUCTION DE LA RÉPONSE =====
+        response_data = {
+            'success': True,
+            'timestamp': now.isoformat(),
+            'date_formatted': now.strftime('%A %d %B %Y'),
+            'heure': now.strftime('%H:%M'),
+
+            # KPIs principaux
+            'kpis': {
+                'dossiers_en_cours': dossiers_actifs,
+                'dossiers_nouveaux_mois': dossiers_nouveaux_mois,
+                'solde_tresorerie': float(solde_tresorerie),
+                'encaissements_jour': {
+                    'montant': float(encaissements_jour['total'] or 0),
+                    'count': encaissements_jour['count'] or 0
+                },
+                'rdv_aujourdhui': len(agenda_data['rendez_vous']) if has_agenda else 5,
+                'taches_aujourdhui': len(agenda_data['taches']) if has_agenda else 8,
+                'audiences_aujourdhui': 2,  # À calculer depuis agenda
+                'alertes_urgentes': len(alertes['urgentes'])
+            },
+
+            # Sections détaillées
+            'dossiers': {
+                'en_cours': dossiers_en_cours,
+                'en_attente': dossiers_en_attente,
+                'clotures_mois': dossiers_clotures_mois,
+                'repartition_types': repartition_types,
+                'derniers': derniers_dossiers,
+                'sans_activite_30j': dossiers_sans_activite
+            },
+
+            'agenda': agenda_data,
+            'tresorerie': tresorerie_data,
+            'facturation': facturation_data,
+            'comptabilite': compta_data,
+            'recouvrement': recouvrement_data,
+            'gerance': gerance_data,
+            'rh': rh_data,
+            'memoires': memoires_data,
+            'alertes': alertes
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)

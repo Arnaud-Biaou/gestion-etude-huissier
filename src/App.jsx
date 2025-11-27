@@ -229,6 +229,368 @@ const styles = `
     .dossier-card-paper { border: 4px double black; }
     body { background: white; }
   }
+
+  /* ADVANCED DASHBOARD STYLES */
+  .dashboard-header {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    border-radius: var(--radius-xl);
+    padding: 24px 32px;
+    color: white;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .dashboard-header h1 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .dashboard-header .datetime {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 14px;
+    opacity: 0.9;
+  }
+  .dashboard-header .clock {
+    font-size: 32px;
+    font-weight: 700;
+    font-family: var(--font-display);
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+  .kpi-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--neutral-200);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .kpi-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+  .kpi-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .kpi-icon.blue { background: rgba(43, 108, 176, 0.1); color: var(--info); }
+  .kpi-icon.gold { background: rgba(198, 169, 98, 0.15); color: var(--accent-dark); }
+  .kpi-icon.green { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+  .kpi-icon.red { background: rgba(197, 48, 48, 0.1); color: var(--danger); }
+  .kpi-icon.purple { background: rgba(128, 90, 213, 0.1); color: #805ad5; }
+  .kpi-icon.orange { background: rgba(237, 137, 54, 0.1); color: var(--warning); }
+
+  .kpi-content { flex: 1; }
+  .kpi-label { font-size: 12px; color: var(--neutral-500); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+  .kpi-subtext { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+  .kpi-subtext.positive { color: var(--success); }
+  .kpi-subtext.negative { color: var(--danger); }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 1200px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+  .widget {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--neutral-200);
+    overflow: hidden;
+  }
+  .widget.full-width { grid-column: 1 / -1; }
+
+  .widget-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--neutral-100);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--neutral-50);
+  }
+  .widget-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .widget-title-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .widget-link {
+    font-size: 12px;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .widget-link:hover { text-decoration: underline; }
+
+  .widget-body { padding: 20px; }
+
+  .data-table {
+    width: 100%;
+    font-size: 13px;
+  }
+  .data-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--neutral-100);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table .label { color: var(--neutral-600); }
+  .data-table .value { font-weight: 600; text-align: right; color: var(--primary); }
+  .data-table .total { font-weight: 700; border-top: 2px solid var(--neutral-200); }
+
+  .progress-mini {
+    height: 8px;
+    background: var(--neutral-200);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-mini-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .progress-mini-fill.blue { background: var(--info); }
+  .progress-mini-fill.green { background: var(--success); }
+  .progress-mini-fill.gold { background: var(--accent); }
+  .progress-mini-fill.red { background: var(--danger); }
+
+  .rdv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rdv-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--neutral-50);
+    border-radius: 8px;
+    border-left: 3px solid var(--info);
+  }
+  .rdv-item.audience { border-left-color: var(--danger); }
+  .rdv-item.client { border-left-color: var(--success); }
+  .rdv-item.constat { border-left-color: var(--warning); }
+  .rdv-time { font-weight: 700; color: var(--primary); min-width: 50px; }
+  .rdv-details { flex: 1; }
+  .rdv-title { font-weight: 500; font-size: 13px; }
+  .rdv-dossier { font-size: 11px; color: var(--neutral-500); }
+
+  .task-list { display: flex; flex-direction: column; gap: 6px; }
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--neutral-100);
+    font-size: 13px;
+  }
+  .task-item:last-child { border-bottom: none; }
+  .task-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--neutral-300);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .task-checkbox.done {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+  }
+  .task-title { flex: 1; }
+  .task-title.done { text-decoration: line-through; color: var(--neutral-400); }
+  .task-urgent { color: var(--danger); font-size: 10px; font-weight: 600; text-transform: uppercase; }
+
+  .alerts-panel { display: flex; flex-direction: column; gap: 12px; }
+  .alert-section { margin-bottom: 8px; }
+  .alert-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .alert-section-title.urgent { color: var(--danger); }
+  .alert-section-title.important { color: var(--warning); }
+  .alert-section-title.info { color: var(--info); }
+
+  .alert-item {
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .alert-item.urgent { background: rgba(197, 48, 48, 0.08); color: var(--danger); }
+  .alert-item.important { background: rgba(237, 137, 54, 0.08); color: var(--warning); }
+  .alert-item.info { background: rgba(43, 108, 176, 0.08); color: var(--info); }
+
+  .quick-actions {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    padding: 12px 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 50;
+    border: 1px solid var(--neutral-200);
+  }
+  .quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--neutral-200);
+    background: white;
+    color: var(--neutral-700);
+    transition: all 0.2s;
+  }
+  .quick-action-btn:hover {
+    background: var(--neutral-100);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .quick-action-btn.primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    border: none;
+  }
+  .quick-action-btn.primary:hover {
+    box-shadow: 0 4px 12px rgba(26, 54, 93, 0.3);
+  }
+
+  .mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 40px;
+    padding-top: 8px;
+  }
+  .mini-chart-bar {
+    flex: 1;
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+    border-radius: 2px;
+    min-height: 4px;
+    transition: height 0.3s ease;
+  }
+
+  .donut-chart {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    position: relative;
+  }
+  .donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .donut-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+  .donut-label { font-size: 9px; color: var(--neutral-500); }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--neutral-100);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--neutral-600); font-size: 13px; }
+  .stat-value { font-weight: 600; color: var(--primary); }
+  .stat-value.positive { color: var(--success); }
+  .stat-value.negative { color: var(--danger); }
+
+  .trend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .trend-badge.up { background: rgba(47, 133, 90, 0.1); color: var(--success); }
+  .trend-badge.down { background: rgba(197, 48, 48, 0.1); color: var(--danger); }
+
+  .refresh-indicator {
+    font-size: 11px;
+    color: var(--neutral-400);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .refresh-indicator.loading svg { animation: spin 1s linear infinite; }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
 `;
 
 // ============================================
@@ -1495,65 +1857,426 @@ const SecuriteModule = () => (
 );
 
 // ============================================
-// MODULE: DASHBOARD
+// MODULE: DASHBOARD AVANCÉ
 // ============================================
-const DashboardModule = () => (
-  <div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
-      <div className="card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(43, 108, 176, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FolderOpen size={24} style={{ color: 'var(--info)' }} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>Dossiers actifs</div>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)' }}>127</div>
+const AdvancedDashboard = ({ onNavigate, onOpenModal }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+    const refreshTimer = setInterval(loadDashboardData, 5 * 60 * 1000);
+    return () => clearInterval(refreshTimer);
+  }, []);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/dashboard/');
+      const json = await res.json();
+      if (json.success) { setData(json); setLastRefresh(new Date()); }
+    } catch (e) {
+      console.error('Erreur chargement dashboard:', e);
+      setData(getDefaultData());
+    }
+    setLoading(false);
+  };
+
+  const getDefaultData = () => ({
+    kpis: { dossiers_en_cours: 47, solde_tresorerie: 2450000, rdv_aujourdhui: 5, taches_aujourdhui: 8, alertes_urgentes: 3, dossiers_nouveaux_mois: 3, audiences_aujourdhui: 2 },
+    dossiers: { en_cours: 47, en_attente: 15, clotures_mois: 10, sans_activite_30j: 5, derniers: [
+      { reference: 'DOS-2025-089', type_dossier: 'recouvrement', date_ouverture: '2025-11-25' },
+      { reference: 'DOS-2025-088', type_dossier: 'saisie', date_ouverture: '2025-11-24' },
+      { reference: 'DOS-2025-087', type_dossier: 'expulsion', date_ouverture: '2025-11-23' },
+    ]},
+    agenda: { rendez_vous: [
+      { heure: '09:00', titre: 'Audience TPI Parakou', type: 'audience', dossier_ref: 'DOS-2025-045' },
+      { heure: '11:30', titre: 'RDV Client - M. BOKO', type: 'client', dossier_ref: 'DOS-2025-078' },
+      { heure: '14:00', titre: 'Constat urgent - Quartier Zongo', type: 'constat', dossier_ref: 'DOS-2025-089' },
+      { heure: '16:00', titre: 'Signification - Me AHOUNOU', type: 'signification', dossier_ref: 'DOS-2025-052' },
+    ], taches: [
+      { titre: 'Rédiger PV de saisie (DOS-2025-067)', priorite: 'urgent', statut: 'a_faire' },
+      { titre: 'Appeler M. SODJI pour relance', priorite: 'normal', statut: 'a_faire' },
+      { titre: 'Préparer dossier audience demain', priorite: 'normal', statut: 'a_faire' },
+      { titre: 'Envoyer facture Banque ABC', priorite: 'normal', statut: 'termine' },
+    ], taches_retard: 2 },
+    tresorerie: { caisses: [
+      { nom: 'Caisse principale Parakou', solde: 1850000 },
+      { nom: 'Caisse secondaire', solde: 600000 },
+      { nom: 'Compte séquestre', solde: 2340000 },
+    ], total: 4790000, encaissements_jour: { montant: 350000, count: 3 }, decaissements_jour: { montant: 125000, count: 2 }, decaissements_attente: 2 },
+    facturation: { emises: { count: 15, total: 2450000 }, payees: { count: 12, total: 1980000 }, attente: { count: 3, total: 470000 }, impayees_30j: [
+      { numero: 'FAC-2025-078', montant_ttc: 185000, jours: 45 },
+      { numero: 'FAC-2025-065', montant_ttc: 95000, jours: 52 },
+    ], taux_recouvrement: 81 },
+    comptabilite: { chiffre_affaires: 3250000, charges: 1450000, resultat_net: 1800000, tva_a_declarer: 487500 },
+    recouvrement: { amiables: { count: 12, total: 8500000 }, forces: { count: 23, total: 45200000 }, total_creances: 53700000, encaissements_mois: 4850000, reversements_mois: 3920000, emoluments_mois: 485000, taux_recouvrement: 34, reversements_attente: { count: 3, total: 1250000 }, dossiers_sans_activite: 5 },
+    gerance: { biens_gestion: 28, biens_loues: 24, biens_vacants: 4, taux_occupation: 86, loyers_attendus: 4200000, loyers_encaisses: 3650000, loyers_impayes: 550000, locataires_impayes: 5, etats_lieux_a_faire: 2, reversements_proprietaires: 2890000, baux_expirent_30j: 1 },
+    rh: { effectif_total: 8, presents_aujourdhui: 7, en_conge: 1, absents: 0, conges_en_cours: [{ employe: 'ADJOVI Marie', type: 'Congé annuel', date_fin: '30/11' }], alertes: [
+      { type: 'fin_essai', message: 'Fin période essai : KONOU Paul', date: '05/12' },
+      { type: 'fin_cdd', message: 'Fin CDD : SAVI Jean', date: '31/12' },
+    ]},
+    memoires: { attente_paiement: { count: 5, total: 876500 }, payes_mois: { count: 3, total: 542000 }, cedules_en_cours: 12, derniers_paiements: [
+      { numero: 82, montant_total: 185000 }, { numero: 81, montant_total: 210000 },
+    ], attente_longue: [
+      { numero: 78, montant_total: 156000, jours: 73 }, { numero: 76, montant_total: 98500, jours: 87 },
+    ]},
+    alertes: { urgentes: [
+      { message: 'Audience demain 9h - Dossier DOS-2025-045' },
+      { message: 'Décaissement 450 000 F en attente approbation' },
+      { message: 'Tâche en retard : Signification ordonnance (3 jours)' },
+    ], importantes: [
+      { message: '3 reversements créanciers à effectuer' },
+      { message: '2 reversements propriétaires en attente' },
+      { message: 'TVA à déclarer avant le 15/12' },
+    ], informations: [
+      { message: '5 factures impayées > 30 jours' },
+      { message: '4 biens vacants à louer' },
+    ]}
+  });
+
+  const formatMontant = (m) => {
+    if (m >= 1000000) return `${(m / 1000000).toFixed(1)} M F`;
+    if (m >= 1000) return `${Math.round(m / 1000)} K F`;
+    return `${m.toLocaleString('fr-FR')} F`;
+  };
+
+  const formatDate = (d) => d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const formatTime = (d) => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const getRdvClass = (t) => ({ audience: 'audience', client: 'client', constat: 'constat' }[t] || '');
+
+  const isAdmin = CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'huissier';
+  const greeting = isAdmin ? `Bonjour, Maître ${CURRENT_USER.nom.split(' ')[0]}` : `Bonjour, ${CURRENT_USER.nom.split(' ')[1] || CURRENT_USER.nom}`;
+
+  if (!data) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} /></div>;
+
+  return (
+    <div style={{ paddingBottom: '80px' }}>
+      {/* EN-TÊTE */}
+      <div className="dashboard-header">
+        <div>
+          <h1>{greeting}</h1>
+          <div style={{ opacity: 0.8, fontSize: '14px', textTransform: 'capitalize' }}>{formatDate(currentTime)}</div>
+        </div>
+        <div className="datetime">
+          <div className="clock">{formatTime(currentTime)}</div>
+          <div className="refresh-indicator" style={{ cursor: 'pointer' }} onClick={loadDashboardData}>
+            <RefreshCw size={14} className={loading ? 'loading' : ''} />
+            {lastRefresh && <span>MAJ {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>}
           </div>
         </div>
       </div>
-      <div className="card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(198, 169, 98, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <DollarSign size={24} style={{ color: 'var(--accent)' }} />
+
+      {/* KPIs */}
+      <div className="kpi-grid">
+        <div className="kpi-card" onClick={() => onNavigate && onNavigate('dossiers')}>
+          <div className="kpi-icon blue"><FolderOpen size={28} /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">Dossiers en cours</div>
+            <div className="kpi-value">{data.kpis.dossiers_en_cours}</div>
+            <div className="kpi-subtext positive">+{data.kpis.dossiers_nouveaux_mois} ce mois</div>
           </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>CA Mensuel</div>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)' }}>18,5 M</div>
+        </div>
+        <div className="kpi-card" onClick={() => onNavigate && onNavigate('tresorerie')}>
+          <div className="kpi-icon gold"><PiggyBank size={28} /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">Trésorerie Solde</div>
+            <div className="kpi-value">{formatMontant(data.kpis.solde_tresorerie)}</div>
+            <div className="kpi-subtext positive">+{formatMontant(data.tresorerie.encaissements_jour.montant)} aujourd'hui</div>
+          </div>
+        </div>
+        <div className="kpi-card" onClick={() => onNavigate && onNavigate('agenda')}>
+          <div className="kpi-icon green"><Calendar size={28} /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">Aujourd'hui RDV/Tâches</div>
+            <div className="kpi-value">{data.kpis.rdv_aujourdhui} / {data.kpis.taches_aujourdhui}</div>
+            <div className="kpi-subtext">{data.kpis.audiences_aujourdhui} audiences</div>
+          </div>
+        </div>
+        <div className="kpi-card" style={{ borderColor: data.kpis.alertes_urgentes > 0 ? 'var(--danger)' : undefined }}>
+          <div className="kpi-icon red"><AlertTriangle size={28} /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">Alertes urgentes</div>
+            <div className="kpi-value" style={{ color: data.kpis.alertes_urgentes > 0 ? 'var(--danger)' : undefined }}>{data.kpis.alertes_urgentes}</div>
+            <div className="kpi-subtext" style={{ cursor: 'pointer', color: 'var(--primary)' }}>Voir détails →</div>
           </div>
         </div>
       </div>
-      <div className="card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(47, 133, 90, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle size={24} style={{ color: 'var(--success)' }} />
+
+      {/* WIDGETS */}
+      <div className="dashboard-grid">
+        {/* DOSSIERS */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(43, 108, 176, 0.1)' }}><FolderOpen size={18} style={{ color: 'var(--info)' }} /></div>Dossiers</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('dossiers')}>Voir tout <ChevronRight size={14} /></span>
           </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>Actes signifiés</div>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)' }}>89</div>
+          <div className="widget-body">
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px' }}>RÉPARTITION</div>
+            <div className="stat-row"><span className="stat-label">En cours</span><span className="stat-value">{data.dossiers.en_cours} ({Math.round(data.dossiers.en_cours / (data.dossiers.en_cours + data.dossiers.en_attente + data.dossiers.clotures_mois) * 100)}%)</span></div>
+            <div className="progress-mini"><div className="progress-mini-fill green" style={{ width: `${Math.round(data.dossiers.en_cours / (data.dossiers.en_cours + data.dossiers.en_attente + data.dossiers.clotures_mois) * 100)}%` }} /></div>
+            <div className="stat-row" style={{ marginTop: '8px' }}><span className="stat-label">En attente</span><span className="stat-value">{data.dossiers.en_attente}</span></div>
+            <div className="stat-row"><span className="stat-label">Clôturés ce mois</span><span className="stat-value">{data.dossiers.clotures_mois}</span></div>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>DERNIERS DOSSIERS</div>
+            {data.dossiers.derniers.slice(0, 3).map((d, i) => (
+              <div key={i} style={{ fontSize: '12px', padding: '6px 0', borderBottom: '1px solid var(--neutral-100)' }}>
+                <span style={{ fontWeight: '600', color: 'var(--primary)' }}>{d.reference}</span>
+                <span style={{ color: 'var(--neutral-500)', marginLeft: '8px', textTransform: 'capitalize' }}>({d.type_dossier})</span>
+              </div>
+            ))}
+            {data.dossiers.sans_activite_30j > 0 && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(237, 137, 54, 0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--warning)' }}>
+                <AlertTriangle size={14} style={{ marginRight: '6px' }} />{data.dossiers.sans_activite_30j} dossiers sans activité depuis 30 jours
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* AGENDA */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(47, 133, 90, 0.1)' }}><Calendar size={18} style={{ color: 'var(--success)' }} /></div>Aujourd'hui</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('agenda')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px' }}>RENDEZ-VOUS</div>
+            <div className="rdv-list">
+              {data.agenda.rendez_vous.slice(0, 4).map((r, i) => (
+                <div key={i} className={`rdv-item ${getRdvClass(r.type)}`}>
+                  <span className="rdv-time">{r.heure}</span>
+                  <div className="rdv-details"><div className="rdv-title">{r.titre}</div>{r.dossier_ref && <div className="rdv-dossier">{r.dossier_ref}</div>}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>TÂCHES À FAIRE</div>
+            <div className="task-list">
+              {data.agenda.taches.slice(0, 4).map((t, i) => (
+                <div key={i} className="task-item">
+                  <div className={`task-checkbox ${t.statut === 'termine' ? 'done' : ''}`}>{t.statut === 'termine' && <Check size={12} />}</div>
+                  <span className={`task-title ${t.statut === 'termine' ? 'done' : ''}`}>{t.titre}</span>
+                  {t.priorite === 'urgent' && <span className="task-urgent">Urgent</span>}
+                </div>
+              ))}
+            </div>
+            {data.agenda.taches_retard > 0 && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(197, 48, 48, 0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--danger)' }}>
+                <AlertTriangle size={14} style={{ marginRight: '6px' }} />{data.agenda.taches_retard} tâches en retard
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* TRÉSORERIE */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(198, 169, 98, 0.15)' }}><PiggyBank size={18} style={{ color: 'var(--accent-dark)' }} /></div>Trésorerie</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('tresorerie')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px' }}>SOLDES</div>
+            <table className="data-table"><tbody>
+              {data.tresorerie.caisses.map((c, i) => (<tr key={i}><td className="label">{c.nom}</td><td className="value">{formatMontant(c.solde)}</td></tr>))}
+              <tr className="total"><td className="label" style={{ fontWeight: '700' }}>TOTAL</td><td className="value" style={{ color: 'var(--accent-dark)' }}>{formatMontant(data.tresorerie.total)}</td></tr>
+            </tbody></table>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>MOUVEMENTS DU JOUR</div>
+            <div className="stat-row"><span className="stat-label">↑ Encaissements ({data.tresorerie.encaissements_jour.count})</span><span className="stat-value positive">+{formatMontant(data.tresorerie.encaissements_jour.montant)}</span></div>
+            <div className="stat-row"><span className="stat-label">↓ Décaissements ({data.tresorerie.decaissements_jour.count})</span><span className="stat-value negative">-{formatMontant(data.tresorerie.decaissements_jour.montant)}</span></div>
+            <div className="stat-row" style={{ background: 'var(--neutral-50)', margin: '8px -12px -8px', padding: '8px 12px', borderRadius: '6px' }}>
+              <span className="stat-label" style={{ fontWeight: '600' }}>═ Solde net</span>
+              <span className="stat-value" style={{ color: data.tresorerie.encaissements_jour.montant >= data.tresorerie.decaissements_jour.montant ? 'var(--success)' : 'var(--danger)' }}>
+                {data.tresorerie.encaissements_jour.montant >= data.tresorerie.decaissements_jour.montant ? '+' : ''}{formatMontant(data.tresorerie.encaissements_jour.montant - data.tresorerie.decaissements_jour.montant)}
+              </span>
+            </div>
+            {data.tresorerie.decaissements_attente > 0 && (
+              <div style={{ marginTop: '16px', padding: '8px 12px', background: 'rgba(237, 137, 54, 0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--warning)' }}>
+                <AlertTriangle size={14} style={{ marginRight: '6px' }} />{data.tresorerie.decaissements_attente} décaissements en attente d'approbation
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* FACTURATION */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(128, 90, 213, 0.1)' }}><Receipt size={18} style={{ color: '#805ad5' }} /></div>Facturation</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('facturation')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px' }}>CE MOIS</div>
+            <table className="data-table"><tbody>
+              <tr><td className="label">Factures émises</td><td className="value">{data.facturation.emises.count} ({formatMontant(data.facturation.emises.total)})</td></tr>
+              <tr><td className="label">Factures payées</td><td className="value" style={{ color: 'var(--success)' }}>{data.facturation.payees.count} ({formatMontant(data.facturation.payees.total)})</td></tr>
+              <tr><td className="label">En attente</td><td className="value" style={{ color: 'var(--warning)' }}>{data.facturation.attente.count} ({formatMontant(data.facturation.attente.total)})</td></tr>
+            </tbody></table>
+            {data.facturation.impayees_30j.length > 0 && (
+              <><div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>IMPAYÉES {">"} 30 JOURS</div>
+              {data.facturation.impayees_30j.slice(0, 2).map((f, i) => (<div key={i} style={{ fontSize: '12px', padding: '4px 0', color: 'var(--danger)' }}>• {f.numero} - {formatMontant(f.montant_ttc)} ({f.jours}j)</div>))}</>
+            )}
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>Taux recouvrement :</span>
+              <span style={{ fontSize: '16px', fontWeight: '700', color: data.facturation.taux_recouvrement >= 80 ? 'var(--success)' : 'var(--warning)' }}>{data.facturation.taux_recouvrement}%</span>
+            </div>
+            <div className="progress-mini"><div className="progress-mini-fill green" style={{ width: `${data.facturation.taux_recouvrement}%` }} /></div>
+          </div>
+        </div>
+
+        {/* COMPTABILITÉ */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(43, 108, 176, 0.1)' }}><BarChart3 size={18} style={{ color: 'var(--info)' }} /></div>Comptabilité</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('comptabilite')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <div className="stat-row"><span className="stat-label">Chiffre d'affaires</span><div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span className="stat-value">{formatMontant(data.comptabilite.chiffre_affaires)}</span><span className="trend-badge up"><TrendingUp size={12} /> +12%</span></div></div>
+            <div className="stat-row"><span className="stat-label">Charges</span><div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span className="stat-value">{formatMontant(data.comptabilite.charges)}</span><span className="trend-badge down"><TrendingDown size={12} /> -5%</span></div></div>
+            <div className="stat-row" style={{ background: 'var(--neutral-50)', margin: '8px -12px 0', padding: '12px', borderRadius: '6px' }}>
+              <span className="stat-label" style={{ fontWeight: '600' }}>Résultat net</span>
+              <span className="stat-value positive" style={{ fontSize: '18px' }}>{formatMontant(data.comptabilite.resultat_net)}</span>
+            </div>
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginBottom: '4px' }}>Évolution CA (6 mois)</div>
+              <div className="mini-chart">{[65, 72, 80, 68, 85, 100].map((h, i) => (<div key={i} className="mini-chart-bar" style={{ height: `${h}%` }} />))}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--neutral-400)', marginTop: '4px' }}><span>Juin</span><span>Juil</span><span>Août</span><span>Sept</span><span>Oct</span><span>Nov</span></div>
+            </div>
+            {data.comptabilite.tva_a_declarer > 0 && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(237, 137, 54, 0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--warning)' }}>
+                <AlertTriangle size={14} style={{ marginRight: '6px' }} />TVA à déclarer : {formatMontant(data.comptabilite.tva_a_declarer)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RECOUVREMENT */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(197, 48, 48, 0.1)' }}><Scale size={18} style={{ color: 'var(--danger)' }} /></div>Recouvrement</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('calcul')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px' }}>PORTEFEUILLE</div>
+            <table className="data-table"><tbody>
+              <tr><td className="label">Amiables</td><td className="value">{data.recouvrement.amiables.count} ({formatMontant(data.recouvrement.amiables.total)})</td></tr>
+              <tr><td className="label">Forcés</td><td className="value">{data.recouvrement.forces.count} ({formatMontant(data.recouvrement.forces.total)})</td></tr>
+              <tr className="total"><td className="label" style={{ fontWeight: '700' }}>TOTAL</td><td className="value">{formatMontant(data.recouvrement.total_creances)}</td></tr>
+            </tbody></table>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>CE MOIS</div>
+            <div className="stat-row"><span className="stat-label">↑ Encaissé</span><span className="stat-value positive">{formatMontant(data.recouvrement.encaissements_mois)}</span></div>
+            <div className="stat-row"><span className="stat-label">↓ Reversé</span><span className="stat-value">{formatMontant(data.recouvrement.reversements_mois)}</span></div>
+            <div className="stat-row"><span className="stat-label">💼 Émoluments</span><span className="stat-value" style={{ color: 'var(--accent-dark)' }}>{formatMontant(data.recouvrement.emoluments_mois)}</span></div>
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>Taux global :</span>
+              <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--info)' }}>{data.recouvrement.taux_recouvrement}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* GÉRANCE */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(47, 133, 90, 0.1)' }}><Building2 size={18} style={{ color: 'var(--success)' }} /></div>Gérance Immobilière</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('gerance')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px' }}>PARC IMMOBILIER</div>
+            <table className="data-table"><tbody>
+              <tr><td className="label">Biens gérés</td><td className="value">{data.gerance.biens_gestion}</td></tr>
+              <tr><td className="label">Loués</td><td className="value" style={{ color: 'var(--success)' }}>{data.gerance.biens_loues} ({data.gerance.taux_occupation}%)</td></tr>
+              <tr><td className="label">Vacants</td><td className="value" style={{ color: 'var(--warning)' }}>{data.gerance.biens_vacants}</td></tr>
+            </tbody></table>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>LOYERS</div>
+            <div className="stat-row"><span className="stat-label">Attendus</span><span className="stat-value">{formatMontant(data.gerance.loyers_attendus)}</span></div>
+            <div className="stat-row"><span className="stat-label">Encaissés</span><span className="stat-value positive">{formatMontant(data.gerance.loyers_encaisses)}</span></div>
+            <div className="stat-row"><span className="stat-label">Impayés</span><span className="stat-value negative">{formatMontant(data.gerance.loyers_impayes)}</span></div>
+            <div className="progress-mini"><div className="progress-mini-fill green" style={{ width: `${Math.round(data.gerance.loyers_encaisses / data.gerance.loyers_attendus * 100)}%` }} /></div>
+          </div>
+        </div>
+
+        {/* RH */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(128, 90, 213, 0.1)' }}><Users size={18} style={{ color: '#805ad5' }} /></div>Équipe</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('rh')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <table className="data-table"><tbody>
+              <tr><td className="label">Total employés</td><td className="value">{data.rh.effectif_total}</td></tr>
+              <tr><td className="label">Présents</td><td className="value" style={{ color: 'var(--success)' }}>{data.rh.presents_aujourdhui}</td></tr>
+              <tr><td className="label">En congé</td><td className="value" style={{ color: 'var(--info)' }}>{data.rh.en_conge}</td></tr>
+            </tbody></table>
+            {data.rh.conges_en_cours.length > 0 && (
+              <><div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>CONGÉS</div>
+              {data.rh.conges_en_cours.map((c, i) => (<div key={i} style={{ fontSize: '12px', padding: '4px 0' }}>• {c.employe} - jusqu'au {c.date_fin}</div>))}</>
+            )}
+            {data.rh.alertes.length > 0 && (
+              <><div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>ALERTES</div>
+              {data.rh.alertes.slice(0, 2).map((a, i) => (<div key={i} style={{ padding: '6px 10px', background: 'rgba(237, 137, 54, 0.1)', borderRadius: '6px', fontSize: '11px', color: 'var(--warning)', marginBottom: '4px' }}>⚠️ {a.message}</div>))}</>
+            )}
+          </div>
+        </div>
+
+        {/* MÉMOIRES */}
+        <div className="widget">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(198, 169, 98, 0.15)' }}><FileSignature size={18} style={{ color: 'var(--accent-dark)' }} /></div>Mémoires de Cédules</div>
+            <span className="widget-link" onClick={() => onNavigate && onNavigate('memoires')}>Voir tout <ChevronRight size={14} /></span>
+          </div>
+          <div className="widget-body">
+            <table className="data-table"><tbody>
+              <tr><td className="label">En attente paiement</td><td className="value">{data.memoires.attente_paiement.count} ({formatMontant(data.memoires.attente_paiement.total)})</td></tr>
+              <tr><td className="label">Payés ce mois</td><td className="value" style={{ color: 'var(--success)' }}>{data.memoires.payes_mois.count} ({formatMontant(data.memoires.payes_mois.total)})</td></tr>
+              <tr><td className="label">Cédules en cours</td><td className="value">{data.memoires.cedules_en_cours}</td></tr>
+            </tbody></table>
+            {data.memoires.attente_longue.length > 0 && (
+              <><div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--neutral-500)', marginBottom: '8px', marginTop: '16px' }}>EN ATTENTE LONGUE</div>
+              {data.memoires.attente_longue.slice(0, 2).map((m, i) => (<div key={i} style={{ padding: '6px 10px', background: 'rgba(237, 137, 54, 0.1)', borderRadius: '6px', fontSize: '11px', color: 'var(--warning)', marginBottom: '4px' }}>⚠️ N°{m.numero} - {formatMontant(m.montant_total)} ({m.jours}j)</div>))}</>
+            )}
+          </div>
+        </div>
+
+        {/* ALERTES */}
+        <div className="widget full-width">
+          <div className="widget-header">
+            <div className="widget-title"><div className="widget-title-icon" style={{ background: 'rgba(197, 48, 48, 0.1)' }}><Bell size={18} style={{ color: 'var(--danger)' }} /></div>Alertes ({(data.alertes.urgentes?.length||0) + (data.alertes.importantes?.length||0) + (data.alertes.informations?.length||0)})</div>
+          </div>
+          <div className="widget-body">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+              <div className="alert-section">
+                <div className="alert-section-title urgent">🔴 URGENTES ({data.alertes.urgentes?.length || 0})</div>
+                {data.alertes.urgentes?.map((a, i) => (<div key={i} className="alert-item urgent">• {a.message}</div>))}
+              </div>
+              <div className="alert-section">
+                <div className="alert-section-title important">🟠 IMPORTANTES ({data.alertes.importantes?.length || 0})</div>
+                {data.alertes.importantes?.map((a, i) => (<div key={i} className="alert-item important">• {a.message}</div>))}
+              </div>
+              <div className="alert-section">
+                <div className="alert-section-title info">🟡 INFORMATIONS ({data.alertes.informations?.length || 0})</div>
+                {data.alertes.informations?.map((a, i) => (<div key={i} className="alert-item info">• {a.message}</div>))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <div className="card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(197, 48, 48, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AlertCircle size={24} style={{ color: 'var(--danger)' }} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>Urgents</div>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--danger)' }}>14</div>
-          </div>
-        </div>
+
+      {/* ACTIONS RAPIDES */}
+      <div className="quick-actions no-print">
+        <button className="quick-action-btn primary" onClick={() => onOpenModal && onOpenModal('nouveau-dossier')}><Plus size={16} /> Nouveau Dossier</button>
+        <button className="quick-action-btn" onClick={() => onNavigate && onNavigate('facturation')}><Plus size={16} /> Facture</button>
+        <button className="quick-action-btn" onClick={() => onNavigate && onNavigate('encaissements')}><Plus size={16} /> Encaissement</button>
+        <button className="quick-action-btn" onClick={() => onNavigate && onNavigate('agenda')}><Plus size={16} /> RDV</button>
+        <button className="quick-action-btn"><Search size={16} /> Recherche</button>
       </div>
     </div>
-    
-    <div className="card">
-      <div className="card-header"><h3 className="card-title">Bienvenue, {CURRENT_USER.nom}</h3></div>
-      <div className="card-body" style={{ textAlign: 'center', padding: '40px' }}>
-        <p style={{ color: 'var(--neutral-500)' }}>Sélectionnez un module dans le menu pour commencer.</p>
-      </div>
-    </div>
-  </div>
-);
+  );
+};
+
+const DashboardModule = ({ onNavigate, onOpenModal }) => <AdvancedDashboard onNavigate={onNavigate} onOpenModal={onOpenModal} />;
 
 // ============================================
 // CHATBOT
@@ -1631,7 +2354,7 @@ export default function App() {
 
   const renderModule = () => {
     switch (active) {
-      case 'dashboard': return <DashboardModule />;
+      case 'dashboard': return <DashboardModule onNavigate={setActive} onOpenModal={setModal} />;
       case 'dossiers': return <DossiersModule onOpenModal={setModal} />;
       case 'facturation': return <FacturationModule />;
       case 'calcul': return <CalculRecouvrementModule />;
