@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ document.nom }} - Document partagé</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f7fafc;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%);
+            padding: 20px;
+            color: white;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: #c6a962;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 18px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .document-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .document-header {
+            padding: 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .doc-icon {
+            width: 56px;
+            height: 56px;
+            background: #edf2f7;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .doc-icon.pdf { background: #fed7d7; color: #c53030; }
+        .doc-icon.doc { background: #bee3f8; color: #3182ce; }
+
+        .doc-info {
+            flex: 1;
+        }
+
+        .doc-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a365d;
+            margin-bottom: 4px;
+        }
+
+        .doc-meta {
+            font-size: 14px;
+            color: #718096;
+        }
+
+        .doc-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #1a365d;
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #142c4f;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #1a365d;
+            border: 2px solid #1a365d;
+        }
+
+        .btn-secondary:hover {
+            background: #edf2f7;
+        }
+
+        .preview-container {
+            padding: 24px;
+            min-height: 500px;
+            background: #f7fafc;
+        }
+
+        .preview-frame {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .preview-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #718096;
+        }
+
+        .preview-placeholder svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            color: #cbd5e0;
+        }
+
+        .share-info {
+            padding: 16px 24px;
+            background: #edf2f7;
+            font-size: 13px;
+            color: #718096;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .expiry-warning {
+            color: #c05621;
+        }
+
+        @media (max-width: 768px) {
+            .document-header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .doc-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <span class="logo-text">Document partagé</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="document-card">
+            <div class="document-header">
+                <div class="doc-icon {% if document.extension == '.pdf' %}pdf{% else %}doc{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                </div>
+                <div class="doc-info">
+                    <div class="doc-name">{{ document.nom }}</div>
+                    <div class="doc-meta">
+                        {{ document.taille_humaine }} • {{ document.get_type_document_display }}
+                    </div>
+                </div>
+                <div class="doc-actions">
+                    {% if partage.type_partage != 'lecture' %}
+                    <a href="{{ document.fichier.url }}" class="btn btn-primary" download>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Télécharger
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="preview-container">
+                {% if document.mime_type == 'application/pdf' %}
+                <iframe class="preview-frame" src="{{ document.fichier.url }}"></iframe>
+                {% elif document.mime_type|slice:":6" == 'image/' %}
+                <img src="{{ document.fichier.url }}" alt="{{ document.nom }}" style="max-width: 100%; border-radius: 8px;">
+                {% else %}
+                <div class="preview-placeholder">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <p>Aperçu non disponible pour ce type de fichier</p>
+                    {% if partage.type_partage != 'lecture' %}
+                    <a href="{{ document.fichier.url }}" class="btn btn-primary" download style="margin-top: 20px;">
+                        Télécharger le fichier
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="share-info">
+                <span>Partagé par l'Étude d'Huissier de Justice</span>
+                {% if partage.date_expiration %}
+                <span class="expiry-warning">
+                    Expire le {{ partage.date_expiration|date:"d/m/Y" }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

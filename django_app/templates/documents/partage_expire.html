@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lien expiré - Étude d'Huissier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: #fed7d7;
+            border-radius: 50%;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            color: #c53030;
+        }
+
+        h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 24px;
+            color: #1a365d;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: #718096;
+            margin-bottom: 24px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .reasons {
+            text-align: left;
+            background: #f7fafc;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+
+        .reasons h3 {
+            font-size: 14px;
+            color: #4a5568;
+            margin-bottom: 12px;
+        }
+
+        .reasons ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #718096;
+            font-size: 13px;
+        }
+
+        .reasons li {
+            margin-bottom: 8px;
+        }
+
+        .footer {
+            font-size: 12px;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        </div>
+
+        <h1>Lien expiré</h1>
+        <p>Ce lien de partage n'est plus valide et le document n'est plus accessible.</p>
+
+        <div class="reasons">
+            <h3>Raisons possibles :</h3>
+            <ul>
+                <li>La date d'expiration du partage a été atteinte</li>
+                <li>Le nombre maximum d'accès a été dépassé</li>
+                <li>Le partage a été révoqué par le propriétaire</li>
+            </ul>
+        </div>
+
+        <p>Si vous avez besoin d'accéder à ce document, veuillez contacter la personne qui vous a envoyé ce lien pour obtenir un nouveau lien de partage.</p>
+
+        <div class="footer">
+            Étude d'Huissier de Justice
+        </div>
+    </div>
+</body>
+</html>
