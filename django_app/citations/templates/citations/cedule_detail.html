@@ -1,0 +1,583 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cédule {{ cedule.reference }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .breadcrumb a {
+        color: var(--primary);
+        text-decoration: none;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        font-weight: 600;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .card-body {
+        padding: 1.5rem;
+    }
+    .info-row {
+        display: flex;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-label {
+        width: 140px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    .info-value {
+        flex: 1;
+        font-weight: 500;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-recue { background: #e2e8f0; color: #4a5568; }
+    .badge-en_cours { background: #feebc8; color: #c05621; }
+    .badge-signifiee { background: #c6f6d5; color: #2f855a; }
+    .badge-partielle { background: #bee3f8; color: #2b6cb0; }
+    .badge-urgente { background: #fed7d7; color: #c53030; }
+    .badge-tres_urgente { background: #c53030; color: white; }
+    .badge-normale { background: #e2e8f0; color: #4a5568; }
+    .destinataires-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .destinataires-table th {
+        background: #f8f9fa;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.85rem;
+    }
+    .destinataires-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        vertical-align: top;
+    }
+    .destinataire-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .btn-sm {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+    }
+    .modal-signification {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-signification.open {
+        display: flex;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .modal-body {
+        padding: 1.5rem;
+    }
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+    .form-label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #333;
+    }
+    .frais-preview {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    .frais-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .frais-row:last-child {
+        border-bottom: none;
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--primary);
+    }
+    .status-signifie {
+        color: var(--success);
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'citations:cedules' %}">Cédules</a>
+            <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+            <span>{{ cedule.reference }}</span>
+        </div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            {{ cedule.reference }}
+        </h2>
+        <p style="color: #666; margin: 0.25rem 0 0 0;">
+            {{ cedule.numero_parquet }}
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <span class="badge badge-{{ cedule.urgence }}">{{ cedule.get_urgence_display }}</span>
+        <span class="badge badge-{{ cedule.statut }}">{{ cedule.get_statut_display }}</span>
+    </div>
+</div>
+
+<div class="info-grid">
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="info"></i>
+            Informations générales
+        </div>
+        <div class="card-body">
+            <div class="info-row">
+                <div class="info-label">Date réception</div>
+                <div class="info-value">{{ cedule.date_reception|date:"d/m/Y" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Autorité</div>
+                <div class="info-value">{{ cedule.autorite_requerante.nom }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">N° Parquet</div>
+                <div class="info-value">{{ cedule.numero_parquet }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Nature acte</div>
+                <div class="info-value">{{ cedule.get_nature_acte_display }}</div>
+            </div>
+            {% if cedule.nature_infraction %}
+            <div class="info-row">
+                <div class="info-label">Infraction</div>
+                <div class="info-value">{{ cedule.nature_infraction }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="calendar"></i>
+            Audience
+        </div>
+        <div class="card-body">
+            <div class="info-row">
+                <div class="info-label">Juridiction</div>
+                <div class="info-value">{{ cedule.juridiction|default:"-" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Date audience</div>
+                <div class="info-value">{{ cedule.date_audience|date:"d/m/Y"|default:"-" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Heure</div>
+                <div class="info-value">{{ cedule.heure_audience|time:"H:i"|default:"-" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Pièces jointes</div>
+                <div class="info-value">{{ cedule.nombre_pieces_jointes }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Destinataires -->
+<div class="card">
+    <div class="card-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="users"></i>
+            Destinataires ({{ destinataires.count }})
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openAddDestinataireModal()">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+            Ajouter
+        </button>
+    </div>
+    <table class="destinataires-table">
+        <thead>
+            <tr>
+                <th>Nom / Raison sociale</th>
+                <th>Qualité</th>
+                <th>Adresse / Localité</th>
+                <th>Distance</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dest in destinataires %}
+            <tr>
+                <td>
+                    <div style="font-weight: 600;">{{ dest.get_nom_complet }}</div>
+                    <div style="font-size: 0.85rem; color: #666;">
+                        {{ dest.get_type_personne_display }}
+                    </div>
+                </td>
+                <td>{{ dest.get_type_destinataire_display }}</td>
+                <td>
+                    {% if dest.adresse %}
+                    <div style="font-size: 0.9rem;">{{ dest.adresse }}</div>
+                    {% endif %}
+                    <div style="color: #666;">
+                        {{ dest.localite.nom|default:dest.localite_texte|default:"-" }}
+                    </div>
+                </td>
+                <td>{{ dest.distance_km }} km</td>
+                <td>
+                    {% if dest.acte_signification %}
+                    <div class="status-signifie">
+                        <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i>
+                        Signifié le {{ dest.acte_signification.date_signification|date:"d/m/Y" }}
+                    </div>
+                    {% else %}
+                    <span style="color: #c05621;">En attente</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="destinataire-actions">
+                        {% if not dest.acte_signification %}
+                        <button class="btn btn-primary btn-sm" onclick="openSignificationModal({{ dest.id }}, '{{ dest.get_nom_complet|escapejs }}', {{ dest.distance_km }})">
+                            <i data-lucide="file-signature" style="width: 14px; height: 14px;"></i>
+                            Signifier
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm" onclick="viewSignification({{ dest.id }})">
+                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
+                            Détails
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                    Aucun destinataire ajouté
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if cedule.observations %}
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-header">
+        <i data-lucide="message-square"></i>
+        Observations
+    </div>
+    <div class="card-body">
+        {{ cedule.observations }}
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal Signification -->
+<div class="modal-signification" id="significationModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="margin: 0;">Enregistrer la signification</h3>
+            <button onclick="closeSignificationModal()" style="background: none; border: none; cursor: pointer;">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="significationDestinataire" style="font-weight: 600; margin-bottom: 1rem;"></p>
+
+            <form id="significationForm">
+                <input type="hidden" id="destinataireId">
+                <input type="hidden" id="destinataireDistance">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Date de signification</label>
+                        <input type="date" class="form-input" id="dateSignification" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Heure</label>
+                        <input type="time" class="form-input" id="heureSignification">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Modalité de remise</label>
+                        <select class="form-input" id="modaliteRemise" required>
+                            <option value="personne">À personne</option>
+                            <option value="domicile">À domicile</option>
+                            <option value="mairie">À mairie</option>
+                            <option value="parquet">Au parquet</option>
+                            <option value="affichage">Par affichage</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre de copies</label>
+                        <input type="number" class="form-input" id="nombreCopies" value="1" min="1" onchange="calculerFraisPreview()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nom du récepteur</label>
+                        <input type="text" class="form-input" id="recepteurNom">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Qualité du récepteur</label>
+                        <input type="text" class="form-input" id="recepteurQualite">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre de rôles (pièces)</label>
+                        <input type="number" class="form-input" id="nombreRoles" value="0" min="0" onchange="calculerFraisPreview()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type de mission</label>
+                        <select class="form-input" id="typeMission" onchange="calculerFraisPreview()">
+                            <option value="aucune">Aucune (auto)</option>
+                            <option value="1_repas">1 repas (15 000 F)</option>
+                            <option value="2_repas">2 repas (30 000 F)</option>
+                            <option value="journee">Journée complète (45 000 F)</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Lieu de signification</label>
+                        <textarea class="form-input" id="lieuSignification" rows="2"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Observations</label>
+                        <textarea class="form-input" id="observationsSignification" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <div class="frais-preview" id="fraisPreview">
+                    <h4 style="margin: 0 0 0.5rem 0; color: var(--primary);">Estimation des frais</h4>
+                    <div class="frais-row">
+                        <span>Frais de signification (Art. 81)</span>
+                        <span id="fraisSignification">4 985 F</span>
+                    </div>
+                    <div class="frais-row">
+                        <span>Frais de copie (Art. 82)</span>
+                        <span id="fraisCopie">0 F</span>
+                    </div>
+                    <div class="frais-row">
+                        <span>Frais de transport (Art. 45/89)</span>
+                        <span id="fraisTransport">0 F</span>
+                    </div>
+                    <div class="frais-row">
+                        <span>Frais de mission (Décret 2007-155)</span>
+                        <span id="fraisMission">0 F</span>
+                    </div>
+                    <div class="frais-row">
+                        <span>TOTAL</span>
+                        <span id="fraisTotal">4 985 F</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeSignificationModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="enregistrerSignification()">
+                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Initialiser la date du jour
+    document.getElementById('dateSignification').value = new Date().toISOString().split('T')[0];
+
+    function openSignificationModal(destinataireId, nom, distance) {
+        document.getElementById('destinataireId').value = destinataireId;
+        document.getElementById('destinataireDistance').value = distance;
+        document.getElementById('significationDestinataire').textContent = nom + ' (' + distance + ' km)';
+        document.getElementById('significationModal').classList.add('open');
+        calculerFraisPreview();
+    }
+
+    function closeSignificationModal() {
+        document.getElementById('significationModal').classList.remove('open');
+    }
+
+    function calculerFraisPreview() {
+        const distance = parseFloat(document.getElementById('destinataireDistance').value) || 0;
+        const nombreCopies = parseInt(document.getElementById('nombreCopies').value) || 1;
+        const nombreRoles = parseInt(document.getElementById('nombreRoles').value) || 0;
+
+        // Frais de signification (Art. 81)
+        const premierOriginal = 980;
+        const deuxiemeOriginal = 980;
+        const copiesSupp = Math.max(0, nombreCopies - 1) * 900;
+        const mentionRepertoire = 25;
+        const vacation = 3000;
+        const sousTotal = premierOriginal + deuxiemeOriginal + copiesSupp + mentionRepertoire + vacation;
+
+        // Frais de copie (Art. 82)
+        const fraisCopie = nombreRoles * 1000;
+
+        // Frais de transport (Art. 45/89) - si distance > 20 km
+        let fraisTransport = 0;
+        if (distance > 20) {
+            fraisTransport = distance * 140 * 2;
+        }
+
+        // Frais de mission (Décret 2007-155) - si distance >= 100 km
+        let fraisMission = 0;
+        if (distance >= 100) {
+            const typeMission = document.getElementById('typeMission').value;
+            if (typeMission === '1_repas') {
+                fraisMission = 15000;
+            } else if (typeMission === '2_repas') {
+                fraisMission = 30000;
+            } else if (typeMission === 'journee') {
+                fraisMission = 45000;
+            } else {
+                // Auto
+                if (distance >= 200) fraisMission = 45000;
+                else if (distance >= 150) fraisMission = 30000;
+                else fraisMission = 15000;
+            }
+        }
+
+        const total = sousTotal + fraisCopie + fraisTransport + fraisMission;
+
+        document.getElementById('fraisSignification').textContent = sousTotal.toLocaleString() + ' F';
+        document.getElementById('fraisCopie').textContent = fraisCopie.toLocaleString() + ' F';
+        document.getElementById('fraisTransport').textContent = fraisTransport.toLocaleString() + ' F';
+        document.getElementById('fraisMission').textContent = fraisMission.toLocaleString() + ' F';
+        document.getElementById('fraisTotal').textContent = total.toLocaleString() + ' F';
+    }
+
+    function enregistrerSignification() {
+        const destinataireId = document.getElementById('destinataireId').value;
+        const data = {
+            date_signification: document.getElementById('dateSignification').value,
+            heure_signification: document.getElementById('heureSignification').value || null,
+            modalite_remise: document.getElementById('modaliteRemise').value,
+            nombre_copies: parseInt(document.getElementById('nombreCopies').value) || 1,
+            nombre_roles: parseInt(document.getElementById('nombreRoles').value) || 0,
+            recepteur_nom: document.getElementById('recepteurNom').value,
+            recepteur_qualite: document.getElementById('recepteurQualite').value,
+            lieu_signification: document.getElementById('lieuSignification').value,
+            observations: document.getElementById('observationsSignification').value,
+            type_mission: document.getElementById('typeMission').value,
+        };
+
+        fetch(`/citations/api/destinataires/${destinataireId}/signifier/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Signification enregistrée avec succès!\nMontant total: ' + result.montant_total.toLocaleString() + ' FCFA');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur de connexion');
+            console.error(error);
+        });
+    }
+
+    function openAddDestinataireModal() {
+        // TODO: Implémenter modal ajout destinataire
+        alert('Fonctionnalité à implémenter');
+    }
+
+    function viewSignification(destinataireId) {
+        // TODO: Implémenter affichage détails signification
+        alert('Fonctionnalité à implémenter');
+    }
+</script>
+{% endblock %}

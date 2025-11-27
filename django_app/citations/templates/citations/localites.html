@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Localités{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .filters-bar {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .filters-row {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .filter-group label {
+        font-size: 0.75rem;
+        color: #666;
+        font-weight: 500;
+    }
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th {
+        background: #f8f9fa;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.85rem;
+    }
+    td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    tr:hover {
+        background: #fafafa;
+    }
+    .distance {
+        font-family: var(--font-display);
+        font-weight: 600;
+        text-align: right;
+    }
+    .distance-warning {
+        color: var(--accent);
+    }
+    .distance-danger {
+        color: var(--danger);
+    }
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    .pagination a, .pagination span {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--primary);
+    }
+    .pagination .current {
+        background: var(--primary);
+        color: white;
+    }
+    .info-box {
+        background: #e8f4fd;
+        border-left: 4px solid var(--primary);
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 0 8px 8px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            Localités
+        </h2>
+        <p style="color: #666; margin: 0.25rem 0 0 0;">
+            Table des localités et distances pour le calcul des frais
+        </p>
+    </div>
+</div>
+
+<div class="info-box">
+    <strong>Seuils de distance :</strong>
+    <ul style="margin: 0.5rem 0 0 1rem;">
+        <li><strong>> 20 km</strong> : Application des frais de transport (140 FCFA/km × 2)</li>
+        <li><strong>≥ 100 km</strong> : Application des frais de mission (Groupe II)</li>
+    </ul>
+</div>
+
+<div class="filters-bar">
+    <form method="get" class="filters-row">
+        <div class="filter-group" style="flex: 1;">
+            <label>Recherche</label>
+            <input type="text" name="search" class="form-input" placeholder="Nom de la localité..." value="{{ filters.search }}">
+        </div>
+        <div class="filter-group">
+            <label>Département</label>
+            <select name="departement" class="form-input">
+                <option value="">Tous</option>
+                {% for dept in departements %}
+                <option value="{{ dept }}" {% if filters.departement == dept %}selected{% endif %}>{{ dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <button type="submit" class="btn btn-primary">Filtrer</button>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Localité</th>
+                <th>Commune</th>
+                <th>Département</th>
+                <th style="text-align: right;">Distance Parakou</th>
+                <th style="text-align: right;">Distance Cotonou</th>
+                <th style="text-align: right;">Frais transport*</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for loc in localites %}
+            <tr>
+                <td><strong>{{ loc.nom }}</strong></td>
+                <td>{{ loc.commune|default:"-" }}</td>
+                <td>{{ loc.departement|default:"-" }}</td>
+                <td class="distance {% if loc.distance_parakou >= 100 %}distance-danger{% elif loc.distance_parakou > 20 %}distance-warning{% endif %}">
+                    {{ loc.distance_parakou }} km
+                </td>
+                <td class="distance">
+                    {{ loc.distance_cotonou }} km
+                </td>
+                <td class="distance">
+                    {% if loc.distance_parakou > 20 %}
+                    {{ loc.distance_parakou|floatformat:0 }} × 140 × 2 = {{ loc.distance_parakou|floatformat:0 }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                    Aucune localité trouvée
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if localites.has_other_pages %}
+    <div class="pagination">
+        {% if localites.has_previous %}
+        <a href="?page={{ localites.previous_page_number }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.departement %}&departement={{ filters.departement }}{% endif %}">
+            <i data-lucide="chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for num in localites.paginator.page_range %}
+            {% if localites.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > localites.number|add:'-3' and num < localites.number|add:'3' %}
+                <a href="?page={{ num }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.departement %}&departement={{ filters.departement }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if localites.has_next %}
+        <a href="?page={{ localites.next_page_number }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.departement %}&departement={{ filters.departement }}{% endif %}">
+            <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<p style="margin-top: 1rem; color: #666; font-size: 0.85rem;">
+    * Frais de transport applicables si distance > 20 km (Articles 45 & 89 - Décret n°2012-143)
+</p>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

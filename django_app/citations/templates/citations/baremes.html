@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Barèmes Tarifaires{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+    .baremes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+    }
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, var(--primary) 0%, #2c5282 100%);
+        color: white;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .card-header.accent {
+        background: linear-gradient(135deg, var(--accent) 0%, #b8941f 100%);
+    }
+    .card-header.success {
+        background: linear-gradient(135deg, var(--success) 0%, #276749 100%);
+    }
+    .card-body { padding: 0; }
+    .bareme-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+    }
+    .bareme-row:last-child { border-bottom: none; }
+    .bareme-row:hover { background: #fafafa; }
+    .bareme-label {
+        color: #333;
+    }
+    .bareme-value {
+        font-family: var(--font-display);
+        font-weight: 700;
+        color: var(--primary);
+        font-size: 1.1rem;
+    }
+    .bareme-total {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    .bareme-total .bareme-value {
+        font-size: 1.25rem;
+    }
+    .article-ref {
+        font-size: 0.75rem;
+        color: #666;
+        margin-top: 0.25rem;
+    }
+    .info-box {
+        background: #e8f4fd;
+        border-left: 4px solid var(--primary);
+        padding: 1rem 1.5rem;
+        margin: 1.5rem;
+        border-radius: 0 8px 8px 0;
+    }
+    .info-box h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--primary);
+    }
+    .info-box p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #333;
+    }
+    .distance-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .distance-table th, .distance-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    .distance-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary);
+    }
+    .distance-table .montant {
+        text-align: right;
+        font-family: var(--font-display);
+        font-weight: 600;
+    }
+    .legal-refs {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    .legal-refs h3 {
+        color: var(--primary);
+        font-family: var(--font-display);
+        margin: 0 0 1rem 0;
+    }
+    .legal-refs ul {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+    .legal-refs li {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+        Barèmes Tarifaires
+    </h2>
+    <p style="color: #666; margin: 0.25rem 0 0 0;">
+        Tarifs applicables selon les décrets n°2012-143, n°2012-435 et n°2007-155
+    </p>
+</div>
+
+<div class="baremes-grid">
+    <!-- Frais de signification (Art. 81) -->
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="file-signature"></i>
+            Frais de Signification (Article 81)
+        </div>
+        <div class="card-body">
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Premier original
+                    <div class="article-ref">Décret n°2012-143</div>
+                </div>
+                <div class="bareme-value">980 FCFA</div>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Deuxième original
+                    <div class="article-ref">Décret n°2012-143</div>
+                </div>
+                <div class="bareme-value">980 FCFA</div>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Chaque copie supplémentaire
+                    <div class="article-ref">Décret n°2012-143</div>
+                </div>
+                <div class="bareme-value">900 FCFA</div>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Mention sur répertoire
+                    <div class="article-ref">Décret n°2012-143</div>
+                </div>
+                <div class="bareme-value">25 FCFA</div>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Vacation
+                    <div class="article-ref">Décret n°2012-143</div>
+                </div>
+                <div class="bareme-value">3 000 FCFA</div>
+            </div>
+            <div class="bareme-row bareme-total">
+                <div class="bareme-label">SOUS-TOTAL MINIMUM</div>
+                <div class="bareme-value">4 985 FCFA</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frais de copie (Art. 82) -->
+    <div class="card">
+        <div class="card-header accent">
+            <i data-lucide="copy"></i>
+            Frais de Copie (Article 82)
+        </div>
+        <div class="card-body">
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Par rôle (42 lignes × 20 syllabes)
+                    <div class="article-ref">Décret n°2012-143</div>
+                </div>
+                <div class="bareme-value">1 000 FCFA</div>
+            </div>
+            <div class="info-box">
+                <h4>Règle d'arrondi</h4>
+                <p>Fraction > ½ rôle = 1 rôle entier<br>
+                Fraction ≤ ½ rôle = ½ rôle (500 FCFA)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frais de transport (Art. 45 + 89) -->
+    <div class="card">
+        <div class="card-header success">
+            <i data-lucide="car"></i>
+            Frais de Transport (Articles 45 & 89)
+        </div>
+        <div class="card-body">
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Tarif kilométrique
+                    <div class="article-ref">Si distance > 20 km</div>
+                </div>
+                <div class="bareme-value">140 FCFA/km</div>
+            </div>
+            <div class="info-box">
+                <h4>Calcul</h4>
+                <p>Frais = Distance (km) × 140 FCFA × 2 (aller-retour)</p>
+            </div>
+            <table class="distance-table">
+                <thead>
+                    <tr>
+                        <th>Distance</th>
+                        <th>Calcul</th>
+                        <th class="montant">Montant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>50 km</td>
+                        <td>50 × 140 × 2</td>
+                        <td class="montant">14 000 F</td>
+                    </tr>
+                    <tr>
+                        <td>100 km</td>
+                        <td>100 × 140 × 2</td>
+                        <td class="montant">28 000 F</td>
+                    </tr>
+                    <tr>
+                        <td>150 km</td>
+                        <td>150 × 140 × 2</td>
+                        <td class="montant">42 000 F</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Frais de mission (Décret 2007-155) -->
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="briefcase"></i>
+            Frais de Mission - Groupe II
+        </div>
+        <div class="card-body">
+            <div class="info-box">
+                <h4>Condition d'application</h4>
+                <p>Distance ≥ 100 km depuis la résidence de l'huissier</p>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Mission obligeant à prendre 1 repas
+                    <div class="article-ref">Décret n°2007-155</div>
+                </div>
+                <div class="bareme-value">15 000 FCFA</div>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Mission obligeant à prendre 2 repas
+                    <div class="article-ref">Décret n°2007-155</div>
+                </div>
+                <div class="bareme-value">30 000 FCFA</div>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Mission journée complète
+                    <div class="article-ref">Décret n°2007-155</div>
+                </div>
+                <div class="bareme-value">45 000 FCFA</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indemnité de séjour (Art. 46) -->
+    <div class="card">
+        <div class="card-header accent">
+            <i data-lucide="bed"></i>
+            Indemnité de Séjour (Article 46)
+        </div>
+        <div class="card-body">
+            <div class="info-box">
+                <h4>Condition d'application</h4>
+                <p>Si découcher nécessaire (distance ≥ 100 km)</p>
+            </div>
+            <div class="bareme-row">
+                <div class="bareme-label">
+                    Selon barème Groupe II
+                    <div class="article-ref">Décret n°2007-155</div>
+                </div>
+                <div class="bareme-value">15 000 - 45 000 FCFA</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Références légales -->
+<div class="legal-refs">
+    <h3><i data-lucide="scale" style="display: inline; width: 20px; vertical-align: middle;"></i> Textes de Référence</h3>
+    <ul>
+        <li><strong>Décret n°2012-143 du 07 juin 2012</strong> : Frais de justice criminelle, correctionnelle et de police</li>
+        <li><strong>Décret n°2012-435 du 19 novembre 2012</strong> : Modification de l'article 43 du décret n°2012-143</li>
+        <li><strong>Décret n°2007-155 du 03 avril 2007</strong> : Frais de mission à l'intérieur du territoire national</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

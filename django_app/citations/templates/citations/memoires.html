@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mémoires de Frais{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-mini {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .stat-mini-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    .stat-mini-label {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    .filters-bar {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .filters-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .filter-group label {
+        font-size: 0.75rem;
+        color: #666;
+        font-weight: 500;
+    }
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th {
+        background: #f8f9fa;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.85rem;
+    }
+    td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    tr:hover {
+        background: #fafafa;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-brouillon { background: #e2e8f0; color: #4a5568; }
+    .badge-certifie { background: #bee3f8; color: #2b6cb0; }
+    .badge-soumis { background: #feebc8; color: #c05621; }
+    .badge-vise { background: #e9d8fd; color: #6b46c1; }
+    .badge-taxe { background: #fed7d7; color: #c53030; }
+    .badge-en_paiement { background: #fef3c7; color: #92400e; }
+    .badge-paye { background: #c6f6d5; color: #2f855a; }
+    .badge-rejete { background: #c53030; color: white; }
+    .montant {
+        font-family: var(--font-display);
+        font-weight: 600;
+        text-align: right;
+    }
+    .actions-cell {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .btn-icon {
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: none;
+        background: #f0f0f0;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-icon:hover {
+        background: var(--primary);
+        color: white;
+    }
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    .pagination a, .pagination span {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--primary);
+    }
+    .pagination .current {
+        background: var(--primary);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            Mémoires de Frais
+        </h2>
+        <p style="color: #666; margin: 0.25rem 0 0 0;">
+            Gestion des mémoires de frais de signification
+        </p>
+    </div>
+    <a href="{% url 'citations:nouveau_memoire' %}" class="btn btn-primary">
+        <i data-lucide="plus"></i>
+        Nouveau Mémoire
+    </a>
+</div>
+
+<div class="stats-row">
+    <div class="stat-mini">
+        <div class="stat-mini-value">{{ stats.total }}</div>
+        <div class="stat-mini-label">Total mémoires</div>
+    </div>
+    <div class="stat-mini">
+        <div class="stat-mini-value">{{ stats.brouillon }}</div>
+        <div class="stat-mini-label">Brouillons</div>
+    </div>
+    <div class="stat-mini">
+        <div class="stat-mini-value">{{ stats.en_cours }}</div>
+        <div class="stat-mini-label">En cours</div>
+    </div>
+    <div class="stat-mini">
+        <div class="stat-mini-value" style="color: var(--success);">{{ stats.payes }}</div>
+        <div class="stat-mini-label">Payés</div>
+    </div>
+</div>
+
+<div class="filters-bar">
+    <form method="get" class="filters-row">
+        <div class="filter-group" style="flex: 1;">
+            <label>Recherche</label>
+            <input type="text" name="search" class="form-input" placeholder="Numéro de mémoire..." value="{{ filters.search }}">
+        </div>
+        <div class="filter-group">
+            <label>Statut</label>
+            <select name="statut" class="form-input">
+                <option value="">Tous</option>
+                <option value="brouillon" {% if filters.statut == 'brouillon' %}selected{% endif %}>Brouillon</option>
+                <option value="certifie" {% if filters.statut == 'certifie' %}selected{% endif %}>Certifié</option>
+                <option value="soumis" {% if filters.statut == 'soumis' %}selected{% endif %}>Soumis</option>
+                <option value="vise" {% if filters.statut == 'vise' %}selected{% endif %}>Visé</option>
+                <option value="taxe" {% if filters.statut == 'taxe' %}selected{% endif %}>Taxé</option>
+                <option value="paye" {% if filters.statut == 'paye' %}selected{% endif %}>Payé</option>
+                <option value="rejete" {% if filters.statut == 'rejete' %}selected{% endif %}>Rejeté</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Année</label>
+            <select name="annee" class="form-input">
+                <option value="">Toutes</option>
+                {% for a in annees %}
+                <option value="{{ a }}" {% if filters.annee == a|stringformat:'i' %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Autorité</label>
+            <select name="autorite" class="form-input">
+                <option value="">Toutes</option>
+                {% for autorite in autorites %}
+                <option value="{{ autorite.id }}" {% if filters.autorite == autorite.id|stringformat:'i' %}selected{% endif %}>
+                    {{ autorite.sigle|default:autorite.nom }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <button type="submit" class="btn btn-primary">Filtrer</button>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    {% if memoires %}
+    <table>
+        <thead>
+            <tr>
+                <th>N° Mémoire</th>
+                <th>Période</th>
+                <th>Autorité</th>
+                <th>Nb lignes</th>
+                <th>Montant</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for memoire in memoires %}
+            <tr>
+                <td>
+                    <a href="{% url 'citations:memoire_detail' memoire.id %}" style="font-weight: 600; color: var(--primary);">
+                        {{ memoire.numero_memoire }}
+                    </a>
+                </td>
+                <td>{{ memoire.get_mois_display }} {{ memoire.annee }}</td>
+                <td>{{ memoire.autorite_requerante.sigle|default:memoire.autorite_requerante.nom }}</td>
+                <td>{{ memoire.lignes.count }}</td>
+                <td class="montant">{{ memoire.montant_total|floatformat:0 }} F</td>
+                <td>
+                    <span class="badge badge-{{ memoire.statut }}">{{ memoire.get_statut_display }}</span>
+                </td>
+                <td>
+                    <div class="actions-cell">
+                        <a href="{% url 'citations:memoire_detail' memoire.id %}" class="btn-icon" title="Voir détails">
+                            <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                        </a>
+                        {% if memoire.statut == 'brouillon' %}
+                        <button class="btn-icon" title="Certifier" onclick="certifierMemoire({{ memoire.id }})">
+                            <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if memoires.has_other_pages %}
+    <div class="pagination">
+        {% if memoires.has_previous %}
+        <a href="?page={{ memoires.previous_page_number }}">
+            <i data-lucide="chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for num in memoires.paginator.page_range %}
+            {% if memoires.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > memoires.number|add:'-3' and num < memoires.number|add:'3' %}
+                <a href="?page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if memoires.has_next %}
+        <a href="?page={{ memoires.next_page_number }}">
+            <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div style="text-align: center; padding: 3rem; color: #666;">
+        <i data-lucide="file-text" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
+        <p>Aucun mémoire trouvé</p>
+        <a href="{% url 'citations:nouveau_memoire' %}" class="btn btn-primary">
+            Créer un nouveau mémoire
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function certifierMemoire(memoireId) {
+        if (confirm('Voulez-vous certifier ce mémoire comme sincère et véritable ?')) {
+            fetch(`/citations/api/memoires/${memoireId}/certifier/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Mémoire certifié avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + result.error);
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

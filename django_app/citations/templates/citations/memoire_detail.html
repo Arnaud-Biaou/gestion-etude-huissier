@@ -1,0 +1,411 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mémoire {{ memoire.numero_memoire }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .breadcrumb a { color: var(--primary); text-decoration: none; }
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-brouillon { background: #e2e8f0; color: #4a5568; }
+    .badge-certifie { background: #bee3f8; color: #2b6cb0; }
+    .badge-soumis { background: #feebc8; color: #c05621; }
+    .badge-vise { background: #e9d8fd; color: #6b46c1; }
+    .badge-taxe { background: #fed7d7; color: #c53030; }
+    .badge-paye { background: #c6f6d5; color: #2f855a; }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        font-weight: 600;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .card-body { padding: 1.5rem; }
+    .info-row {
+        display: flex;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label {
+        width: 150px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    .info-value {
+        flex: 1;
+        font-weight: 500;
+    }
+    .memoire-document {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        font-family: 'Times New Roman', serif;
+    }
+    .memoire-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 1rem;
+    }
+    .memoire-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: var(--primary);
+    }
+    .memoire-subtitle {
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+    .memoire-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+    }
+    .memoire-table th, .memoire-table td {
+        border: 1px solid #333;
+        padding: 0.5rem;
+        text-align: left;
+    }
+    .memoire-table th {
+        background: #f0f0f0;
+        font-weight: bold;
+    }
+    .memoire-table .montant {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+    }
+    .memoire-footer {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #ccc;
+    }
+    .montant-lettres {
+        font-style: italic;
+        margin: 1rem 0;
+    }
+    .signature-block {
+        text-align: right;
+        margin-top: 2rem;
+    }
+    .workflow-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+    }
+    .workflow-steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    .workflow-step {
+        flex: 1;
+        text-align: center;
+        padding: 1rem;
+        position: relative;
+    }
+    .workflow-step::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: 0;
+        width: 50%;
+        height: 2px;
+        background: #e0e0e0;
+    }
+    .workflow-step:last-child::after { display: none; }
+    .workflow-step.completed::after { background: var(--success); }
+    .workflow-step.current::after { background: linear-gradient(to right, var(--success) 50%, #e0e0e0 50%); }
+    .step-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 0.5rem auto;
+    }
+    .workflow-step.completed .step-icon { background: var(--success); color: white; }
+    .workflow-step.current .step-icon { background: var(--accent); color: white; }
+    .step-label { font-size: 0.85rem; color: #666; }
+    .workflow-step.completed .step-label { color: var(--success); font-weight: 500; }
+    .workflow-step.current .step-label { color: var(--accent); font-weight: 600; }
+    @media print {
+        .no-print { display: none !important; }
+        .memoire-document { box-shadow: none; padding: 0; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'citations:memoires' %}">Mémoires</a>
+            <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+            <span>{{ memoire.numero_memoire }}</span>
+        </div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            {{ memoire.numero_memoire }}
+        </h2>
+        <p style="color: #666; margin: 0.25rem 0 0 0;">
+            {{ memoire.get_mois_display }} {{ memoire.annee }} - {{ memoire.autorite_requerante.nom }}
+        </p>
+    </div>
+    <div class="header-actions">
+        <span class="badge badge-{{ memoire.statut }}">{{ memoire.get_statut_display }}</span>
+        <button class="btn" onclick="window.print()">
+            <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
+            Imprimer
+        </button>
+        {% if memoire.statut == 'brouillon' %}
+        <button class="btn btn-primary" onclick="certifierMemoire()">
+            <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i>
+            Certifier
+        </button>
+        {% elif memoire.statut == 'certifie' %}
+        <button class="btn btn-primary" onclick="soumettreMemoire()">
+            <i data-lucide="send" style="width: 16px; height: 16px;"></i>
+            Soumettre
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Workflow de validation -->
+<div class="workflow-card no-print" style="margin-bottom: 1.5rem;">
+    <div class="workflow-steps">
+        <div class="workflow-step {% if memoire.statut != 'brouillon' %}completed{% elif memoire.statut == 'brouillon' %}current{% endif %}">
+            <div class="step-icon"><i data-lucide="edit" style="width: 20px;"></i></div>
+            <div class="step-label">Brouillon</div>
+        </div>
+        <div class="workflow-step {% if memoire.statut in 'soumis,vise,taxe,en_paiement,paye' %}completed{% elif memoire.statut == 'certifie' %}current{% endif %}">
+            <div class="step-icon"><i data-lucide="check" style="width: 20px;"></i></div>
+            <div class="step-label">Certifié</div>
+        </div>
+        <div class="workflow-step {% if memoire.statut in 'vise,taxe,en_paiement,paye' %}completed{% elif memoire.statut == 'soumis' %}current{% endif %}">
+            <div class="step-icon"><i data-lucide="send" style="width: 20px;"></i></div>
+            <div class="step-label">Soumis</div>
+        </div>
+        <div class="workflow-step {% if memoire.statut in 'taxe,en_paiement,paye' %}completed{% elif memoire.statut == 'vise' %}current{% endif %}">
+            <div class="step-icon"><i data-lucide="stamp" style="width: 20px;"></i></div>
+            <div class="step-label">Visé</div>
+        </div>
+        <div class="workflow-step {% if memoire.statut in 'en_paiement,paye' %}completed{% elif memoire.statut == 'taxe' %}current{% endif %}">
+            <div class="step-icon"><i data-lucide="gavel" style="width: 20px;"></i></div>
+            <div class="step-label">Taxé</div>
+        </div>
+        <div class="workflow-step {% if memoire.statut == 'paye' %}completed{% elif memoire.statut == 'en_paiement' %}current{% endif %}">
+            <div class="step-icon"><i data-lucide="banknote" style="width: 20px;"></i></div>
+            <div class="step-label">Payé</div>
+        </div>
+    </div>
+</div>
+
+<!-- Document du mémoire -->
+<div class="memoire-document">
+    <div class="memoire-header">
+        <div class="memoire-title">MÉMOIRE N° {{ memoire.numero_memoire }}</div>
+        <div class="memoire-subtitle">
+            DES FRAIS DE SIGNIFICATION D'INVITATION/CONVOCATION/CITATION<br>
+            ÉTABLI PAR : {{ memoire.nom_huissier }}, Huissier de Justice<br>
+            Près le {{ memoire.juridiction_huissier|default:"TPI" }}<br>
+            PÉRIODE : {{ memoire.get_mois_display|upper }} {{ memoire.annee }}<br>
+            AUTORITÉ REQUÉRANTE : {{ memoire.autorite_requerante.nom }}
+        </div>
+    </div>
+
+    <table class="memoire-table">
+        <thead>
+            <tr>
+                <th style="width: 40px;">N°</th>
+                <th>Réf. Parquet</th>
+                <th>Destinataire(s)</th>
+                <th>Nature acte</th>
+                <th style="width: 100px;">Montant</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in lignes %}
+            <tr>
+                <td>{{ ligne.numero_ordre }}</td>
+                <td>{{ ligne.cedule.numero_parquet }}</td>
+                <td>
+                    {{ ligne.destinataire.get_nom_complet }}<br>
+                    <small style="color: #666;">{{ ligne.destinataire.get_type_destinataire_display }}</small>
+                </td>
+                <td>{{ ligne.cedule.get_nature_acte_display }}</td>
+                <td class="montant">{{ ligne.montant_ligne|floatformat:0 }} F</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem;">Aucune ligne dans ce mémoire</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="font-weight: bold; background: #f8f9fa;">
+                <td colspan="4" style="text-align: right;">TOTAL GÉNÉRAL :</td>
+                <td class="montant">{{ memoire.montant_total|floatformat:0 }} F</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="memoire-footer">
+        <p><strong>Arrêté le présent mémoire à la somme de :</strong></p>
+        <p class="montant-lettres">{{ memoire.montant_en_lettres }} ({{ memoire.montant_total|floatformat:0 }} FCFA)</p>
+
+        <p><strong>Certifié sincère et véritable</strong></p>
+
+        <div class="signature-block">
+            <p>Fait à Parakou, le {% now "d/m/Y" %}</p>
+            <br><br>
+            <p>{{ memoire.nom_huissier }}</p>
+            <p>Huissier de Justice</p>
+        </div>
+    </div>
+</div>
+
+<!-- Informations complémentaires -->
+<div class="info-grid no-print">
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="info"></i>
+            Informations du mémoire
+        </div>
+        <div class="card-body">
+            <div class="info-row">
+                <div class="info-label">Numéro</div>
+                <div class="info-value">{{ memoire.numero_memoire }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Période</div>
+                <div class="info-value">{{ memoire.get_mois_display }} {{ memoire.annee }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Autorité</div>
+                <div class="info-value">{{ memoire.autorite_requerante.nom }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Nombre de lignes</div>
+                <div class="info-value">{{ lignes.count }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Montant total</div>
+                <div class="info-value" style="font-weight: 700; color: var(--primary);">{{ memoire.montant_total|floatformat:0 }} FCFA</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="history"></i>
+            Historique des validations
+        </div>
+        <div class="card-body">
+            {% for validation in validations %}
+            <div class="info-row">
+                <div class="info-label">{{ validation.date_validation|date:"d/m/Y H:i" }}</div>
+                <div class="info-value">
+                    <strong>{{ validation.get_type_validation_display }}</strong><br>
+                    <small style="color: #666;">{{ validation.validateur_nom }}</small>
+                </div>
+            </div>
+            {% empty %}
+            <p style="color: #666; text-align: center;">Aucune validation</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function certifierMemoire() {
+        if (confirm('Voulez-vous certifier ce mémoire comme sincère et véritable ?')) {
+            fetch('/citations/api/memoires/{{ memoire.id }}/certifier/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Mémoire certifié avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + result.error);
+                }
+            });
+        }
+    }
+
+    function soumettreMemoire() {
+        if (confirm('Voulez-vous soumettre ce mémoire au Parquet ?')) {
+            fetch('/citations/api/memoires/{{ memoire.id }}/soumettre/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Mémoire soumis avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + result.error);
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cédules de Citations{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .filters-bar {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .filters-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .filter-group label {
+        font-size: 0.75rem;
+        color: #666;
+        font-weight: 500;
+    }
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .tab {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        background: #f0f0f0;
+        color: #666;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .tab:hover {
+        background: #e0e0e0;
+    }
+    .tab.active {
+        background: var(--primary);
+        color: white;
+    }
+    .tab .count {
+        background: rgba(255,255,255,0.2);
+        padding: 0.1rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+    }
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th {
+        background: #f8f9fa;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    tr:hover {
+        background: #fafafa;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-recue { background: #e2e8f0; color: #4a5568; }
+    .badge-en_cours { background: #feebc8; color: #c05621; }
+    .badge-signifiee { background: #c6f6d5; color: #2f855a; }
+    .badge-partielle { background: #bee3f8; color: #2b6cb0; }
+    .badge-retournee { background: #e9d8fd; color: #6b46c1; }
+    .badge-urgente { background: #fed7d7; color: #c53030; }
+    .badge-tres_urgente { background: #c53030; color: white; }
+    .badge-normale { background: #e2e8f0; color: #4a5568; }
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    .pagination a, .pagination span {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--primary);
+    }
+    .pagination a:hover {
+        background: #e0e0e0;
+    }
+    .pagination .current {
+        background: var(--primary);
+        color: white;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #666;
+    }
+    .actions-cell {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .btn-icon {
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: none;
+        background: #f0f0f0;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-icon:hover {
+        background: var(--primary);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            Cédules de Citations
+        </h2>
+        <p style="color: #666; margin: 0.25rem 0 0 0;">
+            Gestion des cédules reçues et significations
+        </p>
+    </div>
+    <a href="{% url 'citations:nouvelle_cedule' %}" class="btn btn-primary">
+        <i data-lucide="plus"></i>
+        Nouvelle Cédule
+    </a>
+</div>
+
+<div class="tabs">
+    <a href="{% url 'citations:cedules' %}" class="tab {% if not filters.statut %}active{% endif %}">
+        Toutes <span class="count">{{ counts.total }}</span>
+    </a>
+    <a href="{% url 'citations:cedules' %}?statut=recue" class="tab {% if filters.statut == 'recue' %}active{% endif %}">
+        Reçues <span class="count">{{ counts.recues }}</span>
+    </a>
+    <a href="{% url 'citations:cedules' %}?statut=en_cours" class="tab {% if filters.statut == 'en_cours' %}active{% endif %}">
+        En cours <span class="count">{{ counts.en_cours }}</span>
+    </a>
+    <a href="{% url 'citations:cedules' %}?statut=signifiee" class="tab {% if filters.statut == 'signifiee' %}active{% endif %}">
+        Signifiées <span class="count">{{ counts.signifiees }}</span>
+    </a>
+</div>
+
+<div class="filters-bar">
+    <form method="get" class="filters-row">
+        <div class="filter-group" style="flex: 1;">
+            <label>Recherche</label>
+            <input type="text" name="search" class="form-input" placeholder="Référence, N° parquet..." value="{{ filters.search }}">
+        </div>
+        <div class="filter-group">
+            <label>Urgence</label>
+            <select name="urgence" class="form-input">
+                <option value="">Toutes</option>
+                <option value="normale" {% if filters.urgence == 'normale' %}selected{% endif %}>Normale</option>
+                <option value="urgente" {% if filters.urgence == 'urgente' %}selected{% endif %}>Urgente</option>
+                <option value="tres_urgente" {% if filters.urgence == 'tres_urgente' %}selected{% endif %}>Très urgente</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Autorité</label>
+            <select name="autorite" class="form-input">
+                <option value="">Toutes</option>
+                {% for autorite in autorites %}
+                <option value="{{ autorite.id }}" {% if filters.autorite == autorite.id|stringformat:'i' %}selected{% endif %}>
+                    {{ autorite.sigle|default:autorite.nom }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if filters.statut %}
+        <input type="hidden" name="statut" value="{{ filters.statut }}">
+        {% endif %}
+        <div class="filter-group" style="align-self: flex-end;">
+            <button type="submit" class="btn btn-primary">Filtrer</button>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    {% if cedules %}
+    <table>
+        <thead>
+            <tr>
+                <th>Référence</th>
+                <th>N° Parquet</th>
+                <th>Autorité</th>
+                <th>Date réception</th>
+                <th>Date audience</th>
+                <th>Destinataires</th>
+                <th>Urgence</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cedule in cedules %}
+            <tr>
+                <td>
+                    <a href="{% url 'citations:cedule_detail' cedule.id %}" style="font-weight: 600; color: var(--primary);">
+                        {{ cedule.reference }}
+                    </a>
+                </td>
+                <td>{{ cedule.numero_parquet }}</td>
+                <td>{{ cedule.autorite_requerante.sigle|default:cedule.autorite_requerante.nom }}</td>
+                <td>{{ cedule.date_reception|date:"d/m/Y" }}</td>
+                <td>
+                    {% if cedule.date_audience %}
+                        {{ cedule.date_audience|date:"d/m/Y" }}
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {{ cedule.destinataires.count }} destinataire{% if cedule.destinataires.count > 1 %}s{% endif %}
+                </td>
+                <td>
+                    <span class="badge badge-{{ cedule.urgence }}">{{ cedule.get_urgence_display }}</span>
+                </td>
+                <td>
+                    <span class="badge badge-{{ cedule.statut }}">{{ cedule.get_statut_display }}</span>
+                </td>
+                <td>
+                    <div class="actions-cell">
+                        <a href="{% url 'citations:cedule_detail' cedule.id %}" class="btn-icon" title="Voir détails">
+                            <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if cedules.has_other_pages %}
+    <div class="pagination">
+        {% if cedules.has_previous %}
+        <a href="?page={{ cedules.previous_page_number }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.statut %}&statut={{ filters.statut }}{% endif %}">
+            <i data-lucide="chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for num in cedules.paginator.page_range %}
+            {% if cedules.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > cedules.number|add:'-3' and num < cedules.number|add:'3' %}
+                <a href="?page={{ num }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.statut %}&statut={{ filters.statut }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if cedules.has_next %}
+        <a href="?page={{ cedules.next_page_number }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.statut %}&statut={{ filters.statut }}{% endif %}">
+            <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="inbox" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
+        <p>Aucune cédule trouvée</p>
+        <a href="{% url 'citations:nouvelle_cedule' %}" class="btn btn-primary">
+            Créer une nouvelle cédule
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

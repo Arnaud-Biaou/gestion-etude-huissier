@@ -1,0 +1,458 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Nouvelle Cédule{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .breadcrumb a { color: var(--primary); text-decoration: none; }
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        font-weight: 600;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .card-body { padding: 1.5rem; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+    .form-group {
+        margin-bottom: 0;
+    }
+    .form-group.col-2 { grid-column: span 2; }
+    .form-group.col-3 { grid-column: span 3; }
+    .form-label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #333;
+        font-size: 0.9rem;
+    }
+    .form-label .required { color: var(--danger); }
+    .destinataires-list {
+        margin-top: 1rem;
+    }
+    .destinataire-item {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    .destinataire-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .btn-remove {
+        background: none;
+        border: none;
+        color: var(--danger);
+        cursor: pointer;
+        padding: 0.25rem;
+    }
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+    .type-toggle {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .type-toggle label {
+        flex: 1;
+        padding: 0.5rem 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .type-toggle input[type="radio"] { display: none; }
+    .type-toggle input[type="radio"]:checked + label {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'citations:cedules' %}">Cédules</a>
+            <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+            <span>Nouvelle cédule</span>
+        </div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            Nouvelle Cédule de Citation
+        </h2>
+    </div>
+</div>
+
+<form id="ceduleForm">
+    <!-- Informations générales -->
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="file-text"></i>
+            Informations générales
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Référence interne</label>
+                    <input type="text" class="form-input" id="reference" value="{{ reference }}" readonly style="background: #f0f0f0;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date de réception <span class="required">*</span></label>
+                    <input type="date" class="form-input" id="dateReception" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Urgence</label>
+                    <select class="form-input" id="urgence">
+                        <option value="normale">Normale</option>
+                        <option value="urgente">Urgente</option>
+                        <option value="tres_urgente">Très urgente</option>
+                    </select>
+                </div>
+                <div class="form-group col-2">
+                    <label class="form-label">Autorité requérante <span class="required">*</span></label>
+                    <select class="form-input" id="autoriteRequerante" required>
+                        <option value="">-- Sélectionner --</option>
+                        {% for autorite in autorites %}
+                        <option value="{{ autorite.id }}">{{ autorite.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nature de l'acte <span class="required">*</span></label>
+                    <select class="form-input" id="natureActe" required>
+                        <option value="citation_criminelle">Citation en matière criminelle</option>
+                        <option value="citation_correctionnelle" selected>Citation en matière correctionnelle</option>
+                        <option value="citation_police">Citation en matière de police</option>
+                        <option value="mandat_comparution">Signification de mandat de comparution</option>
+                        <option value="ordonnance">Signification d'ordonnance</option>
+                        <option value="jugement">Signification de jugement</option>
+                        <option value="arret">Signification d'arrêt</option>
+                        <option value="notification">Notification</option>
+                        <option value="autre">Autre acte pénal</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Références de l'affaire -->
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="folder"></i>
+            Références de l'affaire
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">N° de parquet / Référence <span class="required">*</span></label>
+                    <input type="text" class="form-input" id="numeroParquet" placeholder="Ex: CRIET/2024/001" required>
+                </div>
+                <div class="form-group col-2">
+                    <label class="form-label">Juridiction</label>
+                    <input type="text" class="form-input" id="juridiction" placeholder="Ex: CRIET, TPI Cotonou...">
+                </div>
+                <div class="form-group col-3">
+                    <label class="form-label">Nature de l'infraction</label>
+                    <input type="text" class="form-input" id="natureInfraction" placeholder="Ex: Abus de confiance, escroquerie...">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audience -->
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="calendar"></i>
+            Audience
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Date d'audience</label>
+                    <input type="date" class="form-input" id="dateAudience">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Heure d'audience</label>
+                    <input type="time" class="form-input" id="heureAudience">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre de pièces jointes</label>
+                    <input type="number" class="form-input" id="nombrePieces" value="0" min="0">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Destinataires -->
+    <div class="card">
+        <div class="card-header" style="justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="users"></i>
+                Destinataires
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="ajouterDestinataire()">
+                <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                Ajouter un destinataire
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="destinataires-list" id="destinatairesList">
+                <!-- Les destinataires seront ajoutés ici dynamiquement -->
+            </div>
+            <p id="noDestinataire" style="text-align: center; color: #666; padding: 2rem;">
+                Cliquez sur "Ajouter un destinataire" pour commencer
+            </p>
+        </div>
+    </div>
+
+    <!-- Observations -->
+    <div class="card">
+        <div class="card-header">
+            <i data-lucide="message-square"></i>
+            Observations
+        </div>
+        <div class="card-body">
+            <textarea class="form-input" id="observations" rows="3" placeholder="Observations éventuelles..."></textarea>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url 'citations:cedules' %}" class="btn">Annuler</a>
+        <button type="submit" class="btn btn-primary">
+            <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+            Enregistrer la cédule
+        </button>
+    </div>
+</form>
+
+<!-- Template destinataire -->
+<template id="destinataireTemplate">
+    <div class="destinataire-item" data-index="{index}">
+        <div class="destinataire-header">
+            <strong>Destinataire #{num}</strong>
+            <button type="button" class="btn-remove" onclick="supprimerDestinataire({index})">
+                <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+
+        <div class="type-toggle">
+            <input type="radio" name="typePersonne_{index}" id="physique_{index}" value="physique" checked onchange="toggleTypePersonne({index})">
+            <label for="physique_{index}">Personne physique</label>
+            <input type="radio" name="typePersonne_{index}" id="morale_{index}" value="morale" onchange="toggleTypePersonne({index})">
+            <label for="morale_{index}">Personne morale</label>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="form-group">
+                <label class="form-label">Qualité <span class="required">*</span></label>
+                <select class="form-input" name="typeDestinataire_{index}" required>
+                    <option value="prevenu">Prévenu</option>
+                    <option value="temoin">Témoin</option>
+                    <option value="partie_civile">Partie civile</option>
+                    <option value="civilement_responsable">Civilement responsable</option>
+                    <option value="avocat">Avocat</option>
+                    <option value="expert">Expert</option>
+                    <option value="autre">Autre</option>
+                </select>
+            </div>
+
+            <!-- Champs personne physique -->
+            <div class="form-group physique-fields" data-index="{index}">
+                <label class="form-label">Nom <span class="required">*</span></label>
+                <input type="text" class="form-input" name="nom_{index}" placeholder="Nom">
+            </div>
+            <div class="form-group physique-fields" data-index="{index}">
+                <label class="form-label">Prénoms</label>
+                <input type="text" class="form-input" name="prenoms_{index}" placeholder="Prénoms">
+            </div>
+
+            <!-- Champs personne morale (cachés par défaut) -->
+            <div class="form-group morale-fields" data-index="{index}" style="display: none;">
+                <label class="form-label">Raison sociale <span class="required">*</span></label>
+                <input type="text" class="form-input" name="raisonSociale_{index}" placeholder="Raison sociale">
+            </div>
+            <div class="form-group morale-fields" data-index="{index}" style="display: none;">
+                <label class="form-label">Représentant légal</label>
+                <input type="text" class="form-input" name="representant_{index}" placeholder="Nom du représentant">
+            </div>
+
+            <div class="form-group col-2">
+                <label class="form-label">Adresse</label>
+                <input type="text" class="form-input" name="adresse_{index}" placeholder="Adresse complète">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Localité</label>
+                <select class="form-input" name="localite_{index}" onchange="updateDistance({index})">
+                    <option value="">-- Sélectionner --</option>
+                    {% for loc in localites %}
+                    <option value="{{ loc.id }}" data-distance="{{ loc.distance_parakou }}">{{ loc.nom }}{% if loc.commune %} ({{ loc.commune }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Distance (km)</label>
+                <input type="number" class="form-input" name="distance_{index}" value="0" min="0" step="0.1">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Téléphone</label>
+                <input type="text" class="form-input" name="telephone_{index}" placeholder="Téléphone">
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Initialiser la date du jour
+    document.getElementById('dateReception').value = new Date().toISOString().split('T')[0];
+
+    let destinataireIndex = 0;
+
+    function ajouterDestinataire() {
+        const template = document.getElementById('destinataireTemplate').innerHTML;
+        const html = template
+            .replace(/{index}/g, destinataireIndex)
+            .replace(/{num}/g, destinataireIndex + 1);
+
+        document.getElementById('noDestinataire').style.display = 'none';
+        document.getElementById('destinatairesList').insertAdjacentHTML('beforeend', html);
+
+        lucide.createIcons();
+        destinataireIndex++;
+    }
+
+    function supprimerDestinataire(index) {
+        const item = document.querySelector(`.destinataire-item[data-index="${index}"]`);
+        if (item) {
+            item.remove();
+            if (document.querySelectorAll('.destinataire-item').length === 0) {
+                document.getElementById('noDestinataire').style.display = 'block';
+            }
+        }
+    }
+
+    function toggleTypePersonne(index) {
+        const isPhysique = document.getElementById(`physique_${index}`).checked;
+        document.querySelectorAll(`.physique-fields[data-index="${index}"]`).forEach(el => {
+            el.style.display = isPhysique ? 'block' : 'none';
+        });
+        document.querySelectorAll(`.morale-fields[data-index="${index}"]`).forEach(el => {
+            el.style.display = isPhysique ? 'none' : 'block';
+        });
+    }
+
+    function updateDistance(index) {
+        const select = document.querySelector(`select[name="localite_${index}"]`);
+        const option = select.options[select.selectedIndex];
+        const distance = option.dataset.distance || 0;
+        document.querySelector(`input[name="distance_${index}"]`).value = distance;
+    }
+
+    // Soumission du formulaire
+    document.getElementById('ceduleForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Collecter les destinataires
+        const destinataires = [];
+        document.querySelectorAll('.destinataire-item').forEach((item) => {
+            const idx = item.dataset.index;
+            const isPhysique = document.getElementById(`physique_${idx}`).checked;
+
+            destinataires.push({
+                type_destinataire: document.querySelector(`select[name="typeDestinataire_${idx}"]`).value,
+                type_personne: isPhysique ? 'physique' : 'morale',
+                nom: document.querySelector(`input[name="nom_${idx}"]`)?.value || '',
+                prenoms: document.querySelector(`input[name="prenoms_${idx}"]`)?.value || '',
+                raison_sociale: document.querySelector(`input[name="raisonSociale_${idx}"]`)?.value || '',
+                representant_legal: document.querySelector(`input[name="representant_${idx}"]`)?.value || '',
+                adresse: document.querySelector(`input[name="adresse_${idx}"]`)?.value || '',
+                localite_id: document.querySelector(`select[name="localite_${idx}"]`)?.value || null,
+                distance_km: parseFloat(document.querySelector(`input[name="distance_${idx}"]`)?.value) || 0,
+                telephone: document.querySelector(`input[name="telephone_${idx}"]`)?.value || '',
+            });
+        });
+
+        const data = {
+            date_reception: document.getElementById('dateReception').value,
+            autorite_requerante_id: parseInt(document.getElementById('autoriteRequerante').value),
+            numero_parquet: document.getElementById('numeroParquet').value,
+            nature_infraction: document.getElementById('natureInfraction').value,
+            nature_acte: document.getElementById('natureActe').value,
+            juridiction: document.getElementById('juridiction').value,
+            date_audience: document.getElementById('dateAudience').value || null,
+            heure_audience: document.getElementById('heureAudience').value || null,
+            urgence: document.getElementById('urgence').value,
+            nombre_pieces_jointes: parseInt(document.getElementById('nombrePieces').value) || 0,
+            observations: document.getElementById('observations').value,
+            destinataires: destinataires
+        };
+
+        fetch('{% url "citations:api_cedule_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Cédule créée avec succès!\nRéférence: ' + result.reference);
+                window.location.href = '/citations/cedules/' + result.cedule_id + '/';
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur de connexion');
+            console.error(error);
+        });
+    });
+</script>
+{% endblock %}

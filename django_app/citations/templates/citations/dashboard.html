@@ -1,0 +1,320 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Citations - Tableau de bord{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 4px solid var(--primary);
+    }
+    .stat-card.urgent {
+        border-left-color: var(--danger);
+    }
+    .stat-card.success {
+        border-left-color: var(--success);
+    }
+    .stat-card.warning {
+        border-left-color: var(--accent);
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+        font-family: var(--font-display);
+    }
+    .stat-label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 0.25rem;
+    }
+    .section-title {
+        font-family: var(--font-display);
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .content-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+    }
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .card-body {
+        padding: 1rem 1.5rem;
+    }
+    .list-item {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .list-item:last-child {
+        border-bottom: none;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-urgent {
+        background: #fed7d7;
+        color: #c53030;
+    }
+    .badge-normal {
+        background: #e2e8f0;
+        color: #4a5568;
+    }
+    .badge-success {
+        background: #c6f6d5;
+        color: #2f855a;
+    }
+    .badge-warning {
+        background: #feebc8;
+        color: #c05621;
+    }
+    .quick-actions {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .action-card {
+        flex: 1;
+        background: linear-gradient(135deg, var(--primary) 0%, #2c5282 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-decoration: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .action-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(26, 54, 93, 0.3);
+    }
+    .action-card.secondary {
+        background: linear-gradient(135deg, var(--accent) 0%, #b8941f 100%);
+    }
+    .action-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .action-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    .action-desc {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    .montant {
+        font-family: var(--font-display);
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quick-actions">
+    <a href="{% url 'citations:nouvelle_cedule' %}" class="action-card">
+        <div class="action-icon"><i data-lucide="file-plus"></i></div>
+        <div class="action-title">Nouvelle Cédule</div>
+        <div class="action-desc">Enregistrer une cédule reçue</div>
+    </a>
+    <a href="{% url 'citations:nouveau_memoire' %}" class="action-card secondary">
+        <div class="action-icon"><i data-lucide="file-text"></i></div>
+        <div class="action-title">Nouveau Mémoire</div>
+        <div class="action-desc">Créer un mémoire de frais</div>
+    </a>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.cedules_recues }}</div>
+        <div class="stat-label">Cédules reçues ce mois</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.cedules_en_cours }}</div>
+        <div class="stat-label">En cours de signification</div>
+    </div>
+    <div class="stat-card urgent">
+        <div class="stat-value">{{ stats.cedules_urgentes }}</div>
+        <div class="stat-label">Cédules urgentes</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-value">{{ stats.actes_signifies }}</div>
+        <div class="stat-label">Actes signifiés ce mois</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-value">{{ stats.memoires_en_attente }}</div>
+        <div class="stat-label">Mémoires en attente</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value montant">{{ stats.montant_en_attente|floatformat:0 }}</div>
+        <div class="stat-label">FCFA en attente de paiement</div>
+    </div>
+</div>
+
+<div class="content-grid">
+    <!-- Cédules urgentes -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="section-title">
+                <i data-lucide="alert-triangle"></i>
+                Cédules Urgentes
+            </h3>
+            <a href="{% url 'citations:cedules' %}?urgence=urgente" class="btn btn-sm">Voir tout</a>
+        </div>
+        <div class="card-body">
+            {% for cedule in cedules_urgentes_list %}
+            <div class="list-item">
+                <div>
+                    <div style="font-weight: 600;">{{ cedule.numero_parquet }}</div>
+                    <div style="font-size: 0.85rem; color: #666;">
+                        {{ cedule.autorite_requerante.sigle|default:cedule.autorite_requerante.nom }}
+                        {% if cedule.date_audience %}
+                        - Audience: {{ cedule.date_audience|date:"d/m/Y" }}
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="badge badge-urgent">
+                    {{ cedule.get_urgence_display }}
+                </span>
+            </div>
+            {% empty %}
+            <p style="color: #666; text-align: center; padding: 1rem;">Aucune cédule urgente</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Derniers mémoires -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="section-title">
+                <i data-lucide="file-text"></i>
+                Derniers Mémoires
+            </h3>
+            <a href="{% url 'citations:memoires' %}" class="btn btn-sm">Voir tout</a>
+        </div>
+        <div class="card-body">
+            {% for memoire in derniers_memoires %}
+            <div class="list-item">
+                <div>
+                    <div style="font-weight: 600;">{{ memoire.numero_memoire }}</div>
+                    <div style="font-size: 0.85rem; color: #666;">
+                        {{ memoire.get_mois_display }} {{ memoire.annee }} - {{ memoire.autorite_requerante.sigle|default:memoire.autorite_requerante.nom }}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="montant">{{ memoire.montant_total|floatformat:0 }} F</div>
+                    <span class="badge badge-{% if memoire.statut == 'paye' %}success{% elif memoire.statut == 'rejete' %}urgent{% else %}warning{% endif %}">
+                        {{ memoire.get_statut_display }}
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <p style="color: #666; text-align: center; padding: 1rem;">Aucun mémoire</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Dernières cédules -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="section-title">
+                <i data-lucide="inbox"></i>
+                Dernières Cédules Reçues
+            </h3>
+            <a href="{% url 'citations:cedules' %}" class="btn btn-sm">Voir tout</a>
+        </div>
+        <div class="card-body">
+            {% for cedule in dernieres_cedules %}
+            <div class="list-item">
+                <div>
+                    <div style="font-weight: 600;">{{ cedule.reference }}</div>
+                    <div style="font-size: 0.85rem; color: #666;">
+                        {{ cedule.numero_parquet }} - {{ cedule.date_reception|date:"d/m/Y" }}
+                    </div>
+                </div>
+                <span class="badge badge-{% if cedule.statut == 'signifiee' %}success{% elif cedule.statut == 'en_cours' %}warning{% else %}normal{% endif %}">
+                    {{ cedule.get_statut_display }}
+                </span>
+            </div>
+            {% empty %}
+            <p style="color: #666; text-align: center; padding: 1rem;">Aucune cédule</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Barèmes rapides -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="section-title">
+                <i data-lucide="calculator"></i>
+                Barèmes Article 81
+            </h3>
+            <a href="{% url 'citations:baremes' %}" class="btn btn-sm">Détails</a>
+        </div>
+        <div class="card-body">
+            <div class="list-item">
+                <span>Premier original</span>
+                <span class="montant">980 FCFA</span>
+            </div>
+            <div class="list-item">
+                <span>Deuxième original</span>
+                <span class="montant">980 FCFA</span>
+            </div>
+            <div class="list-item">
+                <span>Copie supplémentaire</span>
+                <span class="montant">900 FCFA</span>
+            </div>
+            <div class="list-item">
+                <span>Mention répertoire</span>
+                <span class="montant">25 FCFA</span>
+            </div>
+            <div class="list-item">
+                <span>Vacation</span>
+                <span class="montant">3 000 FCFA</span>
+            </div>
+            <div class="list-item" style="background: #f8f9fa; margin: 0 -1.5rem; padding: 0.75rem 1.5rem; font-weight: 600;">
+                <span>Sous-total minimum</span>
+                <span class="montant" style="color: var(--primary);">4 985 FCFA</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

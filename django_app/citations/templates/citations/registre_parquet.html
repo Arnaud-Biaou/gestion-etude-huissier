@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registre au Parquet{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .filters-bar {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .filters-row {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .filter-group label {
+        font-size: 0.75rem;
+        color: #666;
+        font-weight: 500;
+    }
+    .total-box {
+        background: linear-gradient(135deg, var(--primary) 0%, #2c5282 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .total-label {
+        font-size: 1rem;
+    }
+    .total-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        font-family: var(--font-display);
+    }
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th {
+        background: #f8f9fa;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.85rem;
+    }
+    td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    tr:hover {
+        background: #fafafa;
+    }
+    .montant {
+        font-family: var(--font-display);
+        font-weight: 600;
+        text-align: right;
+    }
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    .pagination a, .pagination span {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--primary);
+    }
+    .pagination .current {
+        background: var(--primary);
+        color: white;
+    }
+    .info-box {
+        background: #fef3c7;
+        border-left: 4px solid var(--accent);
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 0 8px 8px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            Registre au Parquet
+        </h2>
+        <p style="color: #666; margin: 0.25rem 0 0 0;">
+            Article 75 - Décret n°2012-143
+        </p>
+    </div>
+    <button class="btn btn-primary" onclick="window.print()">
+        <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
+        Imprimer
+    </button>
+</div>
+
+<div class="info-box">
+    <strong>Article 75 :</strong> Registre obligatoire contenant la référence de l'affaire, la nature des diligences, la date de chaque acte et le montant des émoluments affectés.
+</div>
+
+<div class="filters-bar no-print">
+    <form method="get" class="filters-row">
+        <div class="filter-group">
+            <label>Date début</label>
+            <input type="date" name="date_debut" class="form-input" value="{{ request.GET.date_debut }}">
+        </div>
+        <div class="filter-group">
+            <label>Date fin</label>
+            <input type="date" name="date_fin" class="form-input" value="{{ request.GET.date_fin }}">
+        </div>
+        <div class="filter-group">
+            <button type="submit" class="btn btn-primary">Filtrer</button>
+            <a href="{% url 'citations:registre_parquet' %}" class="btn">Réinitialiser</a>
+        </div>
+    </form>
+</div>
+
+<div class="total-box">
+    <div class="total-label">Total des émoluments</div>
+    <div class="total-value">{{ total_emoluments|floatformat:0 }} FCFA</div>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Référence Affaire</th>
+                <th>Nature des Diligences</th>
+                <th>Date de l'Acte</th>
+                <th style="text-align: right;">Émoluments</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in registre %}
+            <tr>
+                <td><strong>{{ entry.reference_affaire }}</strong></td>
+                <td>{{ entry.nature_diligence }}</td>
+                <td>{{ entry.date_acte|date:"d/m/Y" }}</td>
+                <td class="montant">{{ entry.montant_emoluments|floatformat:0 }} F</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 2rem; color: #666;">
+                    Aucune entrée dans le registre
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if registre.has_other_pages %}
+    <div class="pagination no-print">
+        {% if registre.has_previous %}
+        <a href="?page={{ registre.previous_page_number }}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}">
+            <i data-lucide="chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for num in registre.paginator.page_range %}
+            {% if registre.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > registre.number|add:'-3' and num < registre.number|add:'3' %}
+                <a href="?page={{ num }}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if registre.has_next %}
+        <a href="?page={{ registre.next_page_number }}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}">
+            <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

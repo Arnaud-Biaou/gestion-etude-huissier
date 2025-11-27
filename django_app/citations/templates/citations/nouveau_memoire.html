@@ -1,0 +1,398 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Nouveau Mémoire{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .breadcrumb a { color: var(--primary); text-decoration: none; }
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        font-weight: 600;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .card-body { padding: 1.5rem; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+    }
+    .form-group { margin-bottom: 0; }
+    .form-label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #333;
+        font-size: 0.9rem;
+    }
+    .form-label .required { color: var(--danger); }
+    .cedules-selection {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+    }
+    .cedule-item {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    .cedule-item:last-child { border-bottom: none; }
+    .cedule-item:hover { background: #f8f9fa; }
+    .cedule-checkbox {
+        margin-top: 0.25rem;
+    }
+    .cedule-info { flex: 1; }
+    .cedule-ref {
+        font-weight: 600;
+        color: var(--primary);
+    }
+    .cedule-details {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 0.25rem;
+    }
+    .cedule-destinataires {
+        margin-top: 0.5rem;
+    }
+    .destinataire-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0;
+        font-size: 0.9rem;
+    }
+    .summary-box {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .summary-row:last-child {
+        border-bottom: none;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--primary);
+    }
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: #c6f6d5;
+        color: #2f855a;
+    }
+    .no-cedules {
+        text-align: center;
+        padding: 3rem;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'citations:memoires' %}">Mémoires</a>
+            <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+            <span>Nouveau mémoire</span>
+        </div>
+        <h2 style="margin: 0; font-family: var(--font-display); color: var(--primary);">
+            Nouveau Mémoire de Frais
+        </h2>
+    </div>
+</div>
+
+<form id="memoireForm">
+    <!-- Informations du mémoire -->
+    <div class="card">
+        <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="file-text"></i>
+                Informations du mémoire
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Mois <span class="required">*</span></label>
+                    <select class="form-input" id="mois" required>
+                        <option value="1" {% if mois_courant == 1 %}selected{% endif %}>Janvier</option>
+                        <option value="2" {% if mois_courant == 2 %}selected{% endif %}>Février</option>
+                        <option value="3" {% if mois_courant == 3 %}selected{% endif %}>Mars</option>
+                        <option value="4" {% if mois_courant == 4 %}selected{% endif %}>Avril</option>
+                        <option value="5" {% if mois_courant == 5 %}selected{% endif %}>Mai</option>
+                        <option value="6" {% if mois_courant == 6 %}selected{% endif %}>Juin</option>
+                        <option value="7" {% if mois_courant == 7 %}selected{% endif %}>Juillet</option>
+                        <option value="8" {% if mois_courant == 8 %}selected{% endif %}>Août</option>
+                        <option value="9" {% if mois_courant == 9 %}selected{% endif %}>Septembre</option>
+                        <option value="10" {% if mois_courant == 10 %}selected{% endif %}>Octobre</option>
+                        <option value="11" {% if mois_courant == 11 %}selected{% endif %}>Novembre</option>
+                        <option value="12" {% if mois_courant == 12 %}selected{% endif %}>Décembre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Année <span class="required">*</span></label>
+                    <input type="number" class="form-input" id="annee" value="{{ annee_courante }}" required>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Autorité requérante <span class="required">*</span></label>
+                    <select class="form-input" id="autoriteRequerante" required onchange="filtrerCedules()">
+                        <option value="">-- Sélectionner --</option>
+                        {% for autorite in autorites %}
+                        <option value="{{ autorite.id }}">{{ autorite.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid" style="margin-top: 1rem;">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Nom de l'huissier</label>
+                    <input type="text" class="form-input" id="nomHuissier" value="Maître BIAOU Martial Arnaud">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Juridiction</label>
+                    <input type="text" class="form-input" id="juridictionHuissier" value="TPI Parakou">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sélection des cédules -->
+    <div class="card">
+        <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="list-checks"></i>
+                Sélection des significations
+            </div>
+            <div>
+                <button type="button" class="btn btn-sm" onclick="selectAll()">Tout sélectionner</button>
+                <button type="button" class="btn btn-sm" onclick="deselectAll()">Tout désélectionner</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="cedules-selection" id="cedulesContainer">
+                {% if cedules_disponibles %}
+                {% for cedule in cedules_disponibles %}
+                <div class="cedule-item" data-autorite="{{ cedule.autorite_requerante_id }}">
+                    <div class="cedule-info">
+                        <div class="cedule-ref">
+                            {{ cedule.reference }} - {{ cedule.numero_parquet }}
+                        </div>
+                        <div class="cedule-details">
+                            {{ cedule.autorite_requerante.sigle|default:cedule.autorite_requerante.nom }} |
+                            {{ cedule.get_nature_acte_display }} |
+                            Reçue le {{ cedule.date_reception|date:"d/m/Y" }}
+                        </div>
+                        <div class="cedule-destinataires">
+                            {% for dest in cedule.destinataires.all %}
+                            {% if dest.acte_signification %}
+                            <div class="destinataire-check">
+                                <input type="checkbox"
+                                       class="destinataire-checkbox"
+                                       name="ligne"
+                                       value="{{ cedule.id }}_{{ dest.id }}_{{ dest.acte_signification.id }}"
+                                       data-montant="{{ dest.acte_signification.frais_signification.total_general|default:0 }}"
+                                       onchange="updateSummary()">
+                                <span>{{ dest.get_nom_complet }} ({{ dest.get_type_destinataire_display }})</span>
+                                <span class="badge">{{ dest.acte_signification.frais_signification.total_general|floatformat:0 }} F</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="no-cedules">
+                    <i data-lucide="inbox" style="width: 48px; height: 48px; opacity: 0.5; margin-bottom: 1rem;"></i>
+                    <p>Aucune cédule signifiée disponible pour créer un mémoire</p>
+                    <p style="font-size: 0.9rem;">Commencez par enregistrer des significations sur les cédules reçues.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="summary-box">
+                <h4 style="margin: 0 0 1rem 0; color: var(--primary);">Récapitulatif</h4>
+                <div class="summary-row">
+                    <span>Nombre de lignes sélectionnées</span>
+                    <span id="nbLignes">0</span>
+                </div>
+                <div class="summary-row">
+                    <span>MONTANT TOTAL</span>
+                    <span id="montantTotal">0 FCFA</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Observations -->
+    <div class="card">
+        <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="message-square"></i>
+                Observations
+            </div>
+        </div>
+        <div class="card-body">
+            <textarea class="form-input" id="observations" rows="3" placeholder="Observations éventuelles..."></textarea>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url 'citations:memoires' %}" class="btn">Annuler</a>
+        <button type="submit" class="btn btn-primary">
+            <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+            Créer le mémoire
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function filtrerCedules() {
+        const autoriteId = document.getElementById('autoriteRequerante').value;
+        document.querySelectorAll('.cedule-item').forEach(item => {
+            if (!autoriteId || item.dataset.autorite == autoriteId) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+                // Désélectionner les checkboxes des cédules cachées
+                item.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            }
+        });
+        updateSummary();
+    }
+
+    function selectAll() {
+        const autoriteId = document.getElementById('autoriteRequerante').value;
+        document.querySelectorAll('.cedule-item').forEach(item => {
+            if (!autoriteId || item.dataset.autorite == autoriteId) {
+                item.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+            }
+        });
+        updateSummary();
+    }
+
+    function deselectAll() {
+        document.querySelectorAll('input[type="checkbox"][name="ligne"]').forEach(cb => cb.checked = false);
+        updateSummary();
+    }
+
+    function updateSummary() {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][name="ligne"]:checked');
+        let total = 0;
+
+        checkboxes.forEach(cb => {
+            total += parseFloat(cb.dataset.montant) || 0;
+        });
+
+        document.getElementById('nbLignes').textContent = checkboxes.length;
+        document.getElementById('montantTotal').textContent = total.toLocaleString() + ' FCFA';
+    }
+
+    // Soumission du formulaire
+    document.getElementById('memoireForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const autoriteId = document.getElementById('autoriteRequerante').value;
+        if (!autoriteId) {
+            alert('Veuillez sélectionner une autorité requérante');
+            return;
+        }
+
+        const lignes = [];
+        document.querySelectorAll('input[type="checkbox"][name="ligne"]:checked').forEach(cb => {
+            const [ceduleId, destinataireId, acteId] = cb.value.split('_');
+            lignes.push({
+                cedule_id: parseInt(ceduleId),
+                destinataire_id: parseInt(destinataireId),
+                acte_id: parseInt(acteId)
+            });
+        });
+
+        if (lignes.length === 0) {
+            alert('Veuillez sélectionner au moins une signification');
+            return;
+        }
+
+        const data = {
+            mois: parseInt(document.getElementById('mois').value),
+            annee: parseInt(document.getElementById('annee').value),
+            autorite_requerante_id: parseInt(autoriteId),
+            nom_huissier: document.getElementById('nomHuissier').value,
+            juridiction_huissier: document.getElementById('juridictionHuissier').value,
+            observations: document.getElementById('observations').value,
+            lignes: lignes
+        };
+
+        fetch('{% url "citations:api_memoire_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Mémoire créé avec succès!\nNuméro: ' + result.numero_memoire + '\nMontant: ' + result.montant_total.toLocaleString() + ' FCFA');
+                window.location.href = '/citations/memoires/' + result.memoire_id + '/';
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur de connexion');
+            console.error(error);
+        });
+    });
+</script>
+{% endblock %}
