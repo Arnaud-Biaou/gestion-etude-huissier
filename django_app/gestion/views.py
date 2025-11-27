@@ -16,7 +16,10 @@ import string
 
 from .models import (
     Dossier, Facture, Collaborateur, Partie, ActeProcedure,
-    HistoriqueCalcul, TauxLegal, Utilisateur, LigneFacture
+    HistoriqueCalcul, TauxLegal, Utilisateur, LigneFacture,
+    Creancier, PortefeuilleCreancier, Encaissement, ImputationEncaissement,
+    Reversement, BasculementAmiableForce, PointGlobalCreancier,
+    EnvoiAutomatiquePoint, HistoriqueEnvoiPoint
 )
 
 
@@ -1007,6 +1010,1195 @@ def api_supprimer_dossier(request):
         # Dossier.objects.filter(id=dossier_id).delete()
 
         return JsonResponse({'success': True, 'message': 'Dossier supprime'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API CREANCIERS
+# ============================================
+
+def creanciers(request):
+    """Vue liste des créanciers"""
+    context = get_default_context(request)
+    context['active_module'] = 'creanciers'
+    context['page_title'] = 'Créanciers'
+
+    # Liste des créanciers
+    creanciers_list = Creancier.objects.filter(actif=True).order_by('nom')
+
+    # Statistiques
+    for creancier in creanciers_list:
+        creancier.nb_dossiers = creancier.dossiers.count()
+        creancier.total_creances = creancier.get_total_creances()
+        creancier.total_encaisse = creancier.get_total_encaisse()
+        creancier.total_reverse = creancier.get_total_reverse()
+
+    context['creanciers'] = creanciers_list
+
+    return render(request, 'gestion/creanciers.html', context)
+
+
+@require_GET
+def api_creanciers_liste(request):
+    """API pour la liste des créanciers"""
+    try:
+        creanciers_list = Creancier.objects.filter(actif=True).order_by('nom')
+
+        data = []
+        for creancier in creanciers_list:
+            data.append({
+                'id': creancier.id,
+                'code': creancier.code,
+                'nom': creancier.nom,
+                'type_creancier': creancier.type_creancier,
+                'telephone': creancier.telephone,
+                'email': creancier.email,
+                'taux_commission': float(creancier.taux_commission),
+                'nb_dossiers': creancier.dossiers.count(),
+                'total_creances': float(creancier.get_total_creances()),
+                'total_encaisse': float(creancier.get_total_encaisse()),
+                'total_reverse': float(creancier.get_total_reverse()),
+            })
+
+        return JsonResponse({'success': True, 'creanciers': data})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_creancier_creer(request):
+    """API pour créer un créancier"""
+    try:
+        data = json.loads(request.body)
+
+        creancier = Creancier(
+            code=data.get('code') or Creancier.generer_code(),
+            nom=data.get('nom'),
+            type_creancier=data.get('type_creancier', 'entreprise'),
+            adresse=data.get('adresse', ''),
+            telephone=data.get('telephone', ''),
+            email=data.get('email', ''),
+            ifu=data.get('ifu', ''),
+            rccm=data.get('rccm', ''),
+            contact_nom=data.get('contact_nom', ''),
+            contact_fonction=data.get('contact_fonction', ''),
+            contact_telephone=data.get('contact_telephone', ''),
+            contact_email=data.get('contact_email', ''),
+            banque_nom=data.get('banque_nom', ''),
+            banque_iban=data.get('banque_iban', ''),
+            banque_rib=data.get('banque_rib', ''),
+            taux_commission=Decimal(str(data.get('taux_commission', 10))),
+            delai_reversement=data.get('delai_reversement', 15),
+            notes=data.get('notes', ''),
+        )
+        creancier.save()
+
+        # Créer le portefeuille associé
+        PortefeuilleCreancier.objects.create(
+            creancier=creancier,
+            date_debut_relation=timezone.now().date()
+        )
+
+        return JsonResponse({
+            'success': True,
+            'creancier_id': creancier.id,
+            'code': creancier.code,
+            'message': f'Créancier {creancier.nom} créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_creancier_detail(request, creancier_id):
+    """API pour le détail d'un créancier"""
+    try:
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        # Dossiers du créancier
+        dossiers = []
+        for dossier in creancier.dossiers.all()[:20]:
+            dossiers.append({
+                'id': dossier.id,
+                'reference': dossier.reference,
+                'intitule': dossier.get_intitule(),
+                'montant_creance': float(dossier.montant_creance or 0),
+                'total_encaisse': float(dossier.get_total_encaisse()),
+                'solde_restant': float(dossier.get_solde_restant()),
+                'phase': dossier.phase,
+                'statut': dossier.statut,
+            })
+
+        data = {
+            'id': creancier.id,
+            'code': creancier.code,
+            'nom': creancier.nom,
+            'type_creancier': creancier.type_creancier,
+            'adresse': creancier.adresse,
+            'telephone': creancier.telephone,
+            'email': creancier.email,
+            'ifu': creancier.ifu,
+            'rccm': creancier.rccm,
+            'contact_nom': creancier.contact_nom,
+            'contact_fonction': creancier.contact_fonction,
+            'contact_telephone': creancier.contact_telephone,
+            'contact_email': creancier.contact_email,
+            'banque_nom': creancier.banque_nom,
+            'banque_iban': creancier.banque_iban,
+            'banque_rib': creancier.banque_rib,
+            'taux_commission': float(creancier.taux_commission),
+            'delai_reversement': creancier.delai_reversement,
+            'notes': creancier.notes,
+            'statistiques': {
+                'nb_dossiers': creancier.dossiers.count(),
+                'nb_dossiers_actifs': creancier.dossiers.filter(statut__in=['actif', 'urgent']).count(),
+                'total_creances': float(creancier.get_total_creances()),
+                'total_encaisse': float(creancier.get_total_encaisse()),
+                'total_reverse': float(creancier.get_total_reverse()),
+                'reste_a_reverser': float(creancier.get_total_encaisse() - creancier.get_total_reverse()),
+            },
+            'dossiers': dossiers,
+        }
+
+        return JsonResponse({'success': True, 'creancier': data})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API ENCAISSEMENTS
+# ============================================
+
+def encaissements(request):
+    """Vue liste des encaissements"""
+    context = get_default_context(request)
+    context['active_module'] = 'encaissements'
+    context['page_title'] = 'Historique des Encaissements'
+
+    # Filtres
+    dossier_id = request.GET.get('dossier')
+    creancier_id = request.GET.get('creancier')
+    statut = request.GET.get('statut')
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+
+    encaissements_qs = Encaissement.objects.select_related('dossier', 'dossier__creancier')
+
+    if dossier_id:
+        encaissements_qs = encaissements_qs.filter(dossier_id=dossier_id)
+    if creancier_id:
+        encaissements_qs = encaissements_qs.filter(dossier__creancier_id=creancier_id)
+    if statut:
+        encaissements_qs = encaissements_qs.filter(statut=statut)
+    if date_debut:
+        encaissements_qs = encaissements_qs.filter(date_encaissement__gte=date_debut)
+    if date_fin:
+        encaissements_qs = encaissements_qs.filter(date_encaissement__lte=date_fin)
+
+    # Pagination
+    paginator = Paginator(encaissements_qs.order_by('-date_encaissement'), 25)
+    page = request.GET.get('page', 1)
+    encaissements_page = paginator.get_page(page)
+
+    # Statistiques
+    stats = encaissements_qs.filter(statut='valide').aggregate(
+        total=Sum('montant'),
+        count=Count('id')
+    )
+
+    context['encaissements'] = encaissements_page
+    context['stats'] = stats
+    context['creanciers'] = Creancier.objects.filter(actif=True)
+
+    return render(request, 'gestion/encaissements.html', context)
+
+
+@require_GET
+def api_encaissements_liste(request):
+    """API pour la liste des encaissements avec filtres"""
+    try:
+        # Filtres
+        dossier_id = request.GET.get('dossier')
+        creancier_id = request.GET.get('creancier')
+        statut = request.GET.get('statut')
+        date_debut = request.GET.get('date_debut')
+        date_fin = request.GET.get('date_fin')
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 25))
+
+        encaissements_qs = Encaissement.objects.select_related(
+            'dossier', 'dossier__creancier', 'cree_par', 'valide_par'
+        )
+
+        if dossier_id:
+            encaissements_qs = encaissements_qs.filter(dossier_id=dossier_id)
+        if creancier_id:
+            encaissements_qs = encaissements_qs.filter(dossier__creancier_id=creancier_id)
+        if statut:
+            encaissements_qs = encaissements_qs.filter(statut=statut)
+        if date_debut:
+            encaissements_qs = encaissements_qs.filter(date_encaissement__gte=date_debut)
+        if date_fin:
+            encaissements_qs = encaissements_qs.filter(date_encaissement__lte=date_fin)
+
+        # Pagination
+        paginator = Paginator(encaissements_qs.order_by('-date_encaissement'), per_page)
+        encaissements_page = paginator.get_page(page)
+
+        data = []
+        for enc in encaissements_page:
+            data.append({
+                'id': enc.id,
+                'reference': enc.reference,
+                'dossier': {
+                    'id': enc.dossier.id,
+                    'reference': enc.dossier.reference,
+                    'intitule': enc.dossier.get_intitule(),
+                },
+                'creancier': {
+                    'id': enc.dossier.creancier.id,
+                    'nom': enc.dossier.creancier.nom,
+                } if enc.dossier.creancier else None,
+                'montant': float(enc.montant),
+                'date_encaissement': enc.date_encaissement.isoformat(),
+                'mode_paiement': enc.mode_paiement,
+                'payeur_nom': enc.payeur_nom,
+                'statut': enc.statut,
+                'reversement_statut': enc.reversement_statut,
+                'cumul_encaisse_apres': float(enc.cumul_encaisse_apres),
+                'solde_restant': float(enc.solde_restant),
+                'montant_a_reverser': float(enc.montant_a_reverser),
+            })
+
+        # Statistiques globales
+        stats = encaissements_qs.filter(statut='valide').aggregate(
+            total=Sum('montant'),
+            count=Count('id'),
+            total_a_reverser=Sum('montant_a_reverser')
+        )
+
+        return JsonResponse({
+            'success': True,
+            'encaissements': data,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': paginator.num_pages,
+                'total_items': paginator.count,
+            },
+            'statistiques': {
+                'total_encaisse': float(stats['total'] or 0),
+                'nb_encaissements': stats['count'] or 0,
+                'total_a_reverser': float(stats['total_a_reverser'] or 0),
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_encaissement_creer(request):
+    """API pour créer un encaissement"""
+    try:
+        data = json.loads(request.body)
+
+        dossier = get_object_or_404(Dossier, pk=data.get('dossier_id'))
+
+        encaissement = Encaissement(
+            dossier=dossier,
+            montant=Decimal(str(data.get('montant'))),
+            date_encaissement=data.get('date_encaissement', timezone.now().date()),
+            date_valeur=data.get('date_valeur'),
+            mode_paiement=data.get('mode_paiement', 'especes'),
+            payeur_nom=data.get('payeur_nom'),
+            payeur_telephone=data.get('payeur_telephone', ''),
+            payeur_qualite=data.get('payeur_qualite', ''),
+            reference_paiement=data.get('reference_paiement', ''),
+            banque_emettrice=data.get('banque_emettrice', ''),
+            observations=data.get('observations', ''),
+            statut='en_attente',
+        )
+        encaissement.save()
+
+        # Créer les imputations si fournies
+        imputations = data.get('imputations', [])
+        for imp in imputations:
+            ImputationEncaissement.objects.create(
+                encaissement=encaissement,
+                type_imputation=imp['type'],
+                montant=Decimal(str(imp['montant'])),
+                observations=imp.get('observations', ''),
+            )
+
+        return JsonResponse({
+            'success': True,
+            'encaissement_id': encaissement.id,
+            'reference': encaissement.reference,
+            'message': f'Encaissement {encaissement.reference} créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_encaissement_detail(request, encaissement_id):
+    """API pour le détail d'un encaissement"""
+    try:
+        enc = get_object_or_404(
+            Encaissement.objects.select_related('dossier', 'dossier__creancier'),
+            pk=encaissement_id
+        )
+
+        # Imputations
+        imputations = []
+        for imp in enc.imputations.all():
+            imputations.append({
+                'id': imp.id,
+                'type_imputation': imp.type_imputation,
+                'type_display': imp.get_type_imputation_display(),
+                'montant': float(imp.montant),
+                'solde_avant': float(imp.solde_avant),
+                'solde_apres': float(imp.solde_apres),
+                'observations': imp.observations,
+            })
+
+        data = {
+            'id': enc.id,
+            'reference': enc.reference,
+            'dossier': {
+                'id': enc.dossier.id,
+                'reference': enc.dossier.reference,
+                'intitule': enc.dossier.get_intitule(),
+                'montant_total_du': float(enc.dossier.get_montant_total_du()),
+            },
+            'creancier': {
+                'id': enc.dossier.creancier.id,
+                'nom': enc.dossier.creancier.nom,
+                'taux_commission': float(enc.dossier.creancier.taux_commission),
+            } if enc.dossier.creancier else None,
+            'montant': float(enc.montant),
+            'date_encaissement': enc.date_encaissement.isoformat(),
+            'date_valeur': enc.date_valeur.isoformat() if enc.date_valeur else None,
+            'mode_paiement': enc.mode_paiement,
+            'mode_paiement_display': enc.get_mode_paiement_display(),
+            'payeur_nom': enc.payeur_nom,
+            'payeur_telephone': enc.payeur_telephone,
+            'payeur_qualite': enc.payeur_qualite,
+            'reference_paiement': enc.reference_paiement,
+            'banque_emettrice': enc.banque_emettrice,
+            'statut': enc.statut,
+            'statut_display': enc.get_statut_display(),
+            'date_validation': enc.date_validation.isoformat() if enc.date_validation else None,
+            'cumul_encaisse_avant': float(enc.cumul_encaisse_avant),
+            'cumul_encaisse_apres': float(enc.cumul_encaisse_apres),
+            'solde_restant': float(enc.solde_restant),
+            'montant_a_reverser': float(enc.montant_a_reverser),
+            'reversement_statut': enc.reversement_statut,
+            'observations': enc.observations,
+            'imputations': imputations,
+            'date_creation': enc.date_creation.isoformat(),
+        }
+
+        return JsonResponse({'success': True, 'encaissement': data})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_encaissement_valider(request, encaissement_id):
+    """API pour valider un encaissement"""
+    try:
+        enc = get_object_or_404(Encaissement, pk=encaissement_id)
+
+        if enc.statut != 'en_attente':
+            return JsonResponse({
+                'success': False,
+                'error': 'Cet encaissement ne peut pas être validé'
+            }, status=400)
+
+        # Simuler un utilisateur (en production, utiliser request.user)
+        utilisateur = Utilisateur.objects.first()
+        enc.valider(utilisateur)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Encaissement {enc.reference} validé avec succès',
+            'cumul_encaisse_apres': float(enc.cumul_encaisse_apres),
+            'solde_restant': float(enc.solde_restant),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_encaissement_annuler(request, encaissement_id):
+    """API pour annuler un encaissement"""
+    try:
+        data = json.loads(request.body)
+        enc = get_object_or_404(Encaissement, pk=encaissement_id)
+
+        if enc.statut == 'annule':
+            return JsonResponse({
+                'success': False,
+                'error': 'Cet encaissement est déjà annulé'
+            }, status=400)
+
+        motif = data.get('motif', '')
+        enc.annuler(motif)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Encaissement {enc.reference} annulé'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_encaissements_historique_dossier(request, dossier_id):
+    """API pour l'historique des encaissements d'un dossier avec cumuls"""
+    try:
+        dossier = get_object_or_404(Dossier, pk=dossier_id)
+
+        encaissements = dossier.encaissements.filter(
+            statut='valide'
+        ).order_by('date_encaissement', 'date_creation')
+
+        data = []
+        cumul = 0
+        for enc in encaissements:
+            cumul += enc.montant
+            data.append({
+                'id': enc.id,
+                'reference': enc.reference,
+                'date_encaissement': enc.date_encaissement.isoformat(),
+                'montant': float(enc.montant),
+                'mode_paiement': enc.get_mode_paiement_display(),
+                'payeur_nom': enc.payeur_nom,
+                'cumul_progressif': float(cumul),
+                'solde_restant': float(dossier.get_montant_total_du() - cumul),
+                'imputations': [
+                    {
+                        'type': imp.get_type_imputation_display(),
+                        'montant': float(imp.montant)
+                    }
+                    for imp in enc.imputations.all()
+                ]
+            })
+
+        return JsonResponse({
+            'success': True,
+            'dossier': {
+                'reference': dossier.reference,
+                'montant_total_du': float(dossier.get_montant_total_du()),
+                'total_encaisse': float(dossier.get_total_encaisse()),
+                'solde_restant': float(dossier.get_solde_restant()),
+                'taux_recouvrement': round(dossier.get_taux_recouvrement(), 2),
+            },
+            'encaissements': data
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_encaissements_export(request):
+    """API pour exporter les encaissements en CSV"""
+    try:
+        # Filtres
+        dossier_id = request.GET.get('dossier')
+        creancier_id = request.GET.get('creancier')
+        date_debut = request.GET.get('date_debut')
+        date_fin = request.GET.get('date_fin')
+
+        encaissements_qs = Encaissement.objects.select_related(
+            'dossier', 'dossier__creancier'
+        ).filter(statut='valide')
+
+        if dossier_id:
+            encaissements_qs = encaissements_qs.filter(dossier_id=dossier_id)
+        if creancier_id:
+            encaissements_qs = encaissements_qs.filter(dossier__creancier_id=creancier_id)
+        if date_debut:
+            encaissements_qs = encaissements_qs.filter(date_encaissement__gte=date_debut)
+        if date_fin:
+            encaissements_qs = encaissements_qs.filter(date_encaissement__lte=date_fin)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="encaissements.csv"'
+
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow([
+            'Référence', 'Date', 'Dossier', 'Créancier', 'Montant',
+            'Mode paiement', 'Payeur', 'Cumul', 'Solde restant',
+            'Montant à reverser', 'Statut reversement'
+        ])
+
+        for enc in encaissements_qs.order_by('date_encaissement'):
+            writer.writerow([
+                enc.reference,
+                enc.date_encaissement.strftime('%d/%m/%Y'),
+                enc.dossier.reference,
+                enc.dossier.creancier.nom if enc.dossier.creancier else '',
+                enc.montant,
+                enc.get_mode_paiement_display(),
+                enc.payeur_nom,
+                enc.cumul_encaisse_apres,
+                enc.solde_restant,
+                enc.montant_a_reverser,
+                enc.reversement_statut,
+            ])
+
+        return response
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API REVERSEMENTS
+# ============================================
+
+def reversements(request):
+    """Vue liste des reversements"""
+    context = get_default_context(request)
+    context['active_module'] = 'reversements'
+    context['page_title'] = 'Suivi des Reversements'
+
+    # Filtres
+    creancier_id = request.GET.get('creancier')
+    statut = request.GET.get('statut')
+
+    reversements_qs = Reversement.objects.select_related('creancier')
+
+    if creancier_id:
+        reversements_qs = reversements_qs.filter(creancier_id=creancier_id)
+    if statut:
+        reversements_qs = reversements_qs.filter(statut=statut)
+
+    # Pagination
+    paginator = Paginator(reversements_qs.order_by('-date_creation'), 25)
+    page = request.GET.get('page', 1)
+    reversements_page = paginator.get_page(page)
+
+    context['reversements'] = reversements_page
+    context['creanciers'] = Creancier.objects.filter(actif=True)
+
+    return render(request, 'gestion/reversements.html', context)
+
+
+@require_GET
+def api_reversements_liste(request):
+    """API pour la liste des reversements"""
+    try:
+        creancier_id = request.GET.get('creancier')
+        statut = request.GET.get('statut')
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 25))
+
+        reversements_qs = Reversement.objects.select_related('creancier')
+
+        if creancier_id:
+            reversements_qs = reversements_qs.filter(creancier_id=creancier_id)
+        if statut:
+            reversements_qs = reversements_qs.filter(statut=statut)
+
+        paginator = Paginator(reversements_qs.order_by('-date_creation'), per_page)
+        reversements_page = paginator.get_page(page)
+
+        data = []
+        for rev in reversements_page:
+            data.append({
+                'id': rev.id,
+                'reference': rev.reference,
+                'creancier': {
+                    'id': rev.creancier.id,
+                    'nom': rev.creancier.nom,
+                },
+                'montant': float(rev.montant),
+                'date_reversement': rev.date_reversement.isoformat() if rev.date_reversement else None,
+                'mode_reversement': rev.mode_reversement,
+                'mode_display': rev.get_mode_reversement_display(),
+                'reference_virement': rev.reference_virement,
+                'numero_cheque': rev.numero_cheque,
+                'statut': rev.statut,
+                'statut_display': rev.get_statut_display(),
+                'nb_encaissements': rev.encaissements.count(),
+            })
+
+        # Statistiques
+        stats = reversements_qs.aggregate(
+            total_effectue=Sum('montant', filter=Q(statut='effectue')),
+            total_en_attente=Sum('montant', filter=Q(statut='en_attente')),
+            nb_effectues=Count('id', filter=Q(statut='effectue')),
+            nb_en_attente=Count('id', filter=Q(statut='en_attente')),
+        )
+
+        return JsonResponse({
+            'success': True,
+            'reversements': data,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': paginator.num_pages,
+                'total_items': paginator.count,
+            },
+            'statistiques': {
+                'total_effectue': float(stats['total_effectue'] or 0),
+                'total_en_attente': float(stats['total_en_attente'] or 0),
+                'nb_effectues': stats['nb_effectues'] or 0,
+                'nb_en_attente': stats['nb_en_attente'] or 0,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_reversement_creer(request):
+    """API pour créer un reversement"""
+    try:
+        data = json.loads(request.body)
+
+        creancier = get_object_or_404(Creancier, pk=data.get('creancier_id'))
+
+        reversement = Reversement(
+            creancier=creancier,
+            montant=Decimal(str(data.get('montant'))),
+            mode_reversement=data.get('mode_reversement', 'virement'),
+            reference_virement=data.get('reference_virement', ''),
+            numero_cheque=data.get('numero_cheque', ''),
+            banque=data.get('banque', ''),
+            observations=data.get('observations', ''),
+        )
+        reversement.save()
+
+        # Associer les encaissements si fournis
+        encaissement_ids = data.get('encaissement_ids', [])
+        if encaissement_ids:
+            encaissements = Encaissement.objects.filter(
+                id__in=encaissement_ids,
+                dossier__creancier=creancier,
+                reversement_statut='en_attente'
+            )
+            reversement.encaissements.set(encaissements)
+
+        return JsonResponse({
+            'success': True,
+            'reversement_id': reversement.id,
+            'reference': reversement.reference,
+            'message': f'Reversement {reversement.reference} créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_reversement_effectuer(request, reversement_id):
+    """API pour marquer un reversement comme effectué"""
+    try:
+        data = json.loads(request.body)
+        rev = get_object_or_404(Reversement, pk=reversement_id)
+
+        if rev.statut == 'effectue':
+            return JsonResponse({
+                'success': False,
+                'error': 'Ce reversement est déjà effectué'
+            }, status=400)
+
+        # Mettre à jour les informations de paiement
+        if 'reference_virement' in data:
+            rev.reference_virement = data['reference_virement']
+        if 'numero_cheque' in data:
+            rev.numero_cheque = data['numero_cheque']
+        if 'date_reversement' in data:
+            rev.date_reversement = data['date_reversement']
+
+        utilisateur = Utilisateur.objects.first()
+        rev.effectuer(utilisateur)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Reversement {rev.reference} effectué avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_reversements_encaissements_disponibles(request, creancier_id):
+    """API pour lister les encaissements disponibles pour un reversement"""
+    try:
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        # Encaissements validés non reversés
+        encaissements = Encaissement.objects.filter(
+            dossier__creancier=creancier,
+            statut='valide',
+            reversement_statut='en_attente'
+        ).select_related('dossier').order_by('date_encaissement')
+
+        data = []
+        total = 0
+        for enc in encaissements:
+            data.append({
+                'id': enc.id,
+                'reference': enc.reference,
+                'dossier_reference': enc.dossier.reference,
+                'date_encaissement': enc.date_encaissement.isoformat(),
+                'montant': float(enc.montant),
+                'montant_a_reverser': float(enc.montant_a_reverser),
+            })
+            total += enc.montant_a_reverser
+
+        return JsonResponse({
+            'success': True,
+            'encaissements': data,
+            'total_a_reverser': float(total),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API BASCULEMENT AMIABLE → FORCÉ
+# ============================================
+
+@require_POST
+def api_dossier_basculer_force(request, dossier_id):
+    """API pour basculer un dossier de la phase amiable vers la phase forcée"""
+    try:
+        data = json.loads(request.body)
+        dossier = get_object_or_404(Dossier, pk=dossier_id)
+
+        if dossier.phase == 'force':
+            return JsonResponse({
+                'success': False,
+                'error': 'Ce dossier est déjà en phase forcée'
+            }, status=400)
+
+        # Informations du titre exécutoire
+        titre_info = None
+        if data.get('titre_executoire'):
+            titre_info = {
+                'type': data['titre_executoire'].get('type', ''),
+                'reference': data['titre_executoire'].get('reference', ''),
+                'juridiction': data['titre_executoire'].get('juridiction', ''),
+                'date': data['titre_executoire'].get('date'),
+            }
+
+        # Frais supplémentaires
+        frais_supplementaires = None
+        if data.get('frais_supplementaires'):
+            frais_supplementaires = {
+                'depens': Decimal(str(data['frais_supplementaires'].get('depens', 0))),
+                'frais_justice': Decimal(str(data['frais_supplementaires'].get('frais_justice', 0))),
+            }
+
+        motif = data.get('motif', 'titre_executoire')
+        utilisateur = Utilisateur.objects.first()
+
+        basculement = dossier.basculer_vers_force(
+            utilisateur=utilisateur,
+            motif=motif,
+            titre_info=titre_info,
+            frais_supplementaires=frais_supplementaires
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Dossier {dossier.reference} basculé en phase forcée',
+            'basculement': {
+                'id': basculement.id,
+                'date': basculement.date_basculement.isoformat(),
+                'nouveau_total': float(basculement.nouveau_total),
+                'emoluments_ohada': float(basculement.emoluments_ohada),
+            }
+        })
+
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_dossier_historique_basculements(request, dossier_id):
+    """API pour l'historique des basculements d'un dossier"""
+    try:
+        dossier = get_object_or_404(Dossier, pk=dossier_id)
+
+        basculements = []
+        for basc in dossier.basculements.all():
+            basculements.append({
+                'id': basc.id,
+                'date_basculement': basc.date_basculement.isoformat(),
+                'motif': basc.motif,
+                'motif_display': basc.get_motif_display(),
+                'motif_detail': basc.motif_detail,
+                'titre': {
+                    'type': basc.type_titre,
+                    'reference': basc.reference_titre,
+                    'juridiction': basc.juridiction,
+                    'date': basc.date_titre.isoformat() if basc.date_titre else None,
+                },
+                'etat_creance': {
+                    'principal_restant': float(basc.montant_principal_restant),
+                    'interets_restant': float(basc.montant_interets_restant),
+                    'frais_restant': float(basc.montant_frais_restant),
+                    'total_reste_du': float(basc.total_reste_du),
+                },
+                'nouveaux_frais': {
+                    'depens': float(basc.depens),
+                    'frais_justice': float(basc.frais_justice),
+                    'emoluments_ohada': float(basc.emoluments_ohada),
+                },
+                'nouveau_total': float(basc.nouveau_total),
+                'donnees_phase_amiable': basc.donnees_phase_amiable,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'dossier': {
+                'reference': dossier.reference,
+                'phase': dossier.phase,
+                'phase_display': dossier.get_phase_display(),
+            },
+            'basculements': basculements
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API POINT CLIENT / TABLEAU DE BORD CREANCIER
+# ============================================
+
+@require_GET
+def api_creancier_tableau_bord(request, creancier_id):
+    """API pour le tableau de bord d'un créancier"""
+    try:
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        # Statistiques générales
+        dossiers = creancier.dossiers.all()
+        nb_dossiers = dossiers.count()
+        nb_actifs = dossiers.filter(statut__in=['actif', 'urgent']).count()
+        nb_clotures = dossiers.filter(statut='cloture').count()
+
+        total_creances = creancier.get_total_creances()
+        total_encaisse = creancier.get_total_encaisse()
+        total_reverse = creancier.get_total_reverse()
+
+        taux_recouvrement = (total_encaisse / total_creances * 100) if total_creances > 0 else 0
+
+        # Évolution mensuelle (12 derniers mois)
+        evolution = []
+        for i in range(11, -1, -1):
+            date_debut = (timezone.now() - timedelta(days=30*i)).replace(day=1)
+            if i > 0:
+                date_fin = (timezone.now() - timedelta(days=30*(i-1))).replace(day=1) - timedelta(days=1)
+            else:
+                date_fin = timezone.now()
+
+            encaisse_mois = Encaissement.objects.filter(
+                dossier__creancier=creancier,
+                statut='valide',
+                date_encaissement__gte=date_debut,
+                date_encaissement__lte=date_fin
+            ).aggregate(total=Sum('montant'))['total'] or 0
+
+            evolution.append({
+                'mois': date_debut.strftime('%Y-%m'),
+                'libelle': date_debut.strftime('%b %Y'),
+                'encaisse': float(encaisse_mois),
+            })
+
+        # Répartition par statut
+        repartition_statut = []
+        for statut in ['actif', 'urgent', 'archive', 'cloture']:
+            count = dossiers.filter(statut=statut).count()
+            montant = dossiers.filter(statut=statut).aggregate(
+                total=Sum('montant_creance')
+            )['total'] or 0
+            repartition_statut.append({
+                'statut': statut,
+                'nb_dossiers': count,
+                'montant': float(montant),
+            })
+
+        # Répartition par phase
+        repartition_phase = []
+        for phase in ['amiable', 'force']:
+            count = dossiers.filter(phase=phase).count()
+            montant = dossiers.filter(phase=phase).aggregate(
+                total=Sum('montant_creance')
+            )['total'] or 0
+            repartition_phase.append({
+                'phase': phase,
+                'nb_dossiers': count,
+                'montant': float(montant),
+            })
+
+        return JsonResponse({
+            'success': True,
+            'creancier': {
+                'id': creancier.id,
+                'code': creancier.code,
+                'nom': creancier.nom,
+            },
+            'statistiques': {
+                'nb_dossiers': nb_dossiers,
+                'nb_actifs': nb_actifs,
+                'nb_clotures': nb_clotures,
+                'total_creances': float(total_creances),
+                'total_encaisse': float(total_encaisse),
+                'total_reverse': float(total_reverse),
+                'reste_a_encaisser': float(total_creances - total_encaisse),
+                'reste_a_reverser': float(total_encaisse - total_reverse),
+                'taux_recouvrement': round(taux_recouvrement, 2),
+            },
+            'evolution_mensuelle': evolution,
+            'repartition_statut': repartition_statut,
+            'repartition_phase': repartition_phase,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_point_global_generer(request, creancier_id):
+    """API pour générer un point global créancier"""
+    try:
+        data = json.loads(request.body)
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        # Dates de période
+        periode_debut = datetime.strptime(data.get('periode_debut'), '%Y-%m-%d').date()
+        periode_fin = datetime.strptime(data.get('periode_fin'), '%Y-%m-%d').date()
+
+        # Filtres optionnels
+        filtres = data.get('filtres', {})
+
+        # Créer le point global
+        utilisateur = Utilisateur.objects.first()
+
+        point = PointGlobalCreancier(
+            creancier=creancier,
+            periode_debut=periode_debut,
+            periode_fin=periode_fin,
+            filtres=filtres,
+            genere_par=utilisateur,
+        )
+        point.save()
+
+        # Générer les données
+        point.generer_donnees()
+
+        return JsonResponse({
+            'success': True,
+            'point_id': point.id,
+            'message': f'Point global généré pour {creancier.nom}',
+            'resume': {
+                'nb_dossiers': point.nb_dossiers_total,
+                'total_creances': float(point.montant_total_creances),
+                'total_encaisse': float(point.montant_total_encaisse),
+                'taux_recouvrement': float(point.taux_recouvrement),
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_point_global_detail(request, point_id):
+    """API pour le détail d'un point global"""
+    try:
+        point = get_object_or_404(
+            PointGlobalCreancier.objects.select_related('creancier'),
+            pk=point_id
+        )
+
+        return JsonResponse({
+            'success': True,
+            'point': {
+                'id': point.id,
+                'creancier': {
+                    'id': point.creancier.id,
+                    'nom': point.creancier.nom,
+                },
+                'date_generation': point.date_generation.isoformat(),
+                'periode_debut': point.periode_debut.isoformat(),
+                'periode_fin': point.periode_fin.isoformat(),
+                'filtres': point.filtres,
+                'statistiques': {
+                    'nb_dossiers_total': point.nb_dossiers_total,
+                    'nb_dossiers_actifs': point.nb_dossiers_actifs,
+                    'nb_dossiers_clotures': point.nb_dossiers_clotures,
+                    'montant_total_creances': float(point.montant_total_creances),
+                    'montant_total_encaisse': float(point.montant_total_encaisse),
+                    'montant_total_reverse': float(point.montant_total_reverse),
+                    'montant_reste_a_encaisser': float(point.montant_reste_a_encaisser),
+                    'montant_reste_a_reverser': float(point.montant_reste_a_reverser),
+                    'taux_recouvrement': float(point.taux_recouvrement),
+                },
+                'donnees_detaillees': point.donnees_detaillees,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_point_global_export_excel(request, point_id):
+    """API pour exporter un point global en CSV (format Excel)"""
+    try:
+        point = get_object_or_404(PointGlobalCreancier, pk=point_id)
+
+        response = HttpResponse(content_type='text/csv')
+        filename = f"point_{point.creancier.code}_{point.date_generation.strftime('%Y%m%d')}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response, delimiter=';')
+
+        # En-tête
+        writer.writerow([f'POINT GLOBAL - {point.creancier.nom}'])
+        writer.writerow([f'Période: {point.periode_debut} au {point.periode_fin}'])
+        writer.writerow([f'Généré le: {point.date_generation.strftime("%d/%m/%Y %H:%M")}'])
+        writer.writerow([])
+
+        # Résumé
+        writer.writerow(['RÉSUMÉ'])
+        writer.writerow(['Nombre de dossiers', point.nb_dossiers_total])
+        writer.writerow(['Dossiers actifs', point.nb_dossiers_actifs])
+        writer.writerow(['Total créances', f'{point.montant_total_creances:,.0f} FCFA'])
+        writer.writerow(['Total encaissé', f'{point.montant_total_encaisse:,.0f} FCFA'])
+        writer.writerow(['Total reversé', f'{point.montant_total_reverse:,.0f} FCFA'])
+        writer.writerow(['Taux de recouvrement', f'{point.taux_recouvrement:.2f}%'])
+        writer.writerow([])
+
+        # Détail par dossier
+        writer.writerow(['DÉTAIL PAR DOSSIER'])
+        writer.writerow([
+            'Référence', 'Intitulé', 'Statut', 'Montant créance',
+            'Total encaissé', 'Solde restant', 'Nb encaissements', 'Dernier encaissement'
+        ])
+
+        for dossier in point.donnees_detaillees.get('dossiers', []):
+            writer.writerow([
+                dossier['reference'],
+                dossier['intitule'],
+                dossier['statut'],
+                f"{dossier['montant_creance']:,.0f}",
+                f"{dossier['total_encaisse']:,.0f}",
+                f"{dossier['solde_restant']:,.0f}",
+                dossier['nb_encaissements'],
+                dossier['dernier_encaissement'] or '',
+            ])
+
+        return response
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API ENVOI AUTOMATIQUE
+# ============================================
+
+@require_POST
+def api_envoi_automatique_configurer(request, creancier_id):
+    """API pour configurer l'envoi automatique de points"""
+    try:
+        data = json.loads(request.body)
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        # Récupérer ou créer la configuration
+        envoi, created = EnvoiAutomatiquePoint.objects.get_or_create(
+            creancier=creancier,
+            defaults={'frequence': 'mensuel'}
+        )
+
+        # Mettre à jour la configuration
+        envoi.frequence = data.get('frequence', envoi.frequence)
+        envoi.jour_envoi = data.get('jour_envoi', envoi.jour_envoi)
+        envoi.heure_envoi = data.get('heure_envoi', envoi.heure_envoi)
+        envoi.destinataires = data.get('destinataires', envoi.destinataires)
+        envoi.copie_gestionnaire = data.get('copie_gestionnaire', envoi.copie_gestionnaire)
+        envoi.filtres_point = data.get('filtres', envoi.filtres_point)
+        envoi.actif = data.get('actif', envoi.actif)
+        envoi.save()
+
+        # Calculer le prochain envoi
+        envoi.calculer_prochain_envoi()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Configuration d\'envoi automatique mise à jour',
+            'prochain_envoi': envoi.prochain_envoi.isoformat() if envoi.prochain_envoi else None,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_envoi_automatique_historique(request, creancier_id):
+    """API pour l'historique des envois automatiques"""
+    try:
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        envois = EnvoiAutomatiquePoint.objects.filter(creancier=creancier)
+
+        data = []
+        for envoi in envois:
+            historique = []
+            for h in envoi.historique.all()[:10]:
+                historique.append({
+                    'date_envoi': h.date_envoi.isoformat(),
+                    'statut': h.statut,
+                    'destinataires_envoyes': h.destinataires_envoyes,
+                    'destinataires_echec': h.destinataires_echec,
+                    'message_erreur': h.message_erreur,
+                })
+
+            data.append({
+                'id': envoi.id,
+                'frequence': envoi.frequence,
+                'frequence_display': envoi.get_frequence_display(),
+                'jour_envoi': envoi.jour_envoi,
+                'heure_envoi': str(envoi.heure_envoi),
+                'destinataires': envoi.destinataires,
+                'actif': envoi.actif,
+                'dernier_envoi': envoi.dernier_envoi.isoformat() if envoi.dernier_envoi else None,
+                'prochain_envoi': envoi.prochain_envoi.isoformat() if envoi.prochain_envoi else None,
+                'nb_envois_total': envoi.nb_envois_total,
+                'historique': historique,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'envois_automatiques': data,
+        })
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
