@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    Utilisateur, Collaborateur, Partie, Dossier, Facture,
+    Utilisateur, Collaborateur, Partie, Dossier, Facture, LigneFacture,
     ActeProcedure, HistoriqueCalcul, TauxLegal, MessageChatbot
 )
 
@@ -11,10 +11,10 @@ class UtilisateurAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'role', 'is_staff')
     list_filter = ('role', 'is_staff', 'is_active')
     fieldsets = UserAdmin.fieldsets + (
-        ('Informations supplémentaires', {'fields': ('role', 'telephone')}),
+        ('Informations supplementaires', {'fields': ('role', 'telephone')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Informations supplémentaires', {'fields': ('role', 'telephone')}),
+        ('Informations supplementaires', {'fields': ('role', 'telephone')}),
     )
 
 
@@ -41,12 +41,46 @@ class DossierAdmin(admin.ModelAdmin):
     filter_horizontal = ('demandeurs', 'defendeurs')
 
 
+class LigneFactureInline(admin.TabularInline):
+    model = LigneFacture
+    extra = 1
+
+
 @admin.register(Facture)
 class FactureAdmin(admin.ModelAdmin):
-    list_display = ('numero', 'client', 'montant_ht', 'montant_tva', 'montant_ttc', 'date_emission', 'statut')
+    list_display = ('numero', 'client', 'montant_ht', 'montant_tva', 'montant_ttc', 'date_emission', 'statut', 'mecef_numero')
     list_filter = ('statut', 'date_emission')
-    search_fields = ('numero', 'client')
+    search_fields = ('numero', 'client', 'ifu', 'mecef_numero')
     date_hierarchy = 'date_emission'
+    inlines = [LigneFactureInline]
+    readonly_fields = ('date_creation',)
+
+    fieldsets = (
+        ('Informations generales', {
+            'fields': ('numero', 'dossier', 'client', 'ifu', 'statut')
+        }),
+        ('Montants', {
+            'fields': ('montant_ht', 'taux_tva', 'montant_tva', 'montant_ttc')
+        }),
+        ('Dates', {
+            'fields': ('date_emission', 'date_echeance', 'date_creation')
+        }),
+        ('MECeF', {
+            'fields': ('mecef_numero', 'nim', 'mecef_qr', 'date_mecef'),
+            'classes': ('collapse',)
+        }),
+        ('Observations', {
+            'fields': ('observations',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(LigneFacture)
+class LigneFactureAdmin(admin.ModelAdmin):
+    list_display = ('facture', 'description', 'quantite', 'prix_unitaire')
+    list_filter = ('facture',)
+    search_fields = ('description',)
 
 
 @admin.register(ActeProcedure)
