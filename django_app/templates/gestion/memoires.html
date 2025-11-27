@@ -1,0 +1,1032 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Header with tabs and button -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div class="tabs" style="margin-bottom: 0; border-bottom: none;">
+        {% for tab in tabs %}
+        <a href="?tab={{ tab.id }}" class="tab {% if current_tab == tab.id %}active{% endif %}">
+            {{ tab.label }}
+        </a>
+        {% endfor %}
+    </div>
+    <div class="flex gap-2">
+        {% if memoire_id %}
+        <a href="{% url 'memoires' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left"></i> Retour liste
+        </a>
+        {% endif %}
+        <a href="?tab=nouveau" class="btn btn-primary">
+            <i data-lucide="plus"></i> Nouveau memoire
+        </a>
+    </div>
+</div>
+
+{% if current_tab == 'nouveau' %}
+<!-- Formulaire nouveau memoire -->
+<div class="card">
+    <div class="card-header">
+        <h3><i data-lucide="file-plus"></i> Nouveau Memoire de Cedules</h3>
+    </div>
+    <div class="card-body">
+        <form id="formNouveauMemoire">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Mois *</label>
+                    <select name="mois" id="mois" class="form-select" required>
+                        {% for m in mois_noms %}
+                        <option value="{{ m.id }}" {% if m.id == mois_courant %}selected{% endif %}>{{ m.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Annee *</label>
+                    <input type="number" name="annee" id="annee" class="form-control" value="{{ annee_courante }}" min="2020" max="2100" required>
+                </div>
+                <div class="form-group">
+                    <label>Huissier *</label>
+                    <select name="huissier_id" id="huissier_id" class="form-select" required>
+                        <option value="">Selectionner...</option>
+                        {% for h in huissiers %}
+                        <option value="{{ h.id }}">{{ h.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Autorite requerante *</label>
+                    <select name="autorite_id" id="autorite_id" class="form-select" required>
+                        <option value="">Selectionner...</option>
+                        {% for a in autorites %}
+                        <option value="{{ a.id }}">{{ a.nom }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="openModalAutorite()">
+                        <i data-lucide="plus"></i> Nouvelle autorite
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label>Residence huissier</label>
+                    <input type="text" name="residence_huissier" id="residence_huissier" class="form-control" value="Parakou" placeholder="Ville de residence">
+                </div>
+                <div class="form-group">
+                    <label>Observations</label>
+                    <textarea name="observations" id="observations" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="save"></i> Creer le memoire
+                </button>
+                <a href="{% url 'memoires' %}" class="btn btn-secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% elif memoire_id and memoire_detail %}
+<!-- Detail du memoire -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div>
+            <h3><i data-lucide="file-text"></i> MEMOIRE N° {{ memoire_detail.numero }} - {{ memoire_detail.mois|stringformat:"s" }}/{{ memoire_detail.annee }}</h3>
+            <p style="color: var(--neutral-500); margin: 0;">{{ memoire_detail.autorite_requerante.nom }}</p>
+        </div>
+        <div class="flex gap-2 items-center">
+            <span class="status-badge {{ memoire_detail.statut }}">{{ memoire_detail.get_statut_display }}</span>
+            <button class="btn btn-secondary btn-sm" onclick="addAffaire({{ memoire_id }})">
+                <i data-lucide="plus"></i> Nouvelle affaire
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des affaires -->
+{% for affaire in affaires_list %}
+<div class="card mb-4 affaire-card" id="affaire-{{ affaire.id }}">
+    <div class="card-header" style="background: var(--neutral-50);">
+        <div>
+            <h4 style="margin: 0; color: var(--primary);">
+                <i data-lucide="folder"></i> {{ affaire.numero_parquet }}
+            </h4>
+            <p style="margin: 4px 0 0 0; color: var(--neutral-600);">{{ affaire.intitule }}</p>
+        </div>
+        <div class="flex gap-2 items-center">
+            <span style="font-size: 0.85rem; color: var(--neutral-500);">
+                <i data-lucide="users" style="width: 14px; height: 14px;"></i> {{ affaire.nb_destinataires }} dest.
+                | <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> {{ affaire.nb_actes }} actes
+                | <i data-lucide="banknote" style="width: 14px; height: 14px;"></i> {{ affaire.montant_total|floatformat:0 }} F
+            </span>
+            <button class="btn btn-sm btn-secondary" onclick="addDestinataire({{ affaire.id }})">
+                <i data-lucide="user-plus"></i> Destinataire
+            </button>
+            <button class="icon-btn" onclick="editAffaire({{ affaire.id }})" title="Modifier">
+                <i data-lucide="edit"></i>
+            </button>
+            <button class="icon-btn" style="color: var(--danger);" onclick="deleteAffaire({{ affaire.id }}, '{{ affaire.numero_parquet }}')" title="Supprimer">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <!-- Destinataires de l'affaire -->
+        {% for dest in affaire.destinataires %}
+        <div class="destinataire-block" style="border-bottom: 1px solid var(--neutral-200); padding: 16px;">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <h5 style="margin: 0; color: var(--primary-dark);">
+                        <i data-lucide="user"></i> {{ dest.nom_complet }} - <span style="font-weight: 400;">{{ dest.qualite }}</span>
+                    </h5>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--neutral-500);">
+                        <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i> {{ dest.localite }}
+                        {% if dest.distance_km > 0 %}({{ dest.distance_km }} km){% endif %}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button class="btn btn-sm btn-accent" onclick="addActe({{ dest.id }})">
+                        <i data-lucide="plus"></i> Ajouter Acte
+                    </button>
+                    <button class="icon-btn" onclick="editDestinataire({{ dest.id }})" title="Modifier">
+                        <i data-lucide="edit"></i>
+                    </button>
+                    <button class="icon-btn" style="color: var(--danger);" onclick="deleteDestinataire({{ dest.id }}, '{{ dest.nom_complet }}')" title="Supprimer">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tableau des actes -->
+            <table style="width: 100%; margin-bottom: 8px;">
+                <tbody>
+                    {% for acte in dest.actes %}
+                    <tr>
+                        <td style="padding: 4px 8px;">{{ acte.date_acte }} - {{ acte.type_acte }}</td>
+                        <td style="text-align: right; padding: 4px 8px;">{{ acte.montant_base|floatformat:0 }} F</td>
+                        <td style="width: 60px;">
+                            <button class="icon-btn" onclick="deleteActe({{ acte.id }})" title="Supprimer" style="padding: 2px;">
+                                <i data-lucide="x" style="width: 14px; height: 14px; color: var(--danger);"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% if acte.copies_supplementaires > 0 %}
+                    <tr style="color: var(--neutral-500); font-size: 0.85rem;">
+                        <td style="padding: 2px 8px 2px 24px;">+ Copies supp. ({{ acte.copies_supplementaires }})</td>
+                        <td style="text-align: right; padding: 2px 8px;">{{ acte.montant_copies|floatformat:0 }} F</td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    {% if acte.roles_pieces_jointes > 0 %}
+                    <tr style="color: var(--neutral-500); font-size: 0.85rem;">
+                        <td style="padding: 2px 8px 2px 24px;">+ Pieces jointes ({{ acte.roles_pieces_jointes }} roles)</td>
+                        <td style="text-align: right; padding: 2px 8px;">{{ acte.montant_pieces|floatformat:0 }} F</td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; padding: 16px; color: var(--neutral-400);">
+                            Aucun acte - Cliquez sur "Ajouter Acte"
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Frais de deplacement -->
+            {% if dest.frais_transport > 0 or dest.frais_mission > 0 %}
+            <table style="width: 100%; background: var(--neutral-50); margin-top: 8px;">
+                <tbody>
+                    {% if dest.frais_transport > 0 %}
+                    <tr>
+                        <td style="padding: 4px 8px;">Transport ({{ dest.distance_km }} km x 140 F x 2)</td>
+                        <td style="text-align: right; padding: 4px 8px;">{{ dest.frais_transport|floatformat:0 }} F</td>
+                    </tr>
+                    {% endif %}
+                    {% if dest.frais_mission > 0 %}
+                    <tr>
+                        <td style="padding: 4px 8px;">Mission ({{ dest.type_mission_display }})</td>
+                        <td style="text-align: right; padding: 4px 8px;">{{ dest.frais_mission|floatformat:0 }} F</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            <!-- Sous-total destinataire -->
+            <div style="text-align: right; padding: 8px; font-weight: 600; background: var(--primary-light); color: var(--primary-dark); margin-top: 8px;">
+                SOUS-TOTAL: {{ dest.montant_total|floatformat:0 }} FCFA
+            </div>
+        </div>
+        {% empty %}
+        <div style="text-align: center; padding: 32px; color: var(--neutral-400);">
+            <i data-lucide="users" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+            <p>Aucun destinataire - Cliquez sur "Destinataire" pour en ajouter</p>
+        </div>
+        {% endfor %}
+
+        <!-- Total affaire -->
+        <div style="text-align: right; padding: 12px 16px; font-weight: 700; font-size: 1.1rem; background: var(--accent-light); color: var(--accent-dark);">
+            TOTAL AFFAIRE: {{ affaire.montant_total|floatformat:0 }} FCFA
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="card">
+    <div class="card-body" style="text-align: center; padding: 48px;">
+        <i data-lucide="folder-plus" style="width: 64px; height: 64px; color: var(--neutral-300);"></i>
+        <h3 style="color: var(--neutral-500); margin-top: 16px;">Aucune affaire</h3>
+        <p style="color: var(--neutral-400);">Cliquez sur "Nouvelle affaire" pour commencer</p>
+        <button class="btn btn-primary mt-4" onclick="addAffaire({{ memoire_id }})">
+            <i data-lucide="plus"></i> Ajouter une affaire
+        </button>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Total general et actions -->
+{% if affaires_list %}
+<div class="card" style="position: sticky; bottom: 16px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
+    <div class="card-body" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <div style="font-size: 0.9rem; color: var(--neutral-500);">TOTAL MEMOIRE</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ memoire_detail.montant_total|floatformat:0 }} FCFA</div>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <button class="btn btn-secondary" onclick="verifierMemoire({{ memoire_id }})">
+                <i data-lucide="check-circle"></i> Verifier
+            </button>
+            <a href="{% url 'api_memoire_export_pdf' memoire_id %}" class="btn btn-secondary" target="_blank">
+                <i data-lucide="file-text"></i> Previsualiser PDF
+            </a>
+            {% if memoire_detail.statut == 'brouillon' or memoire_detail.statut == 'en_cours' %}
+            <button class="btn btn-accent" onclick="certifierMemoire({{ memoire_id }})">
+                <i data-lucide="award"></i> Certifier et soumettre
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Liste des memoires -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex gap-4 flex-wrap" style="flex: 1;">
+            <div class="search-bar" style="max-width: 300px;">
+                <i data-lucide="search"></i>
+                <input type="text" placeholder="Rechercher..." id="searchInput">
+            </div>
+            <select class="form-select" style="width: 150px;" id="filterMois">
+                <option value="">Tous les mois</option>
+                {% for m in mois_noms %}
+                <option value="{{ m.id }}">{{ m.nom }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select" style="width: 150px;" id="filterStatut">
+                <option value="">Tous statuts</option>
+                <option value="brouillon">Brouillon</option>
+                <option value="certifie">Certifie</option>
+                <option value="soumis">Soumis</option>
+                <option value="paye">Paye</option>
+            </select>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>N°</th>
+                    <th>Periode</th>
+                    <th>Huissier</th>
+                    <th>Autorite</th>
+                    <th>Affaires</th>
+                    <th>Destinataires</th>
+                    <th>Actes</th>
+                    <th>Montant Total</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for memoire in memoires_list %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ memoire.numero }}</td>
+                    <td>{{ memoire.mois_nom }} {{ memoire.annee }}</td>
+                    <td>{{ memoire.huissier }}</td>
+                    <td>{{ memoire.autorite|truncatechars:30 }}</td>
+                    <td><span class="badge">{{ memoire.nb_affaires }}</span></td>
+                    <td><span class="badge">{{ memoire.nb_destinataires }}</span></td>
+                    <td><span class="badge">{{ memoire.nb_actes }}</span></td>
+                    <td style="font-weight: 600;">{{ memoire.montant_total|floatformat:0 }} F</td>
+                    <td>
+                        <span class="status-badge {{ memoire.statut }}">{{ memoire.statut_display }}</span>
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <a href="?memoire_id={{ memoire.id }}" class="icon-btn" title="Details">
+                                <i data-lucide="eye"></i>
+                            </a>
+                            <a href="{% url 'api_memoire_export_pdf' memoire.id %}" class="icon-btn" title="Exporter" target="_blank">
+                                <i data-lucide="download"></i>
+                            </a>
+                            {% if memoire.statut == 'brouillon' %}
+                            <button class="icon-btn" style="color: var(--danger);" onclick="deleteMemoire({{ memoire.id }}, '{{ memoire.numero }}')" title="Supprimer">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center" style="padding: 48px; color: var(--neutral-500);">
+                        <i data-lucide="file-x" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                        <p>Aucun memoire trouve</p>
+                        <a href="?tab=nouveau" class="btn btn-primary mt-4">
+                            <i data-lucide="plus"></i> Creer un memoire
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modals -->
+<!-- Modal Affaire -->
+<div id="modalAffaire" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 id="modalAffaireTitle">Nouvelle affaire</h3>
+            <button class="icon-btn" onclick="closeModal('modalAffaire')"><i data-lucide="x"></i></button>
+        </div>
+        <form id="formAffaire">
+            <input type="hidden" name="memoire_id" id="affaire_memoire_id">
+            <input type="hidden" name="affaire_id" id="affaire_id">
+            <div class="form-group">
+                <label>Numero de parquet *</label>
+                <input type="text" name="numero_parquet" id="numero_parquet" class="form-control" placeholder="Ex: CRIET/2021/RP/0928" required>
+            </div>
+            <div class="form-group">
+                <label>Intitule de l'affaire *</label>
+                <input type="text" name="intitule_affaire" id="intitule_affaire" class="form-control" placeholder="Ex: MP c/ DUPONT Jean et autres" required>
+            </div>
+            <div class="form-group">
+                <label>Nature de l'infraction</label>
+                <input type="text" name="nature_infraction" id="nature_infraction" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Date d'audience</label>
+                <input type="date" name="date_audience" id="date_audience" class="form-control">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalAffaire')">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Destinataire -->
+<div id="modalDestinataire" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="modalDestinataireTitle">Nouveau destinataire</h3>
+            <button class="icon-btn" onclick="closeModal('modalDestinataire')"><i data-lucide="x"></i></button>
+        </div>
+        <form id="formDestinataire">
+            <input type="hidden" name="affaire_id" id="dest_affaire_id">
+            <input type="hidden" name="destinataire_id" id="destinataire_id">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Titre</label>
+                    <select name="titre" id="dest_titre" class="form-select">
+                        <option value="">-</option>
+                        <option value="Me">Me</option>
+                        <option value="M.">M.</option>
+                        <option value="Mme">Mme</option>
+                        <option value="Dr">Dr</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Nom *</label>
+                    <input type="text" name="nom" id="dest_nom" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Prenoms</label>
+                    <input type="text" name="prenoms" id="dest_prenoms" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Qualite *</label>
+                    <select name="qualite" id="dest_qualite" class="form-select" required>
+                        <option value="">Selectionner...</option>
+                        {% for code, label in qualites_destinataire %}
+                        <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Adresse de signification</label>
+                <textarea name="adresse" id="dest_adresse" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Localite/Ville *</label>
+                    <input type="text" name="localite" id="dest_localite" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Distance (km)</label>
+                    <input type="number" name="distance_km" id="dest_distance" class="form-control" value="0" min="0" onchange="calculerFrais()">
+                </div>
+            </div>
+            <div class="alert alert-info" id="fraisPreview" style="display: none;">
+                <div class="flex justify-between">
+                    <span>Frais de transport:</span>
+                    <span id="previewTransport">0 F</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Frais de mission:</span>
+                    <span id="previewMission">0 F</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalDestinataire')">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Acte -->
+<div id="modalActe" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Ajouter un acte</h3>
+            <button class="icon-btn" onclick="closeModal('modalActe')"><i data-lucide="x"></i></button>
+        </div>
+        <form id="formActe">
+            <input type="hidden" name="destinataire_id" id="acte_destinataire_id">
+            <div class="form-group">
+                <label>Destinataire</label>
+                <p id="acteDestinataireNom" style="font-weight: 600; margin: 0;"></p>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Date de signification *</label>
+                    <input type="date" name="date_acte" id="acte_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Type d'acte *</label>
+                    <select name="type_acte" id="acte_type" class="form-select" required onchange="toggleAutreType()">
+                        <option value="">Selectionner...</option>
+                        {% for code, label in types_actes %}
+                        <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" id="typeAutreGroup" style="display: none;">
+                <label>Preciser le type</label>
+                <input type="text" name="type_acte_autre" id="acte_type_autre" class="form-control">
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Copies supplementaires</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" name="copies_supplementaires" id="acte_copies" class="form-control" value="0" min="0" onchange="calculerMontantActe()">
+                        <span>x 900 F = <strong id="montantCopies">0 F</strong></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Roles pieces jointes</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" name="roles_pieces_jointes" id="acte_roles" class="form-control" value="0" min="0" onchange="calculerMontantActe()">
+                        <span>x 1 000 F = <strong id="montantPieces">0 F</strong></span>
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-accent">
+                <div class="flex justify-between">
+                    <span>Montant de base (Art. 81):</span>
+                    <span><strong>{{ tarifs.montant_base_acte }} F</strong></span>
+                </div>
+                <hr style="margin: 8px 0; border-color: var(--accent);">
+                <div class="flex justify-between" style="font-size: 1.1rem;">
+                    <span>MONTANT TOTAL:</span>
+                    <span><strong id="montantTotalActe">{{ tarifs.montant_base_acte }} F</strong></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalActe')">Annuler</button>
+                <button type="submit" class="btn btn-primary">Ajouter l'acte</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Autorite -->
+<div id="modalAutorite" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Nouvelle autorite requerante</h3>
+            <button class="icon-btn" onclick="closeModal('modalAutorite')"><i data-lucide="x"></i></button>
+        </div>
+        <form id="formAutorite">
+            <div class="form-group">
+                <label>Code *</label>
+                <input type="text" name="code" id="autorite_code" class="form-control" placeholder="Ex: CRIET" required>
+            </div>
+            <div class="form-group">
+                <label>Nom complet *</label>
+                <input type="text" name="nom" id="autorite_nom" class="form-control" placeholder="Ex: Cour de Repression des Infractions Economiques et du Terrorisme" required>
+            </div>
+            <div class="form-group">
+                <label>Type de juridiction</label>
+                <input type="text" name="type_juridiction" id="autorite_type" class="form-control" placeholder="Ex: Cour speciale">
+            </div>
+            <div class="form-group">
+                <label>Ville</label>
+                <input type="text" name="ville" id="autorite_ville" class="form-control">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalAutorite')">Annuler</button>
+                <button type="submit" class="btn btn-primary">Creer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Tarifs
+    const TARIFS = {
+        montant_base: {{ tarifs.montant_base_acte }},
+        tarif_copie: {{ tarifs.tarif_copie }},
+        tarif_role: {{ tarifs.tarif_role }},
+        tarif_km: {{ tarifs.tarif_km }},
+        seuil_transport: {{ tarifs.seuil_transport }},
+        seuil_mission: {{ tarifs.seuil_mission }},
+        tarifs_mission: {
+            'aucune': 0,
+            '2_repas': 15000,
+            'journee_incomplete': 30000,
+            'journee_complete': 45000
+        }
+    };
+
+    // Modal helpers
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // Nouveau memoire
+    document.getElementById('formNouveauMemoire')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            mois: parseInt(document.getElementById('mois').value),
+            annee: parseInt(document.getElementById('annee').value),
+            huissier_id: parseInt(document.getElementById('huissier_id').value),
+            autorite_id: parseInt(document.getElementById('autorite_id').value),
+            residence_huissier: document.getElementById('residence_huissier').value,
+            observations: document.getElementById('observations').value
+        };
+
+        try {
+            const response = await fetch('{% url "api_memoire_creer" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.location.href = '{% url "memoires" %}?memoire_id=' + result.memoire_id;
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    });
+
+    // Affaires
+    function addAffaire(memoireId) {
+        document.getElementById('affaire_memoire_id').value = memoireId;
+        document.getElementById('affaire_id').value = '';
+        document.getElementById('modalAffaireTitle').textContent = 'Nouvelle affaire';
+        document.getElementById('formAffaire').reset();
+        openModal('modalAffaire');
+    }
+
+    function editAffaire(affaireId) {
+        // TODO: Load affaire data
+        alert('Modification affaire ' + affaireId);
+    }
+
+    document.getElementById('formAffaire')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const memoireId = document.getElementById('affaire_memoire_id').value;
+        const data = {
+            numero_parquet: document.getElementById('numero_parquet').value,
+            intitule_affaire: document.getElementById('intitule_affaire').value,
+            nature_infraction: document.getElementById('nature_infraction').value,
+            date_audience: document.getElementById('date_audience').value || null
+        };
+
+        try {
+            const response = await fetch(`/api/memoires/${memoireId}/affaires/creer/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    });
+
+    async function deleteAffaire(affaireId, numero) {
+        if (!confirm(`Supprimer l'affaire ${numero} et tous ses destinataires ?`)) return;
+        try {
+            const response = await fetch(`/api/affaires/${affaireId}/supprimer/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    // Destinataires
+    function addDestinataire(affaireId) {
+        document.getElementById('dest_affaire_id').value = affaireId;
+        document.getElementById('destinataire_id').value = '';
+        document.getElementById('modalDestinataireTitle').textContent = 'Nouveau destinataire';
+        document.getElementById('formDestinataire').reset();
+        document.getElementById('fraisPreview').style.display = 'none';
+        openModal('modalDestinataire');
+    }
+
+    function editDestinataire(destId) {
+        alert('Modification destinataire ' + destId);
+    }
+
+    function calculerFrais() {
+        const distance = parseInt(document.getElementById('dest_distance').value) || 0;
+        let fraisTransport = 0;
+        let fraisMission = 0;
+        let typeMission = 'aucune';
+
+        if (distance > TARIFS.seuil_transport) {
+            fraisTransport = distance * TARIFS.tarif_km * 2;
+        }
+
+        if (distance >= TARIFS.seuil_mission) {
+            if (distance < 200) {
+                typeMission = '2_repas';
+            } else if (distance < 300) {
+                typeMission = 'journee_incomplete';
+            } else {
+                typeMission = 'journee_complete';
+            }
+            fraisMission = TARIFS.tarifs_mission[typeMission];
+        }
+
+        document.getElementById('previewTransport').textContent = fraisTransport.toLocaleString() + ' F';
+        document.getElementById('previewMission').textContent = fraisMission.toLocaleString() + ' F';
+        document.getElementById('fraisPreview').style.display = (distance > 0) ? 'block' : 'none';
+    }
+
+    document.getElementById('formDestinataire')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const affaireId = document.getElementById('dest_affaire_id').value;
+        const data = {
+            titre: document.getElementById('dest_titre').value,
+            nom: document.getElementById('dest_nom').value,
+            prenoms: document.getElementById('dest_prenoms').value,
+            qualite: document.getElementById('dest_qualite').value,
+            adresse: document.getElementById('dest_adresse').value,
+            localite: document.getElementById('dest_localite').value,
+            distance_km: parseInt(document.getElementById('dest_distance').value) || 0
+        };
+
+        try {
+            const response = await fetch(`/api/affaires/${affaireId}/destinataires/creer/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    });
+
+    async function deleteDestinataire(destId, nom) {
+        if (!confirm(`Supprimer le destinataire "${nom}" et tous ses actes ?`)) return;
+        try {
+            const response = await fetch(`/api/destinataires/${destId}/supprimer/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    // Actes
+    function addActe(destinataireId) {
+        document.getElementById('acte_destinataire_id').value = destinataireId;
+        document.getElementById('formActe').reset();
+        document.getElementById('acte_date').value = new Date().toISOString().split('T')[0];
+        calculerMontantActe();
+        openModal('modalActe');
+    }
+
+    function toggleAutreType() {
+        const type = document.getElementById('acte_type').value;
+        document.getElementById('typeAutreGroup').style.display = (type === 'autre') ? 'block' : 'none';
+    }
+
+    function calculerMontantActe() {
+        const copies = parseInt(document.getElementById('acte_copies').value) || 0;
+        const roles = parseInt(document.getElementById('acte_roles').value) || 0;
+        const montantCopies = copies * TARIFS.tarif_copie;
+        const montantPieces = roles * TARIFS.tarif_role;
+        const total = TARIFS.montant_base + montantCopies + montantPieces;
+
+        document.getElementById('montantCopies').textContent = montantCopies.toLocaleString() + ' F';
+        document.getElementById('montantPieces').textContent = montantPieces.toLocaleString() + ' F';
+        document.getElementById('montantTotalActe').textContent = total.toLocaleString() + ' F';
+    }
+
+    document.getElementById('formActe')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const destinataireId = document.getElementById('acte_destinataire_id').value;
+        const data = {
+            date_acte: document.getElementById('acte_date').value,
+            type_acte: document.getElementById('acte_type').value,
+            type_acte_autre: document.getElementById('acte_type_autre')?.value || '',
+            copies_supplementaires: parseInt(document.getElementById('acte_copies').value) || 0,
+            roles_pieces_jointes: parseInt(document.getElementById('acte_roles').value) || 0
+        };
+
+        try {
+            const response = await fetch(`/api/destinataires/${destinataireId}/actes/creer/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    });
+
+    async function deleteActe(acteId) {
+        if (!confirm('Supprimer cet acte ?')) return;
+        try {
+            const response = await fetch(`/api/actes/${acteId}/supprimer/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    // Autorite
+    function openModalAutorite() {
+        document.getElementById('formAutorite').reset();
+        openModal('modalAutorite');
+    }
+
+    document.getElementById('formAutorite')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            code: document.getElementById('autorite_code').value,
+            nom: document.getElementById('autorite_nom').value,
+            type_juridiction: document.getElementById('autorite_type').value,
+            ville: document.getElementById('autorite_ville').value
+        };
+
+        try {
+            const response = await fetch('{% url "api_autorite_creer" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                // Ajouter au select
+                const select = document.getElementById('autorite_id');
+                const option = document.createElement('option');
+                option.value = result.autorite_id;
+                option.textContent = data.nom;
+                option.selected = true;
+                select.appendChild(option);
+                closeModal('modalAutorite');
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    });
+
+    // Memoire actions
+    async function deleteMemoire(memoireId, numero) {
+        if (!confirm(`Supprimer le memoire N° ${numero} et tout son contenu ?`)) return;
+        try {
+            const response = await fetch('{% url "api_memoire_supprimer" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({memoire_id: memoireId})
+            });
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    async function verifierMemoire(memoireId) {
+        try {
+            const response = await fetch(`/api/memoires/${memoireId}/verifier/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                if (result.alertes.length === 0) {
+                    alert('Verification reussie ! Aucune alerte.');
+                } else {
+                    let msg = 'Alertes trouvees:\n\n';
+                    result.alertes.forEach(a => {
+                        msg += '- ' + a.message + '\n';
+                    });
+                    alert(msg);
+                }
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    async function certifierMemoire(memoireId) {
+        if (!confirm('Certifier ce memoire ? Cette action est irreversible.')) return;
+        try {
+            const response = await fetch(`/api/memoires/${memoireId}/certifier/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert('Memoire certifie avec succes !\n\nMontant total: ' + result.montant_total.toLocaleString() + ' FCFA');
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    // Click outside modal to close
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+<style>
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+    .modal-header h3 {
+        margin: 0;
+    }
+    .modal-content form {
+        padding: 20px;
+    }
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 16px;
+        border-top: 1px solid var(--neutral-200);
+        margin-top: 16px;
+    }
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 24px;
+        padding: 0 8px;
+        background: var(--neutral-100);
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .alert-info {
+        background: var(--primary-light);
+        border: 1px solid var(--primary);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 12px 0;
+    }
+    .alert-accent {
+        background: var(--accent-light);
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 12px 0;
+    }
+    .affaire-card {
+        border-left: 4px solid var(--primary);
+    }
+    .destinataire-block:hover {
+        background: var(--neutral-50);
+    }
+</style>
+{% endblock %}

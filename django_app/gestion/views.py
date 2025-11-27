@@ -19,7 +19,9 @@ from .models import (
     HistoriqueCalcul, TauxLegal, Utilisateur, LigneFacture,
     Creancier, PortefeuilleCreancier, Encaissement, ImputationEncaissement,
     Reversement, BasculementAmiableForce, PointGlobalCreancier,
-    EnvoiAutomatiquePoint, HistoriqueEnvoiPoint
+    EnvoiAutomatiquePoint, HistoriqueEnvoiPoint,
+    # Mémoires de Cédules
+    AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire
 )
 
 
@@ -2199,6 +2201,916 @@ def api_envoi_automatique_historique(request, creancier_id):
             'success': True,
             'envois_automatiques': data,
         })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# MÉMOIRES DE CÉDULES - STRUCTURE HIÉRARCHIQUE
+# ============================================
+
+def memoires(request):
+    """Vue principale du module Mémoires de Cédules"""
+    context = get_default_context(request)
+    context['active_module'] = 'facturation'
+    context['page_title'] = 'Mémoires de Cédules'
+
+    tab = request.GET.get('tab', 'liste')
+    memoire_id = request.GET.get('memoire_id')
+    affaire_id = request.GET.get('affaire_id')
+
+    # Charger les mémoires depuis la base de données
+    memoires_qs = Memoire.objects.all().select_related(
+        'huissier', 'autorite_requerante', 'cree_par'
+    ).prefetch_related('affaires').order_by('-annee', '-mois', '-numero')
+
+    # Huissiers pour le formulaire
+    huissiers = Collaborateur.objects.filter(role='huissier', actif=True)
+    autorites = AutoriteRequerante.objects.filter(actif=True)
+
+    # Mois pour les sélecteurs
+    mois_noms = [
+        {'id': 1, 'nom': 'Janvier'}, {'id': 2, 'nom': 'Février'}, {'id': 3, 'nom': 'Mars'},
+        {'id': 4, 'nom': 'Avril'}, {'id': 5, 'nom': 'Mai'}, {'id': 6, 'nom': 'Juin'},
+        {'id': 7, 'nom': 'Juillet'}, {'id': 8, 'nom': 'Août'}, {'id': 9, 'nom': 'Septembre'},
+        {'id': 10, 'nom': 'Octobre'}, {'id': 11, 'nom': 'Novembre'}, {'id': 12, 'nom': 'Décembre'},
+    ]
+
+    # Types d'actes pour le formulaire
+    types_actes = ActeDestinataire.TYPE_ACTE_CHOICES
+
+    # Qualités de destinataires
+    qualites_destinataire = DestinataireAffaire.QUALITE_CHOICES
+
+    # Types de mission
+    types_mission = DestinataireAffaire.TYPE_MISSION_CHOICES
+
+    # Liste des mémoires
+    memoires_list = []
+    for m in memoires_qs[:50]:
+        memoires_list.append({
+            'id': m.id,
+            'numero': m.numero,
+            'mois': m.mois,
+            'mois_nom': mois_noms[m.mois - 1]['nom'] if 1 <= m.mois <= 12 else '',
+            'annee': m.annee,
+            'huissier': m.huissier.nom if m.huissier else '-',
+            'autorite': m.autorite_requerante.nom if m.autorite_requerante else '-',
+            'nb_affaires': m.get_nb_affaires(),
+            'nb_destinataires': m.get_nb_destinataires(),
+            'nb_actes': m.get_nb_actes(),
+            'montant_total': m.montant_total,
+            'statut': m.statut,
+            'statut_display': m.get_statut_display(),
+        })
+
+    # Détail d'un mémoire si sélectionné
+    memoire_detail = None
+    affaires_list = []
+    if memoire_id:
+        try:
+            memoire_detail = Memoire.objects.get(pk=memoire_id)
+            for affaire in memoire_detail.affaires.all().prefetch_related('destinataires__actes'):
+                destinataires_list = []
+                for dest in affaire.destinataires.all():
+                    actes_list = []
+                    for acte in dest.actes.all():
+                        actes_list.append({
+                            'id': acte.id,
+                            'date_acte': acte.date_acte.strftime('%d/%m/%Y') if acte.date_acte else '',
+                            'type_acte': acte.get_type_acte_display(),
+                            'type_acte_code': acte.type_acte,
+                            'montant_base': acte.montant_base,
+                            'copies_supplementaires': acte.copies_supplementaires,
+                            'montant_copies': acte.montant_copies,
+                            'roles_pieces_jointes': acte.roles_pieces_jointes,
+                            'montant_pieces': acte.montant_pieces,
+                            'montant_total': acte.montant_total_acte,
+                        })
+
+                    destinataires_list.append({
+                        'id': dest.id,
+                        'nom_complet': dest.get_nom_complet(),
+                        'nom': dest.nom,
+                        'prenoms': dest.prenoms,
+                        'qualite': dest.get_qualite_display(),
+                        'qualite_code': dest.qualite,
+                        'titre': dest.titre,
+                        'adresse': dest.adresse,
+                        'localite': dest.localite,
+                        'distance_km': dest.distance_km,
+                        'type_mission': dest.type_mission,
+                        'type_mission_display': dest.get_type_mission_display(),
+                        'frais_transport': dest.frais_transport,
+                        'frais_mission': dest.frais_mission,
+                        'montant_total_actes': dest.montant_total_actes,
+                        'montant_total': dest.montant_total_destinataire,
+                        'actes': actes_list,
+                        'nb_actes': len(actes_list),
+                    })
+
+                affaires_list.append({
+                    'id': affaire.id,
+                    'numero_parquet': affaire.numero_parquet,
+                    'intitule': affaire.intitule_affaire,
+                    'nature_infraction': affaire.nature_infraction,
+                    'date_audience': affaire.date_audience.strftime('%d/%m/%Y') if affaire.date_audience else '',
+                    'montant_total_actes': affaire.montant_total_actes,
+                    'montant_total_transport': affaire.montant_total_transport,
+                    'montant_total_mission': affaire.montant_total_mission,
+                    'montant_total': affaire.montant_total_affaire,
+                    'destinataires': destinataires_list,
+                    'nb_destinataires': len(destinataires_list),
+                    'nb_actes': sum(d['nb_actes'] for d in destinataires_list),
+                })
+        except Memoire.DoesNotExist:
+            memoire_detail = None
+
+    context['tabs'] = [
+        {'id': 'liste', 'label': 'Liste des mémoires'},
+        {'id': 'nouveau', 'label': 'Nouveau mémoire'},
+    ]
+    context['current_tab'] = tab
+    context['memoires_list'] = memoires_list
+    context['memoire_detail'] = memoire_detail
+    context['affaires_list'] = affaires_list
+    context['memoire_id'] = memoire_id
+    context['affaire_id'] = affaire_id
+    context['huissiers'] = huissiers
+    context['autorites'] = autorites
+    context['mois_noms'] = mois_noms
+    context['types_actes'] = types_actes
+    context['qualites_destinataire'] = qualites_destinataire
+    context['types_mission'] = types_mission
+    context['annee_courante'] = timezone.now().year
+    context['mois_courant'] = timezone.now().month
+
+    # Constantes de tarification
+    context['tarifs'] = {
+        'montant_base_acte': ActeDestinataire.MONTANT_BASE,
+        'tarif_copie': ActeDestinataire.TARIF_COPIE_SUPPLEMENTAIRE,
+        'tarif_role': ActeDestinataire.TARIF_ROLE_PIECES,
+        'tarif_km': DestinataireAffaire.TARIF_KM,
+        'seuil_transport': DestinataireAffaire.SEUIL_TRANSPORT_KM,
+        'seuil_mission': DestinataireAffaire.SEUIL_MISSION_KM,
+        'tarifs_mission': DestinataireAffaire.TARIFS_MISSION,
+    }
+
+    return render(request, 'gestion/memoires.html', context)
+
+
+# API MÉMOIRES DE CÉDULES
+@require_POST
+def api_memoire_creer(request):
+    """API pour créer un nouveau mémoire"""
+    try:
+        data = json.loads(request.body)
+
+        # Vérifier les données requises
+        if not data.get('mois') or not data.get('annee'):
+            return JsonResponse({'success': False, 'error': 'Mois et année requis'}, status=400)
+
+        if not data.get('huissier_id'):
+            return JsonResponse({'success': False, 'error': 'Huissier requis'}, status=400)
+
+        if not data.get('autorite_id'):
+            return JsonResponse({'success': False, 'error': 'Autorité requérante requise'}, status=400)
+
+        huissier = get_object_or_404(Collaborateur, pk=data['huissier_id'])
+        autorite = get_object_or_404(AutoriteRequerante, pk=data['autorite_id'])
+
+        # Vérifier l'unicité
+        existe = Memoire.objects.filter(
+            mois=data['mois'],
+            annee=data['annee'],
+            huissier=huissier,
+            autorite_requerante=autorite
+        ).exists()
+
+        if existe:
+            return JsonResponse({
+                'success': False,
+                'error': 'Un mémoire existe déjà pour cette période, cet huissier et cette autorité'
+            }, status=400)
+
+        # Créer le mémoire
+        utilisateur = Utilisateur.objects.first()
+        memoire = Memoire(
+            numero=Memoire.generer_numero(),
+            mois=data['mois'],
+            annee=data['annee'],
+            huissier=huissier,
+            autorite_requerante=autorite,
+            residence_huissier=data.get('residence_huissier', 'Parakou'),
+            observations=data.get('observations', ''),
+            cree_par=utilisateur,
+        )
+        memoire.save()
+
+        return JsonResponse({
+            'success': True,
+            'memoire_id': memoire.id,
+            'numero': memoire.numero,
+            'message': f'Mémoire N° {memoire.numero} créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_memoire_supprimer(request):
+    """API pour supprimer un mémoire"""
+    try:
+        data = json.loads(request.body)
+        memoire_id = data.get('memoire_id')
+
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de supprimer un mémoire certifié, soumis ou payé'
+            }, status=400)
+
+        numero = memoire.numero
+        memoire.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mémoire N° {numero} supprimé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_memoire_detail(request, memoire_id):
+    """API pour le détail d'un mémoire"""
+    try:
+        memoire = get_object_or_404(
+            Memoire.objects.select_related('huissier', 'autorite_requerante')
+            .prefetch_related('affaires__destinataires__actes'),
+            pk=memoire_id
+        )
+
+        # Construire les données détaillées
+        affaires_data = []
+        for affaire in memoire.affaires.all():
+            destinataires_data = []
+            for dest in affaire.destinataires.all():
+                actes_data = []
+                for acte in dest.actes.all():
+                    actes_data.append({
+                        'id': acte.id,
+                        'date_acte': acte.date_acte.isoformat() if acte.date_acte else None,
+                        'type_acte': acte.type_acte,
+                        'type_acte_display': acte.get_type_acte_display(),
+                        'montant_base': float(acte.montant_base),
+                        'copies_supplementaires': acte.copies_supplementaires,
+                        'montant_copies': float(acte.montant_copies),
+                        'roles_pieces_jointes': acte.roles_pieces_jointes,
+                        'montant_pieces': float(acte.montant_pieces),
+                        'montant_total': float(acte.montant_total_acte),
+                    })
+
+                destinataires_data.append({
+                    'id': dest.id,
+                    'nom': dest.nom,
+                    'prenoms': dest.prenoms,
+                    'nom_complet': dest.get_nom_complet(),
+                    'qualite': dest.qualite,
+                    'qualite_display': dest.get_qualite_display(),
+                    'titre': dest.titre,
+                    'adresse': dest.adresse,
+                    'localite': dest.localite,
+                    'distance_km': dest.distance_km,
+                    'type_mission': dest.type_mission,
+                    'frais_transport': float(dest.frais_transport),
+                    'frais_mission': float(dest.frais_mission),
+                    'montant_total_actes': float(dest.montant_total_actes),
+                    'montant_total': float(dest.montant_total_destinataire),
+                    'actes': actes_data,
+                })
+
+            affaires_data.append({
+                'id': affaire.id,
+                'numero_parquet': affaire.numero_parquet,
+                'intitule': affaire.intitule_affaire,
+                'nature_infraction': affaire.nature_infraction,
+                'date_audience': affaire.date_audience.isoformat() if affaire.date_audience else None,
+                'montant_total_actes': float(affaire.montant_total_actes),
+                'montant_total_transport': float(affaire.montant_total_transport),
+                'montant_total_mission': float(affaire.montant_total_mission),
+                'montant_total': float(affaire.montant_total_affaire),
+                'destinataires': destinataires_data,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'memoire': {
+                'id': memoire.id,
+                'numero': memoire.numero,
+                'mois': memoire.mois,
+                'annee': memoire.annee,
+                'huissier': {'id': memoire.huissier.id, 'nom': memoire.huissier.nom},
+                'autorite': {'id': memoire.autorite_requerante.id, 'nom': memoire.autorite_requerante.nom},
+                'residence_huissier': memoire.residence_huissier,
+                'montant_total_actes': float(memoire.montant_total_actes),
+                'montant_total_transport': float(memoire.montant_total_transport),
+                'montant_total_mission': float(memoire.montant_total_mission),
+                'montant_total': float(memoire.montant_total),
+                'montant_total_lettres': memoire.montant_total_lettres,
+                'statut': memoire.statut,
+                'statut_display': memoire.get_statut_display(),
+                'date_certification': memoire.date_certification.isoformat() if memoire.date_certification else None,
+                'lieu_certification': memoire.lieu_certification,
+                'affaires': affaires_data,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_memoire_certifier(request, memoire_id):
+    """API pour certifier un mémoire"""
+    try:
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        # Vérifier qu'il y a au moins une affaire
+        if not memoire.affaires.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de certifier un mémoire sans affaire'
+            }, status=400)
+
+        # Vérifier la cohérence
+        alertes = memoire.verifier_coherence()
+        alertes_bloquantes = [a for a in alertes if a['type'] in ['doublon_affaire']]
+
+        if alertes_bloquantes:
+            return JsonResponse({
+                'success': False,
+                'error': 'Des erreurs bloquantes empêchent la certification',
+                'alertes': alertes_bloquantes
+            }, status=400)
+
+        # Certifier
+        utilisateur = Utilisateur.objects.first()
+        memoire.certifier(utilisateur)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mémoire N° {memoire.numero} certifié avec succès',
+            'montant_total': float(memoire.montant_total),
+            'montant_total_lettres': memoire.montant_total_lettres,
+            'alertes': alertes  # Retourner les alertes non bloquantes
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_memoire_verifier(request, memoire_id):
+    """API pour vérifier la cohérence d'un mémoire"""
+    try:
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+        alertes = memoire.verifier_coherence()
+
+        return JsonResponse({
+            'success': True,
+            'alertes': alertes,
+            'nb_alertes': len(alertes),
+            'est_valide': len([a for a in alertes if a['type'] in ['doublon_affaire']]) == 0
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# API AFFAIRES
+@require_POST
+def api_affaire_creer(request, memoire_id):
+    """API pour ajouter une affaire à un mémoire"""
+    try:
+        data = json.loads(request.body)
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        # Vérifier les données requises
+        if not data.get('numero_parquet'):
+            return JsonResponse({'success': False, 'error': 'Numéro de parquet requis'}, status=400)
+
+        if not data.get('intitule_affaire'):
+            return JsonResponse({'success': False, 'error': 'Intitulé de l\'affaire requis'}, status=400)
+
+        # Vérifier l'unicité du numéro de parquet dans le mémoire
+        if memoire.affaires.filter(numero_parquet=data['numero_parquet']).exists():
+            return JsonResponse({
+                'success': False,
+                'error': f'L\'affaire {data["numero_parquet"]} existe déjà dans ce mémoire'
+            }, status=400)
+
+        # Créer l'affaire
+        affaire = AffaireMemoire(
+            memoire=memoire,
+            numero_parquet=data['numero_parquet'],
+            intitule_affaire=data['intitule_affaire'],
+            nature_infraction=data.get('nature_infraction', ''),
+            date_audience=datetime.strptime(data['date_audience'], '%Y-%m-%d').date() if data.get('date_audience') else None,
+            ordre_affichage=memoire.affaires.count(),
+        )
+        affaire.save()
+
+        return JsonResponse({
+            'success': True,
+            'affaire_id': affaire.id,
+            'message': f'Affaire {affaire.numero_parquet} ajoutée avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_affaire_modifier(request, affaire_id):
+    """API pour modifier une affaire"""
+    try:
+        data = json.loads(request.body)
+        affaire = get_object_or_404(AffaireMemoire, pk=affaire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        # Mettre à jour
+        if 'numero_parquet' in data:
+            # Vérifier l'unicité
+            existe = affaire.memoire.affaires.exclude(pk=affaire.pk).filter(
+                numero_parquet=data['numero_parquet']
+            ).exists()
+            if existe:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'L\'affaire {data["numero_parquet"]} existe déjà dans ce mémoire'
+                }, status=400)
+            affaire.numero_parquet = data['numero_parquet']
+
+        if 'intitule_affaire' in data:
+            affaire.intitule_affaire = data['intitule_affaire']
+        if 'nature_infraction' in data:
+            affaire.nature_infraction = data['nature_infraction']
+        if 'date_audience' in data:
+            affaire.date_audience = datetime.strptime(data['date_audience'], '%Y-%m-%d').date() if data['date_audience'] else None
+
+        affaire.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Affaire modifiée avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_affaire_supprimer(request, affaire_id):
+    """API pour supprimer une affaire"""
+    try:
+        affaire = get_object_or_404(AffaireMemoire, pk=affaire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        numero = affaire.numero_parquet
+        memoire = affaire.memoire
+        affaire.delete()
+
+        # Recalculer les totaux du mémoire
+        memoire.calculer_totaux()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Affaire {numero} supprimée avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# API DESTINATAIRES
+@require_POST
+def api_destinataire_creer(request, affaire_id):
+    """API pour ajouter un destinataire à une affaire"""
+    try:
+        data = json.loads(request.body)
+        affaire = get_object_or_404(AffaireMemoire, pk=affaire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        # Vérifier les données requises
+        if not data.get('nom'):
+            return JsonResponse({'success': False, 'error': 'Nom du destinataire requis'}, status=400)
+
+        if not data.get('qualite'):
+            return JsonResponse({'success': False, 'error': 'Qualité du destinataire requise'}, status=400)
+
+        if not data.get('localite'):
+            return JsonResponse({'success': False, 'error': 'Localité requise'}, status=400)
+
+        # Créer le destinataire
+        destinataire = DestinataireAffaire(
+            affaire=affaire,
+            nom=data['nom'],
+            prenoms=data.get('prenoms', ''),
+            raison_sociale=data.get('raison_sociale', ''),
+            qualite=data['qualite'],
+            titre=data.get('titre', ''),
+            adresse=data.get('adresse', ''),
+            localite=data['localite'],
+            distance_km=data.get('distance_km', 0),
+            observations=data.get('observations', ''),
+            ordre_affichage=affaire.destinataires.count(),
+        )
+
+        # Calculer les frais automatiquement
+        destinataire.type_mission = destinataire.determiner_type_mission()
+        destinataire.frais_transport = destinataire.calculer_frais_transport()
+        destinataire.frais_mission = destinataire.calculer_frais_mission()
+
+        destinataire.save()
+
+        return JsonResponse({
+            'success': True,
+            'destinataire_id': destinataire.id,
+            'message': f'Destinataire {destinataire.get_nom_complet()} ajouté avec succès',
+            'frais_transport': float(destinataire.frais_transport),
+            'frais_mission': float(destinataire.frais_mission),
+            'type_mission': destinataire.type_mission,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_destinataire_modifier(request, destinataire_id):
+    """API pour modifier un destinataire"""
+    try:
+        data = json.loads(request.body)
+        destinataire = get_object_or_404(DestinataireAffaire, pk=destinataire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if destinataire.affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        # Mettre à jour les champs
+        if 'nom' in data:
+            destinataire.nom = data['nom']
+        if 'prenoms' in data:
+            destinataire.prenoms = data['prenoms']
+        if 'raison_sociale' in data:
+            destinataire.raison_sociale = data['raison_sociale']
+        if 'qualite' in data:
+            destinataire.qualite = data['qualite']
+        if 'titre' in data:
+            destinataire.titre = data['titre']
+        if 'adresse' in data:
+            destinataire.adresse = data['adresse']
+        if 'localite' in data:
+            destinataire.localite = data['localite']
+        if 'distance_km' in data:
+            destinataire.distance_km = data['distance_km']
+            # Recalculer les frais
+            destinataire.type_mission = destinataire.determiner_type_mission()
+            destinataire.frais_transport = destinataire.calculer_frais_transport()
+            destinataire.frais_mission = destinataire.calculer_frais_mission()
+        if 'type_mission' in data:
+            destinataire.type_mission = data['type_mission']
+            destinataire.frais_mission = destinataire.calculer_frais_mission()
+        if 'observations' in data:
+            destinataire.observations = data['observations']
+
+        destinataire.save()
+        destinataire.calculer_totaux()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Destinataire modifié avec succès',
+            'frais_transport': float(destinataire.frais_transport),
+            'frais_mission': float(destinataire.frais_mission),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_destinataire_supprimer(request, destinataire_id):
+    """API pour supprimer un destinataire"""
+    try:
+        destinataire = get_object_or_404(DestinataireAffaire, pk=destinataire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if destinataire.affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        nom = destinataire.get_nom_complet()
+        affaire = destinataire.affaire
+        destinataire.delete()
+
+        # Recalculer les totaux
+        affaire.calculer_totaux()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Destinataire {nom} supprimé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# API ACTES
+@require_POST
+def api_acte_creer(request, destinataire_id):
+    """API pour ajouter un acte à un destinataire"""
+    try:
+        data = json.loads(request.body)
+        destinataire = get_object_or_404(DestinataireAffaire, pk=destinataire_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if destinataire.affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        # Vérifier les données requises
+        if not data.get('date_acte'):
+            return JsonResponse({'success': False, 'error': 'Date de l\'acte requise'}, status=400)
+
+        if not data.get('type_acte'):
+            return JsonResponse({'success': False, 'error': 'Type d\'acte requis'}, status=400)
+
+        # Créer l'acte
+        acte = ActeDestinataire(
+            destinataire=destinataire,
+            date_acte=datetime.strptime(data['date_acte'], '%Y-%m-%d').date(),
+            type_acte=data['type_acte'],
+            type_acte_autre=data.get('type_acte_autre', ''),
+            copies_supplementaires=data.get('copies_supplementaires', 0),
+            roles_pieces_jointes=data.get('roles_pieces_jointes', 0),
+            observations=data.get('observations', ''),
+        )
+        # Les montants seront calculés automatiquement dans save()
+        acte.save()
+
+        return JsonResponse({
+            'success': True,
+            'acte_id': acte.id,
+            'message': f'Acte ajouté avec succès',
+            'montant_total': float(acte.montant_total_acte),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_acte_modifier(request, acte_id):
+    """API pour modifier un acte"""
+    try:
+        data = json.loads(request.body)
+        acte = get_object_or_404(ActeDestinataire, pk=acte_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if acte.destinataire.affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        # Mettre à jour les champs
+        if 'date_acte' in data:
+            acte.date_acte = datetime.strptime(data['date_acte'], '%Y-%m-%d').date()
+        if 'type_acte' in data:
+            acte.type_acte = data['type_acte']
+        if 'type_acte_autre' in data:
+            acte.type_acte_autre = data['type_acte_autre']
+        if 'copies_supplementaires' in data:
+            acte.copies_supplementaires = data['copies_supplementaires']
+        if 'roles_pieces_jointes' in data:
+            acte.roles_pieces_jointes = data['roles_pieces_jointes']
+        if 'observations' in data:
+            acte.observations = data['observations']
+
+        # Les montants seront recalculés automatiquement dans save()
+        acte.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Acte modifié avec succès',
+            'montant_total': float(acte.montant_total_acte),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_acte_supprimer(request, acte_id):
+    """API pour supprimer un acte"""
+    try:
+        acte = get_object_or_404(ActeDestinataire, pk=acte_id)
+
+        # Vérifier que le mémoire n'est pas certifié
+        if acte.destinataire.affaire.memoire.statut in ['certifie', 'soumis', 'paye']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de modifier un mémoire certifié'
+            }, status=400)
+
+        destinataire = acte.destinataire
+        acte.delete()
+
+        # Recalculer les totaux
+        destinataire.calculer_totaux()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Acte supprimé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# API AUTORITÉS REQUÉRANTES
+@require_GET
+def api_autorites_liste(request):
+    """API pour la liste des autorités requérantes"""
+    try:
+        autorites = AutoriteRequerante.objects.filter(actif=True).order_by('nom')
+
+        data = [{
+            'id': a.id,
+            'code': a.code,
+            'nom': a.nom,
+            'type_juridiction': a.type_juridiction,
+            'ville': a.ville,
+        } for a in autorites]
+
+        return JsonResponse({
+            'success': True,
+            'autorites': data,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_autorite_creer(request):
+    """API pour créer une autorité requérante"""
+    try:
+        data = json.loads(request.body)
+
+        if not data.get('code') or not data.get('nom'):
+            return JsonResponse({'success': False, 'error': 'Code et nom requis'}, status=400)
+
+        # Vérifier l'unicité
+        if AutoriteRequerante.objects.filter(code=data['code']).exists():
+            return JsonResponse({'success': False, 'error': 'Ce code existe déjà'}, status=400)
+
+        autorite = AutoriteRequerante(
+            code=data['code'],
+            nom=data['nom'],
+            type_juridiction=data.get('type_juridiction', ''),
+            adresse=data.get('adresse', ''),
+            ville=data.get('ville', ''),
+            telephone=data.get('telephone', ''),
+            email=data.get('email', ''),
+        )
+        autorite.save()
+
+        return JsonResponse({
+            'success': True,
+            'autorite_id': autorite.id,
+            'message': f'Autorité {autorite.nom} créée avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# API EXPORT PDF MÉMOIRE
+@require_GET
+def api_memoire_export_pdf(request, memoire_id):
+    """API pour exporter un mémoire en format texte (prévisualisation PDF)"""
+    try:
+        memoire = get_object_or_404(
+            Memoire.objects.select_related('huissier', 'autorite_requerante')
+            .prefetch_related('affaires__destinataires__actes'),
+            pk=memoire_id
+        )
+
+        mois_noms = [
+            '', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN',
+            'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'
+        ]
+
+        # Construire le contenu du mémoire
+        contenu = []
+        contenu.append('=' * 70)
+        contenu.append(f'MÉMOIRE N° {memoire.numero} - {mois_noms[memoire.mois]} {memoire.annee}')
+        contenu.append('=' * 70)
+        contenu.append(f'Huissier: {memoire.huissier.nom if memoire.huissier else "-"}')
+        contenu.append(f'Autorité requérante: {memoire.autorite_requerante.nom if memoire.autorite_requerante else "-"}')
+        contenu.append('')
+
+        for affaire in memoire.affaires.all():
+            contenu.append('-' * 70)
+            contenu.append(f'AFFAIRE: {affaire.numero_parquet} - {affaire.intitule_affaire}')
+            contenu.append('-' * 70)
+
+            for dest in affaire.destinataires.all():
+                contenu.append(f'\n  {dest.get_nom_complet()}, {dest.get_qualite_display()}, {dest.localite}')
+                if dest.distance_km > 0:
+                    contenu.append(f'    Distance: {dest.distance_km} km')
+
+                for acte in dest.actes.all():
+                    contenu.append(f'    • {acte.get_type_acte_display()} ({acte.date_acte.strftime("%d/%m/%Y")}).......... {acte.montant_base:,.0f} F')
+                    if acte.copies_supplementaires > 0:
+                        contenu.append(f'      + Copies supplémentaires ({acte.copies_supplementaires}).......... {acte.montant_copies:,.0f} F')
+                    if acte.roles_pieces_jointes > 0:
+                        contenu.append(f'      + Pièces jointes ({acte.roles_pieces_jointes} rôles).......... {acte.montant_pieces:,.0f} F')
+
+                if dest.frais_transport > 0:
+                    contenu.append(f'    • Transport ({dest.distance_km} km × 140 F × 2).......... {dest.frais_transport:,.0f} F')
+                if dest.frais_mission > 0:
+                    contenu.append(f'    • Mission ({dest.get_type_mission_display()}).......... {dest.frais_mission:,.0f} F')
+
+                contenu.append(f'                                           Sous-total: {dest.montant_total_destinataire:,.0f} F')
+
+            contenu.append(f'\n                               TOTAL AFFAIRE: {affaire.montant_total_affaire:,.0f} F')
+
+        contenu.append('\n' + '=' * 70)
+        contenu.append('RÉCAPITULATIF')
+        contenu.append('-' * 70)
+        for affaire in memoire.affaires.all():
+            contenu.append(f'Affaire {affaire.numero_parquet}.......... {affaire.montant_total_affaire:,.0f} F')
+        contenu.append('=' * 70)
+        contenu.append(f'TOTAL GÉNÉRAL.......... {memoire.montant_total:,.0f} F')
+        contenu.append('=' * 70)
+        contenu.append('')
+        contenu.append(f'Arrêté le présent mémoire à la somme de:')
+        contenu.append(memoire.montant_total_lettres or Memoire.nombre_en_lettres(memoire.montant_total))
+        contenu.append('')
+        contenu.append('Certifié sincère et véritable')
+        contenu.append(f'Fait à {memoire.lieu_certification}, le {memoire.date_certification.strftime("%d/%m/%Y") if memoire.date_certification else timezone.now().strftime("%d/%m/%Y")}')
+        contenu.append('')
+        contenu.append('[Signature]')
+        contenu.append(f'                                    {memoire.huissier.nom if memoire.huissier else "Maître [NOM]"}')
+        contenu.append('                                    Huissier de Justice')
+
+        response = HttpResponse(content_type='text/plain; charset=utf-8')
+        filename = f"memoire_{memoire.numero}_{memoire.mois}_{memoire.annee}.txt"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.write('\n'.join(contenu))
+
+        return response
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)

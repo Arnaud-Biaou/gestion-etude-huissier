@@ -5,7 +5,9 @@ from .models import (
     ActeProcedure, HistoriqueCalcul, TauxLegal, MessageChatbot,
     Creancier, PortefeuilleCreancier, Encaissement, ImputationEncaissement,
     Reversement, BasculementAmiableForce, PointGlobalCreancier,
-    EnvoiAutomatiquePoint, HistoriqueEnvoiPoint
+    EnvoiAutomatiquePoint, HistoriqueEnvoiPoint,
+    # Mémoires de Cédules
+    AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire
 )
 
 
@@ -353,3 +355,194 @@ class HistoriqueEnvoiPointAdmin(admin.ModelAdmin):
     list_display = ('envoi_config', 'date_envoi', 'statut')
     list_filter = ('statut', 'date_envoi')
     date_hierarchy = 'date_envoi'
+
+
+# ============================================
+# Administration des Mémoires de Cédules
+# ============================================
+
+@admin.register(AutoriteRequerante)
+class AutoriteRequeranteAdmin(admin.ModelAdmin):
+    list_display = ('code', 'nom', 'type_juridiction', 'ville', 'actif')
+    list_filter = ('type_juridiction', 'actif')
+    search_fields = ('code', 'nom', 'ville')
+    ordering = ['nom']
+
+
+class ActeDestinataireInline(admin.TabularInline):
+    model = ActeDestinataire
+    extra = 0
+    readonly_fields = ('montant_base', 'montant_copies', 'montant_pieces', 'montant_total_acte')
+    fields = ('date_acte', 'type_acte', 'type_acte_autre', 'copies_supplementaires',
+              'roles_pieces_jointes', 'montant_base', 'montant_copies', 'montant_pieces',
+              'montant_total_acte')
+
+
+class DestinataireAffaireInline(admin.TabularInline):
+    model = DestinataireAffaire
+    extra = 0
+    readonly_fields = ('frais_transport', 'frais_mission', 'montant_total_actes',
+                       'montant_total_destinataire')
+    fields = ('nom', 'prenoms', 'qualite', 'localite', 'distance_km', 'type_mission',
+              'frais_transport', 'frais_mission', 'montant_total_actes', 'montant_total_destinataire')
+    show_change_link = True
+
+
+class AffaireMemoireInline(admin.TabularInline):
+    model = AffaireMemoire
+    extra = 0
+    readonly_fields = ('montant_total_actes', 'montant_total_transport',
+                       'montant_total_mission', 'montant_total_affaire')
+    fields = ('numero_parquet', 'intitule_affaire', 'date_audience',
+              'montant_total_actes', 'montant_total_transport', 'montant_total_mission',
+              'montant_total_affaire')
+    show_change_link = True
+
+
+@admin.register(Memoire)
+class MemoireAdmin(admin.ModelAdmin):
+    list_display = ('numero', 'mois', 'annee', 'huissier', 'autorite_requerante',
+                    'get_nb_affaires', 'montant_total', 'statut')
+    list_filter = ('statut', 'annee', 'mois', 'autorite_requerante', 'huissier')
+    search_fields = ('numero', 'huissier__nom', 'autorite_requerante__nom')
+    date_hierarchy = 'date_creation'
+    inlines = [AffaireMemoireInline]
+    readonly_fields = ('montant_total_actes', 'montant_total_transport', 'montant_total_mission',
+                       'montant_total', 'montant_total_lettres', 'date_certification',
+                       'certifie_par', 'date_creation', 'date_modification')
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('numero', 'mois', 'annee', 'huissier', 'autorite_requerante')
+        }),
+        ('Paramètres', {
+            'fields': ('residence_huissier', 'lieu_certification')
+        }),
+        ('Totaux (calculés automatiquement)', {
+            'fields': ('montant_total_actes', 'montant_total_transport',
+                       'montant_total_mission', 'montant_total', 'montant_total_lettres'),
+            'classes': ('collapse',)
+        }),
+        ('Statut', {
+            'fields': ('statut', 'date_certification', 'certifie_par')
+        }),
+        ('Observations', {
+            'fields': ('observations',)
+        }),
+        ('Traçabilité', {
+            'fields': ('cree_par', 'date_creation', 'date_modification'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    actions = ['recalculer_totaux']
+
+    def recalculer_totaux(self, request, queryset):
+        for memoire in queryset:
+            memoire.calculer_totaux()
+        self.message_user(request, f'{queryset.count()} mémoire(s) recalculé(s)')
+    recalculer_totaux.short_description = 'Recalculer les totaux'
+
+
+@admin.register(AffaireMemoire)
+class AffaireMemoireAdmin(admin.ModelAdmin):
+    list_display = ('numero_parquet', 'intitule_affaire', 'memoire', 'get_nb_destinataires',
+                    'get_nb_actes', 'montant_total_affaire')
+    list_filter = ('memoire__annee', 'memoire__mois', 'memoire__autorite_requerante')
+    search_fields = ('numero_parquet', 'intitule_affaire', 'memoire__numero')
+    inlines = [DestinataireAffaireInline]
+    readonly_fields = ('montant_total_actes', 'montant_total_transport',
+                       'montant_total_mission', 'montant_total_affaire',
+                       'date_creation', 'date_modification')
+
+    fieldsets = (
+        ('Mémoire', {
+            'fields': ('memoire',)
+        }),
+        ('Affaire', {
+            'fields': ('numero_parquet', 'intitule_affaire', 'nature_infraction', 'date_audience')
+        }),
+        ('Totaux (calculés automatiquement)', {
+            'fields': ('montant_total_actes', 'montant_total_transport',
+                       'montant_total_mission', 'montant_total_affaire'),
+            'classes': ('collapse',)
+        }),
+        ('Affichage', {
+            'fields': ('ordre_affichage',)
+        }),
+    )
+
+
+@admin.register(DestinataireAffaire)
+class DestinataireAffaireAdmin(admin.ModelAdmin):
+    list_display = ('get_nom_complet', 'qualite', 'localite', 'distance_km',
+                    'affaire', 'montant_total_destinataire')
+    list_filter = ('qualite', 'type_mission', 'affaire__memoire__annee')
+    search_fields = ('nom', 'prenoms', 'raison_sociale', 'localite',
+                     'affaire__numero_parquet')
+    inlines = [ActeDestinataireInline]
+    readonly_fields = ('frais_transport', 'frais_mission', 'montant_total_actes',
+                       'montant_total_destinataire', 'date_creation', 'date_modification')
+
+    fieldsets = (
+        ('Affaire', {
+            'fields': ('affaire',)
+        }),
+        ('Identité', {
+            'fields': ('titre', 'nom', 'prenoms', 'raison_sociale', 'qualite')
+        }),
+        ('Adresse', {
+            'fields': ('adresse', 'localite')
+        }),
+        ('Frais de déplacement', {
+            'fields': ('distance_km', 'type_mission', 'frais_transport', 'frais_mission'),
+            'description': 'Les frais sont calculés automatiquement selon la distance. '
+                          'Transport > 20 km, Mission >= 100 km.'
+        }),
+        ('Totaux (calculés automatiquement)', {
+            'fields': ('montant_total_actes', 'montant_total_destinataire'),
+            'classes': ('collapse',)
+        }),
+        ('Observations', {
+            'fields': ('observations', 'ordre_affichage')
+        }),
+    )
+
+    actions = ['recalculer_frais']
+
+    def recalculer_frais(self, request, queryset):
+        for dest in queryset:
+            dest.calculer_totaux()
+        self.message_user(request, f'{queryset.count()} destinataire(s) recalculé(s)')
+    recalculer_frais.short_description = 'Recalculer les frais'
+
+
+@admin.register(ActeDestinataire)
+class ActeDestinataireAdmin(admin.ModelAdmin):
+    list_display = ('get_type_acte_display', 'date_acte', 'destinataire',
+                    'montant_base', 'montant_copies', 'montant_pieces', 'montant_total_acte')
+    list_filter = ('type_acte', 'date_acte')
+    search_fields = ('destinataire__nom', 'destinataire__prenoms',
+                     'destinataire__affaire__numero_parquet')
+    date_hierarchy = 'date_acte'
+    readonly_fields = ('montant_base', 'montant_copies', 'montant_pieces',
+                       'montant_total_acte', 'date_creation', 'date_modification')
+
+    fieldsets = (
+        ('Destinataire', {
+            'fields': ('destinataire',)
+        }),
+        ('Acte', {
+            'fields': ('date_acte', 'type_acte', 'type_acte_autre')
+        }),
+        ('Copies et pièces', {
+            'fields': ('copies_supplementaires', 'roles_pieces_jointes')
+        }),
+        ('Montants (calculés automatiquement)', {
+            'fields': ('montant_base', 'montant_copies', 'montant_pieces', 'montant_total_acte'),
+            'description': 'Base: 4 985 F, Copies: 900 F/copie, Pièces: 1 000 F/rôle'
+        }),
+        ('Observations', {
+            'fields': ('observations',)
+        }),
+    )

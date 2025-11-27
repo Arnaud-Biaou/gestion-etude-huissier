@@ -7,6 +7,7 @@ urlpatterns = [
     path('dossiers/', views.dossiers, name='dossiers'),
     path('dossiers/nouveau/', views.nouveau_dossier, name='nouveau_dossier'),
     path('facturation/', views.facturation, name='facturation'),
+    path('memoires/', views.memoires, name='memoires'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
     path('drive/', views.drive, name='drive'),
     path('securite/', views.securite, name='securite'),
@@ -72,4 +73,31 @@ urlpatterns = [
     # API endpoints - Autres
     path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
     path('api/supprimer-dossier/', views.api_supprimer_dossier, name='api_supprimer_dossier'),
+
+    # API endpoints - Mémoires de Cédules
+    path('api/memoires/creer/', views.api_memoire_creer, name='api_memoire_creer'),
+    path('api/memoires/supprimer/', views.api_memoire_supprimer, name='api_memoire_supprimer'),
+    path('api/memoires/<int:memoire_id>/', views.api_memoire_detail, name='api_memoire_detail'),
+    path('api/memoires/<int:memoire_id>/certifier/', views.api_memoire_certifier, name='api_memoire_certifier'),
+    path('api/memoires/<int:memoire_id>/verifier/', views.api_memoire_verifier, name='api_memoire_verifier'),
+    path('api/memoires/<int:memoire_id>/export/', views.api_memoire_export_pdf, name='api_memoire_export_pdf'),
+
+    # API endpoints - Affaires du mémoire
+    path('api/memoires/<int:memoire_id>/affaires/creer/', views.api_affaire_creer, name='api_affaire_creer'),
+    path('api/affaires/<int:affaire_id>/modifier/', views.api_affaire_modifier, name='api_affaire_modifier'),
+    path('api/affaires/<int:affaire_id>/supprimer/', views.api_affaire_supprimer, name='api_affaire_supprimer'),
+
+    # API endpoints - Destinataires
+    path('api/affaires/<int:affaire_id>/destinataires/creer/', views.api_destinataire_creer, name='api_destinataire_creer'),
+    path('api/destinataires/<int:destinataire_id>/modifier/', views.api_destinataire_modifier, name='api_destinataire_modifier'),
+    path('api/destinataires/<int:destinataire_id>/supprimer/', views.api_destinataire_supprimer, name='api_destinataire_supprimer'),
+
+    # API endpoints - Actes
+    path('api/destinataires/<int:destinataire_id>/actes/creer/', views.api_acte_creer, name='api_acte_creer'),
+    path('api/actes/<int:acte_id>/modifier/', views.api_acte_modifier, name='api_acte_modifier'),
+    path('api/actes/<int:acte_id>/supprimer/', views.api_acte_supprimer, name='api_acte_supprimer'),
+
+    # API endpoints - Autorités requérantes
+    path('api/autorites/', views.api_autorites_liste, name='api_autorites_liste'),
+    path('api/autorites/creer/', views.api_autorite_creer, name='api_autorite_creer'),
 ]
