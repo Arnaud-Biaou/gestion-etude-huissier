@@ -127,7 +127,7 @@ class DossierVirtuel(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='dossiers_crees'
+        related_name='dossiers_virtuels_crees'
     )
 
     class Meta:

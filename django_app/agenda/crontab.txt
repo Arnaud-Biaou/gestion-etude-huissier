@@ -1,0 +1,89 @@
+# ============================================================================
+# CONFIGURATION CRONTAB POUR LE MODULE AGENDA
+# ============================================================================
+#
+# Ce fichier contient les tâches planifiées pour l'automatisation du module Agenda.
+#
+# Pour installer ces tâches cron:
+# 1. Ouvrez le crontab: crontab -e
+# 2. Copiez les lignes ci-dessous (sans les commentaires d'en-tête)
+# 3. Adaptez les chemins selon votre installation
+#
+# Variables d'environnement requises:
+# - DJANGO_SETTINGS_MODULE=etude_huissier.settings
+# - Chemin vers l'interpréteur Python (ex: /usr/bin/python ou venv/bin/python)
+#
+# ============================================================================
+
+# Variables (à adapter selon votre installation)
+# PYTHON=/chemin/vers/votre/venv/bin/python
+# DJANGO_APP=/chemin/vers/gestion-etude-huissier/django_app
+# LOG_DIR=/var/log/agenda
+
+# ============================================================================
+# RAPPELS - Toutes les 15 minutes
+# ============================================================================
+# Traite les rappels de RDV et tâches à envoyer
+# */15 * * * * cd $DJANGO_APP && $PYTHON manage.py traiter_rappels >> $LOG_DIR/rappels.log 2>&1
+
+# ============================================================================
+# CLÔTURE DE JOURNÉE - Tous les jours à 23h59
+# ============================================================================
+# Clôture automatique de la journée et report des tâches non terminées
+# 59 23 * * * cd $DJANGO_APP && $PYTHON manage.py cloturer_journee >> $LOG_DIR/cloture.log 2>&1
+
+# ============================================================================
+# VÉRIFICATION DES ESCALADES - Tous les jours à 9h00
+# ============================================================================
+# Alerte les admins des tâches en retard critique
+# 0 9 * * * cd $DJANGO_APP && $PYTHON manage.py verifier_escalades >> $LOG_DIR/escalades.log 2>&1
+
+# ============================================================================
+# GÉNÉRATION DES RÉCURRENCES - Tous les jours à 6h00
+# ============================================================================
+# Crée les occurrences de RDV et tâches récurrents pour les 30 prochains jours
+# 0 6 * * * cd $DJANGO_APP && $PYTHON manage.py generer_recurrences --jours 30 >> $LOG_DIR/recurrences.log 2>&1
+
+# ============================================================================
+# CALCUL DES STATISTIQUES - Chaque jour à 1h00
+# ============================================================================
+# Calcule les statistiques de la journée précédente
+# 0 1 * * * cd $DJANGO_APP && $PYTHON manage.py calculer_statistiques --periode jour >> $LOG_DIR/stats.log 2>&1
+
+# ============================================================================
+# STATISTIQUES HEBDOMADAIRES - Tous les lundis à 2h00
+# ============================================================================
+# 0 2 * * 1 cd $DJANGO_APP && $PYTHON manage.py calculer_statistiques --periode semaine >> $LOG_DIR/stats_semaine.log 2>&1
+
+# ============================================================================
+# STATISTIQUES MENSUELLES - Le 1er de chaque mois à 3h00
+# ============================================================================
+# 0 3 1 * * cd $DJANGO_APP && $PYTHON manage.py calculer_statistiques --periode mois >> $LOG_DIR/stats_mois.log 2>&1
+
+
+# ============================================================================
+# EXEMPLE COMPLET AVEC CHEMINS ABSOLUS
+# ============================================================================
+#
+# Pour une installation typique sur un serveur Linux avec un environnement virtuel:
+#
+# # Rappels toutes les 15 minutes
+# */15 * * * * cd /home/user/gestion-etude-huissier/django_app && /home/user/gestion-etude-huissier/venv/bin/python manage.py traiter_rappels >> /var/log/agenda/rappels.log 2>&1
+#
+# # Clôture à 23h59
+# 59 23 * * * cd /home/user/gestion-etude-huissier/django_app && /home/user/gestion-etude-huissier/venv/bin/python manage.py cloturer_journee >> /var/log/agenda/cloture.log 2>&1
+#
+# # Escalades à 9h00
+# 0 9 * * * cd /home/user/gestion-etude-huissier/django_app && /home/user/gestion-etude-huissier/venv/bin/python manage.py verifier_escalades >> /var/log/agenda/escalades.log 2>&1
+#
+# # Récurrences à 6h00
+# 0 6 * * * cd /home/user/gestion-etude-huissier/django_app && /home/user/gestion-etude-huissier/venv/bin/python manage.py generer_recurrences --jours 30 >> /var/log/agenda/recurrences.log 2>&1
+#
+# # Stats quotidiennes à 1h00
+# 0 1 * * * cd /home/user/gestion-etude-huissier/django_app && /home/user/gestion-etude-huissier/venv/bin/python manage.py calculer_statistiques --periode jour >> /var/log/agenda/stats.log 2>&1
+#
+# ============================================================================
+
+# N'oubliez pas de créer le répertoire de logs:
+# sudo mkdir -p /var/log/agenda
+# sudo chown www-data:www-data /var/log/agenda
