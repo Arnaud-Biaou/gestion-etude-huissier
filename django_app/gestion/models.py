@@ -1400,3 +1400,733 @@ class HistoriqueEnvoiPoint(models.Model):
 
     def __str__(self):
         return f"Envoi {self.date_envoi.strftime('%d/%m/%Y %H:%M')} - {self.statut}"
+
+
+# =============================================================================
+# MODELES POUR LES MÉMOIRES DE CÉDULES - STRUCTURE HIÉRARCHIQUE À 4 NIVEAUX
+# =============================================================================
+
+class AutoriteRequerante(models.Model):
+    """Autorités requérantes (juridictions) pour les mémoires de cédules"""
+    code = models.CharField(max_length=50, unique=True, verbose_name='Code')
+    nom = models.CharField(max_length=300, verbose_name='Nom de l\'autorité')
+    type_juridiction = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Type de juridiction',
+        help_text='Ex: CRIET, TPI, Cour d\'Appel, Cour Suprême, etc.'
+    )
+    adresse = models.TextField(blank=True, verbose_name='Adresse')
+    ville = models.CharField(max_length=100, blank=True)
+    telephone = models.CharField(max_length=50, blank=True)
+    email = models.EmailField(blank=True)
+
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Autorité requérante'
+        verbose_name_plural = 'Autorités requérantes'
+        ordering = ['nom']
+
+    def __str__(self):
+        return f"{self.code} - {self.nom}"
+
+
+class Memoire(models.Model):
+    """
+    NIVEAU 1 - MÉMOIRE DE CÉDULES
+
+    Document regroupant les frais de signification d'actes judiciaires
+    pour une période donnée et une autorité requérante.
+    """
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('en_cours', 'En cours de rédaction'),
+        ('a_verifier', 'À vérifier'),
+        ('certifie', 'Certifié'),
+        ('soumis', 'Soumis'),
+        ('paye', 'Payé'),
+        ('rejete', 'Rejeté'),
+    ]
+
+    # Identification
+    numero = models.CharField(
+        max_length=50, unique=True, verbose_name='Numéro du mémoire'
+    )
+
+    # Période
+    mois = models.PositiveSmallIntegerField(
+        verbose_name='Mois',
+        help_text='Mois de la période (1-12)'
+    )
+    annee = models.PositiveIntegerField(verbose_name='Année')
+
+    # Relations
+    huissier = models.ForeignKey(
+        Collaborateur, on_delete=models.PROTECT,
+        related_name='memoires_cedules',
+        verbose_name='Huissier',
+        limit_choices_to={'role': 'huissier'}
+    )
+    autorite_requerante = models.ForeignKey(
+        AutoriteRequerante, on_delete=models.PROTECT,
+        related_name='memoires',
+        verbose_name='Autorité requérante'
+    )
+
+    # Résidence de l'huissier (pour calcul des distances)
+    residence_huissier = models.CharField(
+        max_length=200, verbose_name='Résidence de l\'huissier',
+        help_text='Ville de résidence pour le calcul des distances'
+    )
+
+    # Totaux (calculés automatiquement)
+    montant_total_actes = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total des actes'
+    )
+    montant_total_transport = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total transport'
+    )
+    montant_total_mission = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total mission'
+    )
+    montant_total = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total général'
+    )
+    montant_total_lettres = models.CharField(
+        max_length=500, blank=True,
+        verbose_name='Montant en lettres'
+    )
+
+    # Statut et certification
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='brouillon'
+    )
+    date_certification = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de certification'
+    )
+    certifie_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='memoires_certifies',
+        verbose_name='Certifié par'
+    )
+    lieu_certification = models.CharField(
+        max_length=100, blank=True, default='Parakou',
+        verbose_name='Lieu de certification'
+    )
+
+    # Observations
+    observations = models.TextField(blank=True)
+
+    # Traçabilité
+    cree_par = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL,
+        null=True, related_name='memoires_crees'
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Mémoire de cédules'
+        verbose_name_plural = 'Mémoires de cédules'
+        ordering = ['-annee', '-mois', '-numero']
+        unique_together = ['mois', 'annee', 'autorite_requerante', 'huissier']
+
+    def __str__(self):
+        mois_noms = [
+            '', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+        ]
+        return f"Mémoire N° {self.numero} - {mois_noms[self.mois]} {self.annee}"
+
+    @classmethod
+    def generer_numero(cls):
+        """Génère un numéro de mémoire unique"""
+        now = timezone.now()
+        count = cls.objects.filter(date_creation__year=now.year).count() + 1
+        return f"{count}"
+
+    def calculer_totaux(self):
+        """Recalcule tous les totaux du mémoire"""
+        from django.db.models import Sum
+
+        totaux = self.affaires.aggregate(
+            actes=Sum('montant_total_actes'),
+            transport=Sum('montant_total_transport'),
+            mission=Sum('montant_total_mission'),
+            total=Sum('montant_total_affaire')
+        )
+
+        self.montant_total_actes = totaux['actes'] or 0
+        self.montant_total_transport = totaux['transport'] or 0
+        self.montant_total_mission = totaux['mission'] or 0
+        self.montant_total = totaux['total'] or 0
+        self.montant_total_lettres = self.nombre_en_lettres(self.montant_total)
+        self.save()
+
+    @staticmethod
+    def nombre_en_lettres(nombre):
+        """Convertit un nombre en lettres (FCFA)"""
+        unites = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf']
+        dizaines = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante',
+                    'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt']
+
+        def convertir_moins_de_100(n):
+            if n == 0:
+                return ''
+            if n < 10:
+                return unites[n]
+            if n == 10:
+                return 'dix'
+            if n == 11:
+                return 'onze'
+            if n == 12:
+                return 'douze'
+            if n == 13:
+                return 'treize'
+            if n == 14:
+                return 'quatorze'
+            if n == 15:
+                return 'quinze'
+            if n == 16:
+                return 'seize'
+            if n < 20:
+                return 'dix-' + unites[n - 10]
+            if n < 70:
+                d, u = divmod(n, 10)
+                if u == 0:
+                    return dizaines[d]
+                if u == 1 and d in [2, 3, 4, 5, 6]:
+                    return dizaines[d] + '-et-un'
+                return dizaines[d] + '-' + unites[u]
+            if n < 80:
+                return 'soixante-' + convertir_moins_de_100(n - 60)
+            if n == 80:
+                return 'quatre-vingts'
+            if n < 100:
+                return 'quatre-vingt-' + convertir_moins_de_100(n - 80)
+            return ''
+
+        def convertir_moins_de_1000(n):
+            if n < 100:
+                return convertir_moins_de_100(n)
+            c, r = divmod(n, 100)
+            if c == 1:
+                if r == 0:
+                    return 'cent'
+                return 'cent ' + convertir_moins_de_100(r)
+            else:
+                if r == 0:
+                    return unites[c] + ' cents'
+                return unites[c] + ' cent ' + convertir_moins_de_100(r)
+
+        def convertir(n):
+            if n == 0:
+                return 'zéro'
+
+            milliards, reste = divmod(n, 1000000000)
+            millions, reste = divmod(reste, 1000000)
+            milliers, reste = divmod(reste, 1000)
+
+            resultat = ''
+
+            if milliards > 0:
+                if milliards == 1:
+                    resultat += 'un milliard '
+                else:
+                    resultat += convertir_moins_de_1000(milliards) + ' milliards '
+
+            if millions > 0:
+                if millions == 1:
+                    resultat += 'un million '
+                else:
+                    resultat += convertir_moins_de_1000(millions) + ' millions '
+
+            if milliers > 0:
+                if milliers == 1:
+                    resultat += 'mille '
+                else:
+                    resultat += convertir_moins_de_1000(milliers) + ' mille '
+
+            if reste > 0:
+                resultat += convertir_moins_de_1000(reste)
+
+            return resultat.strip().upper() + ' FRANCS CFA'
+
+        return convertir(int(nombre))
+
+    def get_nb_affaires(self):
+        """Retourne le nombre d'affaires"""
+        return self.affaires.count()
+
+    def get_nb_destinataires(self):
+        """Retourne le nombre total de destinataires"""
+        return sum(a.destinataires.count() for a in self.affaires.all())
+
+    def get_nb_actes(self):
+        """Retourne le nombre total d'actes"""
+        count = 0
+        for affaire in self.affaires.all():
+            for dest in affaire.destinataires.all():
+                count += dest.actes.count()
+        return count
+
+    def verifier_coherence(self):
+        """
+        Vérifie la cohérence des données du mémoire
+        Retourne une liste d'alertes
+        """
+        alertes = []
+
+        for affaire in self.affaires.all():
+            # Vérifier les doublons de numéro de parquet
+            autres_affaires = self.affaires.exclude(pk=affaire.pk).filter(
+                numero_parquet=affaire.numero_parquet
+            )
+            if autres_affaires.exists():
+                alertes.append({
+                    'type': 'doublon_affaire',
+                    'message': f"L'affaire {affaire.numero_parquet} existe en double dans ce mémoire",
+                    'affaire': affaire.numero_parquet
+                })
+
+            for dest in affaire.destinataires.all():
+                # Vérifier les distances non renseignées
+                if dest.distance_km is None or dest.distance_km == 0:
+                    if dest.localite and dest.localite.lower() != self.residence_huissier.lower():
+                        alertes.append({
+                            'type': 'distance_manquante',
+                            'message': f"Distance non renseignée pour {dest.get_nom_complet()} à {dest.localite}",
+                            'destinataire': dest.get_nom_complet(),
+                            'affaire': affaire.numero_parquet
+                        })
+
+                for acte in dest.actes.all():
+                    # Vérifier les dates
+                    if acte.date_acte:
+                        if acte.date_acte.month != self.mois or acte.date_acte.year != self.annee:
+                            alertes.append({
+                                'type': 'date_hors_periode',
+                                'message': f"L'acte du {acte.date_acte.strftime('%d/%m/%Y')} est hors de la période du mémoire",
+                                'acte': str(acte),
+                                'affaire': affaire.numero_parquet
+                            })
+
+        return alertes
+
+    def certifier(self, utilisateur):
+        """Certifie le mémoire"""
+        self.statut = 'certifie'
+        self.date_certification = timezone.now()
+        self.certifie_par = utilisateur
+        self.calculer_totaux()
+        self.save()
+
+
+class AffaireMemoire(models.Model):
+    """
+    NIVEAU 2 - AFFAIRE
+
+    Regroupement par numéro de parquet au sein d'un mémoire.
+    Une affaire peut concerner plusieurs destinataires.
+    """
+
+    memoire = models.ForeignKey(
+        Memoire, on_delete=models.CASCADE,
+        related_name='affaires',
+        verbose_name='Mémoire'
+    )
+
+    # Identification de l'affaire
+    numero_parquet = models.CharField(
+        max_length=100, verbose_name='Numéro de parquet',
+        help_text='Ex: CRIET/2021/RP/0928'
+    )
+    intitule_affaire = models.CharField(
+        max_length=300, verbose_name='Intitulé de l\'affaire',
+        help_text='Ex: MP c/ DUPONT Jean et autres'
+    )
+    nature_infraction = models.CharField(
+        max_length=300, blank=True,
+        verbose_name='Nature de l\'infraction'
+    )
+    date_audience = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date d\'audience'
+    )
+
+    # Totaux (calculés automatiquement)
+    montant_total_actes = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total des actes'
+    )
+    montant_total_transport = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total transport'
+    )
+    montant_total_mission = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total mission'
+    )
+    montant_total_affaire = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total affaire'
+    )
+
+    # Ordre d'affichage
+    ordre_affichage = models.PositiveIntegerField(default=0)
+
+    # Traçabilité
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Affaire du mémoire'
+        verbose_name_plural = 'Affaires du mémoire'
+        ordering = ['ordre_affichage', 'numero_parquet']
+        unique_together = ['memoire', 'numero_parquet']
+
+    def __str__(self):
+        return f"{self.numero_parquet} - {self.intitule_affaire}"
+
+    def calculer_totaux(self):
+        """Recalcule tous les totaux de l'affaire"""
+        from django.db.models import Sum
+
+        totaux = self.destinataires.aggregate(
+            actes=Sum('montant_total_actes'),
+            transport=Sum('frais_transport'),
+            mission=Sum('frais_mission'),
+            total=Sum('montant_total_destinataire')
+        )
+
+        self.montant_total_actes = totaux['actes'] or 0
+        self.montant_total_transport = totaux['transport'] or 0
+        self.montant_total_mission = totaux['mission'] or 0
+        self.montant_total_affaire = totaux['total'] or 0
+        self.save()
+
+        # Mettre à jour le mémoire parent
+        self.memoire.calculer_totaux()
+
+    def get_nb_destinataires(self):
+        return self.destinataires.count()
+
+    def get_nb_actes(self):
+        return sum(d.actes.count() for d in self.destinataires.all())
+
+
+class DestinataireAffaire(models.Model):
+    """
+    NIVEAU 3 - DESTINATAIRE
+
+    Personne à qui les actes sont signifiés.
+    Les frais de transport et mission sont calculés UNE SEULE FOIS par destinataire,
+    même si plusieurs actes lui sont signifiés lors du même déplacement.
+    """
+    QUALITE_CHOICES = [
+        ('prevenu', 'Prévenu'),
+        ('temoin', 'Témoin'),
+        ('partie_civile', 'Partie civile'),
+        ('civilement_responsable', 'Civilement responsable'),
+        ('avocat', 'Avocat'),
+        ('autre', 'Autre'),
+    ]
+
+    TYPE_MISSION_CHOICES = [
+        ('aucune', 'Aucune mission'),
+        ('2_repas', '2 repas (distance 100-200 km)'),
+        ('journee_incomplete', 'Journée incomplète (distance 200-300 km)'),
+        ('journee_complete', 'Journée complète (distance > 300 km)'),
+    ]
+
+    # Constantes de tarification
+    TARIF_KM = 140  # F par km
+    SEUIL_TRANSPORT_KM = 20  # Transport facturé si distance > 20 km
+    SEUIL_MISSION_KM = 100  # Mission applicable si distance >= 100 km
+
+    TARIFS_MISSION = {
+        'aucune': 0,
+        '2_repas': 15000,
+        'journee_incomplete': 30000,
+        'journee_complete': 45000,
+    }
+
+    affaire = models.ForeignKey(
+        AffaireMemoire, on_delete=models.CASCADE,
+        related_name='destinataires',
+        verbose_name='Affaire'
+    )
+
+    # Identité
+    nom = models.CharField(max_length=100, verbose_name='Nom')
+    prenoms = models.CharField(max_length=200, blank=True, verbose_name='Prénoms')
+    raison_sociale = models.CharField(
+        max_length=300, blank=True,
+        verbose_name='Raison sociale',
+        help_text='Pour les personnes morales'
+    )
+    qualite = models.CharField(
+        max_length=30, choices=QUALITE_CHOICES,
+        verbose_name='Qualité'
+    )
+    titre = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Titre',
+        help_text='Ex: Me, Dr, etc.'
+    )
+
+    # Adresse de signification
+    adresse = models.TextField(verbose_name='Adresse de signification')
+    localite = models.CharField(max_length=100, verbose_name='Localité/Ville')
+
+    # Distance et frais de déplacement
+    distance_km = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Distance (km)',
+        help_text='Distance depuis la résidence de l\'huissier'
+    )
+
+    # Type de mission (déterminé automatiquement ou manuellement)
+    type_mission = models.CharField(
+        max_length=30, choices=TYPE_MISSION_CHOICES,
+        default='aucune', verbose_name='Type de mission'
+    )
+
+    # Frais calculés automatiquement
+    frais_transport = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Frais de transport',
+        help_text='Distance × 140 F × 2 (aller-retour) - UNE SEULE FOIS'
+    )
+    frais_mission = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Frais de mission',
+        help_text='15 000 / 30 000 / 45 000 F selon durée - UNE SEULE FOIS'
+    )
+
+    # Totaux
+    montant_total_actes = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total des actes'
+    )
+    montant_total_destinataire = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Total destinataire'
+    )
+
+    # Ordre d'affichage
+    ordre_affichage = models.PositiveIntegerField(default=0)
+
+    # Observations
+    observations = models.TextField(blank=True)
+
+    # Traçabilité
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Destinataire'
+        verbose_name_plural = 'Destinataires'
+        ordering = ['ordre_affichage', 'nom']
+
+    def __str__(self):
+        return f"{self.get_nom_complet()} ({self.get_qualite_display()})"
+
+    def get_nom_complet(self):
+        """Retourne le nom complet du destinataire"""
+        if self.raison_sociale:
+            return self.raison_sociale
+        titre = f"{self.titre} " if self.titre else ""
+        return f"{titre}{self.nom} {self.prenoms}".strip()
+
+    def determiner_type_mission(self):
+        """Détermine automatiquement le type de mission selon la distance"""
+        if self.distance_km < self.SEUIL_MISSION_KM:
+            return 'aucune'
+        elif self.distance_km < 200:
+            return '2_repas'
+        elif self.distance_km < 300:
+            return 'journee_incomplete'
+        else:
+            return 'journee_complete'
+
+    def calculer_frais_transport(self):
+        """
+        Calcule les frais de transport.
+        RÈGLE CRITIQUE: Les frais sont comptés UNE SEULE FOIS par destinataire,
+        peu importe le nombre d'actes signifiés.
+        """
+        if self.distance_km > self.SEUIL_TRANSPORT_KM:
+            # Distance × 140 F × 2 (aller-retour)
+            return self.distance_km * self.TARIF_KM * 2
+        return 0
+
+    def calculer_frais_mission(self):
+        """
+        Calcule les frais de mission.
+        RÈGLE CRITIQUE: Les frais sont comptés UNE SEULE FOIS par destinataire,
+        peu importe le nombre d'actes signifiés.
+        """
+        return self.TARIFS_MISSION.get(self.type_mission, 0)
+
+    def calculer_totaux(self):
+        """Recalcule tous les totaux du destinataire"""
+        from django.db.models import Sum
+
+        # Déterminer le type de mission si non défini
+        if not self.type_mission or self.type_mission == 'aucune':
+            self.type_mission = self.determiner_type_mission()
+
+        # Calculer les frais de déplacement (UNE SEULE FOIS)
+        self.frais_transport = self.calculer_frais_transport()
+        self.frais_mission = self.calculer_frais_mission()
+
+        # Calculer le total des actes
+        total_actes = self.actes.aggregate(
+            total=Sum('montant_total_acte')
+        )['total'] or 0
+
+        self.montant_total_actes = total_actes
+
+        # Total destinataire = actes + transport + mission
+        self.montant_total_destinataire = (
+            self.montant_total_actes +
+            self.frais_transport +
+            self.frais_mission
+        )
+
+        self.save()
+
+        # Mettre à jour l'affaire parente
+        self.affaire.calculer_totaux()
+
+    def save(self, *args, **kwargs):
+        # Auto-calcul si la distance change
+        if self.pk:
+            old = DestinataireAffaire.objects.filter(pk=self.pk).first()
+            if old and old.distance_km != self.distance_km:
+                self.type_mission = self.determiner_type_mission()
+                self.frais_transport = self.calculer_frais_transport()
+                self.frais_mission = self.calculer_frais_mission()
+        super().save(*args, **kwargs)
+
+
+class ActeDestinataire(models.Model):
+    """
+    NIVEAU 4 - ACTE
+
+    Acte de signification individuel.
+    Chaque acte a un montant fixe de 4 985 F (Art. 81).
+    """
+    TYPE_ACTE_CHOICES = [
+        ('invitation', 'Signification invitation à comparaître'),
+        ('citation', 'Signification citation à comparaître'),
+        ('convocation', 'Signification convocation'),
+        ('ordonnance', 'Signification ordonnance'),
+        ('jugement', 'Signification jugement'),
+        ('arret', 'Signification arrêt'),
+        ('mandat', 'Signification mandat de comparution'),
+        ('notification', 'Notification'),
+        ('autre', 'Autre'),
+    ]
+
+    # Tarifs fixes (Article 81)
+    MONTANT_BASE = 4985  # F par acte
+    TARIF_COPIE_SUPPLEMENTAIRE = 900  # F par copie
+    TARIF_ROLE_PIECES = 1000  # F par rôle de pièces jointes
+
+    destinataire = models.ForeignKey(
+        DestinataireAffaire, on_delete=models.CASCADE,
+        related_name='actes',
+        verbose_name='Destinataire'
+    )
+
+    # Informations de l'acte
+    date_acte = models.DateField(verbose_name='Date de signification')
+    type_acte = models.CharField(
+        max_length=30, choices=TYPE_ACTE_CHOICES,
+        verbose_name='Type d\'acte'
+    )
+    type_acte_autre = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Précision si autre',
+        help_text='À renseigner si le type est "Autre"'
+    )
+
+    # Montants
+    montant_base = models.DecimalField(
+        max_digits=10, decimal_places=0, default=MONTANT_BASE,
+        verbose_name='Montant de base (Art. 81)'
+    )
+
+    # Copies supplémentaires
+    copies_supplementaires = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Copies supplémentaires'
+    )
+    montant_copies = models.DecimalField(
+        max_digits=10, decimal_places=0, default=0,
+        verbose_name='Montant copies'
+    )
+
+    # Pièces jointes (rôles)
+    roles_pieces_jointes = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Nombre de rôles de pièces jointes'
+    )
+    montant_pieces = models.DecimalField(
+        max_digits=10, decimal_places=0, default=0,
+        verbose_name='Montant pièces jointes'
+    )
+
+    # Total de l'acte
+    montant_total_acte = models.DecimalField(
+        max_digits=15, decimal_places=0, default=MONTANT_BASE,
+        verbose_name='Montant total de l\'acte'
+    )
+
+    # Observations
+    observations = models.TextField(blank=True)
+
+    # Traçabilité
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Acte signifié'
+        verbose_name_plural = 'Actes signifiés'
+        ordering = ['date_acte', 'type_acte']
+
+    def __str__(self):
+        return f"{self.get_type_acte_display()} du {self.date_acte.strftime('%d/%m/%Y')}"
+
+    def get_type_display_complet(self):
+        """Retourne le libellé complet du type d'acte"""
+        if self.type_acte == 'autre' and self.type_acte_autre:
+            return f"Autre ({self.type_acte_autre})"
+        return self.get_type_acte_display()
+
+    def calculer_totaux(self):
+        """Recalcule les montants de l'acte"""
+        self.montant_base = self.MONTANT_BASE
+        self.montant_copies = self.copies_supplementaires * self.TARIF_COPIE_SUPPLEMENTAIRE
+        self.montant_pieces = self.roles_pieces_jointes * self.TARIF_ROLE_PIECES
+
+        self.montant_total_acte = (
+            self.montant_base +
+            self.montant_copies +
+            self.montant_pieces
+        )
+
+    def save(self, *args, **kwargs):
+        # Recalculer les montants
+        self.calculer_totaux()
+        super().save(*args, **kwargs)
+
+        # Mettre à jour le destinataire parent
+        self.destinataire.calculer_totaux()
