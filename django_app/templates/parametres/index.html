@@ -1,0 +1,2079 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Styles spécifiques au module Paramètres */
+    .parametres-page {
+        padding: 0;
+    }
+
+    /* Navigation par onglets */
+    .tabs-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+
+    .tabs-nav {
+        display: flex;
+        overflow-x: auto;
+        border-bottom: 2px solid var(--neutral-200);
+        background: var(--neutral-50);
+    }
+
+    .tab-btn {
+        padding: 14px 20px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--neutral-600);
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .tab-btn:hover {
+        color: var(--primary);
+        background: var(--neutral-100);
+    }
+
+    .tab-btn.active {
+        color: var(--primary);
+        border-bottom-color: var(--accent);
+        background: white;
+    }
+
+    .tab-btn i {
+        width: 18px;
+        height: 18px;
+    }
+
+    .tab-content {
+        display: none;
+        padding: 24px;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Sections repliables */
+    .section-collapsible {
+        border: 1px solid var(--neutral-200);
+        border-radius: 8px;
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        background: var(--neutral-50);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .section-header:hover {
+        background: var(--neutral-100);
+    }
+
+    .section-header h4 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--neutral-800);
+    }
+
+    .section-header h4 i {
+        width: 18px;
+        height: 18px;
+        color: var(--primary);
+    }
+
+    .section-toggle {
+        width: 24px;
+        height: 24px;
+        transition: transform 0.2s;
+    }
+
+    .section-collapsible.open .section-toggle {
+        transform: rotate(180deg);
+    }
+
+    .section-body {
+        display: none;
+        padding: 20px;
+        border-top: 1px solid var(--neutral-200);
+    }
+
+    .section-collapsible.open .section-body {
+        display: block;
+    }
+
+    /* Formulaires */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+
+    .form-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+        .form-grid, .form-grid-3, .form-grid-4 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--neutral-700);
+        margin-bottom: 6px;
+    }
+
+    .form-label.required::after {
+        content: ' *';
+        color: var(--danger);
+    }
+
+    .form-input, .form-select, .form-textarea {
+        padding: 10px 12px;
+        border: 1px solid var(--neutral-300);
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: 'Source Sans 3', sans-serif;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+    }
+
+    .form-input:disabled, .form-select:disabled {
+        background: var(--neutral-100);
+        cursor: not-allowed;
+    }
+
+    .form-input.readonly {
+        background: var(--neutral-50);
+        color: var(--neutral-600);
+    }
+
+    .form-help {
+        font-size: 12px;
+        color: var(--neutral-500);
+        margin-top: 4px;
+    }
+
+    /* Groupe de toggle */
+    .toggle-group {
+        display: flex;
+        border: 1px solid var(--neutral-300);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .toggle-option {
+        flex: 1;
+        padding: 10px 16px;
+        text-align: center;
+        cursor: pointer;
+        background: white;
+        border: none;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .toggle-option:not(:last-child) {
+        border-right: 1px solid var(--neutral-300);
+    }
+
+    .toggle-option:hover {
+        background: var(--neutral-50);
+    }
+
+    .toggle-option.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* Switch */
+    .switch-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .switch {
+        position: relative;
+        width: 48px;
+        height: 26px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .switch-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--neutral-300);
+        transition: 0.3s;
+        border-radius: 26px;
+    }
+
+    .switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+
+    .switch input:checked + .switch-slider {
+        background-color: var(--primary);
+    }
+
+    .switch input:checked + .switch-slider:before {
+        transform: translateX(22px);
+    }
+
+    /* Color picker */
+    .color-picker-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .color-preview {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        border: 2px solid var(--neutral-300);
+    }
+
+    input[type="color"] {
+        width: 60px;
+        height: 40px;
+        padding: 0;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    /* File upload */
+    .file-upload {
+        border: 2px dashed var(--neutral-300);
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .file-upload:hover {
+        border-color: var(--primary);
+        background: var(--neutral-50);
+    }
+
+    .file-upload i {
+        width: 40px;
+        height: 40px;
+        color: var(--neutral-400);
+        margin-bottom: 8px;
+    }
+
+    .file-upload-text {
+        color: var(--neutral-600);
+        font-size: 14px;
+    }
+
+    .file-upload-hint {
+        color: var(--neutral-400);
+        font-size: 12px;
+        margin-top: 4px;
+    }
+
+    /* Logo preview */
+    .logo-preview {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 16px;
+        background: var(--neutral-50);
+        border-radius: 8px;
+    }
+
+    .logo-preview img {
+        max-width: 150px;
+        max-height: 80px;
+        border-radius: 4px;
+    }
+
+    /* Barème table */
+    .bareme-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .bareme-table th, .bareme-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .bareme-table th {
+        background: var(--neutral-50);
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--neutral-600);
+    }
+
+    .bareme-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .bareme-readonly {
+        background: var(--neutral-50);
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    .bareme-readonly .info-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: var(--info);
+        color: white;
+        border-radius: 4px;
+        font-size: 12px;
+        margin-bottom: 12px;
+    }
+
+    /* Ordre imputation draggable */
+    .ordre-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .ordre-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: white;
+        border: 1px solid var(--neutral-200);
+        border-radius: 6px;
+        margin-bottom: 8px;
+        cursor: grab;
+        transition: all 0.2s;
+    }
+
+    .ordre-item:hover {
+        border-color: var(--primary);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .ordre-item.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+
+    .ordre-number {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .ordre-drag-handle {
+        color: var(--neutral-400);
+        cursor: grab;
+    }
+
+    /* Bouton flottant Enregistrer */
+    .floating-save {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 100;
+    }
+
+    .floating-save .btn {
+        padding: 14px 28px;
+        font-size: 15px;
+        box-shadow: 0 4px 12px rgba(26, 54, 93, 0.3);
+    }
+
+    /* Alertes */
+    .alert {
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .alert i {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .alert-info {
+        background: #e7f3ff;
+        border: 1px solid #b8daff;
+        color: #004085;
+    }
+
+    .alert-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .tabs-nav {
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-btn {
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+
+        .tab-btn span {
+            display: none;
+        }
+
+        .floating-save {
+            bottom: 16px;
+            right: 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="parametres-page">
+    <!-- Alert admin only -->
+    <div class="alert alert-info">
+        <i data-lucide="shield-check"></i>
+        <div>
+            <strong>Module réservé à l'administrateur.</strong>
+            Les modifications effectuées ici affectent l'ensemble de l'application.
+        </div>
+    </div>
+
+    <!-- Container avec onglets -->
+    <div class="tabs-container">
+        <!-- Navigation par onglets -->
+        <div class="tabs-nav">
+            <button class="tab-btn active" onclick="showTab('etude')">
+                <i data-lucide="building-2"></i>
+                <span>Informations de l'étude</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('modules')">
+                <i data-lucide="settings-2"></i>
+                <span>Paramètres des modules</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('documents')">
+                <i data-lucide="file-text"></i>
+                <span>Modèles de documents</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('notifications')">
+                <i data-lucide="bell"></i>
+                <span>Notifications</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('sauvegardes')">
+                <i data-lucide="hard-drive"></i>
+                <span>Sauvegardes</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('personnalisation')">
+                <i data-lucide="palette"></i>
+                <span>Personnalisation</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('referentiels')">
+                <i data-lucide="database"></i>
+                <span>Référentiels</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('apropos')">
+                <i data-lucide="info"></i>
+                <span>À propos</span>
+            </button>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SECTION 1 : INFORMATIONS DE L'ÉTUDE -->
+        <!-- ============================================== -->
+        <div id="tab-etude" class="tab-content active">
+            <!-- Identité de l'étude -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="building"></i> Identité de l'étude</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label class="form-label required">Nom de l'étude</label>
+                            <input type="text" id="nom_etude" class="form-input"
+                                   value="{{ config.nom_etude }}" placeholder="Étude Me NOM PRÉNOM">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Titre</label>
+                            <input type="text" id="titre" class="form-input"
+                                   value="{{ config.titre }}" placeholder="Huissier de Justice">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date d'installation</label>
+                            <input type="date" id="date_installation" class="form-input"
+                                   value="{{ config.date_installation|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Juridiction</label>
+                            <input type="text" id="juridiction" class="form-input"
+                                   value="{{ config.juridiction }}"
+                                   placeholder="près le Tribunal de Première Instance de [Ville] et la Cour d'Appel de [Ville]">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Numéro IFU</label>
+                            <input type="text" id="numero_ifu" class="form-input"
+                                   value="{{ config.numero_ifu }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Numéro d'agrément / Inscription au tableau</label>
+                            <input type="text" id="numero_agrement" class="form-input"
+                                   value="{{ config.numero_agrement }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Adresse et contacts -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="map-pin"></i> Adresse et contacts</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label class="form-label">Adresse (rue)</label>
+                            <input type="text" id="adresse_rue" class="form-input"
+                                   value="{{ config.adresse_rue }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Quartier</label>
+                            <input type="text" id="adresse_quartier" class="form-input"
+                                   value="{{ config.adresse_quartier }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ville</label>
+                            <input type="text" id="adresse_ville" class="form-input"
+                                   value="{{ config.adresse_ville }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Boîte postale</label>
+                            <input type="text" id="adresse_bp" class="form-input"
+                                   value="{{ config.adresse_bp }}" placeholder="BP 123">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Téléphone fixe</label>
+                            <input type="tel" id="telephone_fixe" class="form-input"
+                                   value="{{ config.telephone_fixe }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mobile 1</label>
+                            <input type="tel" id="telephone_mobile1" class="form-input"
+                                   value="{{ config.telephone_mobile1 }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mobile 2</label>
+                            <input type="tel" id="telephone_mobile2" class="form-input"
+                                   value="{{ config.telephone_mobile2 }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email professionnel</label>
+                            <input type="email" id="email" class="form-input"
+                                   value="{{ config.email }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Site web</label>
+                            <input type="url" id="site_web" class="form-input"
+                                   value="{{ config.site_web }}" placeholder="https://...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo et couleurs -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="image"></i> Logo et en-tête</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Logo de l'étude</label>
+                            <div class="file-upload" onclick="document.getElementById('logo_file').click()">
+                                <i data-lucide="upload-cloud"></i>
+                                <div class="file-upload-text">Cliquez pour uploader le logo</div>
+                                <div class="file-upload-hint">PNG, JPG - Max 2 Mo</div>
+                            </div>
+                            <input type="file" id="logo_file" accept=".png,.jpg,.jpeg" style="display:none" onchange="previewLogo(this)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Aperçu du logo</label>
+                            <div class="logo-preview" id="logo_preview">
+                                {% if config.logo %}
+                                    <img src="{{ config.logo.url }}" alt="Logo">
+                                {% else %}
+                                    <span style="color: var(--neutral-400)">Aucun logo</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Couleur principale</label>
+                            <div class="color-picker-group">
+                                <input type="color" id="couleur_principale"
+                                       value="{{ config.couleur_principale }}" onchange="updateColorPreview('principale')">
+                                <input type="text" class="form-input" style="width:100px"
+                                       value="{{ config.couleur_principale }}" id="couleur_principale_text"
+                                       onchange="document.getElementById('couleur_principale').value = this.value">
+                                <div class="color-preview" id="preview_principale"
+                                     style="background: {{ config.couleur_principale }}"></div>
+                            </div>
+                            <small class="form-help">Par défaut : #1a365d (bleu foncé)</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Couleur secondaire</label>
+                            <div class="color-picker-group">
+                                <input type="color" id="couleur_secondaire"
+                                       value="{{ config.couleur_secondaire }}" onchange="updateColorPreview('secondaire')">
+                                <input type="text" class="form-input" style="width:100px"
+                                       value="{{ config.couleur_secondaire }}" id="couleur_secondaire_text"
+                                       onchange="document.getElementById('couleur_secondaire').value = this.value">
+                                <div class="color-preview" id="preview_secondaire"
+                                     style="background: {{ config.couleur_secondaire }}"></div>
+                            </div>
+                            <small class="form-help">Par défaut : #c6a962 (or)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coordonnées bancaires -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="landmark"></i> Coordonnées bancaires de l'étude</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label class="form-label">Banque principale</label>
+                            <input type="text" id="banque_nom" class="form-input"
+                                   value="{{ config.banque_nom }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Code banque</label>
+                            <input type="text" id="banque_code" class="form-input"
+                                   value="{{ config.banque_code }}" maxlength="5">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Code guichet</label>
+                            <input type="text" id="banque_guichet" class="form-input"
+                                   value="{{ config.banque_guichet }}" maxlength="5">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Numéro de compte</label>
+                            <input type="text" id="banque_compte" class="form-input"
+                                   value="{{ config.banque_compte }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Clé RIB</label>
+                            <input type="text" id="banque_cle" class="form-input"
+                                   value="{{ config.banque_cle }}" maxlength="2">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">IBAN (si applicable)</label>
+                            <input type="text" id="banque_iban" class="form-input"
+                                   value="{{ config.banque_iban }}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Titulaire du compte</label>
+                            <input type="text" id="banque_titulaire" class="form-input"
+                                   value="{{ config.banque_titulaire }}">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 20px 0 12px; color: var(--neutral-700);">Mobile Money</h5>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Opérateur</label>
+                            <select id="mobile_money_operateur" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="MTN" {% if config.mobile_money_operateur == 'MTN' %}selected{% endif %}>MTN Mobile Money</option>
+                                <option value="MOOV" {% if config.mobile_money_operateur == 'MOOV' %}selected{% endif %}>Moov Money</option>
+                                <option value="CELTIIS" {% if config.mobile_money_operateur == 'CELTIIS' %}selected{% endif %}>Celtiis Cash</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Numéro</label>
+                            <input type="tel" id="mobile_money_numero" class="form-input"
+                                   value="{{ config.mobile_money_numero }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sites/Agences -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="building-2"></i> Sites / Agences</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="alert alert-info" style="margin-bottom: 16px;">
+                        <i data-lucide="info"></i>
+                        <span>Ajoutez des sites si votre étude dispose de plusieurs agences.</span>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table" id="sites_table">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Adresse</th>
+                                    <th>Téléphone</th>
+                                    <th>Responsable</th>
+                                    <th>Principal</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for site in sites %}
+                                <tr data-id="{{ site.id }}">
+                                    <td>{{ site.nom }}</td>
+                                    <td>{{ site.adresse|truncatewords:5 }}</td>
+                                    <td>{{ site.telephone }}</td>
+                                    <td>{{ site.responsable }}</td>
+                                    <td>
+                                        {% if site.est_principal %}
+                                            <i data-lucide="check-circle" style="color: var(--success); width: 18px;"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editSite({{ site.id }})" title="Modifier">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-icon btn-danger" onclick="deleteSite({{ site.id }})" title="Supprimer">
+                                            <i data-lucide="trash-2"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--neutral-500);">
+                                        Aucun site enregistré
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button class="btn btn-secondary mt-3" onclick="openSiteModal()">
+                        <i data-lucide="plus"></i> Ajouter un site
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bouton enregistrer section -->
+            <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="sauvegarderSection('etude')">
+                    <i data-lucide="save"></i> Enregistrer les informations de l'étude
+                </button>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SECTION 2 : PARAMÈTRES DES MODULES -->
+        <!-- ============================================== -->
+        <div id="tab-modules" class="tab-content">
+            <!-- 2.1 Dossiers -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="folder-open"></i> Dossiers</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Préfixe des numéros de dossier</label>
+                            <input type="text" id="dossier_prefixe" class="form-input"
+                                   value="{{ config.dossier_prefixe }}" placeholder="DOS-">
+                            <small class="form-help">Format: [PRÉFIXE][ANNÉE]-[NUMÉRO]</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Numéro de départ (nouvelle année)</label>
+                            <input type="number" id="dossier_numero_depart" class="form-input"
+                                   value="{{ config.dossier_numero_depart }}" min="1">
+                        </div>
+                    </div>
+
+                    <!-- Types de dossiers -->
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Types de dossiers</h5>
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Libellé</th>
+                                    <th>Couleur</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="types_dossier_tbody">
+                                {% for type in types_dossier %}
+                                <tr>
+                                    <td>{{ type.code }}</td>
+                                    <td>{{ type.libelle }}</td>
+                                    <td><span style="display:inline-block;width:20px;height:20px;background:{{ type.couleur }};border-radius:4px;"></span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editTypeDossier({{ type.id }})">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-sm btn-secondary mt-2" onclick="openTypeDossierModal()">
+                        <i data-lucide="plus"></i> Ajouter un type
+                    </button>
+
+                    <!-- Statuts de dossiers -->
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Statuts de dossiers</h5>
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Libellé</th>
+                                    <th>Clôture</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statuts_dossier_tbody">
+                                {% for statut in statuts_dossier %}
+                                <tr>
+                                    <td>{{ statut.code }}</td>
+                                    <td>{{ statut.libelle }}</td>
+                                    <td>
+                                        {% if statut.est_cloture %}
+                                            <i data-lucide="check" style="color: var(--success); width: 16px;"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editStatutDossier({{ statut.id }})">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-sm btn-secondary mt-2" onclick="openStatutDossierModal()">
+                        <i data-lucide="plus"></i> Ajouter un statut
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2.2 Facturation -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="file-text"></i> Facturation</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Préfixe des factures</label>
+                            <input type="text" id="facture_prefixe" class="form-input"
+                                   value="{{ config.facture_prefixe }}" placeholder="FAC-">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">TVA applicable</label>
+                            <div class="switch-container">
+                                <label class="switch">
+                                    <input type="checkbox" id="tva_applicable" {% if config.tva_applicable %}checked{% endif %}>
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span id="tva_label">{% if config.tva_applicable %}Oui{% else %}Non{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Taux TVA (%)</label>
+                            <input type="number" id="tva_taux" class="form-input"
+                                   value="{{ config.tva_taux }}" step="0.01" min="0" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Délai de paiement (jours)</label>
+                            <input type="number" id="facture_delai_paiement" class="form-input"
+                                   value="{{ config.facture_delai_paiement }}" min="0">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Conditions de paiement par défaut</label>
+                            <input type="text" id="facture_conditions_paiement" class="form-input"
+                                   value="{{ config.facture_conditions_paiement }}" placeholder="Payable à réception">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Pénalités de retard (% par mois)</label>
+                            <input type="number" id="facture_penalites_retard" class="form-input"
+                                   value="{{ config.facture_penalites_retard }}" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <!-- MECeF -->
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Configuration MECeF</h5>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Numéro NIM (MECeF)</label>
+                            <input type="text" id="mecef_nim" class="form-input"
+                                   value="{{ config.mecef_nim }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Token API MECeF</label>
+                            <input type="password" id="mecef_token" class="form-input"
+                                   value="{{ config.mecef_token }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mode MECeF</label>
+                            <div class="toggle-group">
+                                <button type="button" class="toggle-option {% if config.mecef_mode == 'test' %}active{% endif %}"
+                                        onclick="setMecefMode('test')">Test</button>
+                                <button type="button" class="toggle-option {% if config.mecef_mode == 'production' %}active{% endif %}"
+                                        onclick="setMecefMode('production')">Production</button>
+                            </div>
+                            <input type="hidden" id="mecef_mode" value="{{ config.mecef_mode }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width mt-3">
+                        <label class="form-label">Mentions légales sur factures</label>
+                        <textarea id="facture_mentions_legales" class="form-textarea" rows="3">{{ config.facture_mentions_legales }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.3 Trésorerie -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="wallet"></i> Trésorerie</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Devise</label>
+                            <input type="text" id="devise" class="form-input readonly"
+                                   value="{{ config.devise }}" disabled>
+                            <small class="form-help">Non modifiable</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seuil alerte solde faible (F)</label>
+                            <input type="number" id="tresorerie_seuil_alerte" class="form-input"
+                                   value="{{ config.tresorerie_seuil_alerte }}" min="0" step="1000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Validation obligatoire décaissements > (F)</label>
+                            <input type="number" id="tresorerie_validation_seuil" class="form-input"
+                                   value="{{ config.tresorerie_validation_seuil }}" min="0" step="10000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Délai max reversement consignations (jours)</label>
+                            <input type="number" id="tresorerie_delai_reversement" class="form-input"
+                                   value="{{ config.tresorerie_delai_reversement }}" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Compte séquestre obligatoire</label>
+                            <div class="switch-container">
+                                <label class="switch">
+                                    <input type="checkbox" id="tresorerie_compte_sequestre"
+                                           {% if config.tresorerie_compte_sequestre %}checked{% endif %}>
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span>{% if config.tresorerie_compte_sequestre %}Oui{% else %}Non{% endif %}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.4 Comptabilité -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="calculator"></i> Comptabilité</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Début exercice comptable</label>
+                            <input type="date" id="exercice_debut" class="form-input"
+                                   value="{{ config.exercice_debut|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fin exercice comptable</label>
+                            <input type="date" id="exercice_fin" class="form-input"
+                                   value="{{ config.exercice_fin|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mode de saisie par défaut</label>
+                            <select id="comptabilite_mode" class="form-select">
+                                <option value="facile" {% if config.comptabilite_mode == 'facile' %}selected{% endif %}>Facile</option>
+                                <option value="guide" {% if config.comptabilite_mode == 'guide' %}selected{% endif %}>Guidé</option>
+                                <option value="expert" {% if config.comptabilite_mode == 'expert' %}selected{% endif %}>Expert</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Plan comptable</label>
+                            <input type="text" class="form-input readonly" value="SYSCOHADA" disabled>
+                            <small class="form-help">Non modifiable</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Régime fiscal</label>
+                            <select id="regime_fiscal" class="form-select">
+                                <option value="reel_normal" {% if config.regime_fiscal == 'reel_normal' %}selected{% endif %}>Réel normal</option>
+                                <option value="reel_simplifie" {% if config.regime_fiscal == 'reel_simplifie' %}selected{% endif %}>Réel simplifié</option>
+                                <option value="micro" {% if config.regime_fiscal == 'micro' %}selected{% endif %}>Micro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Déclarations TVA</label>
+                            <select id="tva_declaration" class="form-select">
+                                <option value="mensuelle" {% if config.tva_declaration == 'mensuelle' %}selected{% endif %}>Mensuelle</option>
+                                <option value="trimestrielle" {% if config.tva_declaration == 'trimestrielle' %}selected{% endif %}>Trimestrielle</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rappels échéances fiscales (jours avant)</label>
+                            <input type="number" id="echeances_rappel_jours" class="form-input"
+                                   value="{{ config.echeances_rappel_jours }}" min="1" max="30">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.5 Recouvrement -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="hand-coins"></i> Recouvrement</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Taux intérêt légal par défaut</label>
+                            <input type="text" class="form-input readonly" value="Taux UEMOA (automatique)" disabled>
+                            <small class="form-help">Mis à jour via les référentiels</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Application majoration 50% (Loi 2024)</label>
+                            <div class="switch-container">
+                                <label class="switch">
+                                    <input type="checkbox" id="recouvrement_majoration_50"
+                                           {% if config.recouvrement_majoration_50 %}checked{% endif %}>
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span>{% if config.recouvrement_majoration_50 %}Oui{% else %}Non{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Délai avant majoration (mois)</label>
+                            <input type="number" id="recouvrement_delai_majoration" class="form-input"
+                                   value="{{ config.recouvrement_delai_majoration }}" min="1">
+                        </div>
+                    </div>
+
+                    <!-- Ordre d'imputation -->
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Ordre d'imputation des paiements</h5>
+                    <p style="color: var(--neutral-500); font-size: 13px; margin-bottom: 12px;">
+                        Glissez-déposez pour réorganiser l'ordre
+                    </p>
+                    <ul class="ordre-list" id="ordre_imputation">
+                        <li class="ordre-item" data-value="frais_procedure" draggable="true">
+                            <span class="ordre-number">1</span>
+                            <i data-lucide="grip-vertical" class="ordre-drag-handle"></i>
+                            <span>Frais de procédure</span>
+                        </li>
+                        <li class="ordre-item" data-value="emoluments" draggable="true">
+                            <span class="ordre-number">2</span>
+                            <i data-lucide="grip-vertical" class="ordre-drag-handle"></i>
+                            <span>Émoluments</span>
+                        </li>
+                        <li class="ordre-item" data-value="interets" draggable="true">
+                            <span class="ordre-number">3</span>
+                            <i data-lucide="grip-vertical" class="ordre-drag-handle"></i>
+                            <span>Intérêts</span>
+                        </li>
+                        <li class="ordre-item" data-value="principal" draggable="true">
+                            <span class="ordre-number">4</span>
+                            <i data-lucide="grip-vertical" class="ordre-drag-handle"></i>
+                            <span>Principal</span>
+                        </li>
+                    </ul>
+
+                    <!-- Barème émoluments OHADA (lecture seule) -->
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Barème émoluments proportionnels OHADA</h5>
+                    <div class="bareme-readonly">
+                        <span class="info-badge">
+                            <i data-lucide="info" style="width:14px;height:14px;"></i>
+                            Référence légale - Non modifiable
+                        </span>
+                        <table class="bareme-table">
+                            <thead>
+                                <tr>
+                                    <th>Tranche</th>
+                                    <th>Taux</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for b in bareme_ohada %}
+                                <tr>
+                                    <td>
+                                        {% if b.max %}
+                                            {{ b.min|floatformat:0 }} - {{ b.max|floatformat:0 }} F
+                                        {% else %}
+                                            > {{ b.min|floatformat:0 }} F
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ b.taux }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.6 Gérance Immobilière -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="home"></i> Gérance Immobilière</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Taux honoraires gestion (% loyer)</label>
+                            <input type="number" id="gerance_taux_honoraires" class="form-input"
+                                   value="{{ config.gerance_taux_honoraires }}" step="0.5" min="0" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date de reversement propriétaires</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>Le</span>
+                                <input type="number" id="gerance_date_reversement" class="form-input"
+                                       style="width: 80px;" value="{{ config.gerance_date_reversement }}" min="1" max="28">
+                                <span>de chaque mois</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Délais de relance impayés</h5>
+                    <div class="form-grid-4">
+                        <div class="form-group">
+                            <label class="form-label">Niveau 1 (rappel)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>J+</span>
+                                <input type="number" id="gerance_relance_niveau1" class="form-input"
+                                       value="{{ config.gerance_relance_niveau1 }}" min="1">
+                                <span>jours</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Niveau 2 (relance)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>J+</span>
+                                <input type="number" id="gerance_relance_niveau2" class="form-input"
+                                       value="{{ config.gerance_relance_niveau2 }}" min="1">
+                                <span>jours</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Niveau 3 (mise en demeure)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>J+</span>
+                                <input type="number" id="gerance_relance_niveau3" class="form-input"
+                                       value="{{ config.gerance_relance_niveau3 }}" min="1">
+                                <span>jours</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Niveau 4 (commandement)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>J+</span>
+                                <input type="number" id="gerance_relance_niveau4" class="form-input"
+                                       value="{{ config.gerance_relance_niveau4 }}" min="1">
+                                <span>jours</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Modèles de baux disponibles</h5>
+                    <div class="table-container">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Libellé</th>
+                                    <th>Modèle associé</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bail in types_bail %}
+                                <tr>
+                                    <td>{{ bail.code }}</td>
+                                    <td>{{ bail.libelle }}</td>
+                                    <td>{{ bail.modele_document.nom|default:"-" }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--neutral-500);">
+                                        Aucun type de bail configuré
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.7 RH -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="users"></i> Ressources Humaines</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">SMIG en vigueur (FCFA)</label>
+                            <input type="number" id="rh_smig" class="form-input"
+                                   value="{{ config.rh_smig }}" min="0">
+                            <small class="form-help">Modifiable si changement légal</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Plafond CNSS mensuel (FCFA)</label>
+                            <input type="number" id="rh_plafond_cnss" class="form-input"
+                                   value="{{ config.rh_plafond_cnss }}" min="0">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Taux cotisations CNSS</h5>
+                    <div class="form-grid-4">
+                        <div class="form-group">
+                            <label class="form-label">Salarial Vieillesse (%)</label>
+                            <input type="number" id="rh_cnss_salarial_vieillesse" class="form-input"
+                                   value="{{ config.rh_cnss_salarial_vieillesse }}" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Patronal PF (%)</label>
+                            <input type="number" id="rh_cnss_patronal_pf" class="form-input"
+                                   value="{{ config.rh_cnss_patronal_pf }}" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Patronal Vieillesse (%)</label>
+                            <input type="number" id="rh_cnss_patronal_vieillesse" class="form-input"
+                                   value="{{ config.rh_cnss_patronal_vieillesse }}" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Patronal AT (%)</label>
+                            <input type="number" id="rh_cnss_patronal_at" class="form-input"
+                                   value="{{ config.rh_cnss_patronal_at }}" step="0.1" min="1" max="4">
+                        </div>
+                    </div>
+
+                    <div class="form-grid mt-3">
+                        <div class="form-group">
+                            <label class="form-label">Congés annuels (jours/mois)</label>
+                            <input type="number" id="rh_conges_annuels" class="form-input"
+                                   value="{{ config.rh_conges_annuels }}" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Heures travail hebdomadaires</label>
+                            <input type="number" id="rh_heures_hebdo" class="form-input"
+                                   value="{{ config.rh_heures_hebdo }}" min="1" max="48">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Jour de paie</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>Le</span>
+                                <input type="number" id="rh_jour_paie" class="form-input"
+                                       style="width: 80px;" value="{{ config.rh_jour_paie }}" min="1" max="28">
+                                <span>de chaque mois</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <i data-lucide="info"></i>
+                        <div>
+                            <strong>Bonus ancienneté congés :</strong><br>
+                            Après 5 ans : +1 jour | Après 10 ans : +2 jours | Après 15 ans : +3 jours | Après 20 ans : +5 jours
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.8 Mémoires de Cédules -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="file-signature"></i> Mémoires de Cédules</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label class="form-label">Résidence de l'huissier (pour calcul distances)</label>
+                            <input type="text" id="cedules_residence" class="form-input"
+                                   value="{{ config.cedules_residence }}">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Barème frais signification (Article 81)</h5>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Premier original (F)</label>
+                            <input type="number" id="cedules_premier_original" class="form-input"
+                                   value="{{ config.cedules_premier_original }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Deuxième original (F)</label>
+                            <input type="number" id="cedules_deuxieme_original" class="form-input"
+                                   value="{{ config.cedules_deuxieme_original }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Copie (F)</label>
+                            <input type="number" id="cedules_copie" class="form-input"
+                                   value="{{ config.cedules_copie }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mention répertoire (F)</label>
+                            <input type="number" id="cedules_mention_repertoire" class="form-input"
+                                   value="{{ config.cedules_mention_repertoire }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Vacation (F)</label>
+                            <input type="number" id="cedules_vacation" class="form-input"
+                                   value="{{ config.cedules_vacation }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Frais copie par rôle (Art. 82) (F)</label>
+                            <input type="number" id="cedules_frais_copie_role" class="form-input"
+                                   value="{{ config.cedules_frais_copie_role }}">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Transport et mission</h5>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Tarif kilométrique (Art. 45) (F/km)</label>
+                            <input type="number" id="cedules_tarif_km" class="form-input"
+                                   value="{{ config.cedules_tarif_km }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seuil transport (Art. 89) (km)</label>
+                            <input type="number" id="cedules_seuil_transport" class="form-input"
+                                   value="{{ config.cedules_seuil_transport }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seuil frais mission (km)</label>
+                            <input type="number" id="cedules_seuil_mission" class="form-input"
+                                   value="{{ config.cedules_seuil_mission }}">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Barème frais mission Groupe II</h5>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">1 repas (F)</label>
+                            <input type="number" id="cedules_mission_1_repas" class="form-input"
+                                   value="{{ config.cedules_mission_1_repas }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">2 repas (F)</label>
+                            <input type="number" id="cedules_mission_2_repas" class="form-input"
+                                   value="{{ config.cedules_mission_2_repas }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Journée complète (F)</label>
+                            <input type="number" id="cedules_mission_journee" class="form-input"
+                                   value="{{ config.cedules_mission_journee }}">
+                        </div>
+                    </div>
+                    <small class="form-help">Modifiable si changement réglementaire</small>
+                </div>
+            </div>
+
+            <!-- 2.9 Agenda -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="calendar"></i> Agenda</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Heure début journée</label>
+                            <input type="time" id="agenda_heure_debut" class="form-input"
+                                   value="{{ config.agenda_heure_debut|time:'H:i' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Heure fin journée</label>
+                            <input type="time" id="agenda_heure_fin" class="form-input"
+                                   value="{{ config.agenda_heure_fin|time:'H:i' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Durée RDV par défaut (minutes)</label>
+                            <input type="number" id="agenda_duree_rdv" class="form-input"
+                                   value="{{ config.agenda_duree_rdv }}" min="15" step="15">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rappel par défaut (jours avant)</label>
+                            <input type="number" id="agenda_rappel_jours" class="form-input"
+                                   value="{{ config.agenda_rappel_jours }}" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rappel par défaut (heures avant)</label>
+                            <input type="number" id="agenda_rappel_heures" class="form-input"
+                                   value="{{ config.agenda_rappel_heures }}" min="0">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Jours ouvrés</h5>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_1" class="jour-ouvre" value="1"
+                                   {% if 1 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Lundi</span>
+                        </label>
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_2" class="jour-ouvre" value="2"
+                                   {% if 2 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Mardi</span>
+                        </label>
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_3" class="jour-ouvre" value="3"
+                                   {% if 3 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Mercredi</span>
+                        </label>
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_4" class="jour-ouvre" value="4"
+                                   {% if 4 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Jeudi</span>
+                        </label>
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_5" class="jour-ouvre" value="5"
+                                   {% if 5 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Vendredi</span>
+                        </label>
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_6" class="jour-ouvre" value="6"
+                                   {% if 6 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Samedi</span>
+                        </label>
+                        <label class="switch-container">
+                            <input type="checkbox" id="jour_0" class="jour-ouvre" value="0"
+                                   {% if 0 in config.agenda_jours_ouvres %}checked{% endif %}>
+                            <span>Dimanche</span>
+                        </label>
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Jours fériés Bénin</h5>
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Actif</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for jour in jours_feries %}
+                                <tr>
+                                    <td>{{ jour.nom }}</td>
+                                    <td>
+                                        {% if jour.jour_mois and jour.mois %}
+                                            {{ jour.jour_mois }}/{{ jour.mois }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{% if jour.est_mobile %}Mobile{% else %}Fixe{% endif %}</td>
+                                    <td>
+                                        {% if jour.actif %}
+                                            <i data-lucide="check" style="color: var(--success); width: 16px;"></i>
+                                        {% else %}
+                                            <i data-lucide="x" style="color: var(--danger); width: 16px;"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--neutral-500);">
+                                        Aucun jour férié configuré
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bouton enregistrer section -->
+            <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="sauvegarderSection('modules')">
+                    <i data-lucide="save"></i> Enregistrer les paramètres des modules
+                </button>
+            </div>
+        </div>
+
+        <!-- Placeholder pour les autres onglets (Partie 2) -->
+        <div id="tab-documents" class="tab-content">
+            <div class="alert alert-info">
+                <i data-lucide="construction"></i>
+                <span>Section Modèles de documents - À venir dans la Partie 2</span>
+            </div>
+        </div>
+
+        <div id="tab-notifications" class="tab-content">
+            <div class="alert alert-info">
+                <i data-lucide="construction"></i>
+                <span>Section Notifications - À venir dans la Partie 2</span>
+            </div>
+        </div>
+
+        <div id="tab-sauvegardes" class="tab-content">
+            <div class="alert alert-info">
+                <i data-lucide="construction"></i>
+                <span>Section Sauvegardes - À venir dans la Partie 2</span>
+            </div>
+        </div>
+
+        <div id="tab-personnalisation" class="tab-content">
+            <div class="alert alert-info">
+                <i data-lucide="construction"></i>
+                <span>Section Personnalisation - À venir dans la Partie 2</span>
+            </div>
+        </div>
+
+        <div id="tab-referentiels" class="tab-content">
+            <div class="alert alert-info">
+                <i data-lucide="construction"></i>
+                <span>Section Référentiels - À venir dans la Partie 2</span>
+            </div>
+        </div>
+
+        <div id="tab-apropos" class="tab-content">
+            <div class="alert alert-info">
+                <i data-lucide="construction"></i>
+                <span>Section À propos - À venir dans la Partie 2</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialiser Lucide
+    lucide.createIcons();
+
+    // Navigation par onglets
+    function showTab(tabId) {
+        // Masquer tous les contenus
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        // Désactiver tous les boutons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        // Afficher le contenu sélectionné
+        document.getElementById('tab-' + tabId).classList.add('active');
+        // Activer le bouton
+        event.target.closest('.tab-btn').classList.add('active');
+
+        // Réinitialiser les icônes Lucide
+        lucide.createIcons();
+    }
+
+    // Sections repliables
+    function toggleSection(header) {
+        const section = header.closest('.section-collapsible');
+        section.classList.toggle('open');
+        lucide.createIcons();
+    }
+
+    // Mise à jour couleur preview
+    function updateColorPreview(type) {
+        const colorInput = document.getElementById('couleur_' + type);
+        const textInput = document.getElementById('couleur_' + type + '_text');
+        const preview = document.getElementById('preview_' + type);
+
+        textInput.value = colorInput.value;
+        preview.style.background = colorInput.value;
+    }
+
+    // Preview logo
+    function previewLogo(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('logo_preview').innerHTML =
+                    '<img src="' + e.target.result + '" alt="Logo">';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // Mode MECeF
+    function setMecefMode(mode) {
+        document.getElementById('mecef_mode').value = mode;
+        document.querySelectorAll('.toggle-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        event.target.classList.add('active');
+    }
+
+    // TVA toggle label
+    document.getElementById('tva_applicable').addEventListener('change', function() {
+        document.getElementById('tva_label').textContent = this.checked ? 'Oui' : 'Non';
+    });
+
+    // Drag and drop pour ordre imputation
+    const ordreList = document.getElementById('ordre_imputation');
+    if (ordreList) {
+        let draggedItem = null;
+
+        ordreList.querySelectorAll('.ordre-item').forEach(item => {
+            item.addEventListener('dragstart', function() {
+                draggedItem = this;
+                this.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                updateOrdreNumbers();
+            });
+
+            item.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(ordreList, e.clientY);
+                if (afterElement == null) {
+                    ordreList.appendChild(draggedItem);
+                } else {
+                    ordreList.insertBefore(draggedItem, afterElement);
+                }
+            });
+        });
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.ordre-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function updateOrdreNumbers() {
+            ordreList.querySelectorAll('.ordre-item').forEach((item, index) => {
+                item.querySelector('.ordre-number').textContent = index + 1;
+            });
+        }
+    }
+
+    // Sauvegarde par section
+    function sauvegarderSection(section) {
+        let data = { section: section };
+
+        if (section === 'etude') {
+            // Section Étude
+            data.nom_etude = document.getElementById('nom_etude').value;
+            data.titre = document.getElementById('titre').value;
+            data.juridiction = document.getElementById('juridiction').value;
+            data.date_installation = document.getElementById('date_installation').value;
+            data.numero_ifu = document.getElementById('numero_ifu').value;
+            data.numero_agrement = document.getElementById('numero_agrement').value;
+            data.adresse_rue = document.getElementById('adresse_rue').value;
+            data.adresse_quartier = document.getElementById('adresse_quartier').value;
+            data.adresse_ville = document.getElementById('adresse_ville').value;
+            data.adresse_bp = document.getElementById('adresse_bp').value;
+            data.telephone_fixe = document.getElementById('telephone_fixe').value;
+            data.telephone_mobile1 = document.getElementById('telephone_mobile1').value;
+            data.telephone_mobile2 = document.getElementById('telephone_mobile2').value;
+            data.email = document.getElementById('email').value;
+            data.site_web = document.getElementById('site_web').value;
+            data.couleur_principale = document.getElementById('couleur_principale').value;
+            data.couleur_secondaire = document.getElementById('couleur_secondaire').value;
+
+            // Sauvegarder aussi la banque
+            sauvegarderBanque();
+        }
+
+        if (section === 'modules') {
+            // Sauvegarder toutes les sous-sections
+            sauvegarderDossiers();
+            sauvegarderFacturation();
+            sauvegarderTresorerie();
+            sauvegarderComptabilite();
+            sauvegarderRecouvrement();
+            sauvegarderGerance();
+            sauvegarderRH();
+            sauvegarderCedules();
+            sauvegarderAgenda();
+            return; // Les sous-fonctions gèrent la sauvegarde
+        }
+
+        envoyerConfig(data);
+    }
+
+    function sauvegarderBanque() {
+        const data = {
+            section: 'banque',
+            banque_nom: document.getElementById('banque_nom').value,
+            banque_code: document.getElementById('banque_code').value,
+            banque_guichet: document.getElementById('banque_guichet').value,
+            banque_compte: document.getElementById('banque_compte').value,
+            banque_cle: document.getElementById('banque_cle').value,
+            banque_iban: document.getElementById('banque_iban').value,
+            banque_titulaire: document.getElementById('banque_titulaire').value,
+            mobile_money_operateur: document.getElementById('mobile_money_operateur').value,
+            mobile_money_numero: document.getElementById('mobile_money_numero').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderDossiers() {
+        const data = {
+            section: 'dossiers',
+            dossier_prefixe: document.getElementById('dossier_prefixe').value,
+            dossier_numero_depart: document.getElementById('dossier_numero_depart').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderFacturation() {
+        const data = {
+            section: 'facturation',
+            facture_prefixe: document.getElementById('facture_prefixe').value,
+            tva_applicable: document.getElementById('tva_applicable').checked,
+            tva_taux: document.getElementById('tva_taux').value,
+            facture_delai_paiement: document.getElementById('facture_delai_paiement').value,
+            facture_conditions_paiement: document.getElementById('facture_conditions_paiement').value,
+            facture_penalites_retard: document.getElementById('facture_penalites_retard').value,
+            mecef_nim: document.getElementById('mecef_nim').value,
+            mecef_token: document.getElementById('mecef_token').value,
+            mecef_mode: document.getElementById('mecef_mode').value,
+            facture_mentions_legales: document.getElementById('facture_mentions_legales').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderTresorerie() {
+        const data = {
+            section: 'tresorerie',
+            tresorerie_seuil_alerte: document.getElementById('tresorerie_seuil_alerte').value,
+            tresorerie_validation_seuil: document.getElementById('tresorerie_validation_seuil').value,
+            tresorerie_delai_reversement: document.getElementById('tresorerie_delai_reversement').value,
+            tresorerie_compte_sequestre: document.getElementById('tresorerie_compte_sequestre').checked
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderComptabilite() {
+        const data = {
+            section: 'comptabilite',
+            exercice_debut: document.getElementById('exercice_debut').value,
+            exercice_fin: document.getElementById('exercice_fin').value,
+            comptabilite_mode: document.getElementById('comptabilite_mode').value,
+            regime_fiscal: document.getElementById('regime_fiscal').value,
+            tva_declaration: document.getElementById('tva_declaration').value,
+            echeances_rappel_jours: document.getElementById('echeances_rappel_jours').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderRecouvrement() {
+        // Récupérer l'ordre d'imputation
+        const ordreItems = document.querySelectorAll('#ordre_imputation .ordre-item');
+        const ordre = Array.from(ordreItems).map(item => item.dataset.value);
+
+        const data = {
+            section: 'recouvrement',
+            recouvrement_majoration_50: document.getElementById('recouvrement_majoration_50').checked,
+            recouvrement_delai_majoration: document.getElementById('recouvrement_delai_majoration').value,
+            recouvrement_ordre_imputation: ordre
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderGerance() {
+        const data = {
+            section: 'gerance',
+            gerance_taux_honoraires: document.getElementById('gerance_taux_honoraires').value,
+            gerance_date_reversement: document.getElementById('gerance_date_reversement').value,
+            gerance_relance_niveau1: document.getElementById('gerance_relance_niveau1').value,
+            gerance_relance_niveau2: document.getElementById('gerance_relance_niveau2').value,
+            gerance_relance_niveau3: document.getElementById('gerance_relance_niveau3').value,
+            gerance_relance_niveau4: document.getElementById('gerance_relance_niveau4').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderRH() {
+        const data = {
+            section: 'rh',
+            rh_smig: document.getElementById('rh_smig').value,
+            rh_plafond_cnss: document.getElementById('rh_plafond_cnss').value,
+            rh_cnss_salarial_vieillesse: document.getElementById('rh_cnss_salarial_vieillesse').value,
+            rh_cnss_patronal_pf: document.getElementById('rh_cnss_patronal_pf').value,
+            rh_cnss_patronal_vieillesse: document.getElementById('rh_cnss_patronal_vieillesse').value,
+            rh_cnss_patronal_at: document.getElementById('rh_cnss_patronal_at').value,
+            rh_conges_annuels: document.getElementById('rh_conges_annuels').value,
+            rh_heures_hebdo: document.getElementById('rh_heures_hebdo').value,
+            rh_jour_paie: document.getElementById('rh_jour_paie').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderCedules() {
+        const data = {
+            section: 'cedules',
+            cedules_residence: document.getElementById('cedules_residence').value,
+            cedules_premier_original: document.getElementById('cedules_premier_original').value,
+            cedules_deuxieme_original: document.getElementById('cedules_deuxieme_original').value,
+            cedules_copie: document.getElementById('cedules_copie').value,
+            cedules_mention_repertoire: document.getElementById('cedules_mention_repertoire').value,
+            cedules_vacation: document.getElementById('cedules_vacation').value,
+            cedules_frais_copie_role: document.getElementById('cedules_frais_copie_role').value,
+            cedules_tarif_km: document.getElementById('cedules_tarif_km').value,
+            cedules_seuil_transport: document.getElementById('cedules_seuil_transport').value,
+            cedules_seuil_mission: document.getElementById('cedules_seuil_mission').value,
+            cedules_mission_1_repas: document.getElementById('cedules_mission_1_repas').value,
+            cedules_mission_2_repas: document.getElementById('cedules_mission_2_repas').value,
+            cedules_mission_journee: document.getElementById('cedules_mission_journee').value
+        };
+        envoyerConfig(data);
+    }
+
+    function sauvegarderAgenda() {
+        // Récupérer les jours ouvrés
+        const joursOuvres = [];
+        document.querySelectorAll('.jour-ouvre:checked').forEach(cb => {
+            joursOuvres.push(parseInt(cb.value));
+        });
+
+        const data = {
+            section: 'agenda',
+            agenda_heure_debut: document.getElementById('agenda_heure_debut').value,
+            agenda_heure_fin: document.getElementById('agenda_heure_fin').value,
+            agenda_duree_rdv: document.getElementById('agenda_duree_rdv').value,
+            agenda_rappel_jours: document.getElementById('agenda_rappel_jours').value,
+            agenda_rappel_heures: document.getElementById('agenda_rappel_heures').value,
+            agenda_jours_ouvres: joursOuvres
+        };
+        envoyerConfig(data);
+    }
+
+    function envoyerConfig(data) {
+        fetch('{% url "parametres:api_sauvegarder_config" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('success', result.message);
+            } else {
+                showNotification('error', 'Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            showNotification('error', 'Erreur de connexion');
+        });
+    }
+
+    // Notification toast
+    function showNotification(type, message) {
+        // Créer le toast
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.innerHTML = `
+            <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}"></i>
+            <span>${message}</span>
+        `;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease;
+        `;
+
+        document.body.appendChild(toast);
+        lucide.createIcons();
+
+        setTimeout(() => {
+            toast.style.animation = 'slideDown 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Ajouter les keyframes d'animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateX(-50%) translateY(0); opacity: 1; }
+            to { transform: translateX(-50%) translateY(100px); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Fonctions modales (placeholder)
+    function openSiteModal() {
+        alert('Modal Site - À implémenter');
+    }
+
+    function editSite(id) {
+        alert('Modifier site ' + id + ' - À implémenter');
+    }
+
+    function deleteSite(id) {
+        if (confirm('Supprimer ce site ?')) {
+            alert('Supprimer site ' + id + ' - À implémenter');
+        }
+    }
+
+    function openTypeDossierModal() {
+        alert('Modal Type Dossier - À implémenter');
+    }
+
+    function editTypeDossier(id) {
+        alert('Modifier type ' + id + ' - À implémenter');
+    }
+
+    function openStatutDossierModal() {
+        alert('Modal Statut Dossier - À implémenter');
+    }
+
+    function editStatutDossier(id) {
+        alert('Modifier statut ' + id + ' - À implémenter');
+    }
+</script>
+{% endblock %}
