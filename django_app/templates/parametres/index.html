@@ -1621,46 +1621,913 @@
             </div>
         </div>
 
-        <!-- Placeholder pour les autres onglets (Partie 2) -->
+        <!-- ============================================== -->
+        <!-- SECTION 3 : MODÈLES DE DOCUMENTS -->
+        <!-- ============================================== -->
         <div id="tab-documents" class="tab-content">
-            <div class="alert alert-info">
-                <i data-lucide="construction"></i>
-                <span>Section Modèles de documents - À venir dans la Partie 2</span>
+            <!-- Gestion des modèles -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="files"></i> Gestion des modèles</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <!-- Filtres par catégorie -->
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label">Filtrer par catégorie</label>
+                        <select id="filter_categorie_modele" class="form-select" style="max-width: 300px;" onchange="filterModeles()">
+                            <option value="">Toutes les catégories</option>
+                            <option value="actes">Actes de procédure</option>
+                            <option value="factures">Factures et devis</option>
+                            <option value="courriers">Courriers</option>
+                            <option value="baux">Contrats de bail</option>
+                            <option value="etats_lieux">États des lieux</option>
+                            <option value="paie">Bulletins de paie</option>
+                            <option value="memoires">Mémoires de frais</option>
+                            <option value="rapports">Rapports</option>
+                        </select>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table" id="modeles_table">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Catégorie</th>
+                                    <th>Dernière modification</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for modele in modeles_document %}
+                                <tr data-categorie="{{ modele.categorie }}">
+                                    <td>{{ modele.nom }}</td>
+                                    <td>{{ modele.get_categorie_display }}</td>
+                                    <td>{{ modele.date_modification|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="previewModele({{ modele.id }})" title="Aperçu">
+                                            <i data-lucide="eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-icon" onclick="editModele({{ modele.id }})" title="Modifier">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-icon" onclick="duplicateModele({{ modele.id }})" title="Dupliquer">
+                                            <i data-lucide="copy"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-icon" onclick="downloadModele({{ modele.id }})" title="Télécharger">
+                                            <i data-lucide="download"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-icon btn-danger" onclick="deleteModele({{ modele.id }})" title="Supprimer">
+                                            <i data-lucide="trash-2"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--neutral-500);">
+                                        Aucun modèle de document configuré
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button class="btn btn-primary mt-3" onclick="openModeleModal()">
+                        <i data-lucide="plus"></i> Créer un modèle
+                    </button>
+                </div>
+            </div>
+
+            <!-- Variables disponibles -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="variable"></i> Variables disponibles</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <p style="color: var(--neutral-600); margin-bottom: 16px;">
+                        Utilisez ces variables dans vos modèles. Elles seront automatiquement remplacées lors de la génération.
+                    </p>
+                    <div class="form-grid-3">
+                        {% for var in variables_modeles %}
+                        <div class="variable-item" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; cursor: pointer;" onclick="copyVariable('{{ var.code }}')">
+                            <code style="color: var(--primary); font-weight: 600;">{{ var.code }}</code>
+                            <div style="font-size: 12px; color: var(--neutral-500); margin-top: 4px;">{{ var.description }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- SECTION 4 : NOTIFICATIONS ET ALERTES -->
+        <!-- ============================================== -->
         <div id="tab-notifications" class="tab-content">
-            <div class="alert alert-info">
-                <i data-lucide="construction"></i>
-                <span>Section Notifications - À venir dans la Partie 2</span>
+            <!-- Configuration des alertes -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="bell-ring"></i> Configuration des alertes</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Type d'alerte</th>
+                                    <th style="text-align: center;">App</th>
+                                    <th style="text-align: center;">Email</th>
+                                    <th style="text-align: center;">SMS</th>
+                                    <th>Délai</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>RDV à venir</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="rdv_a_venir" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="rdv_a_venir" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="rdv_a_venir" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="1 jour" data-type="rdv_a_venir" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Tâche en retard</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="tache_retard" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="tache_retard" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="tache_retard" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="Immédiat" data-type="tache_retard" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Facture impayée > 30 jours</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="facture_impayee" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="facture_impayee" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="facture_impayee" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="Quotidien" data-type="facture_impayee" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Solde caisse faible</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="solde_caisse_faible" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="solde_caisse_faible" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="solde_caisse_faible" data-channel="sms" checked></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="Immédiat" data-type="solde_caisse_faible" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Décaissement en attente</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="decaissement_attente" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="decaissement_attente" data-channel="email"></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="decaissement_attente" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="Immédiat" data-type="decaissement_attente" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Fin de contrat employé</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="fin_contrat" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="fin_contrat" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="fin_contrat" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="30 jours" data-type="fin_contrat" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Loyer impayé</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="loyer_impaye" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="loyer_impaye" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="loyer_impaye" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="J+5" data-type="loyer_impaye" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Reversement à effectuer</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="reversement" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="reversement" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="reversement" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="Quotidien" data-type="reversement" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Échéance fiscale</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="echeance_fiscale" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="echeance_fiscale" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="echeance_fiscale" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="7 jours" data-type="echeance_fiscale" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Audience à venir</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="audience" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="audience" data-channel="email" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="audience" data-channel="sms" checked></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="2 jours" data-type="audience" data-field="delai"></td>
+                                </tr>
+                                <tr>
+                                    <td>Dossier sans activité</td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="dossier_inactif" data-channel="app" checked></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="dossier_inactif" data-channel="email"></td>
+                                    <td style="text-align: center;"><input type="checkbox" class="notif-checkbox" data-type="dossier_inactif" data-channel="sms"></td>
+                                    <td><input type="text" class="form-input" style="width: 120px;" value="30 jours" data-type="dossier_inactif" data-field="delai"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Email -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="mail"></i> Configuration Email (SMTP)</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Serveur SMTP</label>
+                            <input type="text" id="smtp_serveur" class="form-input"
+                                   value="{{ config.smtp_serveur }}" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Port</label>
+                            <input type="number" id="smtp_port" class="form-input"
+                                   value="{{ config.smtp_port }}" placeholder="587">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Utilisateur</label>
+                            <input type="text" id="smtp_utilisateur" class="form-input"
+                                   value="{{ config.smtp_utilisateur }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mot de passe</label>
+                            <input type="password" id="smtp_mot_de_passe" class="form-input"
+                                   placeholder="••••••••">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Email expéditeur</label>
+                            <input type="email" id="smtp_expediteur" class="form-input"
+                                   value="{{ config.smtp_expediteur }}">
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary mt-3" onclick="testerSMTP()">
+                        <i data-lucide="send"></i> Tester la configuration
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration SMS -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="smartphone"></i> Configuration SMS (optionnel)</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Fournisseur</label>
+                            <select id="sms_fournisseur" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="twilio" {% if config.sms_fournisseur == 'twilio' %}selected{% endif %}>Twilio</option>
+                                <option value="orange" {% if config.sms_fournisseur == 'orange' %}selected{% endif %}>Orange SMS API</option>
+                                <option value="infobip" {% if config.sms_fournisseur == 'infobip' %}selected{% endif %}>Infobip</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">API Key</label>
+                            <input type="password" id="sms_api_key" class="form-input"
+                                   placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Numéro expéditeur</label>
+                            <input type="text" id="sms_expediteur" class="form-input"
+                                   value="{{ config.sms_expediteur }}">
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary mt-3" onclick="testerSMS()">
+                        <i data-lucide="send"></i> Tester la configuration
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bouton enregistrer -->
+            <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="sauvegarderNotifications()">
+                    <i data-lucide="save"></i> Enregistrer les paramètres de notifications
+                </button>
             </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- SECTION 5 : SAUVEGARDES ET DONNÉES -->
+        <!-- ============================================== -->
         <div id="tab-sauvegardes" class="tab-content">
-            <div class="alert alert-info">
-                <i data-lucide="construction"></i>
-                <span>Section Sauvegardes - À venir dans la Partie 2</span>
+            <!-- Sauvegardes automatiques -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="hard-drive"></i> Sauvegardes automatiques</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Activer les sauvegardes automatiques</label>
+                            <div class="switch-container">
+                                <label class="switch">
+                                    <input type="checkbox" id="backup_auto" {% if config.backup_auto %}checked{% endif %}>
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span>{% if config.backup_auto %}Activé{% else %}Désactivé{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fréquence</label>
+                            <select id="backup_frequence" class="form-select">
+                                <option value="quotidienne" {% if config.backup_frequence == 'quotidienne' %}selected{% endif %}>Quotidienne</option>
+                                <option value="hebdomadaire" {% if config.backup_frequence == 'hebdomadaire' %}selected{% endif %}>Hebdomadaire</option>
+                                <option value="mensuelle" {% if config.backup_frequence == 'mensuelle' %}selected{% endif %}>Mensuelle</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Heure de sauvegarde</label>
+                            <input type="time" id="backup_heure" class="form-input"
+                                   value="{{ config.backup_heure|time:'H:i' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Conserver les sauvegardes (jours)</label>
+                            <input type="number" id="backup_retention" class="form-input"
+                                   value="{{ config.backup_retention }}" min="7" max="365">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Emplacement</label>
+                            <select id="backup_emplacement" class="form-select">
+                                <option value="local" {% if config.backup_emplacement == 'local' %}selected{% endif %}>Local</option>
+                                <option value="google_drive" {% if config.backup_emplacement == 'google_drive' %}selected{% endif %}>Google Drive</option>
+                                <option value="dropbox" {% if config.backup_emplacement == 'dropbox' %}selected{% endif %}>Dropbox</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historique des sauvegardes -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="history"></i> Historique des sauvegardes</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Taille</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in sauvegardes %}
+                                <tr>
+                                    <td>{{ backup.date|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ backup.taille_formatee }}</td>
+                                    <td>
+                                        {% if backup.statut == 'reussi' %}
+                                            <span class="status-badge active">
+                                                <i data-lucide="check-circle" style="width: 14px;"></i> Réussi
+                                            </span>
+                                        {% elif backup.statut == 'echec' %}
+                                            <span class="status-badge urgent">
+                                                <i data-lucide="x-circle" style="width: 14px;"></i> Échec
+                                            </span>
+                                        {% else %}
+                                            <span class="status-badge">
+                                                <i data-lucide="loader" style="width: 14px;"></i> En cours
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary" onclick="restaurerBackup({{ backup.id }})">
+                                            <i data-lucide="rotate-ccw"></i> Restaurer
+                                        </button>
+                                        <button class="btn btn-sm btn-icon" onclick="downloadBackup({{ backup.id }})" title="Télécharger">
+                                            <i data-lucide="download"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--neutral-500);">
+                                        Aucune sauvegarde disponible
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button class="btn btn-primary mt-3" onclick="creerBackup()">
+                        <i data-lucide="hard-drive-download"></i> Créer une sauvegarde maintenant
+                    </button>
+                </div>
+            </div>
+
+            <!-- Export des données -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="download"></i> Export des données</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <button class="btn btn-secondary btn-block" onclick="exportData('json', 'all')">
+                                <i data-lucide="file-json"></i> Exporter toutes les données (JSON)
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-secondary btn-block" onclick="exportData('excel', 'dossiers')">
+                                <i data-lucide="table"></i> Exporter les dossiers (Excel)
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-secondary btn-block" onclick="exportData('excel', 'clients')">
+                                <i data-lucide="users"></i> Exporter les clients (Excel)
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-secondary btn-block" onclick="exportData('excel', 'factures')">
+                                <i data-lucide="file-text"></i> Exporter les factures (Excel)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import des données -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="upload"></i> Import des données</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Importer des clients</label>
+                            <div class="file-upload" onclick="document.getElementById('import_clients').click()">
+                                <i data-lucide="upload-cloud"></i>
+                                <div class="file-upload-text">CSV ou Excel</div>
+                            </div>
+                            <input type="file" id="import_clients" accept=".csv,.xlsx" style="display:none" onchange="importData('clients', this)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Importer des localités</label>
+                            <div class="file-upload" onclick="document.getElementById('import_localites').click()">
+                                <i data-lucide="upload-cloud"></i>
+                                <div class="file-upload-text">CSV</div>
+                            </div>
+                            <input type="file" id="import_localites" accept=".csv" style="display:none" onchange="importData('localites', this)">
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3">
+                        <i data-lucide="info"></i>
+                        <span>Téléchargez les modèles de fichiers d'import pour connaître le format attendu.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bouton enregistrer -->
+            <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="sauvegarderSection('sauvegardes')">
+                    <i data-lucide="save"></i> Enregistrer les paramètres de sauvegarde
+                </button>
             </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- SECTION 6 : PERSONNALISATION INTERFACE -->
+        <!-- ============================================== -->
         <div id="tab-personnalisation" class="tab-content">
-            <div class="alert alert-info">
-                <i data-lucide="construction"></i>
-                <span>Section Personnalisation - À venir dans la Partie 2</span>
+            <!-- Thème -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="sun-moon"></i> Thème</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Mode d'affichage</label>
+                            <div class="toggle-group">
+                                <button type="button" class="toggle-option {% if config.theme_mode == 'clair' %}active{% endif %}"
+                                        onclick="setThemeMode('clair')">
+                                    <i data-lucide="sun" style="width:16px;height:16px;"></i> Clair
+                                </button>
+                                <button type="button" class="toggle-option {% if config.theme_mode == 'sombre' %}active{% endif %}"
+                                        onclick="setThemeMode('sombre')">
+                                    <i data-lucide="moon" style="width:16px;height:16px;"></i> Sombre
+                                </button>
+                                <button type="button" class="toggle-option {% if config.theme_mode == 'auto' %}active{% endif %}"
+                                        onclick="setThemeMode('auto')">
+                                    <i data-lucide="monitor" style="width:16px;height:16px;"></i> Auto
+                                </button>
+                            </div>
+                            <input type="hidden" id="theme_mode" value="{{ config.theme_mode }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Langue et formats -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="globe"></i> Langue et formats</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Langue</label>
+                            <select class="form-select" disabled>
+                                <option selected>Français</option>
+                            </select>
+                            <small class="form-help">Autres langues à venir</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Format des dates</label>
+                            <select id="format_date" class="form-select">
+                                <option value="DD/MM/YYYY" {% if config.format_date == 'DD/MM/YYYY' %}selected{% endif %}>JJ/MM/AAAA</option>
+                                <option value="YYYY-MM-DD" {% if config.format_date == 'YYYY-MM-DD' %}selected{% endif %}>AAAA-MM-JJ</option>
+                                <option value="DD MMMM YYYY" {% if config.format_date == 'DD MMMM YYYY' %}selected{% endif %}>JJ Mois AAAA</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Séparateur milliers</label>
+                            <select id="separateur_milliers" class="form-select">
+                                <option value=" " {% if config.separateur_milliers == ' ' %}selected{% endif %}>Espace (1 000 000)</option>
+                                <option value="." {% if config.separateur_milliers == '.' %}selected{% endif %}>Point (1.000.000)</option>
+                                <option value="," {% if config.separateur_milliers == ',' %}selected{% endif %}>Virgule (1,000,000)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Séparateur décimales</label>
+                            <select id="separateur_decimales" class="form-select">
+                                <option value="," {% if config.separateur_decimales == ',' %}selected{% endif %}>Virgule (0,00)</option>
+                                <option value="." {% if config.separateur_decimales == '.' %}selected{% endif %}>Point (0.00)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tableau de bord -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="layout-dashboard"></i> Tableau de bord</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-group">
+                        <label class="form-label">Période par défaut</label>
+                        <div class="toggle-group" style="max-width: 300px;">
+                            <button type="button" class="toggle-option {% if config.dashboard_periode == 'jour' %}active{% endif %}"
+                                    onclick="setDashboardPeriode('jour')">Jour</button>
+                            <button type="button" class="toggle-option {% if config.dashboard_periode == 'semaine' %}active{% endif %}"
+                                    onclick="setDashboardPeriode('semaine')">Semaine</button>
+                            <button type="button" class="toggle-option {% if config.dashboard_periode == 'mois' %}active{% endif %}"
+                                    onclick="setDashboardPeriode('mois')">Mois</button>
+                        </div>
+                        <input type="hidden" id="dashboard_periode" value="{{ config.dashboard_periode }}">
+                    </div>
+
+                    <h5 style="margin: 24px 0 12px; color: var(--neutral-700);">Widgets actifs</h5>
+                    <p style="color: var(--neutral-500); font-size: 13px; margin-bottom: 12px;">
+                        Sélectionnez les widgets à afficher et réorganisez-les par glisser-déposer
+                    </p>
+                    <div class="widgets-list">
+                        <label class="switch-container" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; margin-bottom: 8px;">
+                            <input type="checkbox" class="widget-checkbox" value="stats_dossiers" checked>
+                            <span>Statistiques dossiers</span>
+                        </label>
+                        <label class="switch-container" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; margin-bottom: 8px;">
+                            <input type="checkbox" class="widget-checkbox" value="stats_facturation" checked>
+                            <span>Statistiques facturation</span>
+                        </label>
+                        <label class="switch-container" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; margin-bottom: 8px;">
+                            <input type="checkbox" class="widget-checkbox" value="stats_tresorerie" checked>
+                            <span>Statistiques trésorerie</span>
+                        </label>
+                        <label class="switch-container" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; margin-bottom: 8px;">
+                            <input type="checkbox" class="widget-checkbox" value="rdv_jour" checked>
+                            <span>RDV du jour</span>
+                        </label>
+                        <label class="switch-container" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; margin-bottom: 8px;">
+                            <input type="checkbox" class="widget-checkbox" value="taches_urgentes" checked>
+                            <span>Tâches urgentes</span>
+                        </label>
+                        <label class="switch-container" style="padding: 10px; background: var(--neutral-50); border-radius: 6px; margin-bottom: 8px;">
+                            <input type="checkbox" class="widget-checkbox" value="factures_impayees" checked>
+                            <span>Factures impayées</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bouton enregistrer -->
+            <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="sauvegarderSection('personnalisation')">
+                    <i data-lucide="save"></i> Enregistrer les paramètres d'affichage
+                </button>
             </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- SECTION 7 : RÉFÉRENTIELS -->
+        <!-- ============================================== -->
         <div id="tab-referentiels" class="tab-content">
-            <div class="alert alert-info">
-                <i data-lucide="construction"></i>
-                <span>Section Référentiels - À venir dans la Partie 2</span>
+            <!-- Table des localités -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="map-pin"></i> Table des localités</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: center;">
+                        <div class="form-group" style="flex: 1; margin: 0;">
+                            <input type="text" id="search_localite" class="form-input"
+                                   placeholder="Rechercher une localité..." onkeyup="searchLocalites()">
+                        </div>
+                        <button class="btn btn-secondary" onclick="openLocaliteModal()">
+                            <i data-lucide="plus"></i> Ajouter
+                        </button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('import_localites_ref').click()">
+                            <i data-lucide="upload"></i> Importer CSV
+                        </button>
+                        <input type="file" id="import_localites_ref" accept=".csv" style="display:none" onchange="importLocalites(this)">
+                    </div>
+
+                    <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Localité</th>
+                                    <th>Département</th>
+                                    <th>Distance (km)</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="localites_tbody">
+                                {% for loc in localites %}
+                                <tr>
+                                    <td>{{ loc.nom }}</td>
+                                    <td>{{ loc.departement }}</td>
+                                    <td>{{ loc.distance_km }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editLocalite({{ loc.id }})">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--neutral-500);">
+                                        Aucune localité enregistrée
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table des taux légaux -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="percent"></i> Taux légaux UEMOA</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Année</th>
+                                    <th>Semestre</th>
+                                    <th>Taux (%)</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for taux in taux_legaux %}
+                                <tr>
+                                    <td>{{ taux.annee }}</td>
+                                    <td>{{ taux.get_semestre_display }}</td>
+                                    <td>{{ taux.taux }}%</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editTauxLegal({{ taux.id }})">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--neutral-500);">
+                                        Aucun taux enregistré
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-secondary mt-3" onclick="openTauxLegalModal()">
+                        <i data-lucide="plus"></i> Ajouter un taux
+                    </button>
+                </div>
+            </div>
+
+            <!-- Types d'actes -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="file-signature"></i> Types d'actes</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Libellé</th>
+                                    <th>Catégorie</th>
+                                    <th>Montant défaut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for acte in types_actes %}
+                                <tr>
+                                    <td>{{ acte.code }}</td>
+                                    <td>{{ acte.libelle }}</td>
+                                    <td>{{ acte.categorie }}</td>
+                                    <td>{{ acte.montant_defaut|floatformat:0 }} F</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editTypeActe({{ acte.id }})">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--neutral-500);">
+                                        Aucun type d'acte configuré
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-secondary mt-3" onclick="openTypeActeModal()">
+                        <i data-lucide="plus"></i> Ajouter un type d'acte
+                    </button>
+                </div>
+            </div>
+
+            <!-- Juridictions -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="landmark"></i> Juridictions</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Nom</th>
+                                    <th>Ville</th>
+                                    <th>Téléphone</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for jur in juridictions %}
+                                <tr>
+                                    <td>{{ jur.get_type_display }}</td>
+                                    <td>{{ jur.nom }}</td>
+                                    <td>{{ jur.ville }}</td>
+                                    <td>{{ jur.telephone }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon" onclick="editJuridiction({{ jur.id }})">
+                                            <i data-lucide="edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--neutral-500);">
+                                        Aucune juridiction enregistrée
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-secondary mt-3" onclick="openJuridictionModal()">
+                        <i data-lucide="plus"></i> Ajouter une juridiction
+                    </button>
+                </div>
             </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- SECTION 8 : À PROPOS -->
+        <!-- ============================================== -->
         <div id="tab-apropos" class="tab-content">
-            <div class="alert alert-info">
-                <i data-lucide="construction"></i>
-                <span>Section À propos - À venir dans la Partie 2</span>
+            <!-- Informations système -->
+            <div class="section-collapsible open">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="info"></i> Informations système</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Version de l'application</label>
+                            <input type="text" class="form-input readonly" value="{{ config.version_app }}" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Dernière mise à jour</label>
+                            <input type="text" class="form-input readonly"
+                                   value="{{ config.date_mise_a_jour|date:'d/m/Y'|default:'Non renseigné' }}" disabled>
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Support technique</label>
+                            <input type="text" class="form-input readonly" value="contact@etude-biaou.bj" disabled>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Crédits -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="award"></i> Crédits</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div style="text-align: center; padding: 24px;">
+                        <div style="font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--primary); margin-bottom: 12px;">
+                            Gestion Étude Huissier
+                        </div>
+                        <div style="color: var(--neutral-600); margin-bottom: 20px;">
+                            Solution de gestion complète pour les études d'huissiers de justice
+                        </div>
+                        <div style="font-size: 14px; color: var(--neutral-500);">
+                            Développé pour l'Étude Me BIAOU<br>
+                            &copy; 2025 - Tous droits réservés
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Journal des modifications -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="history"></i> Journal des modifications</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Utilisateur</th>
+                                    <th>Section</th>
+                                    <th>Champ</th>
+                                    <th>Ancienne valeur</th>
+                                    <th>Nouvelle valeur</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in journal %}
+                                <tr>
+                                    <td>{{ log.date|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ log.utilisateur.get_full_name|default:"Système" }}</td>
+                                    <td>{{ log.section }}</td>
+                                    <td>{{ log.champ }}</td>
+                                    <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">
+                                        {{ log.ancienne_valeur|truncatechars:30 }}
+                                    </td>
+                                    <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">
+                                        {{ log.nouvelle_valeur|truncatechars:30 }}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--neutral-500);">
+                                        Aucune modification enregistrée
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2074,6 +2941,266 @@
 
     function editStatutDossier(id) {
         alert('Modifier statut ' + id + ' - À implémenter');
+    }
+
+    // ========== Section Modèles de documents ==========
+    function filterModeles() {
+        const categorie = document.getElementById('filter_categorie_modele').value;
+        const rows = document.querySelectorAll('#modeles_table tbody tr');
+        rows.forEach(row => {
+            if (!categorie || row.dataset.categorie === categorie) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function openModeleModal() {
+        alert('Créer un modèle - À implémenter avec éditeur WYSIWYG');
+    }
+
+    function previewModele(id) {
+        alert('Aperçu modèle ' + id + ' - À implémenter');
+    }
+
+    function editModele(id) {
+        alert('Modifier modèle ' + id + ' - À implémenter');
+    }
+
+    function duplicateModele(id) {
+        if (confirm('Dupliquer ce modèle ?')) {
+            fetch('{% url "parametres:api_modele_document_duplicate" modele_id=0 %}'.replace('0', id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showNotification('success', result.message);
+                    location.reload();
+                } else {
+                    showNotification('error', result.error);
+                }
+            });
+        }
+    }
+
+    function downloadModele(id) {
+        alert('Télécharger modèle ' + id + ' - À implémenter');
+    }
+
+    function deleteModele(id) {
+        if (confirm('Supprimer ce modèle ?')) {
+            alert('Supprimer modèle ' + id + ' - À implémenter');
+        }
+    }
+
+    function copyVariable(code) {
+        navigator.clipboard.writeText(code).then(() => {
+            showNotification('success', 'Variable copiée : ' + code);
+        });
+    }
+
+    // ========== Section Notifications ==========
+    function sauvegarderNotifications() {
+        // Récupérer la config des notifications
+        const notifConfig = {};
+        document.querySelectorAll('.notif-checkbox').forEach(cb => {
+            const type = cb.dataset.type;
+            const channel = cb.dataset.channel;
+            if (!notifConfig[type]) {
+                notifConfig[type] = { app: false, email: false, sms: false, delai: '' };
+            }
+            notifConfig[type][channel] = cb.checked;
+        });
+
+        // Récupérer les délais
+        document.querySelectorAll('input[data-field="delai"]').forEach(input => {
+            const type = input.dataset.type;
+            if (notifConfig[type]) {
+                notifConfig[type].delai = input.value;
+            }
+        });
+
+        const data = {
+            section: 'notifications',
+            notif_config: notifConfig,
+            smtp_serveur: document.getElementById('smtp_serveur').value,
+            smtp_port: document.getElementById('smtp_port').value,
+            smtp_utilisateur: document.getElementById('smtp_utilisateur').value,
+            smtp_mot_de_passe: document.getElementById('smtp_mot_de_passe').value,
+            smtp_expediteur: document.getElementById('smtp_expediteur').value,
+            sms_fournisseur: document.getElementById('sms_fournisseur').value,
+            sms_api_key: document.getElementById('sms_api_key').value,
+            sms_expediteur: document.getElementById('sms_expediteur').value
+        };
+
+        envoyerConfig(data);
+    }
+
+    function testerSMTP() {
+        fetch('{% url "parametres:api_test_smtp" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('success', result.message);
+            } else {
+                showNotification('error', result.error);
+            }
+        });
+    }
+
+    function testerSMS() {
+        fetch('{% url "parametres:api_test_sms" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('success', result.message);
+            } else {
+                showNotification('error', result.error);
+            }
+        });
+    }
+
+    // ========== Section Sauvegardes ==========
+    function creerBackup() {
+        showNotification('success', 'Création de la sauvegarde en cours...');
+        fetch('{% url "parametres:api_backup_create" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('success', result.message);
+                location.reload();
+            } else {
+                showNotification('error', result.error);
+            }
+        });
+    }
+
+    function restaurerBackup(id) {
+        if (confirm('ATTENTION: Cette action va restaurer les données. Continuer ?')) {
+            alert('Restauration backup ' + id + ' - À implémenter');
+        }
+    }
+
+    function downloadBackup(id) {
+        alert('Téléchargement backup ' + id + ' - À implémenter');
+    }
+
+    function exportData(format, type) {
+        window.location.href = '{% url "parametres:api_export_data" format_type="json" %}'.replace('json', format) + '?type=' + type;
+    }
+
+    function importData(type, input) {
+        if (!input.files[0]) return;
+
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+
+        fetch('{% url "parametres:api_localites_import" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('success', result.message);
+                location.reload();
+            } else {
+                showNotification('error', result.error);
+            }
+        });
+
+        input.value = '';
+    }
+
+    // ========== Section Personnalisation ==========
+    function setThemeMode(mode) {
+        document.getElementById('theme_mode').value = mode;
+        document.querySelectorAll('#tab-personnalisation .toggle-group .toggle-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        event.target.closest('.toggle-option').classList.add('active');
+    }
+
+    function setDashboardPeriode(periode) {
+        document.getElementById('dashboard_periode').value = periode;
+        const toggleGroup = event.target.closest('.toggle-group');
+        toggleGroup.querySelectorAll('.toggle-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        event.target.classList.add('active');
+    }
+
+    // ========== Section Référentiels ==========
+    function searchLocalites() {
+        const search = document.getElementById('search_localite').value.toLowerCase();
+        const rows = document.querySelectorAll('#localites_tbody tr');
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(search) ? '' : 'none';
+        });
+    }
+
+    function openLocaliteModal() {
+        alert('Modal Localité - À implémenter');
+    }
+
+    function editLocalite(id) {
+        alert('Modifier localité ' + id + ' - À implémenter');
+    }
+
+    function importLocalites(input) {
+        importData('localites', input);
+    }
+
+    function openTauxLegalModal() {
+        alert('Modal Taux Légal - À implémenter');
+    }
+
+    function editTauxLegal(id) {
+        alert('Modifier taux ' + id + ' - À implémenter');
+    }
+
+    function openTypeActeModal() {
+        alert('Modal Type Acte - À implémenter');
+    }
+
+    function editTypeActe(id) {
+        alert('Modifier type acte ' + id + ' - À implémenter');
+    }
+
+    function openJuridictionModal() {
+        alert('Modal Juridiction - À implémenter');
+    }
+
+    function editJuridiction(id) {
+        alert('Modifier juridiction ' + id + ' - À implémenter');
     }
 </script>
 {% endblock %}
