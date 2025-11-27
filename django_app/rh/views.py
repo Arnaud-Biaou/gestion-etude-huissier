@@ -36,21 +36,21 @@ def get_default_context(request):
 
     modules = [
         # Principal
-        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard', 'category': 'principal', 'url': ''},
-        {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'principal', 'url': 'dossiers'},
-        {'id': 'facturation', 'label': 'Facturation', 'icon': 'file-text', 'category': 'principal', 'url': 'facturation'},
-        {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'principal', 'url': 'calcul'},
+        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard', 'category': 'principal', 'url': 'gestion:dashboard'},
+        {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'principal', 'url': 'gestion:dossiers'},
+        {'id': 'facturation', 'label': 'Facturation', 'icon': 'file-text', 'category': 'principal', 'url': 'gestion:facturation'},
+        {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'principal', 'url': 'gestion:calcul'},
         # Finance
-        {'id': 'tresorerie', 'label': 'Tresorerie', 'icon': 'wallet', 'category': 'finance', 'url': 'tresorerie'},
+        {'id': 'tresorerie', 'label': 'Tresorerie', 'icon': 'wallet', 'category': 'finance', 'url': 'gestion:tresorerie'},
         {'id': 'comptabilite', 'label': 'Comptabilite', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
         # Gestion
         {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
-        {'id': 'drive', 'label': 'Drive', 'icon': 'hard-drive', 'category': 'gestion', 'url': 'drive'},
-        {'id': 'gerance', 'label': 'Gerance Immobiliere', 'icon': 'building-2', 'category': 'gestion', 'url': 'gerance'},
-        {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda'},
+        {'id': 'drive', 'label': 'Drive', 'icon': 'hard-drive', 'category': 'gestion', 'url': 'gestion:drive'},
+        {'id': 'gerance', 'label': 'Gerance Immobiliere', 'icon': 'building-2', 'category': 'gestion', 'url': 'gestion:gerance'},
+        {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda:home'},
         # Admin
-        {'id': 'parametres', 'label': 'Parametres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres'},
-        {'id': 'securite', 'label': 'Securite & Acces', 'icon': 'shield', 'category': 'admin', 'url': 'securite'},
+        {'id': 'parametres', 'label': 'Parametres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres:index'},
+        {'id': 'securite', 'label': 'Securite & Acces', 'icon': 'shield', 'category': 'admin', 'url': 'gestion:securite'},
     ]
 
     return {

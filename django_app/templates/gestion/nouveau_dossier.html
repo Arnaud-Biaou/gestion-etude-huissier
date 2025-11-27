@@ -4,7 +4,7 @@
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">Création d'un nouveau dossier</h3>
-        <a href="{% url 'dossiers' %}" class="btn btn-secondary btn-sm">
+        <a href="{% url 'gestion:dossiers' %}" class="btn btn-secondary btn-sm">
             <i data-lucide="x"></i> Annuler
         </a>
     </div>
@@ -323,7 +323,7 @@
             updateStepper();
         } else {
             // Submit form
-            window.location.href = "{% url 'dossiers' %}";
+            window.location.href = "{% url 'gestion:dossiers' %}";
         }
     }
 
