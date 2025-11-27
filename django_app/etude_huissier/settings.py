@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "comptabilite",
     "rh",
     "documents",
+    "agenda",
 ]
 
 MIDDLEWARE = [
