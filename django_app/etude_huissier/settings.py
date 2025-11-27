@@ -141,7 +141,7 @@ AUTH_USER_MODEL = 'gestion.Utilisateur'
 
 # Authentication settings
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'gestion:dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Session settings
