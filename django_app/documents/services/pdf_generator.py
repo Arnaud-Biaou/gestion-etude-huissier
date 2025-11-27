@@ -40,23 +40,31 @@ except ImportError:
 class PDFGenerator:
     """Générateur de documents PDF professionnels"""
 
-    # Couleurs de l'étude
-    COLORS = {
-        'primary': colors.HexColor('#1a365d'),
-        'accent': colors.HexColor('#c6a962'),
-        'success': colors.HexColor('#2f855a'),
-        'warning': colors.HexColor('#c05621'),
-        'danger': colors.HexColor('#c53030'),
-        'text': colors.HexColor('#2d3748'),
-        'text_light': colors.HexColor('#718096'),
-        'border': colors.HexColor('#e2e8f0'),
-        'background': colors.HexColor('#f7fafc'),
-    }
+    # Couleurs de l'étude - initialisées dynamiquement pour éviter les erreurs d'import
+    COLORS = None
+
+    @classmethod
+    def _init_colors(cls):
+        """Initialise les couleurs si ReportLab est disponible"""
+        if cls.COLORS is None and REPORTLAB_AVAILABLE:
+            cls.COLORS = {
+                'primary': colors.HexColor('#1a365d'),
+                'accent': colors.HexColor('#c6a962'),
+                'success': colors.HexColor('#2f855a'),
+                'warning': colors.HexColor('#c05621'),
+                'danger': colors.HexColor('#c53030'),
+                'text': colors.HexColor('#2d3748'),
+                'text_light': colors.HexColor('#718096'),
+                'border': colors.HexColor('#e2e8f0'),
+                'background': colors.HexColor('#f7fafc'),
+            }
+        return cls.COLORS
 
     def __init__(self, config=None):
         """Initialise le générateur avec la configuration"""
+        self._init_colors()  # Initialiser les couleurs
         self.config = config or self._get_default_config()
-        self.styles = self._create_styles()
+        self.styles = self._create_styles() if REPORTLAB_AVAILABLE else None
 
     def _get_default_config(self):
         """Configuration par défaut"""
