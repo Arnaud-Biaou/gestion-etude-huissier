@@ -388,3 +388,937 @@ tr:hover { background: var(--neutral-50); }
 
 /* Results card purple bg fix */
 .result-card.purple { background: rgba(128, 90, 213, 0.12); }
+
+/* ============================================
+   MODULE RH - RESSOURCES HUMAINES
+   ============================================ */
+
+/* RH Page Layout */
+.rh-page { padding: 0; }
+
+/* RH Sub-navigation */
+.rh-subnav {
+  display: flex;
+  gap: 4px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--neutral-200);
+  flex-wrap: wrap;
+}
+
+.rh-subnav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-600);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.rh-subnav-item:hover {
+  background: var(--neutral-100);
+  color: var(--primary);
+}
+
+.rh-subnav-item.active {
+  background: var(--primary);
+  color: white;
+}
+
+.rh-subnav-item i, .rh-subnav-item svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* RH Dashboard Grid */
+.rh-dashboard { margin-top: 20px; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1200px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
+
+/* Grid layouts */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 992px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+
+/* Alert items for dashboard */
+.alerte-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: rgba(197, 48, 48, 0.05);
+  border-left: 3px solid var(--danger);
+  margin-bottom: 8px;
+}
+
+.alerte-item:last-child { margin-bottom: 0; }
+
+.alerte-item.warning {
+  background: rgba(192, 86, 33, 0.05);
+  border-left-color: var(--warning);
+}
+
+.alerte-item.info {
+  background: rgba(43, 108, 176, 0.05);
+  border-left-color: var(--info);
+}
+
+.alerte-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(197, 48, 48, 0.1);
+  color: var(--danger);
+}
+
+.alerte-item.warning .alerte-icon {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+.alerte-item.info .alerte-icon {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.alerte-icon i, .alerte-icon svg { width: 16px; height: 16px; }
+
+.alerte-content { flex: 1; }
+
+.alerte-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-800);
+  margin-bottom: 2px;
+}
+
+.alerte-desc {
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+/* Conge/Demande items */
+.conge-item, .demande-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+  margin-bottom: 8px;
+  border: 1px solid var(--neutral-200);
+}
+
+.conge-item:last-child, .demande-item:last-child { margin-bottom: 0; }
+
+.conge-item:hover, .demande-item:hover {
+  border-color: var(--neutral-300);
+}
+
+.demande-info, .conge-info { flex: 1; }
+
+.demande-employe, .conge-employe {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--neutral-800);
+}
+
+.demande-details, .conge-details {
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.demande-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Employee Avatar */
+.employe-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  flex-shrink: 0;
+}
+
+.employe-avatar.sm {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.employe-avatar.lg {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+
+.employe-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.employe-info { line-height: 1.3; }
+
+.employe-name {
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+.employe-matricule {
+  font-size: 11px;
+  color: var(--neutral-500);
+}
+
+/* Employee detail page */
+.employe-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  color: white;
+}
+
+.employe-header-info h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.employe-header-meta {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--neutral-500);
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: var(--neutral-800);
+  font-weight: 500;
+}
+
+/* Bulletin de paie */
+.bulletin-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.bulletin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--primary);
+  margin-bottom: 20px;
+}
+
+.bulletin-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+}
+
+.bulletin-periode {
+  font-size: 14px;
+  color: var(--neutral-600);
+  margin-top: 4px;
+}
+
+.bulletin-section {
+  margin-bottom: 24px;
+}
+
+.bulletin-section-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px;
+  background: var(--neutral-100);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.bulletin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bulletin-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--neutral-500);
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.bulletin-table td {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--neutral-100);
+}
+
+.bulletin-table .text-right { text-align: right; }
+
+.bulletin-table tfoot td {
+  font-weight: 700;
+  background: var(--neutral-50);
+  border-top: 2px solid var(--neutral-300);
+}
+
+.net-a-payer {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  text-align: right;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  border-radius: var(--radius-md);
+  margin-top: 20px;
+}
+
+.net-a-payer-label {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.net-a-payer-value {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+/* Recap cards */
+.recap-card {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.recap-card.gains {
+  background: rgba(47, 133, 90, 0.1);
+  border: 1px solid rgba(47, 133, 90, 0.2);
+}
+
+.recap-card.deductions {
+  background: rgba(197, 48, 48, 0.1);
+  border: 1px solid rgba(197, 48, 48, 0.2);
+}
+
+.recap-card.charges {
+  background: rgba(192, 86, 33, 0.1);
+  border: 1px solid rgba(192, 86, 33, 0.2);
+}
+
+.recap-card.net {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+}
+
+.recap-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.recap-card.gains .recap-label { color: var(--success); }
+.recap-card.deductions .recap-label { color: var(--danger); }
+.recap-card.charges .recap-label { color: var(--warning); }
+.recap-card.net .recap-label { opacity: 0.9; }
+
+.recap-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.recap-card.gains .recap-value { color: var(--success); }
+.recap-card.deductions .recap-value { color: var(--danger); }
+.recap-card.charges .recap-value { color: var(--warning); }
+
+/* Solde congés */
+.solde-conges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: var(--neutral-50);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.solde-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.solde-label {
+  font-size: 13px;
+  color: var(--neutral-500);
+}
+
+/* Echeance items */
+.echeance-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+  margin-bottom: 8px;
+  border: 1px solid var(--neutral-200);
+}
+
+.echeance-item:last-child { margin-bottom: 0; }
+
+.echeance-info { flex: 1; }
+
+.echeance-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+.echeance-date {
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.echeance-montant {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Legal constants */
+.legal-constants {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.constant-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--neutral-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+}
+
+.constant-label {
+  font-size: 13px;
+  color: var(--neutral-600);
+}
+
+.constant-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Rapport styles */
+.rapport-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--primary);
+}
+
+.rapport-header h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.rapport-header p {
+  font-size: 13px;
+  color: var(--neutral-600);
+  margin: 4px 0;
+}
+
+.rapport-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--neutral-200);
+  color: var(--neutral-500);
+  font-size: 12px;
+}
+
+/* Total row in tables */
+.total-row {
+  background: var(--neutral-100);
+  font-weight: 700;
+}
+
+.total-row td {
+  border-top: 2px solid var(--neutral-300);
+}
+
+/* Text alignment */
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+.text-muted { color: var(--neutral-500); }
+
+/* Additional status badges for RH */
+.status-badge.en_attente {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+.status-badge.approuve, .status-badge.approuvee {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.status-badge.refuse, .status-badge.refusee {
+  background: rgba(197, 48, 48, 0.1);
+  color: var(--danger);
+}
+
+.status-badge.en_cours {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.status-badge.termine, .status-badge.terminee {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--neutral-600);
+}
+
+.status-badge.suspendu {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+.status-badge.inactif {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--neutral-500);
+}
+
+.status-badge.conge {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.status-badge.valide {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.status-badge.calcule {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.status-badge.paye {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.status-badge.brouillon {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--neutral-500);
+}
+
+.status-badge.declaree {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.status-badge.en_preparation {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+/* Badge for contract types */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-CDI {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.badge-CDD {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.badge-stage {
+  background: rgba(198, 169, 98, 0.1);
+  color: var(--accent-dark);
+}
+
+.badge-apprentissage {
+  background: rgba(128, 90, 213, 0.1);
+  color: #805ad5;
+}
+
+.badge-temporaire {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+.badge-warning {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+.badge-success {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.badge-danger {
+  background: rgba(197, 48, 48, 0.1);
+  color: var(--danger);
+}
+
+.badge-info {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.badge-gain {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.badge-retenue {
+  background: rgba(197, 48, 48, 0.1);
+  color: var(--danger);
+}
+
+.badge-charge {
+  background: rgba(192, 86, 33, 0.1);
+  color: var(--warning);
+}
+
+.badge-salaire {
+  background: rgba(43, 108, 176, 0.1);
+  color: var(--info);
+}
+
+.badge-poste {
+  background: rgba(198, 169, 98, 0.1);
+  color: var(--accent-dark);
+}
+
+.badge-site {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--neutral-600);
+}
+
+.badge-categorie {
+  background: rgba(128, 90, 213, 0.1);
+  color: #805ad5;
+}
+
+.badge-renouvellement {
+  background: rgba(47, 133, 90, 0.1);
+  color: var(--success);
+}
+
+.badge-autre {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--neutral-600);
+}
+
+/* Actions cell */
+.actions-cell {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  margin-top: 16px;
+  border-top: 1px solid var(--neutral-200);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagination-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover {
+  background: var(--neutral-200);
+  color: var(--primary);
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--neutral-600);
+}
+
+/* Form helpers */
+.form-help {
+  font-size: 11px;
+  color: var(--neutral-500);
+  margin-top: 4px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--neutral-200);
+}
+
+/* Filters */
+.filters-form {
+  background: var(--neutral-50);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.filter-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neutral-600);
+  text-transform: uppercase;
+}
+
+/* Print button float */
+.card-header .btn { flex-shrink: 0; }
+
+/* Modal for RH */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal[style*="flex"] {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--neutral-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--neutral-500);
+  line-height: 1;
+}
+
+.modal-close:hover { color: var(--neutral-700); }
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--neutral-200);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Chart container */
+.chart-container {
+  position: relative;
+  height: 250px;
+}
+
+/* Liste styles */
+.liste-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--neutral-100);
+}
+
+.liste-item:last-child { border-bottom: none; }
+
+/* Table bordered */
+.table-bordered {
+  border: 1px solid var(--neutral-200);
+}
+
+.table-bordered th,
+.table-bordered td {
+  border: 1px solid var(--neutral-200);
+}
+
+/* Table sm */
+.table-sm th,
+.table-sm td {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+/* RH Print styles */
+@media print {
+  .rh-subnav { display: none !important; }
+  .rh-page { padding: 0; }
+
+  .bulletin-container {
+    max-width: 100%;
+    box-shadow: none;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+}

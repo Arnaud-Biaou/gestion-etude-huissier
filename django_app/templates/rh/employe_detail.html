@@ -1,0 +1,645 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item active">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{% url 'rh:employes' %}"><i data-lucide="arrow-left"></i> Retour à la liste</a>
+    </div>
+
+    <!-- En-tête employé -->
+    <div class="employe-header-card">
+        <div class="employe-header-main">
+            <div class="employe-avatar-large">
+                {% if employe.photo %}
+                <img src="{{ employe.photo.url }}" alt="{{ employe.get_nom_complet }}">
+                {% else %}
+                {{ employe.get_initiales }}
+                {% endif %}
+            </div>
+            <div class="employe-header-info">
+                <h1 class="employe-name">{{ employe.get_nom_complet }}</h1>
+                <p class="employe-poste">{{ employe.poste.libelle|default:"Non défini" }}</p>
+                <div class="employe-badges">
+                    <span class="status-badge {{ employe.statut }}">{{ employe.get_statut_display }}</span>
+                    <span class="badge badge-{{ employe.type_contrat }}">{{ employe.get_type_contrat_display }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="employe-header-stats">
+            <div class="employe-stat">
+                <div class="stat-value">{{ employe.matricule }}</div>
+                <div class="stat-label">Matricule</div>
+            </div>
+            <div class="employe-stat">
+                <div class="stat-value">{{ employe.anciennete_annees }} ans</div>
+                <div class="stat-label">Ancienneté</div>
+            </div>
+            <div class="employe-stat">
+                <div class="stat-value">{{ employe.salaire_base|floatformat:0 }} F</div>
+                <div class="stat-label">Salaire de base</div>
+            </div>
+            <div class="employe-stat">
+                <div class="stat-value">{{ employe.jours_conges_annuels }} j</div>
+                <div class="stat-label">Congés/an</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onglets -->
+    <div class="tabs-container">
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('infos')">Informations</button>
+            <button class="tab" onclick="showTab('contrats')">Contrats</button>
+            <button class="tab" onclick="showTab('paie')">Paie</button>
+            <button class="tab" onclick="showTab('conges')">Congés & Absences</button>
+            <button class="tab" onclick="showTab('prets')">Prêts</button>
+            <button class="tab" onclick="showTab('carriere')">Carrière</button>
+            <button class="tab" onclick="showTab('documents')">Documents</button>
+        </div>
+    </div>
+
+    <!-- Contenu des onglets -->
+    <div id="tab-infos" class="tab-content active">
+        <div class="grid-2">
+            <!-- Informations personnelles -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="user"></i> Informations personnelles</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Date de naissance</span>
+                            <span class="info-value">{{ employe.date_naissance|date:"d/m/Y" }} ({{ employe.age }} ans)</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Lieu de naissance</span>
+                            <span class="info-value">{{ employe.lieu_naissance }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Sexe</span>
+                            <span class="info-value">{{ employe.get_sexe_display }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Nationalité</span>
+                            <span class="info-value">{{ employe.nationalite }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Situation matrimoniale</span>
+                            <span class="info-value">{{ employe.get_situation_matrimoniale_display }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Enfants à charge</span>
+                            <span class="info-value">{{ employe.nombre_enfants }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">N° CNI/Passeport</span>
+                            <span class="info-value">{{ employe.numero_cni|default:"-" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="phone"></i> Contacts</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item full-width">
+                            <span class="info-label">Adresse</span>
+                            <span class="info-value">{{ employe.adresse }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Téléphone</span>
+                            <span class="info-value">{{ employe.telephone }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Téléphone secondaire</span>
+                            <span class="info-value">{{ employe.telephone_secondaire|default:"-" }}</span>
+                        </div>
+                        <div class="info-item full-width">
+                            <span class="info-label">Email</span>
+                            <span class="info-value">{{ employe.email|default:"-" }}</span>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+                    <h4>Contact d'urgence</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Nom</span>
+                            <span class="info-value">{{ employe.contact_urgence_nom|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Téléphone</span>
+                            <span class="info-value">{{ employe.contact_urgence_telephone|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Relation</span>
+                            <span class="info-value">{{ employe.contact_urgence_relation|default:"-" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations professionnelles -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="briefcase"></i> Informations professionnelles</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Date d'embauche</span>
+                            <span class="info-value">{{ employe.date_embauche|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Type de contrat</span>
+                            <span class="info-value">{{ employe.get_type_contrat_display }}</span>
+                        </div>
+                        {% if employe.date_fin_contrat %}
+                        <div class="info-item">
+                            <span class="info-label">Date fin contrat</span>
+                            <span class="info-value">{{ employe.date_fin_contrat|date:"d/m/Y" }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <span class="info-label">Catégorie</span>
+                            <span class="info-value">{{ employe.categorie|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Poste</span>
+                            <span class="info-value">{{ employe.poste|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Site</span>
+                            <span class="info-value">{{ employe.site|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Supérieur</span>
+                            <span class="info-value">{{ employe.superieur.get_nom_complet|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Prime ancienneté</span>
+                            <span class="info-value">{{ employe.prime_anciennete_taux }}% ({{ employe.prime_anciennete_montant|floatformat:0 }} F)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations légales et bancaires -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="file-text"></i> Informations légales</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">N° CNSS</span>
+                            <span class="info-value">{{ employe.numero_cnss|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">N° IFU</span>
+                            <span class="info-value">{{ employe.numero_ifu|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">N° CIP</span>
+                            <span class="info-value">{{ employe.numero_cip|default:"-" }}</span>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+                    <h4>Coordonnées bancaires</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Banque</span>
+                            <span class="info-value">{{ employe.banque|default:"-" }}</span>
+                        </div>
+                        <div class="info-item full-width">
+                            <span class="info-label">RIB</span>
+                            <span class="info-value">{{ employe.rib_complet|default:"-" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-contrats" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="file-signature"></i> Historique des contrats</h3>
+            </div>
+            <div class="card-body">
+                {% if contrats %}
+                <div class="timeline">
+                    {% for contrat in contrats %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker {% if contrat.statut == 'actif' %}active{% endif %}"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-header">
+                                <strong>{{ contrat.reference }}</strong>
+                                <span class="status-badge {{ contrat.statut }}">{{ contrat.get_statut_display }}</span>
+                            </div>
+                            <div class="timeline-body">
+                                <p><strong>{{ contrat.get_type_contrat_display }}</strong> - {{ contrat.poste.libelle }}</p>
+                                <p>Du {{ contrat.date_debut|date:"d/m/Y" }}{% if contrat.date_fin %} au {{ contrat.date_fin|date:"d/m/Y" }}{% endif %}</p>
+                                <p>Salaire: {{ contrat.salaire_base|floatformat:0 }} FCFA</p>
+                                {% if contrat.est_en_periode_essai %}
+                                <p class="text-warning"><i data-lucide="clock"></i> Période d'essai jusqu'au {{ contrat.date_fin_essai|date:"d/m/Y" }}</p>
+                                {% endif %}
+                            </div>
+                            {% if contrat.avenants.count > 0 %}
+                            <div class="timeline-avenants">
+                                <strong>Avenants:</strong>
+                                {% for avenant in contrat.avenants.all %}
+                                <div class="avenant-item">
+                                    {{ avenant.reference }} - {{ avenant.get_type_avenant_display }} ({{ avenant.date_effet|date:"d/m/Y" }})
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun contrat enregistré</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-paie" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="banknote"></i> Bulletins de paie</h3>
+            </div>
+            <div class="card-body">
+                {% if bulletins %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Référence</th>
+                                <th>Période</th>
+                                <th>Brut</th>
+                                <th>CNSS</th>
+                                <th>IPTS</th>
+                                <th>Net</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bulletin in bulletins %}
+                            <tr>
+                                <td>{{ bulletin.reference }}</td>
+                                <td>{{ bulletin.periode }}</td>
+                                <td>{{ bulletin.salaire_brut|floatformat:0 }}</td>
+                                <td>{{ bulletin.cnss_salariale|floatformat:0 }}</td>
+                                <td>{{ bulletin.ipts|floatformat:0 }}</td>
+                                <td><strong>{{ bulletin.net_a_payer|floatformat:0 }}</strong></td>
+                                <td><span class="status-badge {{ bulletin.statut }}">{{ bulletin.get_statut_display }}</span></td>
+                                <td>
+                                    <a href="{% url 'rh:detail_bulletin' bulletin.id %}" class="btn btn-sm btn-secondary">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    <a href="{% url 'rh:imprimer_bulletin' bulletin.id %}" class="btn btn-sm btn-secondary" target="_blank">
+                                        <i data-lucide="printer"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun bulletin de paie</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-conges" class="tab-content">
+        <div class="grid-2">
+            <!-- Solde congés -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="calendar"></i> Solde de congés {{ year }}</h3>
+                </div>
+                <div class="card-body">
+                    {% if solde_conges %}
+                    <div class="solde-conges">
+                        <div class="solde-item">
+                            <span class="solde-value">{{ solde_conges.jours_acquis }}</span>
+                            <span class="solde-label">Jours acquis</span>
+                        </div>
+                        <div class="solde-item">
+                            <span class="solde-value">{{ solde_conges.jours_reportes }}</span>
+                            <span class="solde-label">Jours reportés</span>
+                        </div>
+                        <div class="solde-item">
+                            <span class="solde-value text-danger">-{{ solde_conges.jours_pris }}</span>
+                            <span class="solde-label">Jours pris</span>
+                        </div>
+                        <div class="solde-item solde-total">
+                            <span class="solde-value">{{ solde_conges.solde_disponible }}</span>
+                            <span class="solde-label">Solde disponible</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Aucun solde enregistré</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Historique absences -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="user-x"></i> Absences récentes</h3>
+                </div>
+                <div class="card-body">
+                    {% if absences %}
+                    <div class="absences-list">
+                        {% for absence in absences %}
+                        <div class="absence-item">
+                            <div class="absence-type">{{ absence.type_absence.libelle }}</div>
+                            <div class="absence-dates">{{ absence.date_debut|date:"d/m" }} - {{ absence.date_fin|date:"d/m/Y" }}</div>
+                            <div class="absence-jours">{{ absence.nombre_jours }} j</div>
+                            {% if absence.justifie %}
+                            <span class="badge badge-success">Justifiée</span>
+                            {% else %}
+                            <span class="badge badge-danger">Non justifiée</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Aucune absence</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Historique congés -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="palm-tree"></i> Historique des congés</h3>
+            </div>
+            <div class="card-body">
+                {% if conges %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Début</th>
+                                <th>Fin</th>
+                                <th>Jours</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for conge in conges %}
+                            <tr>
+                                <td>{{ conge.type_conge.libelle }}</td>
+                                <td>{{ conge.date_debut|date:"d/m/Y" }}</td>
+                                <td>{{ conge.date_fin|date:"d/m/Y" }}</td>
+                                <td>{{ conge.nombre_jours }}</td>
+                                <td><span class="status-badge {{ conge.statut }}">{{ conge.get_statut_display }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun congé</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-prets" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="wallet"></i> Prêts et avances</h3>
+            </div>
+            <div class="card-body">
+                {% if prets %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Référence</th>
+                                <th>Type</th>
+                                <th>Montant</th>
+                                <th>Remboursé</th>
+                                <th>Reste</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pret in prets %}
+                            <tr>
+                                <td>{{ pret.reference }}</td>
+                                <td>{{ pret.get_type_pret_display }}</td>
+                                <td>{{ pret.montant|floatformat:0 }} F</td>
+                                <td>{{ pret.montant_rembourse|floatformat:0 }} F</td>
+                                <td><strong>{{ pret.solde_restant|floatformat:0 }} F</strong></td>
+                                <td><span class="status-badge {{ pret.statut }}">{{ pret.get_statut_display }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun prêt ou avance</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-carriere" class="tab-content">
+        <div class="grid-2">
+            <!-- Évaluations -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="star"></i> Évaluations</h3>
+                </div>
+                <div class="card-body">
+                    {% if evaluations %}
+                    {% for evaluation in evaluations %}
+                    <div class="evaluation-item">
+                        <div class="evaluation-header">
+                            <span>{{ evaluation.date_evaluation|date:"d/m/Y" }}</span>
+                            {% if evaluation.note_globale %}
+                            <span class="note-badge">{{ evaluation.note_globale }}/20</span>
+                            {% endif %}
+                        </div>
+                        <div class="evaluation-body">
+                            <p>Évaluateur: {{ evaluation.evaluateur.get_nom_complet|default:"Non défini" }}</p>
+                            <p>Statut: <span class="status-badge {{ evaluation.statut }}">{{ evaluation.get_statut_display }}</span></p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">Aucune évaluation</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Formations -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i data-lucide="graduation-cap"></i> Formations suivies</h3>
+                </div>
+                <div class="card-body">
+                    {% if formations %}
+                    {% for participation in formations %}
+                    <div class="formation-item">
+                        <div class="formation-title">{{ participation.formation.intitule }}</div>
+                        <div class="formation-details">
+                            {{ participation.formation.date_debut|date:"d/m/Y" }} - {{ participation.formation.date_fin|date:"d/m/Y" }}
+                        </div>
+                        <span class="status-badge {{ participation.statut }}">{{ participation.get_statut_display }}</span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">Aucune formation</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sanctions -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="alert-triangle"></i> Sanctions</h3>
+            </div>
+            <div class="card-body">
+                {% if sanctions %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Motif</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sanction in sanctions %}
+                            <tr>
+                                <td>{{ sanction.date_faits|date:"d/m/Y" }}</td>
+                                <td>{{ sanction.type_sanction.libelle }}</td>
+                                <td>{{ sanction.motif|truncatewords:10 }}</td>
+                                <td><span class="status-badge {{ sanction.statut }}">{{ sanction.get_statut_display }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune sanction</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-documents" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="folder"></i> Documents archivés</h3>
+                <button class="btn btn-primary" onclick="ouvrirUploadDocument()">
+                    <i data-lucide="upload"></i> Ajouter un document
+                </button>
+            </div>
+            <div class="card-body">
+                {% if documents %}
+                <div class="documents-grid">
+                    {% for doc in documents %}
+                    <div class="document-card">
+                        <div class="document-icon">
+                            <i data-lucide="file"></i>
+                        </div>
+                        <div class="document-info">
+                            <div class="document-title">{{ doc.titre }}</div>
+                            <div class="document-type">{{ doc.get_type_document_display }}</div>
+                            <div class="document-date">{{ doc.date_upload|date:"d/m/Y" }}</div>
+                        </div>
+                        <a href="{{ doc.fichier.url }}" class="btn btn-sm btn-secondary" target="_blank">
+                            <i data-lucide="download"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun document</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function showTab(tabName) {
+        // Masquer tous les contenus
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Afficher le contenu sélectionné
+        document.getElementById('tab-' + tabName).classList.add('active');
+        event.target.classList.add('active');
+
+        lucide.createIcons();
+    }
+
+    function ouvrirUploadDocument() {
+        alert('Fonctionnalité à implémenter');
+    }
+</script>
+{% endblock %}

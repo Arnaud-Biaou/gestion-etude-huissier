@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .rh-subnav, .topbar, .sidebar, .chatbot-container, .no-print { display: none !important; }
+        .main-content { margin: 0 !important; padding: 0 !important; }
+        .card { box-shadow: none !important; border: 1px solid #ddd; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <div class="rh-subnav no-print">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="book-open"></i> Registre de l'employeur
+            </h3>
+            <button class="btn btn-secondary no-print" onclick="window.print()">
+                <i data-lucide="printer"></i> Imprimer
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="rapport-header">
+                <h2>{{ config.nom_entreprise }}</h2>
+                <p>{{ config.adresse_entreprise }}</p>
+                <p>N° CNSS Employeur: {{ config.numero_cnss_employeur }} | N° IFU: {{ config.numero_ifu_employeur }}</p>
+            </div>
+
+            <h3 class="mt-4">Liste du personnel</h3>
+
+            <div class="table-container">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>N°</th>
+                            <th>Matricule</th>
+                            <th>Nom et Prénoms</th>
+                            <th>Date naissance</th>
+                            <th>N° CNSS</th>
+                            <th>Date embauche</th>
+                            <th>Poste</th>
+                            <th>Type contrat</th>
+                            <th>Salaire base</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employe in employes %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ employe.matricule }}</td>
+                            <td>{{ employe.get_nom_complet }}</td>
+                            <td>{{ employe.date_naissance|date:"d/m/Y" }}</td>
+                            <td>{{ employe.numero_cnss|default:"-" }}</td>
+                            <td>{{ employe.date_embauche|date:"d/m/Y" }}</td>
+                            <td>{{ employe.poste|default:"-" }}</td>
+                            <td>{{ employe.get_type_contrat_display }}</td>
+                            <td>{{ employe.salaire_base|floatformat:0 }}</td>
+                            <td>{{ employe.get_statut_display }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center">Aucun employé</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="rapport-footer mt-4">
+                <p>Document généré le {% now "d/m/Y à H:i" %}</p>
+                <p>Total employés: {{ employes.count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>lucide.createIcons();</script>
+{% endblock %}

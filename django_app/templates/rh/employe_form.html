@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item active">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{% url 'rh:employes' %}"><i data-lucide="arrow-left"></i> Retour à la liste</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="user-plus"></i> {{ page_title }}
+            </h3>
+        </div>
+        <div class="card-body">
+            <form id="formEmploye" class="form-employe">
+                <input type="hidden" id="employe_id" name="id" value="">
+
+                <!-- Section 1: Informations personnelles -->
+                <div class="form-section">
+                    <h4 class="form-section-title"><i data-lucide="user"></i> Informations personnelles</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Matricule</label>
+                            <input type="text" id="matricule" class="form-input" value="{{ prochain_matricule }}" readonly>
+                            <small class="form-help">Généré automatiquement</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Nom</label>
+                            <input type="text" id="nom" name="nom" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Prénoms</label>
+                            <input type="text" id="prenoms" name="prenoms" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Date de naissance</label>
+                            <input type="date" id="date_naissance" name="date_naissance" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Lieu de naissance</label>
+                            <input type="text" id="lieu_naissance" name="lieu_naissance" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Sexe</label>
+                            <select id="sexe" name="sexe" class="form-select" required>
+                                {% for code, label in sexes %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Nationalité</label>
+                            <input type="text" id="nationalite" name="nationalite" class="form-input" value="Béninoise">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Situation matrimoniale</label>
+                            <select id="situation_matrimoniale" name="situation_matrimoniale" class="form-select">
+                                {% for code, label in situations_matrimoniales %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Enfants à charge</label>
+                            <input type="number" id="nombre_enfants" name="nombre_enfants" class="form-input" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">N° CNI/Passeport</label>
+                            <input type="text" id="numero_cni" name="numero_cni" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Contacts -->
+                <div class="form-section">
+                    <h4 class="form-section-title"><i data-lucide="phone"></i> Contacts</h4>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label class="form-label required">Adresse complète</label>
+                            <textarea id="adresse" name="adresse" class="form-textarea" rows="2" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Téléphone</label>
+                            <input type="tel" id="telephone" name="telephone" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Téléphone secondaire</label>
+                            <input type="tel" id="telephone_secondaire" name="telephone_secondaire" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="email" name="email" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Contact d'urgence -->
+                <div class="form-section">
+                    <h4 class="form-section-title"><i data-lucide="alert-circle"></i> Contact d'urgence</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Nom</label>
+                            <input type="text" id="contact_urgence_nom" name="contact_urgence_nom" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" id="contact_urgence_telephone" name="contact_urgence_telephone" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lien de parenté</label>
+                            <input type="text" id="contact_urgence_relation" name="contact_urgence_relation" class="form-input" placeholder="Ex: Père, Mère, Conjoint...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Informations professionnelles -->
+                <div class="form-section">
+                    <h4 class="form-section-title"><i data-lucide="briefcase"></i> Informations professionnelles</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label required">Date d'embauche</label>
+                            <input type="date" id="date_embauche" name="date_embauche" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Type de contrat</label>
+                            <select id="type_contrat" name="type_contrat" class="form-select" required onchange="toggleDateFin()">
+                                {% for code, label in types_contrat %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group" id="groupe_date_fin" style="display:none;">
+                            <label class="form-label required">Date de fin (CDD)</label>
+                            <input type="date" id="date_fin_contrat" name="date_fin_contrat" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Catégorie professionnelle</label>
+                            <select id="categorie" name="categorie" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.code }} - {{ cat.libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Poste/Fonction</label>
+                            <select id="poste" name="poste" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                {% for p in postes %}
+                                <option value="{{ p.id }}">{{ p.libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Site d'affectation</label>
+                            <select id="site" name="site" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                {% for s in sites %}
+                                <option value="{{ s.id }}">{{ s.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Supérieur hiérarchique</label>
+                            <select id="superieur" name="superieur" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                {% for sup in superieurs %}
+                                <option value="{{ sup.id }}">{{ sup.get_nom_complet }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Salaire de base (FCFA)</label>
+                            <input type="number" id="salaire_base" name="salaire_base" class="form-input" required min="52000" value="52000">
+                            <small class="form-help">Minimum: 52 000 FCFA (SMIG)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Informations légales -->
+                <div class="form-section">
+                    <h4 class="form-section-title"><i data-lucide="file-text"></i> Informations légales</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">N° CNSS</label>
+                            <input type="text" id="numero_cnss" name="numero_cnss" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">N° IFU</label>
+                            <input type="text" id="numero_ifu" name="numero_ifu" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">N° CIP</label>
+                            <input type="text" id="numero_cip" name="numero_cip" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Coordonnées bancaires -->
+                <div class="form-section">
+                    <h4 class="form-section-title"><i data-lucide="credit-card"></i> Coordonnées bancaires</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Banque</label>
+                            <input type="text" id="banque" name="banque" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Code banque</label>
+                            <input type="text" id="rib_code_banque" name="rib_code_banque" class="form-input" maxlength="10">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Code guichet</label>
+                            <input type="text" id="rib_code_guichet" name="rib_code_guichet" class="form-input" maxlength="10">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">N° compte</label>
+                            <input type="text" id="rib_numero_compte" name="rib_numero_compte" class="form-input" maxlength="30">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Clé RIB</label>
+                            <input type="text" id="rib_cle" name="rib_cle" class="form-input" maxlength="5">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="form-actions">
+                    <a href="{% url 'rh:employes' %}" class="btn btn-secondary">Annuler</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function toggleDateFin() {
+        const typeContrat = document.getElementById('type_contrat').value;
+        const groupeDateFin = document.getElementById('groupe_date_fin');
+        const dateFin = document.getElementById('date_fin_contrat');
+
+        if (typeContrat === 'cdd' || typeContrat === 'stage' || typeContrat === 'apprentissage') {
+            groupeDateFin.style.display = 'block';
+            dateFin.required = true;
+        } else {
+            groupeDateFin.style.display = 'none';
+            dateFin.required = false;
+        }
+    }
+
+    document.getElementById('formEmploye').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = {
+            id: document.getElementById('employe_id').value || null,
+            nom: document.getElementById('nom').value,
+            prenoms: document.getElementById('prenoms').value,
+            date_naissance: document.getElementById('date_naissance').value,
+            lieu_naissance: document.getElementById('lieu_naissance').value,
+            sexe: document.getElementById('sexe').value,
+            nationalite: document.getElementById('nationalite').value,
+            situation_matrimoniale: document.getElementById('situation_matrimoniale').value,
+            nombre_enfants: document.getElementById('nombre_enfants').value,
+            numero_cni: document.getElementById('numero_cni').value,
+            adresse: document.getElementById('adresse').value,
+            telephone: document.getElementById('telephone').value,
+            telephone_secondaire: document.getElementById('telephone_secondaire').value,
+            email: document.getElementById('email').value,
+            contact_urgence_nom: document.getElementById('contact_urgence_nom').value,
+            contact_urgence_telephone: document.getElementById('contact_urgence_telephone').value,
+            contact_urgence_relation: document.getElementById('contact_urgence_relation').value,
+            date_embauche: document.getElementById('date_embauche').value,
+            type_contrat: document.getElementById('type_contrat').value,
+            date_fin_contrat: document.getElementById('date_fin_contrat').value || null,
+            categorie: document.getElementById('categorie').value || null,
+            poste: document.getElementById('poste').value || null,
+            site: document.getElementById('site').value || null,
+            superieur: document.getElementById('superieur').value || null,
+            salaire_base: document.getElementById('salaire_base').value,
+            numero_cnss: document.getElementById('numero_cnss').value,
+            numero_ifu: document.getElementById('numero_ifu').value,
+            numero_cip: document.getElementById('numero_cip').value,
+            banque: document.getElementById('banque').value,
+            rib_code_banque: document.getElementById('rib_code_banque').value,
+            rib_code_guichet: document.getElementById('rib_code_guichet').value,
+            rib_numero_compte: document.getElementById('rib_numero_compte').value,
+            rib_cle: document.getElementById('rib_cle').value,
+        };
+
+        fetch('{% url "rh:sauvegarder_employe" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = '{% url "rh:employes" %}';
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error);
+        });
+    });
+
+    // Initialisation
+    toggleDateFin();
+</script>
+{% endblock %}

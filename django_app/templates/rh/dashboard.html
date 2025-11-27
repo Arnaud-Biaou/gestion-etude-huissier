@@ -1,0 +1,404 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-dashboard">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item {% if active_submenu == 'dashboard' %}active{% endif %}">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item {% if active_submenu == 'employes' %}active{% endif %}">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item {% if active_submenu == 'contrats' %}active{% endif %}">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item {% if active_submenu == 'paie' %}active{% endif %}">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item {% if active_submenu == 'conges' %}active{% endif %}">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item {% if active_submenu == 'absences' %}active{% endif %}">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item {% if active_submenu == 'declarations' %}active{% endif %}">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item {% if active_submenu == 'configuration' %}active{% endif %}">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques principales -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="users"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_employes }}</div>
+                <div class="stat-label">Employés actifs</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="file-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.employes_cdi }}</div>
+                <div class="stat-label">Contrats CDI</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="clock"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.employes_cdd }}</div>
+                <div class="stat-label">Contrats CDD</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="palm-tree"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.en_conge }}</div>
+                <div class="stat-label">En congé</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Masse salariale -->
+    <div class="card masse-salariale-card">
+        <div class="card-body">
+            <div class="masse-salariale-content">
+                <div class="masse-salariale-icon">
+                    <i data-lucide="wallet"></i>
+                </div>
+                <div class="masse-salariale-info">
+                    <div class="masse-salariale-label">Masse salariale du mois</div>
+                    <div class="masse-salariale-value">{{ masse_salariale|floatformat:0 }} FCFA</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Alertes et rappels -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="bell"></i> Alertes et rappels
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if alertes %}
+                <div class="alertes-list">
+                    {% for alerte in alertes %}
+                    <div class="alerte-item alerte-{{ alerte.type }}">
+                        <div class="alerte-icon">
+                            <i data-lucide="{{ alerte.icon }}"></i>
+                        </div>
+                        <div class="alerte-content">
+                            <div class="alerte-message">{{ alerte.message }}</div>
+                            <div class="alerte-date">{{ alerte.date|date:"d/m/Y" }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune alerte pour le moment</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Demandes de congés en attente -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="clock"></i> Congés en attente
+                </h3>
+                <a href="{% url 'rh:conges' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+            </div>
+            <div class="card-body">
+                {% if conges_en_attente %}
+                <div class="conges-list">
+                    {% for conge in conges_en_attente %}
+                    <div class="conge-item">
+                        <div class="conge-employe">
+                            <div class="employe-avatar">{{ conge.employe.get_initiales }}</div>
+                            <div class="employe-info">
+                                <div class="employe-nom">{{ conge.employe.get_nom_complet }}</div>
+                                <div class="employe-poste">{{ conge.type_conge.libelle }}</div>
+                            </div>
+                        </div>
+                        <div class="conge-details">
+                            <div class="conge-dates">{{ conge.date_debut|date:"d/m" }} - {{ conge.date_fin|date:"d/m" }}</div>
+                            <div class="conge-jours">{{ conge.nombre_jours }} jours</div>
+                        </div>
+                        <div class="conge-actions">
+                            <button class="btn btn-sm btn-success" onclick="approuverConge({{ conge.id }})">
+                                <i data-lucide="check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="refuserConge({{ conge.id }})">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune demande en attente</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2 mt-4">
+        <!-- Derniers bulletins de paie -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="file-text"></i> Derniers bulletins
+                </h3>
+                <a href="{% url 'rh:paie' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+            </div>
+            <div class="card-body">
+                {% if derniers_bulletins %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employé</th>
+                                <th>Période</th>
+                                <th>Net</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bulletin in derniers_bulletins %}
+                            <tr>
+                                <td>{{ bulletin.employe.get_nom_complet }}</td>
+                                <td>{{ bulletin.periode }}</td>
+                                <td>{{ bulletin.net_a_payer|floatformat:0 }} F</td>
+                                <td>
+                                    <span class="status-badge {{ bulletin.statut }}">
+                                        {{ bulletin.get_statut_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun bulletin</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Répartition par type de contrat -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="pie-chart"></i> Répartition des contrats
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="chartContrats"></canvas>
+                </div>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: var(--primary)"></span>
+                        <span>CDI ({{ repartition_contrats.data.0 }})</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: var(--accent)"></span>
+                        <span>CDD ({{ repartition_contrats.data.1 }})</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: var(--success)"></span>
+                        <span>Stage ({{ repartition_contrats.data.2 }})</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: var(--warning)"></span>
+                        <span>Apprentissage ({{ repartition_contrats.data.3 }})</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="zap"></i> Actions rapides
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="quick-actions">
+                <a href="{% url 'rh:nouveau_employe' %}" class="quick-action-btn">
+                    <i data-lucide="user-plus"></i>
+                    <span>Nouvel employé</span>
+                </a>
+                <button class="quick-action-btn" onclick="ouvrirModalPaie()">
+                    <i data-lucide="calculator"></i>
+                    <span>Générer la paie</span>
+                </button>
+                <a href="{% url 'rh:conges' %}" class="quick-action-btn">
+                    <i data-lucide="calendar-plus"></i>
+                    <span>Nouvelle demande congé</span>
+                </a>
+                <a href="{% url 'rh:declarations' %}" class="quick-action-btn">
+                    <i data-lucide="file-plus"></i>
+                    <span>Nouvelle déclaration</span>
+                </a>
+                <a href="{% url 'rh:registre_employeur' %}" class="quick-action-btn">
+                    <i data-lucide="book-open"></i>
+                    <span>Registre employeur</span>
+                </a>
+                <a href="{% url 'rh:livre_paie' %}" class="quick-action-btn">
+                    <i data-lucide="file-spreadsheet"></i>
+                    <span>Livre de paie</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Génération Paie -->
+<div class="modal" id="modalPaie" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Générer les bulletins de paie</h3>
+            <button class="modal-close" onclick="fermerModalPaie()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Cette action va générer les bulletins de paie pour tous les employés actifs.</p>
+            <p class="text-warning"><i data-lucide="alert-triangle"></i> Les bulletins existants ne seront pas écrasés.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalPaie()">Annuler</button>
+            <button class="btn btn-primary" onclick="genererBulletins()">Générer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Graphique répartition des contrats
+    const ctx = document.getElementById('chartContrats');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ repartition_contrats.labels|safe }},
+                datasets: [{
+                    data: {{ repartition_contrats.data|safe }},
+                    backgroundColor: [
+                        '#1a365d',
+                        '#c6a962',
+                        '#2f855a',
+                        '#c05621'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    // Approbation/refus congés
+    function approuverConge(congeId) {
+        fetch(`{% url 'rh:approuver_conge' 0 %}`.replace('0', congeId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({action: 'approuver'})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function refuserConge(congeId) {
+        const motif = prompt('Motif du refus:');
+        if (motif === null) return;
+
+        fetch(`{% url 'rh:approuver_conge' 0 %}`.replace('0', congeId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({action: 'refuser', motif_refus: motif})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    // Modal paie
+    function ouvrirModalPaie() {
+        document.getElementById('modalPaie').style.display = 'flex';
+    }
+
+    function fermerModalPaie() {
+        document.getElementById('modalPaie').style.display = 'none';
+    }
+
+    function genererBulletins() {
+        fetch('{% url "rh:generer_bulletins" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                fermerModalPaie();
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    // Réinitialiser les icônes Lucide
+    lucide.createIcons();
+</script>
+{% endblock %}

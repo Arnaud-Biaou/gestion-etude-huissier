@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulletin de paie - {{ bulletin.reference }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            background: white;
+        }
+
+        .bulletin {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 15mm;
+            background: white;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #1a365d;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .header-left h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 18px;
+            color: #1a365d;
+            margin-bottom: 5px;
+        }
+
+        .header-left p {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .header-right h2 {
+            font-size: 16px;
+            color: #1a365d;
+            margin-bottom: 5px;
+        }
+
+        .periode {
+            font-size: 12px;
+            color: #c6a962;
+            font-weight: 600;
+        }
+
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .info-box {
+            width: 48%;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            font-size: 11px;
+            color: #1a365d;
+            border-bottom: 1px solid #1a365d;
+            padding-bottom: 3px;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            margin-bottom: 3px;
+        }
+
+        .info-box strong {
+            color: #1a365d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 5px 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #1a365d;
+            color: white;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .section-title {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #1a365d;
+        }
+
+        .total-row {
+            background: #e8f4f8;
+            font-weight: 600;
+        }
+
+        .net-row {
+            background: #1a365d;
+            color: white;
+            font-size: 13px;
+        }
+
+        .charges-patronales {
+            background: #fff8e7;
+            border: 1px solid #c6a962;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .charges-patronales h3 {
+            font-size: 11px;
+            color: #a68b3d;
+            margin-bottom: 8px;
+        }
+
+        .cumuls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .cumul-item {
+            text-align: center;
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            flex: 1;
+            margin: 0 5px;
+        }
+
+        .cumul-item:first-child {
+            margin-left: 0;
+        }
+
+        .cumul-item:last-child {
+            margin-right: 0;
+        }
+
+        .cumul-label {
+            font-size: 9px;
+            color: #666;
+        }
+
+        .cumul-value {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1a365d;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .signature-box {
+            width: 45%;
+            text-align: center;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-top: 40px;
+            padding-top: 5px;
+        }
+
+        .legal-notice {
+            font-size: 9px;
+            color: #666;
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
+
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+
+            .bulletin {
+                padding: 10mm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bulletin">
+        <div class="header">
+            <div class="header-left">
+                <h1>{{ config.nom_entreprise }}</h1>
+                <p>{{ config.adresse_entreprise }}</p>
+                <p>Tél: {{ config.telephone_entreprise }}</p>
+                <p>N° CNSS: {{ config.numero_cnss_employeur }} | N° IFU: {{ config.numero_ifu_employeur }}</p>
+            </div>
+            <div class="header-right">
+                <h2>BULLETIN DE PAIE</h2>
+                <p class="periode">{{ bulletin.periode }}</p>
+                <p>N° {{ bulletin.reference }}</p>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-box">
+                <h3>EMPLOYÉ</h3>
+                <p><strong>{{ bulletin.employe.get_nom_complet }}</strong></p>
+                <p>Matricule: {{ bulletin.employe.matricule }}</p>
+                <p>N° CNSS: {{ bulletin.employe.numero_cnss|default:"-" }}</p>
+                <p>Poste: {{ bulletin.employe.poste|default:"-" }}</p>
+                <p>Catégorie: {{ bulletin.employe.categorie|default:"-" }}</p>
+            </div>
+            <div class="info-box">
+                <h3>ÉLÉMENTS DE BASE</h3>
+                <p>Date d'embauche: {{ bulletin.employe.date_embauche|date:"d/m/Y" }}</p>
+                <p>Ancienneté: {{ bulletin.employe.anciennete_annees }} an(s)</p>
+                <p>Jours travaillés: {{ bulletin.jours_travailles }}</p>
+                <p>Jours d'absence: {{ bulletin.jours_absence }}</p>
+                <p>Heures sup.: {{ bulletin.heures_supplementaires }}h</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th width="40%">Libellé</th>
+                    <th width="20%" class="text-right">Base</th>
+                    <th width="15%" class="text-right">Taux</th>
+                    <th width="25%" class="text-right">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- GAINS -->
+                <tr class="section-title">
+                    <td colspan="4">GAINS</td>
+                </tr>
+                <tr>
+                    <td>Salaire de base</td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                    <td class="text-right">{{ bulletin.salaire_base|floatformat:0 }}</td>
+                </tr>
+                <tr>
+                    <td>Prime d'ancienneté</td>
+                    <td class="text-right">{{ bulletin.salaire_base|floatformat:0 }}</td>
+                    <td class="text-right">{{ bulletin.employe.prime_anciennete_taux }}%</td>
+                    <td class="text-right">{{ bulletin.employe.prime_anciennete_montant|floatformat:0 }}</td>
+                </tr>
+                {% for ligne in lignes %}
+                {% if ligne.element.type_element == 'gain' %}
+                <tr>
+                    <td>{{ ligne.libelle }}</td>
+                    <td class="text-right">{{ ligne.base|floatformat:0|default:"" }}</td>
+                    <td class="text-right">{% if ligne.taux %}{{ ligne.taux }}%{% endif %}</td>
+                    <td class="text-right">{{ ligne.montant|floatformat:0 }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="3"><strong>TOTAL GAINS (SALAIRE BRUT)</strong></td>
+                    <td class="text-right"><strong>{{ bulletin.salaire_brut|floatformat:0 }}</strong></td>
+                </tr>
+
+                <!-- RETENUES -->
+                <tr class="section-title">
+                    <td colspan="4">RETENUES</td>
+                </tr>
+                <tr>
+                    <td>CNSS Salariale (Vieillesse)</td>
+                    <td class="text-right">{{ bulletin.base_cotisable|floatformat:0 }}</td>
+                    <td class="text-right">3,6%</td>
+                    <td class="text-right">{{ bulletin.cnss_salariale|floatformat:0 }}</td>
+                </tr>
+                <tr>
+                    <td>IPTS (Impôt sur salaire)</td>
+                    <td class="text-right">{{ bulletin.base_imposable|floatformat:0 }}</td>
+                    <td class="text-right">Barème</td>
+                    <td class="text-right">{{ bulletin.ipts|floatformat:0 }}</td>
+                </tr>
+                {% for ligne in lignes %}
+                {% if ligne.element.type_element == 'retenue' %}
+                <tr>
+                    <td>{{ ligne.libelle }}</td>
+                    <td class="text-right">{{ ligne.base|floatformat:0|default:"" }}</td>
+                    <td class="text-right">{% if ligne.taux %}{{ ligne.taux }}%{% endif %}</td>
+                    <td class="text-right">{{ ligne.montant|floatformat:0 }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="3"><strong>TOTAL RETENUES</strong></td>
+                    <td class="text-right"><strong>{{ bulletin.total_retenues|floatformat:0 }}</strong></td>
+                </tr>
+
+                <!-- NET À PAYER -->
+                <tr class="net-row">
+                    <td colspan="3"><strong>NET À PAYER</strong></td>
+                    <td class="text-right"><strong>{{ bulletin.net_a_payer|floatformat:0 }} FCFA</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="charges-patronales">
+            <h3>CHARGES PATRONALES (Information)</h3>
+            <table>
+                <tr>
+                    <td>CNSS Patronale (Vieillesse + PF + AT)</td>
+                    <td class="text-right">{{ bulletin.base_cotisable|floatformat:0 }}</td>
+                    <td class="text-right">~15,4%</td>
+                    <td class="text-right">{{ bulletin.cnss_patronale|floatformat:0 }}</td>
+                </tr>
+                <tr>
+                    <td>VPS (Versement Patronal sur Salaires)</td>
+                    <td class="text-right">{{ bulletin.salaire_brut|floatformat:0 }}</td>
+                    <td class="text-right">4%</td>
+                    <td class="text-right">{{ bulletin.vps|floatformat:0 }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="cumuls">
+            <div class="cumul-item">
+                <div class="cumul-label">Cumul brut</div>
+                <div class="cumul-value">{{ bulletin.cumul_brut|floatformat:0 }}</div>
+            </div>
+            <div class="cumul-item">
+                <div class="cumul-label">Cumul CNSS</div>
+                <div class="cumul-value">{{ bulletin.cumul_cnss|floatformat:0 }}</div>
+            </div>
+            <div class="cumul-item">
+                <div class="cumul-label">Cumul IPTS</div>
+                <div class="cumul-value">{{ bulletin.cumul_ipts|floatformat:0 }}</div>
+            </div>
+            <div class="cumul-item">
+                <div class="cumul-label">Cumul net</div>
+                <div class="cumul-value">{{ bulletin.cumul_net|floatformat:0 }}</div>
+            </div>
+        </div>
+
+        <div class="info-box" style="width: 100%; margin-bottom: 15px;">
+            <h3>MODE DE PAIEMENT</h3>
+            <p>{{ bulletin.get_mode_paiement_display }}{% if bulletin.employe.banque %} - {{ bulletin.employe.banque }}{% endif %}</p>
+            {% if bulletin.employe.rib_complet %}<p>RIB: {{ bulletin.employe.rib_complet }}</p>{% endif %}
+            {% if bulletin.date_paiement %}<p>Date de paiement: {{ bulletin.date_paiement|date:"d/m/Y" }}</p>{% endif %}
+        </div>
+
+        <div class="footer">
+            <div class="signature-box">
+                <p>L'employeur</p>
+                <div class="signature-line">Signature et cachet</div>
+            </div>
+            <div class="signature-box">
+                <p>L'employé(e)</p>
+                <div class="signature-line">Signature</div>
+            </div>
+        </div>
+
+        <div class="legal-notice">
+            Ce bulletin de paie est établi conformément au Code du travail de la République du Bénin.<br>
+            À conserver sans limitation de durée - Plafond CNSS: 600 000 FCFA/mois
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            window.print();
+        };
+    </script>
+</body>
+</html>
