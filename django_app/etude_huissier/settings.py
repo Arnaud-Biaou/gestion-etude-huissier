@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "documents",
     "agenda",
     "parametres",
+    "tresorerie",
+    "gerance",
 ]
 
 MIDDLEWARE = [

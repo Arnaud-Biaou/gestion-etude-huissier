@@ -27,6 +27,8 @@ urlpatterns = [
     path("documents/", include("documents.urls")),
     path("agenda/", include("agenda.urls")),
     path("parametres/", include("parametres.urls")),
+    path("tresorerie/", include("tresorerie.urls")),
+    path("gerance/", include("gerance.urls")),
     path("", include("gestion.urls")),
 ]
 

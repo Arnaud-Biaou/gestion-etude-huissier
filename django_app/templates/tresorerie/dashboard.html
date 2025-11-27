@@ -1,0 +1,997 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item current">Trésorerie</span>
+{% endblock %}
+
+{% block content %}
+<div class="tresorerie-container">
+    <!-- En-tête avec stats -->
+    <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon info">
+                    <i data-lucide="wallet"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Solde total</div>
+                    <div class="stat-value">{{ solde_total|floatformat:0 }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon success">
+                    <i data-lucide="trending-up"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Entrées du mois</div>
+                    <div class="stat-value success">+{{ entrees_mois|floatformat:0 }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon danger">
+                    <i data-lucide="trending-down"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Sorties du mois</div>
+                    <div class="stat-value danger">-{{ sorties_mois|floatformat:0 }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon {% if solde_mois >= 0 %}accent{% else %}danger{% endif %}">
+                    <i data-lucide="scale"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Solde du mois</div>
+                    <div class="stat-value {% if solde_mois >= 0 %}accent{% else %}danger{% endif %}">
+                        {% if solde_mois >= 0 %}+{% endif %}{{ solde_mois|floatformat:0 }} XOF
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+        <!-- Comptes bancaires -->
+        <div class="card col-span-2">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="landmark"></i>
+                    Comptes bancaires
+                </h3>
+                <button class="btn btn-primary btn-sm" onclick="ouvrirModalCompte()">
+                    <i data-lucide="plus"></i>
+                    Nouveau compte
+                </button>
+            </div>
+            <div class="card-body">
+                {% if comptes %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Compte</th>
+                            <th>Banque</th>
+                            <th>Type</th>
+                            <th class="text-right">Solde</th>
+                            <th class="text-center">Statut</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compte in comptes %}
+                        <tr>
+                            <td>
+                                <div class="compte-info">
+                                    <strong>{{ compte.nom }}</strong>
+                                    <small>{{ compte.numero }}</small>
+                                </div>
+                            </td>
+                            <td>{{ compte.banque }}</td>
+                            <td>
+                                <span class="badge badge-{% if compte.type_compte == 'sequestre' %}warning{% elif compte.type_compte == 'caisse' %}info{% else %}default{% endif %}">
+                                    {{ compte.get_type_compte_display }}
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <span class="{% if compte.solde_actuel < compte.seuil_alerte %}text-danger{% else %}text-success{% endif %}">
+                                    {{ compte.solde_actuel|floatformat:0 }} XOF
+                                </span>
+                                {% if compte.solde_actuel < compte.seuil_alerte %}
+                                <i data-lucide="alert-triangle" class="text-danger" style="width: 16px; height: 16px;"></i>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="status-badge status-{{ compte.statut }}">
+                                    {{ compte.get_statut_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-icon btn-sm" onclick="voirCompte('{{ compte.id }}')" title="Voir détails">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i data-lucide="landmark"></i>
+                    <p>Aucun compte bancaire configuré</p>
+                    <button class="btn btn-primary" onclick="ouvrirModalCompte()">
+                        <i data-lucide="plus"></i>
+                        Ajouter un compte
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Alertes -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="bell"></i>
+                    Alertes
+                </h3>
+                <span class="badge badge-danger">{{ alertes|length }}</span>
+            </div>
+            <div class="card-body">
+                {% if alertes %}
+                <div class="alertes-list">
+                    {% for alerte in alertes %}
+                    <div class="alerte-item alerte-{{ alerte.niveau }}">
+                        <div class="alerte-icon">
+                            <i data-lucide="{% if alerte.niveau == 'danger' %}alert-circle{% elif alerte.niveau == 'warning' %}alert-triangle{% else %}info{% endif %}"></i>
+                        </div>
+                        <div class="alerte-content">
+                            <div class="alerte-type">{{ alerte.get_type_alerte_display }}</div>
+                            <div class="alerte-message">{{ alerte.message }}</div>
+                            <div class="alerte-date">{{ alerte.cree_le|date:"d/m/Y H:i" }}</div>
+                        </div>
+                        <button class="btn btn-icon btn-sm" onclick="marquerAlerteLue('{{ alerte.id }}')">
+                            <i data-lucide="check"></i>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state small">
+                    <i data-lucide="check-circle"></i>
+                    <p>Aucune alerte en cours</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Derniers mouvements et Prévisions -->
+    <div class="grid grid-cols-2 gap-4 mt-4">
+        <!-- Derniers mouvements -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="list"></i>
+                    Derniers mouvements
+                </h3>
+                <a href="{% url 'tresorerie:mouvements' %}" class="btn btn-outline btn-sm">
+                    Voir tout
+                </a>
+            </div>
+            <div class="card-body">
+                {% if derniers_mouvements %}
+                <div class="mouvements-list">
+                    {% for mvt in derniers_mouvements %}
+                    <div class="mouvement-item">
+                        <div class="mouvement-icon {% if mvt.type_mouvement == 'entree' %}success{% else %}danger{% endif %}">
+                            <i data-lucide="{% if mvt.type_mouvement == 'entree' %}arrow-down-left{% else %}arrow-up-right{% endif %}"></i>
+                        </div>
+                        <div class="mouvement-details">
+                            <div class="mouvement-libelle">{{ mvt.libelle }}</div>
+                            <div class="mouvement-meta">
+                                <span>{{ mvt.compte.nom }}</span>
+                                <span>{{ mvt.date_mouvement|date:"d/m/Y" }}</span>
+                            </div>
+                        </div>
+                        <div class="mouvement-montant {% if mvt.type_mouvement == 'entree' %}success{% else %}danger{% endif %}">
+                            {% if mvt.type_mouvement == 'entree' %}+{% else %}-{% endif %}{{ mvt.montant|floatformat:0 }} XOF
+                        </div>
+                        <div class="mouvement-statut">
+                            <span class="status-badge status-{{ mvt.statut }}">{{ mvt.get_statut_display }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state small">
+                    <i data-lucide="inbox"></i>
+                    <p>Aucun mouvement enregistré</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Prévisions à venir -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="calendar"></i>
+                    Prévisions à venir
+                </h3>
+                <a href="{% url 'tresorerie:previsions' %}" class="btn btn-outline btn-sm">
+                    Gérer
+                </a>
+            </div>
+            <div class="card-body">
+                {% if previsions %}
+                <div class="previsions-list">
+                    {% for prev in previsions %}
+                    <div class="prevision-item">
+                        <div class="prevision-date">
+                            <div class="date-jour">{{ prev.date_prevue|date:"d" }}</div>
+                            <div class="date-mois">{{ prev.date_prevue|date:"M" }}</div>
+                        </div>
+                        <div class="prevision-details">
+                            <div class="prevision-libelle">{{ prev.libelle }}</div>
+                            <div class="prevision-compte">{{ prev.compte.nom }}</div>
+                        </div>
+                        <div class="prevision-montant {% if prev.type_prevision == 'entree' %}success{% else %}danger{% endif %}">
+                            {% if prev.type_prevision == 'entree' %}+{% else %}-{% endif %}{{ prev.montant|floatformat:0 }} XOF
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state small">
+                    <i data-lucide="calendar-x"></i>
+                    <p>Aucune prévision à venir</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="zap"></i>
+                Actions rapides
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="quick-actions">
+                <button class="quick-action-btn" onclick="ouvrirModalMouvement('entree')">
+                    <div class="action-icon success">
+                        <i data-lucide="plus-circle"></i>
+                    </div>
+                    <span>Nouvelle entrée</span>
+                </button>
+                <button class="quick-action-btn" onclick="ouvrirModalMouvement('sortie')">
+                    <div class="action-icon danger">
+                        <i data-lucide="minus-circle"></i>
+                    </div>
+                    <span>Nouvelle sortie</span>
+                </button>
+                <button class="quick-action-btn" onclick="ouvrirModalVirement()">
+                    <div class="action-icon info">
+                        <i data-lucide="repeat"></i>
+                    </div>
+                    <span>Virement interne</span>
+                </button>
+                <a href="{% url 'tresorerie:rapprochements' %}" class="quick-action-btn">
+                    <div class="action-icon warning">
+                        <i data-lucide="check-square"></i>
+                    </div>
+                    <span>Rapprochement</span>
+                </a>
+                <button class="quick-action-btn" onclick="exporterReleve()">
+                    <div class="action-icon default">
+                        <i data-lucide="download"></i>
+                    </div>
+                    <span>Exporter relevé</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouveau Mouvement -->
+<div class="modal" id="modalMouvement">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalMouvementTitre">Nouveau mouvement</h3>
+            <button class="modal-close" onclick="fermerModal('modalMouvement')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formMouvement">
+                <input type="hidden" id="mvt_type" name="type_mouvement" value="entree">
+
+                <div class="form-group">
+                    <label class="form-label">Compte</label>
+                    <select id="mvt_compte" name="compte_id" class="form-select" required>
+                        {% for compte in comptes %}
+                        <option value="{{ compte.id }}">{{ compte.nom }} - {{ compte.banque }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Montant (XOF)</label>
+                        <input type="number" id="mvt_montant" name="montant" class="form-input" required min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" id="mvt_date" name="date_mouvement" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé</label>
+                    <input type="text" id="mvt_libelle" name="libelle" class="form-input" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Catégorie</label>
+                        <select id="mvt_categorie" name="categorie" class="form-select">
+                            <option value="encaissement">Encaissement client</option>
+                            <option value="reversement">Reversement créancier</option>
+                            <option value="honoraires">Honoraires</option>
+                            <option value="frais_acte">Frais d'acte</option>
+                            <option value="salaire">Salaire</option>
+                            <option value="loyer">Loyer</option>
+                            <option value="charges">Charges</option>
+                            <option value="impot">Impôt et taxes</option>
+                            <option value="fournitures">Fournitures</option>
+                            <option value="transport">Transport</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mode de paiement</label>
+                        <select id="mvt_mode" name="mode_paiement" class="form-select">
+                            <option value="especes">Espèces</option>
+                            <option value="cheque">Chèque</option>
+                            <option value="virement">Virement</option>
+                            <option value="carte">Carte bancaire</option>
+                            <option value="mobile_money">Mobile Money</option>
+                            <option value="prelevement">Prélèvement</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tiers</label>
+                        <input type="text" id="mvt_tiers" name="tiers" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Référence</label>
+                        <input type="text" id="mvt_reference" name="reference" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea id="mvt_notes" name="notes" class="form-textarea" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalMouvement')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderMouvement()">
+                <i data-lucide="save"></i>
+                Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouveau Compte -->
+<div class="modal" id="modalCompte">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouveau compte bancaire</h3>
+            <button class="modal-close" onclick="fermerModal('modalCompte')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formCompte">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Nom du compte</label>
+                        <input type="text" id="cpt_nom" name="nom" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type de compte</label>
+                        <select id="cpt_type" name="type_compte" class="form-select">
+                            <option value="courant">Compte Courant</option>
+                            <option value="epargne">Compte Épargne</option>
+                            <option value="sequestre">Compte Séquestre</option>
+                            <option value="caisse">Caisse</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Banque</label>
+                        <input type="text" id="cpt_banque" name="banque" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Numéro de compte</label>
+                        <input type="text" id="cpt_numero" name="numero" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">IBAN</label>
+                        <input type="text" id="cpt_iban" name="iban" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">BIC</label>
+                        <input type="text" id="cpt_bic" name="bic" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Solde initial (XOF)</label>
+                        <input type="number" id="cpt_solde" name="solde_initial" class="form-input" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Seuil d'alerte (XOF)</label>
+                        <input type="number" id="cpt_seuil" name="seuil_alerte" class="form-input" value="100000" min="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Contact banque</label>
+                    <input type="text" id="cpt_contact" name="contact_banque" class="form-input">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalCompte')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderCompte()">
+                <i data-lucide="save"></i>
+                Créer le compte
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.tresorerie-container {
+    max-width: 100%;
+}
+
+.compte-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.compte-info small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+.alertes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.alerte-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+    border-left: 3px solid;
+}
+
+.alerte-item.alerte-danger {
+    border-color: var(--danger);
+    background: #fef2f2;
+}
+
+.alerte-item.alerte-warning {
+    border-color: var(--warning);
+    background: #fffbeb;
+}
+
+.alerte-item.alerte-info {
+    border-color: var(--info);
+    background: #eff6ff;
+}
+
+.alerte-icon {
+    flex-shrink: 0;
+}
+
+.alerte-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.alerte-danger .alerte-icon {
+    color: var(--danger);
+}
+
+.alerte-warning .alerte-icon {
+    color: var(--warning);
+}
+
+.alerte-content {
+    flex: 1;
+}
+
+.alerte-type {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.alerte-message {
+    font-size: 0.875rem;
+    color: var(--neutral-600);
+    margin-top: 0.25rem;
+}
+
+.alerte-date {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+    margin-top: 0.25rem;
+}
+
+.mouvements-list, .previsions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mouvement-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+}
+
+.mouvement-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.mouvement-icon.success {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.mouvement-icon.danger {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.mouvement-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.mouvement-details {
+    flex: 1;
+}
+
+.mouvement-libelle {
+    font-weight: 500;
+}
+
+.mouvement-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.mouvement-montant {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.mouvement-montant.success {
+    color: var(--success);
+}
+
+.mouvement-montant.danger {
+    color: var(--danger);
+}
+
+.prevision-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+}
+
+.prevision-date {
+    width: 50px;
+    text-align: center;
+    background: var(--primary-50);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.date-jour {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.date-mois {
+    font-size: 0.75rem;
+    color: var(--primary);
+    text-transform: uppercase;
+}
+
+.prevision-details {
+    flex: 1;
+}
+
+.prevision-libelle {
+    font-weight: 500;
+}
+
+.prevision-compte {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.prevision-montant {
+    font-weight: 600;
+}
+
+.prevision-montant.success {
+    color: var(--success);
+}
+
+.prevision-montant.danger {
+    color: var(--danger);
+}
+
+.quick-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    background: var(--neutral-50);
+    border: 1px solid var(--neutral-200);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+}
+
+.quick-action-btn:hover {
+    background: var(--neutral-100);
+    border-color: var(--neutral-300);
+    transform: translateY(-2px);
+}
+
+.action-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-icon.success {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.action-icon.danger {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.action-icon.info {
+    background: #dbeafe;
+    color: var(--info);
+}
+
+.action-icon.warning {
+    background: #fef3c7;
+    color: var(--warning);
+}
+
+.action-icon.default {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.action-icon i {
+    width: 24px;
+    height: 24px;
+}
+
+.quick-action-btn span {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Status badges */
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-en_attente {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-valide {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-annule {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-rapproche {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-actif {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-inactif {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.75rem;
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.modal-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--neutral-500);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.empty-state.small {
+    padding: 2rem 1rem;
+}
+
+.empty-state.small i {
+    width: 32px;
+    height: 32px;
+}
+
+.empty-state.small p {
+    font-size: 0.875rem;
+}
+
+.text-success {
+    color: var(--success);
+}
+
+.text-danger {
+    color: var(--danger);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Initialiser la date du jour
+    document.getElementById('mvt_date').valueAsDate = new Date();
+
+    function ouvrirModalMouvement(type) {
+        document.getElementById('mvt_type').value = type;
+        document.getElementById('modalMouvementTitre').textContent =
+            type === 'entree' ? 'Nouvelle entrée' : 'Nouvelle sortie';
+        document.getElementById('modalMouvement').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function ouvrirModalCompte() {
+        document.getElementById('modalCompte').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function ouvrirModalVirement() {
+        alert('Fonctionnalité de virement interne à implémenter');
+    }
+
+    function fermerModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+    }
+
+    function sauvegarderMouvement() {
+        const form = document.getElementById('formMouvement');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "tresorerie:api_creer_mouvement" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Mouvement créé avec succès');
+                fermerModal('modalMouvement');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la création du mouvement');
+            console.error(error);
+        });
+    }
+
+    function sauvegarderCompte() {
+        const form = document.getElementById('formCompte');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "tresorerie:api_creer_compte" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Compte créé avec succès');
+                fermerModal('modalCompte');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la création du compte');
+            console.error(error);
+        });
+    }
+
+    function marquerAlerteLue(alerteId) {
+        fetch(`/tresorerie/api/alertes/${alerteId}/lue/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            }
+        });
+    }
+
+    function voirCompte(compteId) {
+        window.location.href = '{% url "tresorerie:comptes" %}?compte=' + compteId;
+    }
+
+    function exporterReleve() {
+        alert('Export du relevé à implémenter');
+    }
+
+    // Fermer modal en cliquant à l'extérieur
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+</script>
+{% endblock %}
