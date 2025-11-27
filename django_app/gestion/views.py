@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -9,17 +9,21 @@ from django.core.paginator import Paginator
 from datetime import datetime, timedelta
 from decimal import Decimal
 import json
+import csv
+import hashlib
+import random
+import string
 
 from .models import (
     Dossier, Facture, Collaborateur, Partie, ActeProcedure,
-    HistoriqueCalcul, TauxLegal, Utilisateur
+    HistoriqueCalcul, TauxLegal, Utilisateur, LigneFacture
 )
 
 
-# Données par défaut pour le contexte (simulant les données React)
+# Donnees par defaut pour le contexte (simulant les donnees React)
 def get_default_context(request):
-    """Contexte par défaut pour tous les templates"""
-    # Utilisateur courant simulé
+    """Contexte par defaut pour tous les templates"""
+    # Utilisateur courant simule
     current_user = {
         'id': 1,
         'nom': 'BIAOU Martial Arnaud',
@@ -38,18 +42,18 @@ def get_default_context(request):
         {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
         {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh'},
         {'id': 'drive', 'label': 'Drive', 'icon': 'hard-drive', 'category': 'gestion', 'url': 'drive'},
-        {'id': 'gerance', 'label': 'Gérance Immobilière', 'icon': 'building-2', 'category': 'gestion', 'url': 'gerance'},
+        {'id': 'gerance', 'label': 'Gerance Immobiliere', 'icon': 'building-2', 'category': 'gestion', 'url': 'gerance'},
         {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda'},
-        {'id': 'parametres', 'label': 'Paramètres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres'},
-        {'id': 'securite', 'label': 'Sécurité & Accès', 'icon': 'shield', 'category': 'admin', 'url': 'securite'},
+        {'id': 'parametres', 'label': 'Parametres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres'},
+        {'id': 'securite', 'label': 'Securite & Acces', 'icon': 'shield', 'category': 'admin', 'url': 'securite'},
     ]
 
-    # Collaborateurs par défaut
+    # Collaborateurs par defaut
     collaborateurs = [
         {'id': 1, 'nom': 'Me BIAOU Martial', 'role': 'Huissier'},
         {'id': 2, 'nom': 'ADJOVI Carine', 'role': 'Clerc Principal'},
         {'id': 3, 'nom': 'HOUNKPATIN Paul', 'role': 'Clerc'},
-        {'id': 4, 'nom': 'DOSSOU Marie', 'role': 'Secrétaire'},
+        {'id': 4, 'nom': 'DOSSOU Marie', 'role': 'Secretaire'},
     ]
 
     return {
@@ -66,12 +70,22 @@ def dashboard(request):
     context['active_module'] = 'dashboard'
     context['page_title'] = 'Tableau de bord'
 
-    # Statistiques
+    # Statistiques depuis la base de donnees
+    nb_dossiers = Dossier.objects.filter(statut='actif').count()
+    nb_urgents = Dossier.objects.filter(statut='urgent').count()
+
+    # Calcul du CA mensuel
+    debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    ca_mensuel = Facture.objects.filter(
+        date_emission__gte=debut_mois,
+        statut='payee'
+    ).aggregate(total=Sum('montant_ttc'))['total'] or 0
+
     context['stats'] = {
-        'dossiers_actifs': 127,
-        'ca_mensuel': '18,5 M',
+        'dossiers_actifs': nb_dossiers or 127,
+        'ca_mensuel': f"{ca_mensuel/1000000:.1f} M" if ca_mensuel >= 1000000 else f"{ca_mensuel:,.0f}",
         'actes_signifies': 89,
-        'urgents': 14,
+        'urgents': nb_urgents or 14,
     }
 
     return render(request, 'gestion/dashboard.html', context)
@@ -89,33 +103,54 @@ def dossiers(request):
     assigned_filter = request.GET.get('assigned', 'all')
     tab = request.GET.get('tab', 'all')
 
-    # Données de démonstration (comme dans React)
-    context['dossiers_list'] = [
-        {
-            'reference': '173_1125_MAB',
-            'intitule': 'SODECO SA C/ SOGEMA Sarl',
-            'type': 'Recouvrement',
-            'nature': 'contentieux',
-            'montant': '15 750 000',
-            'affecte_a': 'Me BIAOU',
-            'statut': 'actif',
-        },
-        {
-            'reference': '174_1125_MAB',
-            'intitule': 'Banque Atlantique C/ TECH SOLUTIONS',
-            'type': 'Recouvrement',
-            'nature': 'contentieux',
-            'montant': '8 500 000',
-            'affecte_a': 'ADJOVI Carine',
-            'statut': 'urgent',
-        },
-    ]
+    # Charger les dossiers depuis la base de donnees
+    dossiers_qs = Dossier.objects.all().order_by('-date_creation')
+
+    if tab == 'actifs':
+        dossiers_qs = dossiers_qs.filter(statut='actif')
+    elif tab == 'urgents':
+        dossiers_qs = dossiers_qs.filter(statut='urgent')
+    elif tab == 'archives':
+        dossiers_qs = dossiers_qs.filter(statut__in=['archive', 'cloture'])
+
+    # Donnees de demonstration si pas de dossiers en base
+    if not dossiers_qs.exists():
+        context['dossiers_list'] = [
+            {
+                'reference': '173_1125_MAB',
+                'intitule': 'SODECO SA C/ SOGEMA Sarl',
+                'type': 'Recouvrement',
+                'nature': 'contentieux',
+                'montant': '15 750 000',
+                'affecte_a': 'Me BIAOU',
+                'statut': 'actif',
+            },
+            {
+                'reference': '174_1125_MAB',
+                'intitule': 'Banque Atlantique C/ TECH SOLUTIONS',
+                'type': 'Recouvrement',
+                'nature': 'contentieux',
+                'montant': '8 500 000',
+                'affecte_a': 'ADJOVI Carine',
+                'statut': 'urgent',
+            },
+        ]
+    else:
+        context['dossiers_list'] = [{
+            'reference': d.reference,
+            'intitule': d.get_intitule(),
+            'type': d.get_type_dossier_display(),
+            'nature': 'contentieux' if d.is_contentieux else 'non-contentieux',
+            'montant': f"{d.montant_creance:,.0f}" if d.montant_creance else '-',
+            'affecte_a': d.affecte_a.nom if d.affecte_a else '-',
+            'statut': d.statut,
+        } for d in dossiers_qs[:50]]
 
     context['tabs'] = [
-        {'id': 'all', 'label': 'Tous', 'count': 127},
-        {'id': 'actifs', 'label': 'Actifs', 'count': 89},
-        {'id': 'urgents', 'label': 'Urgents', 'count': 14},
-        {'id': 'archives', 'label': 'Archivés', 'count': 24},
+        {'id': 'all', 'label': 'Tous', 'count': Dossier.objects.count() or 127},
+        {'id': 'actifs', 'label': 'Actifs', 'count': Dossier.objects.filter(statut='actif').count() or 89},
+        {'id': 'urgents', 'label': 'Urgents', 'count': Dossier.objects.filter(statut='urgent').count() or 14},
+        {'id': 'archives', 'label': 'Archives', 'count': Dossier.objects.filter(statut__in=['archive', 'cloture']).count() or 24},
     ]
     context['current_tab'] = tab
     context['filters'] = {
@@ -128,7 +163,7 @@ def dossiers(request):
 
 
 def nouveau_dossier(request):
-    """Vue pour créer un nouveau dossier"""
+    """Vue pour creer un nouveau dossier"""
     context = get_default_context(request)
     context['active_module'] = 'dossiers'
     context['page_title'] = 'Nouveau dossier'
@@ -136,11 +171,11 @@ def nouveau_dossier(request):
     if request.method == 'POST':
         # Traitement du formulaire
         data = request.POST
-        # Créer le dossier...
-        messages.success(request, 'Dossier créé avec succès!')
+        # Creer le dossier...
+        messages.success(request, 'Dossier cree avec succes!')
         return redirect('dossiers')
 
-    # Générer une nouvelle référence
+    # Generer une nouvelle reference
     context['reference'] = Dossier.generer_reference()
     context['types_dossier'] = Dossier.TYPE_DOSSIER_CHOICES
 
@@ -155,16 +190,128 @@ def facturation(request):
 
     tab = request.GET.get('tab', 'liste')
 
-    # Factures de démonstration
-    context['factures'] = [
-        {'id': 'FAC-2025-001', 'client': 'SODECO SA', 'montant_ht': 150000, 'tva': 27000, 'total': 177000, 'date': '15/11/2025', 'statut': 'payee'},
-        {'id': 'FAC-2025-002', 'client': 'SOGEMA Sarl', 'montant_ht': 85000, 'tva': 15300, 'total': 100300, 'date': '18/11/2025', 'statut': 'attente'},
-        {'id': 'FAC-2025-003', 'client': 'Banque Atlantique', 'montant_ht': 250000, 'tva': 45000, 'total': 295000, 'date': '20/11/2025', 'statut': 'attente'},
-    ]
+    # Charger les factures depuis la base de donnees
+    factures_qs = Facture.objects.all().select_related('dossier').prefetch_related('lignes').order_by('-date_emission')
+
+    factures_list = []
+    total_ht = 0
+    total_ttc = 0
+    nb_attente = 0
+
+    for f in factures_qs:
+        lignes = [{'description': l.description, 'quantite': l.quantite, 'prix_unitaire': float(l.prix_unitaire)} for l in f.lignes.all()]
+        facture_data = {
+            'id': f.id,
+            'numero': f.numero,
+            'client': f.client,
+            'ifu': f.ifu if hasattr(f, 'ifu') else '',
+            'montant_ht': float(f.montant_ht),
+            'tva': float(f.montant_tva),
+            'total': float(f.montant_ttc),
+            'date': f.date_emission.strftime('%d/%m/%Y'),
+            'date_emission': f.date_emission.strftime('%Y-%m-%d'),
+            'date_echeance': f.date_echeance.strftime('%Y-%m-%d') if f.date_echeance else '',
+            'statut': f.statut,
+            'mecef_numero': f.mecef_numero,
+            'mecef_qr': f.mecef_qr,
+            'nim': f.nim if hasattr(f, 'nim') else '',
+            'date_mecef': f.date_mecef.strftime('%d/%m/%Y') if hasattr(f, 'date_mecef') and f.date_mecef else '',
+            'dossier': f.dossier_id,
+            'observations': f.observations if hasattr(f, 'observations') else '',
+            'lignes': lignes
+        }
+        factures_list.append(facture_data)
+        total_ht += float(f.montant_ht)
+        total_ttc += float(f.montant_ttc)
+        if f.statut == 'attente':
+            nb_attente += 1
+
+    # Si pas de factures en base, utiliser des donnees de demo
+    if not factures_list:
+        factures_list = [
+            {
+                'id': 1,
+                'numero': 'FAC-2025-001',
+                'client': 'SODECO SA',
+                'ifu': '3201900001234',
+                'montant_ht': 150000,
+                'tva': 27000,
+                'total': 177000,
+                'date': '15/11/2025',
+                'date_emission': '2025-11-15',
+                'date_echeance': '2025-12-15',
+                'statut': 'payee',
+                'mecef_numero': 'MECeF-2025-00001',
+                'mecef_qr': '',
+                'nim': '1234567890',
+                'date_mecef': '15/11/2025',
+                'dossier': None,
+                'observations': '',
+                'lignes': [
+                    {'description': 'Commandement de payer', 'quantite': 1, 'prix_unitaire': 150000}
+                ]
+            },
+            {
+                'id': 2,
+                'numero': 'FAC-2025-002',
+                'client': 'SOGEMA Sarl',
+                'ifu': '',
+                'montant_ht': 85000,
+                'tva': 15300,
+                'total': 100300,
+                'date': '18/11/2025',
+                'date_emission': '2025-11-18',
+                'date_echeance': '2025-12-18',
+                'statut': 'attente',
+                'mecef_numero': '',
+                'mecef_qr': '',
+                'nim': '',
+                'date_mecef': '',
+                'dossier': None,
+                'observations': '',
+                'lignes': [
+                    {'description': 'Signification de titre executoire', 'quantite': 1, 'prix_unitaire': 85000}
+                ]
+            },
+            {
+                'id': 3,
+                'numero': 'FAC-2025-003',
+                'client': 'Banque Atlantique',
+                'ifu': '3201900005678',
+                'montant_ht': 250000,
+                'tva': 45000,
+                'total': 295000,
+                'date': '20/11/2025',
+                'date_emission': '2025-11-20',
+                'date_echeance': '2025-12-20',
+                'statut': 'attente',
+                'mecef_numero': '',
+                'mecef_qr': '',
+                'nim': '',
+                'date_mecef': '',
+                'dossier': None,
+                'observations': '',
+                'lignes': [
+                    {'description': 'PV de Saisie-Vente', 'quantite': 1, 'prix_unitaire': 250000}
+                ]
+            },
+        ]
+        total_ht = 485000
+        total_ttc = 572300
+        nb_attente = 2
+
+    context['factures'] = factures_list
+    context['factures_json'] = json.dumps(factures_list)
+    context['total_ht'] = total_ht
+    context['total_ttc'] = total_ttc
+    context['nb_attente'] = nb_attente
+
+    # Dossiers pour le select
+    context['dossiers'] = Dossier.objects.all().values('id', 'reference')[:100]
 
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},
-        {'id': 'memoires', 'label': 'Mémoires'},
+        {'id': 'memoires', 'label': 'Memoires'},
         {'id': 'mecef', 'label': 'MECeF'},
     ]
     context['current_tab'] = tab
@@ -178,28 +325,43 @@ def calcul_recouvrement(request):
     context['active_module'] = 'calcul'
     context['page_title'] = 'Calcul Recouvrement'
 
-    # Taux légaux UEMOA
-    context['taux_legaux'] = {
+    # Taux legaux UEMOA
+    context['taux_legaux'] = json.dumps({
         2010: 6.4800, 2011: 6.2500, 2012: 4.2500, 2013: 4.1141, 2014: 3.7274,
         2015: 3.5000, 2016: 3.5000, 2017: 3.5437, 2018: 4.5000, 2019: 4.5000,
         2020: 4.5000, 2021: 4.2391, 2022: 4.0000, 2023: 4.2205, 2024: 5.0336,
         2025: 5.5000
-    }
+    })
 
     # Catalogue des actes
     context['catalogue_actes'] = [
         {'id': 'cmd', 'label': 'Commandement de payer', 'tarif': 15000},
-        {'id': 'sign_titre', 'label': 'Signification de titre exécutoire', 'tarif': 10000},
+        {'id': 'sign_titre', 'label': 'Signification de titre executoire', 'tarif': 10000},
         {'id': 'pv_saisie', 'label': 'PV de Saisie-Vente', 'tarif': 25000},
         {'id': 'pv_carence', 'label': 'PV de Carence', 'tarif': 15000},
-        {'id': 'denonc', 'label': 'Dénonciation de saisie', 'tarif': 12000},
+        {'id': 'denonc', 'label': 'Denonciation de saisie', 'tarif': 12000},
         {'id': 'assign', 'label': 'Assignation', 'tarif': 20000},
         {'id': 'sign_ord', 'label': 'Signification Ordonnance', 'tarif': 10000},
         {'id': 'certif', 'label': 'Certificat de non recours', 'tarif': 5000},
-        {'id': 'mainlevee', 'label': 'Mainlevée', 'tarif': 15000},
+        {'id': 'mainlevee', 'label': 'Mainlevee', 'tarif': 15000},
         {'id': 'sommation', 'label': 'Sommation interpellative', 'tarif': 12000},
-        {'id': 'constat', 'label': 'Procès-verbal de constat', 'tarif': 30000},
+        {'id': 'constat', 'label': 'Proces-verbal de constat', 'tarif': 30000},
     ]
+
+    # Charger l'historique depuis la base
+    historique = []
+    historique_qs = HistoriqueCalcul.objects.all().order_by('-date_creation')[:20]
+    for h in historique_qs:
+        historique.append({
+            'id': h.id,
+            'nom': h.nom,
+            'mode': h.mode,
+            'total': float(h.total),
+            'date': h.date_creation.strftime('%d/%m/%Y %H:%M'),
+            'donnees': h.donnees,
+            'resultats': h.resultats,
+        })
+    context['historique'] = json.dumps(historique)
 
     return render(request, 'gestion/calcul_recouvrement.html', context)
 
@@ -220,12 +382,12 @@ def drive(request):
 
 
 def securite(request):
-    """Vue Sécurité & Accès"""
+    """Vue Securite & Acces"""
     context = get_default_context(request)
     context['active_module'] = 'securite'
-    context['page_title'] = 'Sécurité & Accès'
+    context['page_title'] = 'Securite & Acces'
 
-    # Utilisateurs avec leurs emails générés
+    # Utilisateurs avec leurs emails generes
     context['utilisateurs'] = []
     for collab in context['collaborateurs']:
         email = collab['nom'].lower().replace(' ', '.').replace('me ', '') + '@etude-biaou.bj'
@@ -239,7 +401,7 @@ def securite(request):
 
 
 def module_en_construction(request, module_name):
-    """Vue pour les modules non implémentés"""
+    """Vue pour les modules non implementes"""
     context = get_default_context(request)
     context['active_module'] = module_name
 
@@ -255,19 +417,216 @@ def module_en_construction(request, module_name):
 
 
 # ============================================
-# API ENDPOINTS (pour AJAX)
+# API ENDPOINTS FACTURATION
+# ============================================
+
+@require_POST
+def api_generer_numero_facture(request):
+    """API pour generer un numero de facture unique"""
+    try:
+        numero = Facture.generer_numero()
+        return JsonResponse({'success': True, 'numero': numero})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_sauvegarder_facture(request):
+    """API pour creer ou modifier une facture"""
+    try:
+        data = json.loads(request.body)
+
+        facture_id = data.get('id')
+        numero = data.get('numero')
+        date_emission = datetime.strptime(data.get('date_emission'), '%Y-%m-%d').date()
+        date_echeance = None
+        if data.get('date_echeance'):
+            date_echeance = datetime.strptime(data.get('date_echeance'), '%Y-%m-%d').date()
+        statut = data.get('statut', 'attente')
+        client = data.get('client')
+        ifu = data.get('ifu', '')
+        dossier_id = data.get('dossier') or None
+        observations = data.get('observations', '')
+        lignes = data.get('lignes', [])
+
+        # Calculer les totaux
+        montant_ht = sum(l.get('quantite', 1) * l.get('prix_unitaire', 0) for l in lignes)
+        montant_tva = montant_ht * Decimal('0.18')
+        montant_ttc = montant_ht + montant_tva
+
+        if facture_id:
+            # Modification
+            facture = get_object_or_404(Facture, id=facture_id)
+            facture.date_emission = date_emission
+            facture.date_echeance = date_echeance
+            facture.statut = statut
+            facture.client = client
+            facture.ifu = ifu
+            facture.dossier_id = dossier_id
+            facture.observations = observations
+            facture.montant_ht = montant_ht
+            facture.montant_tva = montant_tva
+            facture.montant_ttc = montant_ttc
+            facture.save()
+
+            # Supprimer les anciennes lignes et recreer
+            facture.lignes.all().delete()
+        else:
+            # Creation
+            facture = Facture.objects.create(
+                numero=numero,
+                date_emission=date_emission,
+                date_echeance=date_echeance,
+                statut=statut,
+                client=client,
+                ifu=ifu,
+                dossier_id=dossier_id,
+                observations=observations,
+                montant_ht=montant_ht,
+                montant_tva=montant_tva,
+                montant_ttc=montant_ttc,
+            )
+
+        # Creer les lignes
+        for ligne in lignes:
+            LigneFacture.objects.create(
+                facture=facture,
+                description=ligne.get('description', ''),
+                quantite=ligne.get('quantite', 1),
+                prix_unitaire=ligne.get('prix_unitaire', 0)
+            )
+
+        return JsonResponse({
+            'success': True,
+            'facture_id': facture.id,
+            'numero': facture.numero
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_supprimer_facture(request):
+    """API pour supprimer une facture"""
+    try:
+        data = json.loads(request.body)
+        facture_id = data.get('id')
+
+        facture = get_object_or_404(Facture, id=facture_id)
+
+        # Verifier si la facture est normalisee
+        if facture.mecef_numero:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de supprimer une facture normalisee MECeF'
+            }, status=400)
+
+        facture.delete()
+        return JsonResponse({'success': True})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_normaliser_mecef(request):
+    """API pour normaliser une facture avec MECeF"""
+    try:
+        data = json.loads(request.body)
+        facture_id = data.get('id')
+
+        facture = get_object_or_404(Facture, id=facture_id)
+
+        if facture.mecef_numero:
+            return JsonResponse({
+                'success': False,
+                'error': 'Cette facture est deja normalisee'
+            }, status=400)
+
+        # Generer le numero MECeF (simulation)
+        now = timezone.now()
+        sequence = Facture.objects.filter(mecef_numero__isnull=False).count() + 1
+        mecef_numero = f"MECeF-{now.year}-{str(sequence).zfill(5)}"
+
+        # Generer le NIM (simulation)
+        nim = ''.join(random.choices(string.digits, k=10))
+
+        # Generer un QR code data (simulation)
+        qr_data = f"NIM:{nim}|NUM:{mecef_numero}|TTC:{facture.montant_ttc}|DATE:{now.strftime('%Y%m%d%H%M%S')}"
+        qr_hash = hashlib.md5(qr_data.encode()).hexdigest()[:16].upper()
+
+        # Mettre a jour la facture
+        facture.mecef_numero = mecef_numero
+        facture.nim = nim
+        facture.mecef_qr = qr_hash
+        facture.date_mecef = now
+        facture.save()
+
+        return JsonResponse({
+            'success': True,
+            'mecef_numero': mecef_numero,
+            'nim': nim,
+            'qr_code': qr_hash
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+def api_exporter_factures(request):
+    """API pour exporter les factures en CSV"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="factures_{timezone.now().strftime("%Y%m%d")}.csv"'
+
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow(['Numero', 'Client', 'IFU', 'Montant HT', 'TVA', 'Total TTC', 'Date', 'Statut', 'MECeF'])
+
+    factures = Facture.objects.all().order_by('-date_emission')
+    for f in factures:
+        writer.writerow([
+            f.numero,
+            f.client,
+            f.ifu if hasattr(f, 'ifu') else '',
+            f.montant_ht,
+            f.montant_tva,
+            f.montant_ttc,
+            f.date_emission.strftime('%d/%m/%Y'),
+            f.statut,
+            f.mecef_numero or ''
+        ])
+
+    return response
+
+
+# ============================================
+# API ENDPOINTS CALCUL RECOUVREMENT
 # ============================================
 
 @require_POST
 def api_calculer_interets(request):
-    """API pour calculer les intérêts OHADA"""
+    """API pour calculer les interets OHADA"""
     try:
         data = json.loads(request.body)
 
-        # Récupérer les paramètres
+        # Recuperer les parametres
         montant_principal = Decimal(str(data.get('montant_principal', 0)))
-        date_creance = datetime.strptime(data.get('date_creance'), '%Y-%m-%d')
-        date_saisie = datetime.strptime(data.get('date_saisie'), '%Y-%m-%d')
+
+        if montant_principal <= 0:
+            return JsonResponse({'success': False, 'error': 'Le montant principal doit etre superieur a 0'}, status=400)
+
+        date_creance_str = data.get('date_creance')
+        date_saisie_str = data.get('date_saisie')
+
+        if not date_creance_str or not date_saisie_str:
+            return JsonResponse({'success': False, 'error': 'Les dates sont obligatoires'}, status=400)
+
+        date_creance = datetime.strptime(date_creance_str, '%Y-%m-%d')
+        date_saisie = datetime.strptime(date_saisie_str, '%Y-%m-%d')
+
+        if date_saisie <= date_creance:
+            return JsonResponse({'success': False, 'error': 'La date de saisie doit etre posterieure a la date de creance'}, status=400)
+
         type_taux = data.get('type_taux', 'legal')
         taux_conventionnel = Decimal(str(data.get('taux_conventionnel', 0)))
         type_calcul = data.get('type_calcul', 'simple')
@@ -279,7 +638,7 @@ def api_calculer_interets(request):
         actes = data.get('actes', [])
         arrondir = data.get('arrondir', True)
 
-        # Taux légaux UEMOA
+        # Taux legaux UEMOA
         taux_legaux = {
             2010: Decimal('6.4800'), 2011: Decimal('6.2500'), 2012: Decimal('4.2500'),
             2013: Decimal('4.1141'), 2014: Decimal('3.7274'), 2015: Decimal('3.5000'),
@@ -295,10 +654,10 @@ def api_calculer_interets(request):
         def jours_annee(annee):
             return 366 if est_bissextile(annee) else 365
 
-        def obtenir_taux(date):
-            return taux_legaux.get(date.year, Decimal('5.5'))
+        def obtenir_taux(annee):
+            return taux_legaux.get(annee, Decimal('5.5'))
 
-        # Calcul des intérêts par période
+        # Calcul des interets par periode
         def calculer_interets_periode(montant, debut, fin, majore=False):
             current = debut + timedelta(days=1)
             end = fin
@@ -312,19 +671,21 @@ def api_calculer_interets(request):
                 jours = (borne - current).days + 1
 
                 if type_taux == 'legal':
-                    taux = obtenir_taux(current)
+                    taux = obtenir_taux(annee)
                 elif type_taux == 'cima':
                     taux = Decimal('60')  # 5% * 12 mois
                 else:
                     taux = taux_conventionnel
 
+                taux_applique = taux
                 if majore:
-                    taux = taux * Decimal('1.5')
+                    taux_applique = taux * Decimal('1.5')
 
                 if type_calcul == 'simple':
-                    interet = (montant * taux * jours) / (100 * jours_annee(annee))
+                    interet = (montant * taux_applique * jours) / (100 * jours_annee(annee))
                 else:
-                    interet = montant * ((1 + taux / 100) ** (Decimal(jours) / jours_annee(annee)) - 1)
+                    # Interets composes
+                    interet = montant * ((1 + taux_applique / 100) ** (Decimal(jours) / jours_annee(annee)) - 1)
 
                 periodes.append({
                     'annee': annee,
@@ -332,6 +693,8 @@ def api_calculer_interets(request):
                     'fin': borne.strftime('%d/%m/%Y'),
                     'jours': jours,
                     'taux': float(taux),
+                    'taux_applique': float(taux_applique),
+                    'majore': majore,
                     'interet': float(round(interet) if arrondir else interet)
                 })
 
@@ -343,7 +706,7 @@ def api_calculer_interets(request):
                 'total': float(round(total) if arrondir else total)
             }
 
-        # Calcul des émoluments proportionnels
+        # Calcul des emoluments proportionnels
         def calculer_emoluments_prop(base):
             baremes = {
                 'sans': [
@@ -363,29 +726,42 @@ def api_calculer_interets(request):
             restant = base
             total = Decimal('0')
             cumul = 0
+            details = []
 
             for tranche in baremes[type_titre]:
                 if restant <= 0:
                     break
-                part = min(restant, Decimal(str(tranche['max'])) - cumul)
+                taille_tranche = Decimal(str(tranche['max'])) - cumul if tranche['max'] != float('inf') else restant
+                part = min(restant, taille_tranche)
                 if part > 0:
                     em = (part * tranche['taux']) / 100
                     total += em
+                    details.append({
+                        'tranche': f"{cumul+1:,.0f} - {tranche['max']:,.0f}" if tranche['max'] != float('inf') else f"> {cumul:,.0f}",
+                        'taux': float(tranche['taux']),
+                        'base': float(part),
+                        'emolument': float(round(em) if arrondir else em)
+                    })
                     restant -= part
                     cumul += float(part)
 
-            return {'total': float(round(total) if arrondir else total)}
+            return {
+                'total': float(round(total) if arrondir else total),
+                'details': details,
+                'type_titre': type_titre
+            }
 
         # Calcul principal
         date_maj = None
         if appliquer_majoration and date_decision:
             d = datetime.strptime(date_decision, '%Y-%m-%d')
-            date_maj = d + timedelta(days=60)  # 2 mois
+            date_maj = d + timedelta(days=60)  # 2 mois apres decision
             if date_saisie <= date_maj:
-                date_maj = None
+                date_maj = None  # Pas de majoration si saisie avant delai
 
-        # Intérêts échus
+        # Interets echus
         if date_maj and date_maj < date_saisie:
+            # Calcul en deux periodes: avant et apres majoration
             p1 = calculer_interets_periode(montant_principal, date_creance, date_maj, False)
             p2 = calculer_interets_periode(montant_principal, date_maj, date_saisie, True)
             interets_echus = {
@@ -395,14 +771,14 @@ def api_calculer_interets(request):
         else:
             interets_echus = calculer_interets_periode(montant_principal, date_creance, date_saisie, False)
 
-        # Intérêts à échoir (1 mois)
+        # Interets a echoir (1 mois)
         date_fin_echoir = date_saisie + timedelta(days=30)
         interets_echoir = calculer_interets_periode(
             montant_principal, date_saisie, date_fin_echoir,
             appliquer_majoration and date_maj is not None
         )
 
-        # Émoluments
+        # Emoluments
         emoluments = None
         base_emol = montant_principal + Decimal(str(interets_echus['total']))
         if calculer_emoluments:
@@ -412,7 +788,7 @@ def api_calculer_interets(request):
         # Total des actes
         total_actes = sum(float(a.get('montant', 0)) for a in actes)
 
-        # Total général
+        # Total general
         total = float(montant_principal) + interets_echus['total'] + float(frais_justice)
         if emoluments:
             total += emoluments['total']
@@ -431,7 +807,9 @@ def api_calculer_interets(request):
             'date_debut': (date_creance + timedelta(days=1)).strftime('%d/%m/%Y'),
             'date_fin': date_saisie.strftime('%d/%m/%Y'),
             'majoration': appliquer_majoration,
-            'date_limite_majoration': date_maj.strftime('%d/%m/%Y') if date_maj else None
+            'date_limite_majoration': date_maj.strftime('%d/%m/%Y') if date_maj else None,
+            'type_calcul': type_calcul,
+            'type_taux': type_taux
         }
 
         return JsonResponse({'success': True, 'resultats': resultats})
@@ -442,11 +820,15 @@ def api_calculer_interets(request):
 
 @require_POST
 def api_calculer_emoluments(request):
-    """API pour calculer les émoluments seuls"""
+    """API pour calculer les emoluments seuls"""
     try:
         data = json.loads(request.body)
 
         base = Decimal(str(data.get('base', 0)))
+
+        if base <= 0:
+            return JsonResponse({'success': False, 'error': 'La base de calcul doit etre superieure a 0'}, status=400)
+
         type_titre = data.get('type_titre', 'sans')
         arrondir = data.get('arrondir', True)
 
@@ -468,14 +850,22 @@ def api_calculer_emoluments(request):
         restant = base
         total = Decimal('0')
         cumul = 0
+        details = []
 
         for tranche in baremes[type_titre]:
             if restant <= 0:
                 break
-            part = min(restant, Decimal(str(tranche['max'])) - cumul)
+            taille_tranche = Decimal(str(tranche['max'])) - cumul if tranche['max'] != float('inf') else restant
+            part = min(restant, taille_tranche)
             if part > 0:
                 em = (part * tranche['taux']) / 100
                 total += em
+                details.append({
+                    'tranche': f"De {cumul+1:,.0f} a {int(cumul + float(part)):,.0f}" if tranche['max'] != float('inf') else f"Au-dela de {cumul:,.0f}",
+                    'taux': float(tranche['taux']),
+                    'base': float(part),
+                    'emolument': float(round(em) if arrondir else em)
+                })
                 restant -= part
                 cumul += float(part)
 
@@ -484,7 +874,11 @@ def api_calculer_emoluments(request):
         resultats = {
             'mode': 'emoluments',
             'base': float(base),
-            'emoluments': {'total': emol_total},
+            'type_titre': type_titre,
+            'emoluments': {
+                'total': emol_total,
+                'details': details
+            },
             'total': float(base) + emol_total
         }
 
@@ -495,6 +889,75 @@ def api_calculer_emoluments(request):
 
 
 @require_POST
+def api_sauvegarder_calcul(request):
+    """API pour sauvegarder un calcul dans l'historique"""
+    try:
+        data = json.loads(request.body)
+
+        nom = data.get('nom', f"Calcul du {timezone.now().strftime('%d/%m/%Y %H:%M')}")
+        mode = data.get('mode', 'complet')
+        donnees = data.get('donnees', {})
+        resultats = data.get('resultats', {})
+        total = Decimal(str(data.get('total', 0)))
+
+        historique = HistoriqueCalcul.objects.create(
+            nom=nom,
+            mode=mode,
+            donnees=donnees,
+            resultats=resultats,
+            total=total,
+            utilisateur=None  # A remplacer par request.user si authentification
+        )
+
+        return JsonResponse({
+            'success': True,
+            'id': historique.id,
+            'message': 'Calcul sauvegarde'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_supprimer_calcul(request):
+    """API pour supprimer un calcul de l'historique"""
+    try:
+        data = json.loads(request.body)
+        calcul_id = data.get('id')
+
+        HistoriqueCalcul.objects.filter(id=calcul_id).delete()
+        return JsonResponse({'success': True})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+def api_charger_historique(request):
+    """API pour charger l'historique des calculs"""
+    try:
+        historique = []
+        historique_qs = HistoriqueCalcul.objects.all().order_by('-date_creation')[:50]
+        for h in historique_qs:
+            historique.append({
+                'id': h.id,
+                'nom': h.nom,
+                'mode': h.mode,
+                'total': float(h.total),
+                'date': h.date_creation.strftime('%d/%m/%Y %H:%M'),
+                'donnees': h.donnees,
+                'resultats': h.resultats,
+            })
+        return JsonResponse({'success': True, 'historique': historique})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ============================================
+# API CHATBOT ET AUTRES
+# ============================================
+
+@require_POST
 def api_chatbot(request):
     """API pour le chatbot"""
     try:
@@ -502,19 +965,23 @@ def api_chatbot(request):
         message = data.get('message', '').lower()
         user_role = data.get('user_role', 'user')
 
-        # Réponses contextuelles
+        # Reponses contextuelles
         if 'supprim' in message and user_role != 'admin':
-            reponse = "Désolé, seul l'administrateur peut supprimer des éléments."
-        elif 'intérêt' in message or 'calcul' in message:
-            reponse = "Pour calculer des intérêts, rendez-vous dans le module 'Calcul Recouvrement'. Je peux vous y guider si vous le souhaitez."
+            reponse = "Desole, seul l'administrateur peut supprimer des elements."
+        elif 'interet' in message or 'calcul' in message:
+            reponse = "Pour calculer des interets, rendez-vous dans le module 'Calcul Recouvrement'. Je peux vous y guider si vous le souhaitez."
         elif 'dossier' in message:
-            reponse = "Pour créer ou consulter un dossier, utilisez le module 'Dossiers'. Vous pouvez cliquer sur 'Nouveau dossier' pour en créer un."
+            reponse = "Pour creer ou consulter un dossier, utilisez le module 'Dossiers'. Vous pouvez cliquer sur 'Nouveau dossier' pour en creer un."
         elif 'facture' in message:
-            reponse = "Le module 'Facturation & MECeF' vous permet de gérer vos factures et de les normaliser avec le système MECeF."
+            reponse = "Le module 'Facturation & MECeF' vous permet de gerer vos factures et de les normaliser avec le systeme MECeF."
         elif 'bonjour' in message or 'salut' in message:
-            reponse = "Bonjour Maître ! Comment puis-je vous aider aujourd'hui ?"
+            reponse = "Bonjour Maitre ! Comment puis-je vous aider aujourd'hui ?"
+        elif 'mecef' in message:
+            reponse = "MECeF est le systeme de normalisation des factures au Benin. Pour normaliser une facture, allez dans Facturation et cliquez sur 'Normaliser'."
+        elif 'ohada' in message:
+            reponse = "L'OHADA regit le droit des affaires dans la zone UEMOA. Le module Calcul Recouvrement applique les taux legaux UEMOA et les regles OHADA."
         else:
-            reponse = "Je peux vous aider à rédiger des actes, calculer des intérêts ou rechercher des informations juridiques."
+            reponse = "Je peux vous aider a rediger des actes, calculer des interets ou rechercher des informations juridiques."
 
         return JsonResponse({'success': True, 'reponse': reponse})
 
@@ -533,13 +1000,13 @@ def api_supprimer_dossier(request):
         if user_role != 'admin':
             return JsonResponse({
                 'success': False,
-                'error': "Action non autorisée : Seul l'administrateur peut supprimer un dossier."
+                'error': "Action non autorisee : Seul l'administrateur peut supprimer un dossier."
             }, status=403)
 
         # Ici, on supprimerait le dossier en base
         # Dossier.objects.filter(id=dossier_id).delete()
 
-        return JsonResponse({'success': True, 'message': 'Dossier supprimé'})
+        return JsonResponse({'success': True, 'message': 'Dossier supprime'})
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="space-y-6">
@@ -6,7 +7,7 @@
     <div class="flex justify-between items-center flex-wrap gap-4">
         <div class="toggle-group">
             <div class="toggle-option active" id="modeComplet" onclick="setMode('complet')">Calcul Complet</div>
-            <div class="toggle-option" id="modeEmoluments" onclick="setMode('emoluments')">Émoluments Seuls</div>
+            <div class="toggle-option" id="modeEmoluments" onclick="setMode('emoluments')">Emoluments Seuls</div>
         </div>
         <div class="flex gap-2">
             <button class="btn btn-secondary btn-sm" onclick="toggleHistorique()">
@@ -20,7 +21,7 @@
         <!-- Parameters Card -->
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Paramètres</h3>
+                <h3 class="card-title">Parametres</h3>
             </div>
             <div class="card-body">
                 <!-- Complet Mode -->
@@ -51,8 +52,9 @@
                     <!-- Step 1: Principal -->
                     <div class="step-content" id="step1">
                         <div class="form-group">
-                            <label class="form-label">Montant principal</label>
-                            <input class="form-input" type="number" id="montantPrincipal" placeholder="Ex: 1000000">
+                            <label class="form-label">Montant principal (FCFA) <span style="color: var(--danger);">*</span></label>
+                            <input class="form-input" type="number" id="montantPrincipal" placeholder="Ex: 1000000" min="1">
+                            <small style="color: var(--neutral-500);">Le montant de la creance en FCFA</small>
                         </div>
                     </div>
 
@@ -62,14 +64,21 @@
                             <div class="form-group">
                                 <label class="form-label">Type de Taux</label>
                                 <select class="form-select" id="typeTaux" onchange="toggleTauxConventionnel()">
-                                    <option value="legal">Légal (UEMOA)</option>
-                                    <option value="cima">CIMA (Assurance)</option>
+                                    <option value="legal">Legal (UEMOA/BCEAO)</option>
+                                    <option value="cima">CIMA (Assurance - 5%/mois)</option>
                                     <option value="conventionnel">Conventionnel</option>
                                 </select>
                             </div>
                             <div class="form-group" id="tauxConventionnelGroup" style="display: none;">
-                                <label class="form-label">Taux (%)</label>
-                                <input class="form-input" type="number" id="tauxConventionnel" step="0.01">
+                                <label class="form-label">Taux annuel (%)</label>
+                                <input class="form-input" type="number" id="tauxConventionnel" step="0.01" placeholder="Ex: 12">
+                            </div>
+                            <div class="alert alert-info" id="tauxInfo">
+                                <i data-lucide="info" style="width: 18px; height: 18px;"></i>
+                                <div>
+                                    <strong>Taux legaux UEMOA:</strong><br>
+                                    2024: 5.0336% | 2025: 5.5000%
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -79,20 +88,26 @@
                         <div class="space-y-4">
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label class="form-label">Date Créance (Dies a quo)</label>
+                                    <label class="form-label">Date Creance (Dies a quo) <span style="color: var(--danger);">*</span></label>
                                     <input class="form-input" type="date" id="dateCreance">
+                                    <small style="color: var(--neutral-500);">Date de naissance de la creance</small>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Date Saisie (Dies ad quem)</label>
+                                    <label class="form-label">Date Saisie (Dies ad quem) <span style="color: var(--danger);">*</span></label>
                                     <input class="form-input" type="date" id="dateSaisie">
+                                    <small style="color: var(--neutral-500);">Date de la saisie ou calcul</small>
                                 </div>
                             </div>
                             <div class="majoration-box">
                                 <label class="majoration-label">
                                     <input type="checkbox" id="appliquerMajoration" onchange="toggleMajoration()">
-                                    Appliquer Majoration (Loi 2024)
+                                    Appliquer Majoration +50% (Loi 2024)
                                 </label>
-                                <div id="majorationDate" style="display: none; margin-top: 8px;">
+                                <small style="display: block; margin-top: 4px; color: var(--neutral-600);">
+                                    Majoration de 50% du taux apres 60 jours de la decision de justice
+                                </small>
+                                <div id="majorationDate" style="display: none; margin-top: 12px;">
+                                    <label class="form-label">Date de la decision de justice</label>
                                     <input class="form-input" type="date" id="dateDecisionJustice">
                                 </div>
                             </div>
@@ -103,52 +118,52 @@
                     <div class="step-content" id="step4" style="display: none;">
                         <div class="space-y-4">
                             <div class="form-group">
-                                <label class="form-label">Type Calcul</label>
+                                <label class="form-label">Type de Calcul</label>
                                 <select class="form-select" id="typeCalcul">
-                                    <option value="simple">Intérêts Simples</option>
-                                    <option value="compose">Intérêts Composés</option>
+                                    <option value="simple">Interets Simples</option>
+                                    <option value="compose">Interets Composes</option>
                                 </select>
                             </div>
                             <div class="options-section">
                                 <label class="options-label">
                                     <input type="checkbox" id="calculerEmoluments" onchange="toggleEmoluments()">
-                                    Ajouter Émoluments
+                                    Ajouter Emoluments Proportionnels
                                 </label>
                                 <div id="emolumentsOptions" style="display: none;" class="options-content mt-2">
                                     <div class="form-group">
-                                        <label class="form-label">Titre Exécutoire</label>
+                                        <label class="form-label">Titre Executoire</label>
                                         <select class="form-select" id="typeTitre">
-                                            <option value="sans">Sans titre</option>
-                                            <option value="avec">Avec titre</option>
+                                            <option value="sans">Sans titre executoire</option>
+                                            <option value="avec">Avec titre executoire</option>
                                         </select>
                                     </div>
                                     <div class="form-group mt-2">
-                                        <label class="form-label">Frais de Justice</label>
-                                        <input class="form-input" type="number" id="fraisJustice">
+                                        <label class="form-label">Frais de Justice (optionnel)</label>
+                                        <input class="form-input" type="number" id="fraisJustice" placeholder="0">
                                     </div>
 
-                                    <!-- Actes de procédure -->
+                                    <!-- Actes de procedure -->
                                     <div class="form-group mt-4">
                                         <label class="options-label">
                                             <input type="checkbox" id="calculerActes" onchange="toggleActes()">
-                                            Coûts des actes de procédure
+                                            Ajouter couts des actes de procedure
                                         </label>
                                         <div id="actesBox" style="display: none;" class="actes-box mt-2">
                                             <div id="actesList"></div>
                                             <select class="form-select mb-2" id="catalogueActes" onchange="selectActe()">
-                                                <option value="">-- Catalogue --</option>
+                                                <option value="">-- Catalogue des actes --</option>
                                                 {% for acte in catalogue_actes %}
                                                 <option value="{{ acte.id }}" data-label="{{ acte.label }}" data-tarif="{{ acte.tarif }}">
-                                                    {{ acte.label }}
+                                                    {{ acte.label }} ({{ acte.tarif|floatformat:0 }} F)
                                                 </option>
                                                 {% endfor %}
                                             </select>
                                             <div class="flex gap-2">
-                                                <input class="form-input" id="acteLibelle" placeholder="Libellé" style="flex: 1;">
-                                                <input class="form-input" id="acteMontant" type="number" placeholder="Coût" style="width: 80px;">
+                                                <input class="form-input" id="acteLibelle" placeholder="Libelle de l'acte" style="flex: 1;">
+                                                <input class="form-input" id="acteMontant" type="number" placeholder="Cout" style="width: 100px;">
                                             </div>
-                                            <button class="btn btn-sm btn-secondary w-full mt-2" onclick="addActe()">
-                                                <i data-lucide="plus"></i> Ajouter
+                                            <button type="button" class="btn btn-sm btn-secondary w-full mt-2" onclick="addActe()">
+                                                <i data-lucide="plus"></i> Ajouter l'acte
                                             </button>
                                         </div>
                                     </div>
@@ -159,9 +174,15 @@
 
                     <!-- Navigation Buttons -->
                     <div class="flex gap-2 mt-6">
-                        <button class="btn btn-secondary" id="prevBtn" style="flex: 1; display: none;" onclick="prevStep()">Précédent</button>
-                        <button class="btn btn-primary" id="nextBtn" style="flex: 1;" onclick="nextStep()">Suivant</button>
-                        <button class="btn btn-success" id="calcBtn" style="flex: 1; display: none;" onclick="calculer()">Calculer</button>
+                        <button class="btn btn-secondary" id="prevBtn" style="flex: 1; display: none;" onclick="prevStep()">
+                            <i data-lucide="arrow-left"></i> Precedent
+                        </button>
+                        <button class="btn btn-primary" id="nextBtn" style="flex: 1;" onclick="nextStep()">
+                            Suivant <i data-lucide="arrow-right"></i>
+                        </button>
+                        <button class="btn btn-success" id="calcBtn" style="flex: 1; display: none;" onclick="calculer()">
+                            <i data-lucide="calculator"></i> Calculer
+                        </button>
                     </div>
                 </div>
 
@@ -169,17 +190,28 @@
                 <div id="emolumentsForm" style="display: none;">
                     <div class="space-y-4">
                         <div class="form-group">
-                            <label class="form-label">Base Calcul</label>
-                            <input class="form-input" type="number" id="baseEmoluments">
+                            <label class="form-label">Base de Calcul (FCFA) <span style="color: var(--danger);">*</span></label>
+                            <input class="form-input" type="number" id="baseEmoluments" placeholder="Ex: 5000000">
+                            <small style="color: var(--neutral-500);">Principal + interets</small>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Titre</label>
+                            <label class="form-label">Type de Titre</label>
                             <select class="form-select" id="typeTitreEmol">
-                                <option value="sans">Sans titre</option>
-                                <option value="avec">Avec titre</option>
+                                <option value="sans">Sans titre executoire</option>
+                                <option value="avec">Avec titre executoire</option>
                             </select>
                         </div>
-                        <button class="btn btn-primary w-full mt-4" onclick="calculerEmolumentsSeuls()">Calculer</button>
+                        <div class="alert alert-info">
+                            <i data-lucide="info" style="width: 18px; height: 18px;"></i>
+                            <div>
+                                <strong>Baremes des emoluments:</strong><br>
+                                Sans titre: 10% (0-5M), 8% (5-20M), 6% (20-50M), 4% (+50M)<br>
+                                Avec titre: 10% (0-5M), 3.5% (5-20M), 2% (20-50M), 1% (+50M)
+                            </div>
+                        </div>
+                        <button class="btn btn-primary w-full mt-4" onclick="calculerEmolumentsSeuls()">
+                            <i data-lucide="calculator"></i> Calculer les emoluments
+                        </button>
                     </div>
                 </div>
             </div>
@@ -189,14 +221,17 @@
         <div>
             <div class="card" id="resultsCard" style="display: none;">
                 <div class="card-header">
-                    <h3 class="card-title">Résultats</h3>
-                    <div class="flex gap-2">
-                        <input class="form-input" style="padding: 6px 10px; width: 150px;" placeholder="Nom sauvegarde" id="nomCalcul">
+                    <h3 class="card-title">Resultats du Calcul</h3>
+                    <div class="flex gap-2 flex-wrap">
+                        <input class="form-input" style="padding: 6px 10px; width: 150px;" placeholder="Nom du calcul" id="nomCalcul">
                         <button class="btn btn-secondary btn-sm" onclick="saveCalcul()">
                             <i data-lucide="save"></i> Sauvegarder
                         </button>
                         <button class="btn btn-accent btn-sm" onclick="copyText()">
                             <i data-lucide="copy"></i> Copier
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="imprimerDecompte()">
+                            <i data-lucide="printer"></i> Imprimer
                         </button>
                     </div>
                 </div>
@@ -212,7 +247,7 @@
 
             <div class="card calc-box" id="emptyState">
                 <i data-lucide="calculator"></i>
-                <p>Configurez les paramètres et lancez le calcul</p>
+                <p>Configurez les parametres et lancez le calcul</p>
             </div>
         </div>
     </div>
@@ -229,8 +264,28 @@
         </div>
         <div class="modal-body">
             <div id="historiqueList" style="text-align: center; color: var(--neutral-500);">
-                Aucun historique.
+                <p>Chargement...</p>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Template (hidden) -->
+<div id="printTemplate" style="display: none;">
+    <div class="decompte-print">
+        <div class="decompte-header">
+            <div class="decompte-logo">MAB</div>
+            <div>
+                <h1>DECOMPTE DE CREANCE</h1>
+                <p>Etude Me BIAOU Martial Arnaud - Huissier de Justice</p>
+            </div>
+        </div>
+        <div class="decompte-content" id="printContent">
+            <!-- Content will be inserted here -->
+        </div>
+        <div class="decompte-footer">
+            <p>Document genere le <span id="printDate"></span></p>
+            <p>Etude Me BIAOU - Cotonou, Benin</p>
         </div>
     </div>
 </div>
@@ -244,10 +299,11 @@
     let currentStep = 1;
     let mode = 'complet';
     let actes = [];
-    let historique = [];
+    let historique = {{ historique|safe }};
     let resultats = null;
+    let donneesCalcul = null;
 
-    // Taux légaux UEMOA
+    // Taux legaux UEMOA
     const tauxLegaux = {{ taux_legaux|safe }};
 
     function setMode(newMode) {
@@ -285,14 +341,37 @@
         }
 
         // Update buttons
-        document.getElementById('prevBtn').style.display = currentStep > 1 ? 'block' : 'none';
-        document.getElementById('nextBtn').style.display = currentStep < 4 ? 'block' : 'none';
-        document.getElementById('calcBtn').style.display = currentStep === 4 ? 'block' : 'none';
+        document.getElementById('prevBtn').style.display = currentStep > 1 ? 'flex' : 'none';
+        document.getElementById('nextBtn').style.display = currentStep < 4 ? 'flex' : 'none';
+        document.getElementById('calcBtn').style.display = currentStep === 4 ? 'flex' : 'none';
 
         lucide.createIcons();
     }
 
+    function validateStep(step) {
+        if (step === 1) {
+            const montant = parseFloat(document.getElementById('montantPrincipal').value);
+            if (!montant || montant <= 0) {
+                alert('Veuillez saisir un montant principal valide');
+                return false;
+            }
+        } else if (step === 3) {
+            const dateCreance = document.getElementById('dateCreance').value;
+            const dateSaisie = document.getElementById('dateSaisie').value;
+            if (!dateCreance || !dateSaisie) {
+                alert('Veuillez saisir les deux dates');
+                return false;
+            }
+            if (new Date(dateSaisie) <= new Date(dateCreance)) {
+                alert('La date de saisie doit etre posterieure a la date de creance');
+                return false;
+            }
+        }
+        return true;
+    }
+
     function nextStep() {
+        if (!validateStep(currentStep)) return;
         if (currentStep < 4) {
             currentStep++;
             updateStepper();
@@ -309,6 +388,17 @@
     function toggleTauxConventionnel() {
         const typeTaux = document.getElementById('typeTaux').value;
         document.getElementById('tauxConventionnelGroup').style.display = typeTaux === 'conventionnel' ? 'block' : 'none';
+
+        // Update info
+        const info = document.getElementById('tauxInfo');
+        if (typeTaux === 'cima') {
+            info.innerHTML = '<i data-lucide="info" style="width: 18px; height: 18px;"></i><div><strong>Taux CIMA:</strong><br>5% par mois soit 60% par an</div>';
+        } else if (typeTaux === 'legal') {
+            info.innerHTML = '<i data-lucide="info" style="width: 18px; height: 18px;"></i><div><strong>Taux legaux UEMOA:</strong><br>2024: 5.0336% | 2025: 5.5000%</div>';
+        } else {
+            info.innerHTML = '<i data-lucide="info" style="width: 18px; height: 18px;"></i><div><strong>Taux conventionnel:</strong><br>Saisissez le taux annuel convenu entre les parties</div>';
+        }
+        lucide.createIcons();
     }
 
     function toggleMajoration() {
@@ -337,13 +427,15 @@
     }
 
     function addActe() {
-        const libelle = document.getElementById('acteLibelle').value;
-        const montant = document.getElementById('acteMontant').value;
-        if (libelle && montant) {
-            actes.push({ id: Date.now(), libelle, montant: parseFloat(montant) });
+        const libelle = document.getElementById('acteLibelle').value.trim();
+        const montant = parseFloat(document.getElementById('acteMontant').value);
+        if (libelle && montant > 0) {
+            actes.push({ id: Date.now(), libelle, montant });
             document.getElementById('acteLibelle').value = '';
             document.getElementById('acteMontant').value = '';
             renderActes();
+        } else {
+            alert('Veuillez saisir un libelle et un montant valide');
         }
     }
 
@@ -368,7 +460,7 @@
                     <div class="flex items-center gap-2">
                         <span class="acte-amount">${formatMontant(acte.montant)}</span>
                         <button onclick="removeActe(${acte.id})" style="background:none;border:none;color:var(--danger);cursor:pointer;">
-                            <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                         </button>
                     </div>
                 </div>
@@ -376,7 +468,7 @@
         });
         html += `
             <div class="actes-total">
-                <span>TOTAL</span>
+                <span>TOTAL ACTES</span>
                 <span style="color:var(--primary);">${formatMontant(total)}</span>
             </div>
         `;
@@ -389,7 +481,9 @@
     }
 
     function calculer() {
-        const data = {
+        if (!validateStep(currentStep)) return;
+
+        donneesCalcul = {
             montant_principal: parseFloat(document.getElementById('montantPrincipal').value) || 0,
             date_creance: document.getElementById('dateCreance').value,
             date_saisie: document.getElementById('dateSaisie').value,
@@ -411,7 +505,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}'
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(donneesCalcul)
         })
         .then(response => response.json())
         .then(data => {
@@ -421,12 +515,21 @@
             } else {
                 alert(data.error || 'Erreur de calcul');
             }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
         });
     }
 
     function calculerEmolumentsSeuls() {
-        const data = {
-            base: parseFloat(document.getElementById('baseEmoluments').value) || 0,
+        const base = parseFloat(document.getElementById('baseEmoluments').value);
+        if (!base || base <= 0) {
+            alert('Veuillez saisir une base de calcul valide');
+            return;
+        }
+
+        donneesCalcul = {
+            base: base,
             type_titre: document.getElementById('typeTitreEmol').value,
             arrondir: true
         };
@@ -437,7 +540,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}'
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(donneesCalcul)
         })
         .then(response => response.json())
         .then(data => {
@@ -447,6 +550,9 @@
             } else {
                 alert(data.error || 'Erreur de calcul');
             }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
         });
     }
 
@@ -463,10 +569,10 @@
                     <div class="result-value">${formatMontant(res.base)}</div>
                 </div>
                 <div class="result-card success">
-                    <div class="result-label">Émoluments</div>
+                    <div class="result-label">Emoluments</div>
                     <div class="result-value">${formatMontant(res.emoluments.total)}</div>
                 </div>
-                <div class="result-card primary">
+                <div class="result-card primary" style="grid-column: span 2;">
                     <div class="result-label">TOTAL</div>
                     <div class="result-value">${formatMontant(res.total)}</div>
                 </div>
@@ -478,15 +584,23 @@
                     <div class="result-value">${formatMontant(res.principal)}</div>
                 </div>
                 <div class="result-card success">
-                    <div class="result-label">Intérêts</div>
+                    <div class="result-label">Interets echus</div>
                     <div class="result-value">${formatMontant(res.interets_echus.total)}</div>
                 </div>
             `;
             if (res.emoluments) {
                 summaryHtml += `
                     <div class="result-card purple">
-                        <div class="result-label">Émoluments</div>
+                        <div class="result-label">Emoluments</div>
                         <div class="result-value">${formatMontant(res.emoluments.total)}</div>
+                    </div>
+                `;
+            }
+            if (res.frais_justice > 0) {
+                summaryHtml += `
+                    <div class="result-card info">
+                        <div class="result-label">Frais Justice</div>
+                        <div class="result-value">${formatMontant(res.frais_justice)}</div>
                     </div>
                 `;
             }
@@ -505,67 +619,293 @@
 
     function generateText(res) {
         if (res.mode === 'emoluments') {
-            return `Calcul d'émoluments:\nBase: ${formatMontant(res.base)}\nÉmoluments: ${formatMontant(res.emoluments.total)}\nTotal: ${formatMontant(res.total)}`;
+            let text = `CALCUL D'EMOLUMENTS PROPORTIONNELS\n`;
+            text += `===================================\n\n`;
+            text += `Base de calcul: ${formatMontant(res.base)}\n`;
+            text += `Type: ${res.type_titre === 'avec' ? 'Avec titre executoire' : 'Sans titre executoire'}\n\n`;
+
+            if (res.emoluments.details) {
+                text += `Detail par tranche:\n`;
+                res.emoluments.details.forEach(d => {
+                    text += `  - ${d.tranche}: ${d.taux}% = ${formatMontant(d.emolument)}\n`;
+                });
+            }
+
+            text += `\nEmoluments: ${formatMontant(res.emoluments.total)}\n`;
+            text += `\n===================================\n`;
+            text += `TOTAL: ${formatMontant(res.total)}`;
+            return text;
         }
 
-        let text = `MENTION JURIDIQUE OHADA (v2.0):\n\n`;
-        text += `PRINCIPAL: ${formatMontant(res.principal)}\n`;
-        text += `INTÉRÊTS ÉCHUS (du ${res.date_debut} au ${res.date_fin}): ${formatMontant(res.interets_echus.total)}\n`;
+        let text = `DECOMPTE DE CREANCE OHADA\n`;
+        text += `===================================\n\n`;
 
-        res.interets_echus.periodes.forEach(p => {
-            text += `  - ${p.annee} (${p.jours}j à ${p.taux.toFixed(2)}%): ${formatMontant(p.interet)}\n`;
-        });
+        text += `I. PRINCIPAL\n`;
+        text += `   Montant principal: ${formatMontant(res.principal)}\n\n`;
+
+        text += `II. INTERETS ECHUS\n`;
+        text += `    Periode: du ${res.date_debut} au ${res.date_fin}\n`;
+        text += `    Type: ${res.type_calcul === 'compose' ? 'Interets composes' : 'Interets simples'}\n\n`;
+
+        if (res.interets_echus.periodes && res.interets_echus.periodes.length > 0) {
+            res.interets_echus.periodes.forEach(p => {
+                let tauxInfo = `${p.taux.toFixed(4)}%`;
+                if (p.majore) tauxInfo += ' (majore +50%)';
+                text += `    ${p.annee}: ${p.jours} jours a ${tauxInfo} = ${formatMontant(p.interet)}\n`;
+            });
+        }
+        text += `    SOUS-TOTAL INTERETS ECHUS: ${formatMontant(res.interets_echus.total)}\n\n`;
 
         if (res.majoration && res.date_limite_majoration) {
-            text += `\n⚠️ MAJORATION APPLIQUÉE (+50%) après le ${res.date_limite_majoration}\n`;
+            text += `    *** MAJORATION LOI 2024 APPLIQUEE ***\n`;
+            text += `    Taux majore de 50% apres le ${res.date_limite_majoration}\n\n`;
         }
 
-        text += `\nINTÉRÊTS À ÉCHOIR (1 mois): ${formatMontant(res.interets_echoir.total)}\n`;
+        text += `III. INTERETS A ECHOIR (1 mois)\n`;
+        text += `     ${formatMontant(res.interets_echoir.total)}\n\n`;
+
+        if (res.frais_justice > 0) {
+            text += `IV. FRAIS DE JUSTICE\n`;
+            text += `    ${formatMontant(res.frais_justice)}\n\n`;
+        }
 
         if (res.emoluments) {
-            text += `\nÉMOLUMENTS PROPORTIONNELS (Base ${formatMontant(res.base_emoluments)}): ${formatMontant(res.emoluments.total)}\n`;
+            text += `V. EMOLUMENTS PROPORTIONNELS\n`;
+            text += `   Base: ${formatMontant(res.base_emoluments)}\n`;
+            text += `   Type: ${res.emoluments.type_titre === 'avec' ? 'Avec titre' : 'Sans titre'}\n`;
+            text += `   Emoluments: ${formatMontant(res.emoluments.total)}\n\n`;
         }
 
         if (res.actes > 0) {
-            text += `\nCOÛT DES ACTES DE PROCÉDURE: ${formatMontant(res.actes)}\n`;
+            text += `VI. COUTS DES ACTES DE PROCEDURE\n`;
             actes.forEach(a => {
-                text += ` - ${a.libelle} : ${formatMontant(a.montant)}\n`;
+                text += `    - ${a.libelle}: ${formatMontant(a.montant)}\n`;
             });
+            text += `    TOTAL ACTES: ${formatMontant(res.actes)}\n\n`;
         }
 
-        text += `\nTOTAL GÉNÉRAL: ${formatMontant(res.total)}`;
+        text += `===================================\n`;
+        text += `TOTAL GENERAL: ${formatMontant(res.total)}\n`;
+        text += `===================================\n`;
+
         return text;
     }
 
     function copyText() {
         const text = document.getElementById('resultText').textContent;
         navigator.clipboard.writeText(text).then(() => {
-            alert('Texte copié !');
+            alert('Decompte copie dans le presse-papiers !');
         });
     }
 
     function saveCalcul() {
-        if (!resultats) return;
-        const nom = document.getElementById('nomCalcul').value || `Calcul du ${new Date().toLocaleString('fr-FR')}`;
-        historique.unshift({ nom, date: new Date().toLocaleString('fr-FR'), total: resultats.total });
-        document.getElementById('nomCalcul').value = '';
-        alert('Calcul sauvegardé !');
+        if (!resultats) {
+            alert('Aucun calcul a sauvegarder');
+            return;
+        }
+
+        const nom = document.getElementById('nomCalcul').value.trim() || `Calcul du ${new Date().toLocaleString('fr-FR')}`;
+
+        fetch('{% url "api_sauvegarder_calcul" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                nom: nom,
+                mode: resultats.mode,
+                donnees: donneesCalcul,
+                resultats: resultats,
+                total: resultats.total
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('nomCalcul').value = '';
+                // Ajouter a l'historique local
+                historique.unshift({
+                    id: data.id,
+                    nom: nom,
+                    mode: resultats.mode,
+                    total: resultats.total,
+                    date: new Date().toLocaleString('fr-FR'),
+                    resultats: resultats
+                });
+                alert('Calcul sauvegarde avec succes !');
+            } else {
+                alert(data.error || 'Erreur lors de la sauvegarde');
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
+        });
     }
 
     function toggleHistorique() {
         const overlay = document.getElementById('historiqueOverlay');
         overlay.classList.toggle('open');
 
-        if (historique.length === 0) {
-            document.getElementById('historiqueList').innerHTML = '<p style="text-align:center;color:var(--neutral-500);">Aucun historique.</p>';
-        } else {
-            let html = '<table style="width:100%;"><thead><tr><th>Nom</th><th>Date</th><th>Total</th></tr></thead><tbody>';
-            historique.forEach(h => {
-                html += `<tr><td style="font-weight:500;">${h.nom}</td><td style="color:var(--neutral-500);">${h.date}</td><td style="font-weight:700;">${formatMontant(h.total)}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            document.getElementById('historiqueList').innerHTML = html;
+        if (overlay.classList.contains('open')) {
+            renderHistorique();
         }
+    }
+
+    function renderHistorique() {
+        const container = document.getElementById('historiqueList');
+
+        if (historique.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--neutral-500);padding:40px;">Aucun historique de calcul.</p>';
+            return;
+        }
+
+        let html = '<table style="width:100%;"><thead><tr><th>Nom</th><th>Mode</th><th>Total</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+        historique.forEach(h => {
+            html += `
+                <tr>
+                    <td style="font-weight:500;">${h.nom}</td>
+                    <td><span class="status-badge ${h.mode === 'complet' ? 'active' : 'contentieux'}">${h.mode === 'complet' ? 'Complet' : 'Emoluments'}</span></td>
+                    <td style="font-weight:700;">${formatMontant(h.total)}</td>
+                    <td style="color:var(--neutral-500);font-size:12px;">${h.date}</td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Charger" onclick="chargerCalcul(${h.id})">
+                                <i data-lucide="upload"></i>
+                            </button>
+                            <button class="icon-btn" title="Supprimer" onclick="supprimerCalcul(${h.id})" style="color:var(--danger);">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        lucide.createIcons();
+    }
+
+    function chargerCalcul(id) {
+        const calcul = historique.find(h => h.id === id);
+        if (calcul && calcul.resultats) {
+            resultats = calcul.resultats;
+            displayResults(resultats);
+            toggleHistorique();
+        }
+    }
+
+    function supprimerCalcul(id) {
+        if (!confirm('Supprimer ce calcul de l\'historique ?')) return;
+
+        fetch('{% url "api_supprimer_calcul" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ id: id })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                historique = historique.filter(h => h.id !== id);
+                renderHistorique();
+            } else {
+                alert(data.error || 'Erreur lors de la suppression');
+            }
+        });
+    }
+
+    function imprimerDecompte() {
+        if (!resultats) return;
+
+        const content = document.getElementById('resultText').textContent;
+        const now = new Date().toLocaleString('fr-FR');
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Decompte de Creance</title>
+                <style>
+                    body {
+                        font-family: 'Courier New', monospace;
+                        padding: 40px;
+                        max-width: 800px;
+                        margin: 0 auto;
+                        background: white;
+                    }
+                    .header {
+                        text-align: center;
+                        border-bottom: 2px solid #1a365d;
+                        padding-bottom: 20px;
+                        margin-bottom: 30px;
+                    }
+                    .logo {
+                        width: 60px;
+                        height: 60px;
+                        background: #c6a962;
+                        color: #1a365d;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        font-size: 20px;
+                        border-radius: 8px;
+                        margin-bottom: 10px;
+                    }
+                    h1 {
+                        color: #1a365d;
+                        margin: 10px 0;
+                        font-size: 24px;
+                    }
+                    .subtitle {
+                        color: #666;
+                        font-size: 14px;
+                    }
+                    .content {
+                        white-space: pre-wrap;
+                        font-size: 13px;
+                        line-height: 1.8;
+                        background: #f8fafc;
+                        padding: 20px;
+                        border-radius: 8px;
+                        border: 1px solid #e2e8f0;
+                    }
+                    .footer {
+                        margin-top: 40px;
+                        text-align: center;
+                        color: #666;
+                        font-size: 11px;
+                        border-top: 1px solid #e2e8f0;
+                        padding-top: 20px;
+                    }
+                    @media print {
+                        body { padding: 20px; }
+                        .content { border: none; background: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="logo">MAB</div>
+                    <h1>DECOMPTE DE CREANCE</h1>
+                    <p class="subtitle">Etude Me BIAOU Martial Arnaud - Huissier de Justice</p>
+                </div>
+                <div class="content">${content}</div>
+                <div class="footer">
+                    <p>Document genere le ${now}</p>
+                    <p>Etude Me BIAOU - Cotonou, Benin</p>
+                </div>
+                <script>
+                    setTimeout(() => { window.print(); }, 500);
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     }
 </script>
 {% endblock %}
