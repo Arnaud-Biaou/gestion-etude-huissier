@@ -30,6 +30,45 @@ from .models import (
 
 
 # =============================================================================
+# CONTEXTE PAR DÉFAUT
+# =============================================================================
+
+def get_default_context(request):
+    """Retourne le contexte par défaut pour tous les templates Agenda"""
+    user = request.user
+
+    modules = [
+        # Principal
+        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard', 'category': 'main', 'url': 'gestion:dashboard'},
+        {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers'},
+        {'id': 'facturation', 'label': 'Facturation', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
+        {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
+        # Finance
+        {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'wallet', 'category': 'finance', 'url': 'tresorerie:dashboard'},
+        {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
+        # Gestion
+        {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
+        {'id': 'drive', 'label': 'Drive', 'icon': 'hard-drive', 'category': 'gestion', 'url': 'documents:drive'},
+        {'id': 'gerance', 'label': 'Gérance Immobilière', 'icon': 'building-2', 'category': 'gestion', 'url': 'gerance:dashboard'},
+        {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda:home'},
+        # Admin
+        {'id': 'parametres', 'label': 'Paramètres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres:index'},
+        {'id': 'securite', 'label': 'Sécurité & Accès', 'icon': 'shield', 'category': 'admin', 'url': 'gestion:securite'},
+    ]
+
+    return {
+        'current_user': {
+            'id': user.id if user.is_authenticated else None,
+            'nom': user.get_full_name() if user.is_authenticated else 'Invité',
+            'role': user.role if user.is_authenticated and hasattr(user, 'role') else '',
+            'initials': user.get_initials() if user.is_authenticated and hasattr(user, 'get_initials') else 'XX',
+        },
+        'modules': modules,
+        'active_module': 'agenda',
+    }
+
+
+# =============================================================================
 # HELPERS
 # =============================================================================
 
@@ -120,15 +159,14 @@ def creer_notification(destinataire, titre, message, type_notification, objet=No
 def agenda_home(request):
     """Page principale de l'agenda"""
     user = request.user
-    context = {
-        'user': user,
-        'is_admin': user_is_admin(user),
-        'types_rdv': TypeRendezVous.choices,
-        'types_tache': TypeTache.choices,
-        'priorites': Priorite.choices,
-        'statuts_rdv': StatutRendezVous.choices,
-        'statuts_tache': StatutTache.choices,
-    }
+    context = get_default_context(request)
+    context['page_title'] = 'Agenda'
+    context['is_admin'] = user_is_admin(user)
+    context['types_rdv'] = TypeRendezVous.choices
+    context['types_tache'] = TypeTache.choices
+    context['priorites'] = Priorite.choices
+    context['statuts_rdv'] = StatutRendezVous.choices
+    context['statuts_tache'] = StatutTache.choices
     return render(request, 'agenda/home.html', context)
 
 
