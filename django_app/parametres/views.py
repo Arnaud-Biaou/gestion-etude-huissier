@@ -39,8 +39,8 @@ def get_default_context(request):
         {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'wallet', 'category': 'finance', 'url': 'gestion:tresorerie'},
         {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'calculator', 'category': 'finance', 'url': 'comptabilite:dashboard'},
         {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
-        {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda:dashboard'},
-        {'id': 'documents', 'label': 'Documents', 'icon': 'file-stack', 'category': 'gestion', 'url': 'documents:dashboard'},
+        {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda:home'},
+        {'id': 'documents', 'label': 'Documents', 'icon': 'file-stack', 'category': 'gestion', 'url': 'documents:drive'},
         {'id': 'parametres', 'label': 'Paramètres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres:index'},
     ]
     return {

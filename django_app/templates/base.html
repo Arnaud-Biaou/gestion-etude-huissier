@@ -15,7 +15,7 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="logo">
+                <a href="{% url 'gestion:dashboard' %}" class="logo">
                     <div class="logo-icon">MAB</div>
                     <div>
                         <div class="logo-text">Étude BIAOU</div>
@@ -171,7 +171,7 @@
             input.value = '';
 
             // Send to API
-            fetch('{% url "api_chatbot" %}', {
+            fetch('{% url "gestion:api_chatbot" %}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

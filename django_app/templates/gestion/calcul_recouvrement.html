@@ -499,7 +499,7 @@
             arrondir: true
         };
 
-        fetch('{% url "api_calculer_interets" %}', {
+        fetch('{% url "gestion:api_calculer_interets" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -534,7 +534,7 @@
             arrondir: true
         };
 
-        fetch('{% url "api_calculer_emoluments" %}', {
+        fetch('{% url "gestion:api_calculer_emoluments" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -706,7 +706,7 @@
 
         const nom = document.getElementById('nomCalcul').value.trim() || `Calcul du ${new Date().toLocaleString('fr-FR')}`;
 
-        fetch('{% url "api_sauvegarder_calcul" %}', {
+        fetch('{% url "gestion:api_sauvegarder_calcul" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -798,7 +798,7 @@
     function supprimerCalcul(id) {
         if (!confirm('Supprimer ce calcul de l\'historique ?')) return;
 
-        fetch('{% url "api_supprimer_calcul" %}', {
+        fetch('{% url "gestion:api_supprimer_calcul" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -442,7 +442,7 @@
     }
 
     function genererNumeroFacture() {
-        fetch('{% url "api_generer_numero_facture" %}', {
+        fetch('{% url "gestion:api_generer_numero_facture" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -590,7 +590,7 @@
             lignes: lignes
         };
 
-        fetch('{% url "api_sauvegarder_facture" %}', {
+        fetch('{% url "gestion:api_sauvegarder_facture" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -685,7 +685,7 @@
     function supprimerFacture(id) {
         if (!confirm('Etes-vous sur de vouloir supprimer cette facture ?')) return;
 
-        fetch('{% url "api_supprimer_facture" %}', {
+        fetch('{% url "gestion:api_supprimer_facture" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -744,7 +744,7 @@
     function normaliserMECeF(id) {
         if (!confirm('Normaliser cette facture avec le systeme MECeF ?')) return;
 
-        fetch('{% url "api_normaliser_mecef" %}', {
+        fetch('{% url "gestion:api_normaliser_mecef" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -789,7 +789,7 @@
     }
 
     function exporterFactures() {
-        window.open('{% url "api_exporter_factures" %}?format=csv', '_blank');
+        window.open('{% url "gestion:api_exporter_factures" %}?format=csv', '_blank');
     }
 </script>
 {% endblock %}

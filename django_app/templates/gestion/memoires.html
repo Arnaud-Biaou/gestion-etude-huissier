@@ -12,7 +12,7 @@
     </div>
     <div class="flex gap-2">
         {% if memoire_id %}
-        <a href="{% url 'memoires' %}" class="btn btn-secondary">
+        <a href="{% url 'gestion:memoires' %}" class="btn btn-secondary">
             <i data-lucide="arrow-left"></i> Retour liste
         </a>
         {% endif %}
@@ -77,7 +77,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i data-lucide="save"></i> Creer le memoire
                 </button>
-                <a href="{% url 'memoires' %}" class="btn btn-secondary">Annuler</a>
+                <a href="{% url 'gestion:memoires' %}" class="btn btn-secondary">Annuler</a>
             </div>
         </form>
     </div>
@@ -254,7 +254,7 @@
             <button class="btn btn-secondary" onclick="verifierMemoire({{ memoire_id }})">
                 <i data-lucide="check-circle"></i> Verifier
             </button>
-            <a href="{% url 'api_memoire_export_pdf' memoire_id %}" class="btn btn-secondary" target="_blank">
+            <a href="{% url 'gestion:api_memoire_export_pdf' memoire_id %}" class="btn btn-secondary" target="_blank">
                 <i data-lucide="file-text"></i> Previsualiser PDF
             </a>
             {% if memoire_detail.statut == 'brouillon' or memoire_detail.statut == 'en_cours' %}
@@ -326,7 +326,7 @@
                             <a href="?memoire_id={{ memoire.id }}" class="icon-btn" title="Details">
                                 <i data-lucide="eye"></i>
                             </a>
-                            <a href="{% url 'api_memoire_export_pdf' memoire.id %}" class="icon-btn" title="Exporter" target="_blank">
+                            <a href="{% url 'gestion:api_memoire_export_pdf' memoire.id %}" class="icon-btn" title="Exporter" target="_blank">
                                 <i data-lucide="download"></i>
                             </a>
                             {% if memoire.statut == 'brouillon' %}
@@ -602,14 +602,14 @@
         };
 
         try {
-            const response = await fetch('{% url "api_memoire_creer" %}', {
+            const response = await fetch('{% url "gestion:api_memoire_creer" %}', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify(data)
             });
             const result = await response.json();
             if (result.success) {
-                window.location.href = '{% url "memoires" %}?memoire_id=' + result.memoire_id;
+                window.location.href = '{% url "gestion:memoires" %}?memoire_id=' + result.memoire_id;
             } else {
                 alert(result.error);
             }
@@ -856,7 +856,7 @@
         };
 
         try {
-            const response = await fetch('{% url "api_autorite_creer" %}', {
+            const response = await fetch('{% url "gestion:api_autorite_creer" %}', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify(data)
@@ -883,7 +883,7 @@
     async function deleteMemoire(memoireId, numero) {
         if (!confirm(`Supprimer le memoire N° ${numero} et tout son contenu ?`)) return;
         try {
-            const response = await fetch('{% url "api_memoire_supprimer" %}', {
+            const response = await fetch('{% url "gestion:api_memoire_supprimer" %}', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify({memoire_id: memoireId})
