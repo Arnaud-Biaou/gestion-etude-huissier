@@ -1121,32 +1121,346 @@ const DossiersModule = ({ onOpenModal }) => {
 };
 
 // ============================================
-// MODULE: DRIVE & SECURITE
+// MODULE: DRIVE (Gestion Documentaire Complète)
 // ============================================
-const DriveModule = () => (
-  <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '24px' }}>
-    <div className="card">
-      <div className="card-header"><h3 className="card-title">Dossiers</h3></div>
-      <div className="card-body">
-        <div style={{paddingLeft:'10px', fontSize: '13px', lineHeight: '2'}}>
-          📂 DOSSIERS 2025<br/>
-          &nbsp;&nbsp;📁 173_1125_MAB<br/>
-          &nbsp;&nbsp;📁 174_1125_MAB<br/>
-          &nbsp;&nbsp;📁 175_1125_MAB
+const DriveModule = () => {
+  const [documents, setDocuments] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState('grid');
+  const [currentFolder, setCurrentFolder] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const [stats, setStats] = useState({ total_documents: 0, espace_utilise: 0 });
+  const fileInputRef = useRef(null);
+  const [showGenModal, setShowGenModal] = useState(null);
+
+  useEffect(() => {
+    loadDocuments();
+    loadFolders();
+    loadStats();
+  }, []);
+
+  const loadDocuments = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/documents/api/documents/');
+      const data = await res.json();
+      if (data.success) setDocuments(data.documents);
+    } catch (e) { console.error('Erreur chargement documents:', e); }
+    setLoading(false);
+  };
+
+  const loadFolders = async () => {
+    try {
+      const res = await fetch('/documents/api/dossiers/');
+      const data = await res.json();
+      if (data.success) setFolders(data.dossiers);
+    } catch (e) { console.error('Erreur chargement dossiers:', e); }
+  };
+
+  const loadStats = async () => {
+    try {
+      const res = await fetch('/documents/api/statistiques/');
+      const data = await res.json();
+      if (data.success) setStats(data.statistiques);
+    } catch (e) { console.error('Erreur chargement stats:', e); }
+  };
+
+  const handleUpload = async (e) => {
+    const files = e.target.files;
+    if (!files.length) return;
+    const formData = new FormData();
+    for (let file of files) formData.append('fichiers', file);
+    formData.append('type_document', 'autre');
+    try {
+      const res = await fetch('/documents/api/documents/upload/', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success) { loadDocuments(); loadStats(); }
+      else alert(data.error || 'Erreur upload');
+    } catch (e) { console.error('Erreur upload:', e); }
+    e.target.value = '';
+  };
+
+  const handleDelete = async (docId) => {
+    if (!confirm('Supprimer ce document ?')) return;
+    try {
+      const res = await fetch('/documents/api/documents/supprimer/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: docId })
+      });
+      const data = await res.json();
+      if (data.success) loadDocuments();
+    } catch (e) { console.error('Erreur suppression:', e); }
+  };
+
+  const handleShare = async (docId) => {
+    const email = prompt('Email du destinataire :');
+    if (!email) return;
+    try {
+      const res = await fetch('/documents/api/partage/creer/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: docId, destinataire_email: email })
+      });
+      const data = await res.json();
+      if (data.success) alert('Lien de partage : ' + window.location.origin + data.partage.lien);
+    } catch (e) { console.error('Erreur partage:', e); }
+  };
+
+  const handleContextMenu = (e, doc) => {
+    e.preventDefault();
+    setSelectedDoc(doc);
+    setContextMenuPos({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+
+  const getFileIcon = (ext) => {
+    const icons = { '.pdf': '📄', '.doc': '📝', '.docx': '📝', '.xls': '📊', '.xlsx': '📊', '.jpg': '🖼️', '.png': '🖼️' };
+    return icons[ext] || '📎';
+  };
+
+  const formatSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' o';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
+  };
+
+  const filteredDocs = documents.filter(d =>
+    !searchQuery || d.nom.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px', minHeight: 'calc(100vh - 150px)' }}>
+      {/* Sidebar */}
+      <div className="card" style={{ height: 'fit-content' }}>
+        <div className="card-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+          <h3 className="card-title">Mes Documents</h3>
+          <button className="btn btn-primary w-full" onClick={() => fileInputRef.current?.click()}>
+            <Upload size={16} /> Uploader
+          </button>
+          <input ref={fileInputRef} type="file" multiple hidden onChange={handleUpload} />
+        </div>
+        <div className="card-body" style={{ padding: '12px' }}>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--neutral-500)', marginBottom: '8px', fontWeight: '600' }}>Navigation</div>
+            {[
+              { id: 'all', label: 'Tous les fichiers', icon: Folder, count: documents.length },
+              { id: 'recent', label: 'Récents', icon: Clock },
+              { id: 'shared', label: 'Partagés', icon: Users },
+              { id: 'trash', label: 'Corbeille', icon: Trash2 },
+            ].map(item => (
+              <div key={item.id} onClick={() => setCurrentFolder(item.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
+                  background: currentFolder === item.id ? 'rgba(26, 54, 93, 0.1)' : 'transparent',
+                  color: currentFolder === item.id ? 'var(--primary)' : 'var(--neutral-700)' }}>
+                <item.icon size={18} style={{ color: 'var(--accent)' }} />
+                <span style={{ flex: 1, fontSize: '13px', fontWeight: '500' }}>{item.label}</span>
+                {item.count !== undefined && <span style={{ background: 'var(--neutral-200)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px' }}>{item.count}</span>}
+              </div>
+            ))}
+          </div>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--neutral-500)', marginBottom: '8px', fontWeight: '600' }}>Actions rapides</div>
+            {[
+              { label: 'Générer fiche dossier', icon: FileText, action: 'fiche' },
+              { label: 'Générer acte', icon: FileSignature, action: 'acte' },
+              { label: 'Générer lettre', icon: Mail, action: 'lettre' },
+            ].map((item, i) => (
+              <div key={i} onClick={() => setShowGenModal(item.action)}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--neutral-700)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--neutral-100)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <item.icon size={18} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontSize: '13px' }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: 'var(--neutral-100)', padding: '12px', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px' }}>
+              <span>Espace utilisé</span>
+              <span style={{ fontWeight: '600' }}>{formatSize(stats.espace_utilise)}</span>
+            </div>
+            <div style={{ height: '6px', background: 'var(--neutral-300)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min((stats.espace_utilise / (5 * 1024 * 1024 * 1024)) * 100, 100)}%`, background: 'linear-gradient(90deg, var(--primary), var(--accent))', borderRadius: '3px' }} />
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    <div className="card">
-      <div className="card-header"><h3 className="card-title">Contenu</h3></div>
-      <div className="card-body">
-        <div style={{textAlign:'center', padding:'40px', color:'var(--neutral-500)'}}>
-          <Folder size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
-          <p>Sélectionnez un dossier pour voir les fichiers</p>
+
+      {/* Main Content */}
+      <div className="card">
+        <div className="card-header" style={{ flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+            <div className="search-bar" style={{ maxWidth: '300px' }}>
+              <Search size={18} />
+              <input placeholder="Rechercher..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', background: 'var(--neutral-100)', borderRadius: '6px', padding: '2px' }}>
+              <button className={`btn btn-sm ${currentView === 'grid' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCurrentView('grid')} style={{ borderRadius: '4px' }}>
+                <Layers size={14} />
+              </button>
+              <button className={`btn btn-sm ${currentView === 'list' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCurrentView('list')} style={{ borderRadius: '4px' }}>
+                <Menu size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="card-body">
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--neutral-500)' }}>
+              <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
+              <p>Chargement...</p>
+            </div>
+          ) : filteredDocs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--neutral-500)' }}>
+              <HardDrive size={64} style={{ marginBottom: '16px', opacity: 0.3 }} />
+              <h3 style={{ marginBottom: '8px', color: 'var(--neutral-600)' }}>Aucun document</h3>
+              <p style={{ fontSize: '14px' }}>Uploadez des fichiers ou générez des documents</p>
+              <button className="btn btn-accent" style={{ marginTop: '16px' }} onClick={() => fileInputRef.current?.click()}>
+                <Upload size={16} /> Uploader des fichiers
+              </button>
+            </div>
+          ) : currentView === 'grid' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+              {filteredDocs.map(doc => (
+                <div key={doc.id} onContextMenu={(e) => handleContextMenu(e, doc)}
+                  style={{ background: 'white', border: '1px solid var(--neutral-200)', borderRadius: '10px', padding: '16px', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--neutral-200)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                  <div style={{ height: '80px', background: 'var(--neutral-100)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', marginBottom: '12px' }}>
+                    {getFileIcon(doc.extension)}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }} title={doc.nom}>{doc.nom}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{doc.taille_humaine}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr><th>Nom</th><th>Type</th><th>Taille</th><th>Date</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {filteredDocs.map(doc => (
+                    <tr key={doc.id} onContextMenu={(e) => handleContextMenu(e, doc)}>
+                      <td style={{ fontWeight: '500' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '20px' }}>{getFileIcon(doc.extension)}</span>
+                          {doc.nom}
+                        </div>
+                      </td>
+                      <td>{doc.type_document_display}</td>
+                      <td>{doc.taille_humaine}</td>
+                      <td>{new Date(doc.date_creation).toLocaleDateString('fr-FR')}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {doc.url && <a href={doc.url} target="_blank" className="btn btn-sm btn-secondary"><Eye size={12} /></a>}
+                          <button className="btn btn-sm btn-secondary" onClick={() => handleShare(doc.id)}><Users size={12} /></button>
+                          <button className="btn btn-sm btn-danger" onClick={() => handleDelete(doc.id)}><Trash2 size={12} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {showContextMenu && (
+        <div onClick={() => setShowContextMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
+          <div style={{ position: 'fixed', left: contextMenuPos.x, top: contextMenuPos.y, background: 'white', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: '8px 0', minWidth: '180px', zIndex: 101 }}
+            onClick={e => e.stopPropagation()}>
+            {selectedDoc?.url && <div style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}
+              onClick={() => { window.open(selectedDoc.url, '_blank'); setShowContextMenu(false); }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--neutral-100)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <Eye size={16} /> Aperçu
+            </div>}
+            <div style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}
+              onClick={() => { handleShare(selectedDoc?.id); setShowContextMenu(false); }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--neutral-100)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <Users size={16} /> Partager
+            </div>
+            <div style={{ height: '1px', background: 'var(--neutral-200)', margin: '8px 0' }} />
+            <div style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: 'var(--danger)' }}
+              onClick={() => { handleDelete(selectedDoc?.id); setShowContextMenu(false); }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--neutral-100)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <Trash2 size={16} /> Supprimer
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Génération */}
+      {showGenModal && (
+        <div className="modal-overlay" onClick={() => setShowGenModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                {showGenModal === 'fiche' && 'Générer fiche dossier'}
+                {showGenModal === 'acte' && 'Générer un acte'}
+                {showGenModal === 'lettre' && 'Générer une lettre'}
+              </h2>
+              <button className="modal-close" onClick={() => setShowGenModal(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <Alert type="info">
+                Cette fonctionnalité génère automatiquement un document PDF professionnel avec les informations du dossier sélectionné.
+              </Alert>
+              <div className="form-group" style={{ marginTop: '16px' }}>
+                <label className="form-label">Sélectionner le dossier</label>
+                <select className="form-select">
+                  <option value="">Choisir un dossier...</option>
+                  <option value="175_1125_MAB">175_1125_MAB - DUPONT C/ MARTIN</option>
+                  <option value="174_1125_MAB">174_1125_MAB - SARL EXAMPLE</option>
+                </select>
+              </div>
+              {showGenModal === 'acte' && (
+                <div className="form-group" style={{ marginTop: '16px' }}>
+                  <label className="form-label">Type d'acte</label>
+                  <select className="form-select">
+                    <option value="">Choisir...</option>
+                    <option value="commandement">Commandement de payer</option>
+                    <option value="signification">Signification de décision</option>
+                    <option value="pv_saisie">Procès-verbal de saisie</option>
+                    <option value="pv_constat">Procès-verbal de constat</option>
+                    <option value="denonciation">Dénonciation</option>
+                  </select>
+                </div>
+              )}
+              {showGenModal === 'lettre' && (
+                <div className="form-group" style={{ marginTop: '16px' }}>
+                  <label className="form-label">Type de lettre</label>
+                  <select className="form-select">
+                    <option value="">Choisir...</option>
+                    <option value="mise_demeure">Mise en demeure</option>
+                    <option value="relance">Relance</option>
+                    <option value="accuse">Accusé de réception</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowGenModal(null)}>Annuler</button>
+              <button className="btn btn-primary" onClick={() => { alert('Document généré ! (Connectez le backend pour la génération réelle)'); setShowGenModal(null); }}>
+                <FileText size={16} /> Générer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
-  </div>
-);
+  );
+};
 
 const SecuriteModule = () => (
   <div className="card">

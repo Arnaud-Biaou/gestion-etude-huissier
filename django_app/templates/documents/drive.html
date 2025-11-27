@@ -1,0 +1,1026 @@
+{% extends 'gestion/base.html' %}
+{% load static %}
+
+{% block title %}Drive - Documents{% endblock %}
+
+{% block extra_css %}
+<style>
+    .drive-container {
+        display: flex;
+        height: calc(100vh - 140px);
+        background: var(--neutral-50);
+    }
+
+    /* Sidebar Dossiers */
+    .drive-sidebar {
+        width: 280px;
+        background: white;
+        border-right: 1px solid var(--neutral-200);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .sidebar-header h3 {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 18px;
+        color: var(--primary);
+        margin: 0 0 15px 0;
+    }
+
+    .btn-nouveau-dossier {
+        width: 100%;
+        padding: 10px 16px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-nouveau-dossier:hover {
+        background: #142c4f;
+    }
+
+    .folders-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    .folder-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-bottom: 4px;
+        transition: all 0.2s;
+    }
+
+    .folder-item:hover {
+        background: var(--neutral-100);
+    }
+
+    .folder-item.active {
+        background: #e8f0fb;
+        color: var(--primary);
+    }
+
+    .folder-icon {
+        width: 24px;
+        height: 24px;
+        margin-right: 10px;
+        color: var(--accent);
+    }
+
+    .folder-name {
+        flex: 1;
+        font-size: 14px;
+    }
+
+    .folder-count {
+        background: var(--neutral-200);
+        color: var(--neutral-600);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+    }
+
+    .folder-item.active .folder-count {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* Main Content */
+    .drive-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .drive-toolbar {
+        padding: 15px 20px;
+        background: white;
+        border-bottom: 1px solid var(--neutral-200);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .toolbar-search {
+        flex: 1;
+        position: relative;
+    }
+
+    .toolbar-search input {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border: 1px solid var(--neutral-300);
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .toolbar-search svg {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--neutral-400);
+    }
+
+    .view-toggle {
+        display: flex;
+        background: var(--neutral-100);
+        border-radius: 6px;
+        padding: 2px;
+    }
+
+    .view-btn {
+        padding: 8px 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 4px;
+        color: var(--neutral-600);
+        transition: all 0.2s;
+    }
+
+    .view-btn.active {
+        background: white;
+        color: var(--primary);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .toolbar-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-upload {
+        padding: 10px 16px;
+        background: var(--accent);
+        color: var(--primary);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-upload:hover {
+        background: #b8993d;
+    }
+
+    /* Files List */
+    .files-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+
+    .files-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 15px;
+    }
+
+    .file-card {
+        background: white;
+        border: 1px solid var(--neutral-200);
+        border-radius: 10px;
+        padding: 15px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .file-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .file-preview {
+        height: 100px;
+        background: var(--neutral-100);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+
+    .file-preview svg {
+        width: 48px;
+        height: 48px;
+        color: var(--neutral-400);
+    }
+
+    .file-preview.pdf svg { color: #c53030; }
+    .file-preview.doc svg { color: #3182ce; }
+    .file-preview.img svg { color: #2f855a; }
+    .file-preview.xls svg { color: #2f855a; }
+
+    .file-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--neutral-800);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+    }
+
+    .file-meta {
+        font-size: 12px;
+        color: var(--neutral-500);
+    }
+
+    /* List View */
+    .files-list {
+        display: none;
+    }
+
+    .files-list.active {
+        display: block;
+    }
+
+    .files-grid.hidden {
+        display: none;
+    }
+
+    .files-table {
+        width: 100%;
+        background: white;
+        border-radius: 10px;
+        border-collapse: collapse;
+        overflow: hidden;
+    }
+
+    .files-table th,
+    .files-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .files-table th {
+        background: var(--neutral-50);
+        font-weight: 600;
+        color: var(--neutral-600);
+        font-size: 13px;
+    }
+
+    .files-table tr:hover {
+        background: var(--neutral-50);
+    }
+
+    .file-row-name {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .file-row-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: var(--neutral-100);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Stats Panel */
+    .drive-stats {
+        padding: 20px;
+        border-top: 1px solid var(--neutral-200);
+        background: white;
+    }
+
+    .storage-bar {
+        height: 8px;
+        background: var(--neutral-200);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .storage-used {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
+        border-radius: 4px;
+    }
+
+    .storage-info {
+        font-size: 13px;
+        color: var(--neutral-600);
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+        border: 2px dashed var(--neutral-300);
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        background: var(--neutral-50);
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 20px;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+        border-color: var(--primary);
+        background: #e8f0fb;
+    }
+
+    .upload-zone svg {
+        width: 48px;
+        height: 48px;
+        color: var(--neutral-400);
+        margin-bottom: 15px;
+    }
+
+    .upload-zone h4 {
+        margin: 0 0 8px 0;
+        color: var(--neutral-700);
+    }
+
+    .upload-zone p {
+        margin: 0;
+        color: var(--neutral-500);
+        font-size: 14px;
+    }
+
+    /* Context Menu */
+    .context-menu {
+        position: fixed;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 8px 0;
+        z-index: 1000;
+        display: none;
+        min-width: 180px;
+    }
+
+    .context-menu.visible {
+        display: block;
+    }
+
+    .context-menu-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--neutral-700);
+    }
+
+    .context-menu-item:hover {
+        background: var(--neutral-100);
+    }
+
+    .context-menu-item svg {
+        width: 16px;
+        height: 16px;
+        color: var(--neutral-500);
+    }
+
+    .context-menu-item.danger {
+        color: #c53030;
+    }
+
+    .context-menu-item.danger svg {
+        color: #c53030;
+    }
+
+    .context-menu-divider {
+        height: 1px;
+        background: var(--neutral-200);
+        margin: 8px 0;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state svg {
+        width: 80px;
+        height: 80px;
+        color: var(--neutral-300);
+        margin-bottom: 20px;
+    }
+
+    .empty-state h3 {
+        margin: 0 0 8px 0;
+        color: var(--neutral-600);
+    }
+
+    .empty-state p {
+        color: var(--neutral-500);
+        margin: 0;
+    }
+
+    /* Breadcrumb */
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--neutral-600);
+        padding: 15px 20px;
+        background: white;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .breadcrumb-item {
+        cursor: pointer;
+        color: var(--primary);
+    }
+
+    .breadcrumb-item:hover {
+        text-decoration: underline;
+    }
+
+    .breadcrumb-separator {
+        color: var(--neutral-400);
+    }
+
+    .breadcrumb-current {
+        color: var(--neutral-600);
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+        padding: 15px 10px;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .quick-action-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 8px;
+        color: var(--neutral-700);
+        font-size: 14px;
+        width: 100%;
+        transition: all 0.2s;
+    }
+
+    .quick-action-btn:hover {
+        background: var(--neutral-100);
+    }
+
+    .quick-action-btn svg {
+        width: 18px;
+        height: 18px;
+        color: var(--accent);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="drive-container">
+    <!-- Sidebar -->
+    <div class="drive-sidebar">
+        <div class="sidebar-header">
+            <h3>Mes Documents</h3>
+            <button class="btn-nouveau-dossier" onclick="creerDossier()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                Nouveau dossier
+            </button>
+        </div>
+
+        <div class="quick-actions">
+            <button class="quick-action-btn" onclick="genererFicheDossier()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Générer fiche dossier
+            </button>
+            <button class="quick-action-btn" onclick="genererActe()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                Générer acte
+            </button>
+            <button class="quick-action-btn" onclick="genererLettre()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                Générer lettre
+            </button>
+        </div>
+
+        <div class="folders-list" id="foldersList">
+            <div class="folder-item active" data-folder="all">
+                <svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span class="folder-name">Tous les fichiers</span>
+                <span class="folder-count" id="totalCount">0</span>
+            </div>
+            <div class="folder-item" data-folder="recent">
+                <svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span class="folder-name">Récents</span>
+            </div>
+            <div class="folder-item" data-folder="shared">
+                <svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                <span class="folder-name">Partagés</span>
+            </div>
+            <div class="folder-item" data-folder="trash">
+                <svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span class="folder-name">Corbeille</span>
+            </div>
+
+            <div style="padding: 15px 12px 8px; font-size: 12px; color: var(--neutral-500); text-transform: uppercase;">Dossiers</div>
+
+            <div id="customFolders">
+                <!-- Dossiers personnalisés chargés dynamiquement -->
+            </div>
+        </div>
+
+        <div class="drive-stats">
+            <div class="storage-bar">
+                <div class="storage-used" id="storageBar" style="width: 0%"></div>
+            </div>
+            <div class="storage-info">
+                <span id="storageUsed">0 Mo</span> sur <span id="storageTotal">5 Go</span> utilisés
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="drive-main">
+        <div class="drive-toolbar">
+            <div class="toolbar-search">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="searchInput" placeholder="Rechercher des fichiers..." onkeyup="rechercher()">
+            </div>
+
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="grid" onclick="setView('grid')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                </button>
+                <button class="view-btn" data-view="list" onclick="setView('list')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div class="toolbar-actions">
+                <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Uploader
+                </button>
+                <input type="file" id="fileInput" multiple style="display: none" onchange="uploadFiles(this.files)">
+            </div>
+        </div>
+
+        <div class="breadcrumb" id="breadcrumb">
+            <span class="breadcrumb-item" onclick="navigateTo('/')">Drive</span>
+        </div>
+
+        <div class="files-container">
+            <!-- Zone de drop -->
+            <div class="upload-zone" id="uploadZone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <h4>Glissez vos fichiers ici</h4>
+                <p>ou cliquez pour sélectionner des fichiers</p>
+            </div>
+
+            <!-- Vue grille -->
+            <div class="files-grid" id="filesGrid">
+                <!-- Documents chargés dynamiquement -->
+            </div>
+
+            <!-- Vue liste -->
+            <div class="files-list" id="filesList">
+                <table class="files-table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Type</th>
+                            <th>Taille</th>
+                            <th>Modifié le</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filesTableBody">
+                        <!-- Documents chargés dynamiquement -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- État vide -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <h3>Aucun fichier</h3>
+                <p>Uploadez des fichiers ou générez des documents</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Menu contextuel -->
+<div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="previewDocument()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        Aperçu
+    </div>
+    <div class="context-menu-item" onclick="downloadDocument()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Télécharger
+    </div>
+    <div class="context-menu-item" onclick="shareDocument()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+        Partager
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="renameDocument()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+        Renommer
+    </div>
+    <div class="context-menu-item" onclick="moveDocument()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+        Déplacer
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" onclick="deleteDocument()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        Supprimer
+    </div>
+</div>
+
+<script>
+    let currentView = 'grid';
+    let currentFolder = 'all';
+    let documents = [];
+    let selectedDocument = null;
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDocuments();
+        loadFolders();
+        loadStats();
+
+        // Fermer le menu contextuel au clic
+        document.addEventListener('click', function() {
+            document.getElementById('contextMenu').classList.remove('visible');
+        });
+    });
+
+    // Chargement des documents
+    async function loadDocuments() {
+        try {
+            const response = await fetch('/documents/api/documents/');
+            const data = await response.json();
+            if (data.success) {
+                documents = data.documents;
+                renderDocuments();
+                document.getElementById('totalCount').textContent = documents.length;
+            }
+        } catch (error) {
+            console.error('Erreur chargement documents:', error);
+        }
+    }
+
+    // Chargement des dossiers
+    async function loadFolders() {
+        try {
+            const response = await fetch('/documents/api/dossiers/');
+            const data = await response.json();
+            if (data.success) {
+                renderFolders(data.dossiers);
+            }
+        } catch (error) {
+            console.error('Erreur chargement dossiers:', error);
+        }
+    }
+
+    // Chargement des statistiques
+    async function loadStats() {
+        try {
+            const response = await fetch('/documents/api/statistiques/');
+            const data = await response.json();
+            if (data.success) {
+                const stats = data.statistiques;
+                document.getElementById('storageUsed').textContent = stats.espace_utilise_humain;
+                // Calculer le pourcentage (supposons 5 Go max)
+                const maxStorage = 5 * 1024 * 1024 * 1024;
+                const percentage = (stats.espace_utilise / maxStorage) * 100;
+                document.getElementById('storageBar').style.width = Math.min(percentage, 100) + '%';
+            }
+        } catch (error) {
+            console.error('Erreur chargement stats:', error);
+        }
+    }
+
+    // Rendu des documents
+    function renderDocuments() {
+        const grid = document.getElementById('filesGrid');
+        const tableBody = document.getElementById('filesTableBody');
+        const emptyState = document.getElementById('emptyState');
+
+        if (documents.length === 0) {
+            emptyState.style.display = 'block';
+            grid.innerHTML = '';
+            tableBody.innerHTML = '';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+
+        // Vue grille
+        grid.innerHTML = documents.map(doc => `
+            <div class="file-card" data-id="${doc.id}" oncontextmenu="showContextMenu(event, '${doc.id}')" onclick="selectDocument('${doc.id}')">
+                <div class="file-preview ${getFileClass(doc.extension)}">
+                    ${getFileIcon(doc.extension)}
+                </div>
+                <div class="file-name" title="${doc.nom}">${doc.nom}</div>
+                <div class="file-meta">${doc.taille_humaine} • ${formatDate(doc.date_creation)}</div>
+            </div>
+        `).join('');
+
+        // Vue liste
+        tableBody.innerHTML = documents.map(doc => `
+            <tr data-id="${doc.id}" oncontextmenu="showContextMenu(event, '${doc.id}')" onclick="selectDocument('${doc.id}')">
+                <td>
+                    <div class="file-row-name">
+                        <div class="file-row-icon ${getFileClass(doc.extension)}">${getFileIcon(doc.extension, 16)}</div>
+                        <span>${doc.nom}</span>
+                    </div>
+                </td>
+                <td>${doc.type_document_display}</td>
+                <td>${doc.taille_humaine}</td>
+                <td>${formatDate(doc.date_creation)}</td>
+                <td>
+                    <button onclick="event.stopPropagation(); showContextMenu(event, '${doc.id}')" style="background: none; border: none; cursor: pointer; padding: 5px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Rendu des dossiers
+    function renderFolders(folders) {
+        const container = document.getElementById('customFolders');
+        container.innerHTML = folders.map(folder => `
+            <div class="folder-item" data-folder="${folder.id}" onclick="navigateToFolder('${folder.id}')">
+                <svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${folder.couleur}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span class="folder-name">${folder.nom}</span>
+                <span class="folder-count">${folder.nb_documents}</span>
+            </div>
+        `).join('');
+    }
+
+    // Obtenir la classe CSS du fichier
+    function getFileClass(extension) {
+        const map = {
+            '.pdf': 'pdf',
+            '.doc': 'doc', '.docx': 'doc',
+            '.xls': 'xls', '.xlsx': 'xls',
+            '.jpg': 'img', '.jpeg': 'img', '.png': 'img', '.gif': 'img'
+        };
+        return map[extension] || '';
+    }
+
+    // Obtenir l'icône du fichier
+    function getFileIcon(extension, size = 48) {
+        const icons = {
+            '.pdf': `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`,
+            '.doc': `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`,
+            '.jpg': `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`
+        };
+        return icons[extension] || icons['.doc'];
+    }
+
+    // Formater la date
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // Changer la vue
+    function setView(view) {
+        currentView = view;
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === view);
+        });
+        document.getElementById('filesGrid').classList.toggle('hidden', view !== 'grid');
+        document.getElementById('filesList').classList.toggle('active', view === 'list');
+    }
+
+    // Menu contextuel
+    function showContextMenu(event, documentId) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectedDocument = documents.find(d => d.id === documentId);
+
+        const menu = document.getElementById('contextMenu');
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+        menu.classList.add('visible');
+    }
+
+    // Actions
+    function selectDocument(id) {
+        selectedDocument = documents.find(d => d.id === id);
+    }
+
+    function previewDocument() {
+        if (selectedDocument && selectedDocument.url) {
+            window.open(selectedDocument.url, '_blank');
+        }
+    }
+
+    function downloadDocument() {
+        if (selectedDocument) {
+            window.location.href = `/documents/api/documents/${selectedDocument.id}/telecharger/`;
+        }
+    }
+
+    async function deleteDocument() {
+        if (!selectedDocument) return;
+        if (!confirm('Voulez-vous vraiment supprimer ce document ?')) return;
+
+        try {
+            const response = await fetch('/documents/api/documents/supprimer/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ document_id: selectedDocument.id })
+            });
+            const data = await response.json();
+            if (data.success) {
+                loadDocuments();
+            } else {
+                alert(data.error || 'Erreur lors de la suppression');
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+        }
+    }
+
+    // Upload
+    function handleDragOver(event) {
+        event.preventDefault();
+        document.getElementById('uploadZone').classList.add('drag-over');
+    }
+
+    function handleDragLeave(event) {
+        document.getElementById('uploadZone').classList.remove('drag-over');
+    }
+
+    function handleDrop(event) {
+        event.preventDefault();
+        document.getElementById('uploadZone').classList.remove('drag-over');
+        const files = event.dataTransfer.files;
+        uploadFiles(files);
+    }
+
+    async function uploadFiles(files) {
+        if (!files || files.length === 0) return;
+
+        const formData = new FormData();
+        for (let file of files) {
+            formData.append('fichiers', file);
+        }
+        formData.append('type_document', 'autre');
+
+        try {
+            const response = await fetch('/documents/api/documents/upload/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                loadDocuments();
+                loadStats();
+            } else {
+                alert(data.error || 'Erreur lors de l\'upload');
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+        }
+    }
+
+    // Recherche
+    function rechercher() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = documents.filter(d =>
+            d.nom.toLowerCase().includes(query) ||
+            d.description.toLowerCase().includes(query)
+        );
+        // Mise à jour temporaire
+        const originalDocs = documents;
+        documents = filtered;
+        renderDocuments();
+        documents = originalDocs;
+    }
+
+    // Fonctions de génération (à implémenter avec modals)
+    function genererFicheDossier() {
+        alert('Sélectionnez un dossier juridique pour générer sa fiche');
+    }
+
+    function genererActe() {
+        alert('Fonctionnalité de génération d\'acte');
+    }
+
+    function genererLettre() {
+        alert('Fonctionnalité de génération de lettre');
+    }
+
+    function creerDossier() {
+        const nom = prompt('Nom du nouveau dossier:');
+        if (nom) {
+            fetch('/documents/api/dossiers/creer/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nom: nom })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    loadFolders();
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+    }
+
+    function shareDocument() {
+        if (!selectedDocument) return;
+        const email = prompt('Email du destinataire:');
+        if (email) {
+            fetch('/documents/api/partage/creer/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    document_id: selectedDocument.id,
+                    destinataire_email: email
+                })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    alert('Lien de partage créé: ' + window.location.origin + data.partage.lien);
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+    }
+
+    function renameDocument() {
+        if (!selectedDocument) return;
+        const newName = prompt('Nouveau nom:', selectedDocument.nom);
+        if (newName) {
+            fetch('/documents/api/documents/renommer/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    document_id: selectedDocument.id,
+                    nom: newName
+                })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    loadDocuments();
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+    }
+
+    function moveDocument() {
+        // À implémenter avec modal de sélection de dossier
+        alert('Fonctionnalité de déplacement à venir');
+    }
+
+    function navigateToFolder(folderId) {
+        document.querySelectorAll('.folder-item').forEach(f => f.classList.remove('active'));
+        document.querySelector(`[data-folder="${folderId}"]`).classList.add('active');
+        // Charger les documents du dossier
+        fetch(`/documents/api/documents/?dossier=${folderId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    documents = data.documents;
+                    renderDocuments();
+                }
+            });
+    }
+</script>
+{% endblock %}
