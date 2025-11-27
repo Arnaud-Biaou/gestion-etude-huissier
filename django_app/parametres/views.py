@@ -11,7 +11,7 @@ from datetime import datetime, date, time
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_GET
 from django.utils import timezone
 from django.db import transaction
@@ -62,7 +62,6 @@ def get_default_context(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 def index(request):
     """Page principale des paramètres"""
     context = get_default_context(request)
@@ -114,7 +113,6 @@ def index(request):
 # ===== API CONFIGURATION GENERALE =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_sauvegarder_config(request):
     """Sauvegarde la configuration générale"""
@@ -380,7 +378,6 @@ def api_sauvegarder_config(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_get_config(request):
     """Récupère la configuration complète"""
@@ -394,7 +391,6 @@ def api_get_config(request):
 # ===== API SITES/AGENCES =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_sites_list(request):
     """Liste des sites/agences"""
@@ -406,7 +402,6 @@ def api_sites_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_site_create(request):
     """Crée un nouveau site"""
@@ -432,7 +427,6 @@ def api_site_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_site_update(request, site_id):
     """Met à jour un site"""
@@ -461,7 +455,6 @@ def api_site_update(request, site_id):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_site_delete(request, site_id):
     """Supprime un site"""
@@ -483,7 +476,6 @@ def api_site_delete(request, site_id):
 # ===== API TYPES DOSSIER =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_types_dossier_list(request):
     """Liste des types de dossier"""
@@ -495,7 +487,6 @@ def api_types_dossier_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_type_dossier_create(request):
     """Crée un nouveau type de dossier"""
@@ -521,7 +512,6 @@ def api_type_dossier_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_type_dossier_update(request, type_id):
     """Met à jour un type de dossier"""
@@ -550,7 +540,6 @@ def api_type_dossier_update(request, type_id):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_type_dossier_delete(request, type_id):
     """Supprime un type de dossier"""
@@ -572,7 +561,6 @@ def api_type_dossier_delete(request, type_id):
 # ===== API STATUTS DOSSIER =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_statuts_dossier_list(request):
     """Liste des statuts de dossier"""
@@ -584,7 +572,6 @@ def api_statuts_dossier_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_statut_dossier_create(request):
     """Crée un nouveau statut de dossier"""
@@ -610,7 +597,6 @@ def api_statut_dossier_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_statut_dossier_update(request, statut_id):
     """Met à jour un statut de dossier"""
@@ -641,7 +627,6 @@ def api_statut_dossier_update(request, statut_id):
 # ===== API MODELES DOCUMENT =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_modeles_document_list(request):
     """Liste des modèles de document"""
@@ -656,7 +641,6 @@ def api_modeles_document_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_modele_document_create(request):
     """Crée un nouveau modèle de document"""
@@ -682,7 +666,6 @@ def api_modele_document_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_modele_document_update(request, modele_id):
     """Met à jour un modèle de document"""
@@ -710,7 +693,6 @@ def api_modele_document_update(request, modele_id):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_modele_document_duplicate(request, modele_id):
     """Duplique un modèle de document"""
@@ -736,7 +718,6 @@ def api_modele_document_duplicate(request, modele_id):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_modele_document_delete(request, modele_id):
     """Supprime un modèle de document"""
@@ -758,7 +739,6 @@ def api_modele_document_delete(request, modele_id):
 # ===== API LOCALITES =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_localites_list(request):
     """Liste des localités"""
@@ -786,7 +766,6 @@ def api_localites_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_localite_create(request):
     """Crée une nouvelle localité"""
@@ -813,7 +792,6 @@ def api_localite_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_localite_update(request, localite_id):
     """Met à jour une localité"""
@@ -842,7 +820,6 @@ def api_localite_update(request, localite_id):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_localites_import(request):
     """Importe des localités depuis un fichier CSV"""
@@ -889,7 +866,6 @@ def api_localites_import(request):
 # ===== API TAUX LEGAUX =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_taux_legaux_list(request):
     """Liste des taux légaux"""
@@ -901,7 +877,6 @@ def api_taux_legaux_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_taux_legal_create(request):
     """Crée un nouveau taux légal"""
@@ -928,7 +903,6 @@ def api_taux_legal_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_taux_legal_update(request, taux_id):
     """Met à jour un taux légal"""
@@ -961,7 +935,6 @@ def api_taux_legal_update(request, taux_id):
 # ===== API JOURS FERIES =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_jours_feries_list(request):
     """Liste des jours fériés"""
@@ -973,7 +946,6 @@ def api_jours_feries_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_jour_ferie_create(request):
     """Crée un nouveau jour férié"""
@@ -999,7 +971,6 @@ def api_jour_ferie_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_jour_ferie_update(request, jour_id):
     """Met à jour un jour férié"""
@@ -1032,7 +1003,6 @@ def api_jour_ferie_update(request, jour_id):
 # ===== API TYPES ACTES =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_types_actes_list(request):
     """Liste des types d'actes"""
@@ -1044,7 +1014,6 @@ def api_types_actes_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_type_acte_create(request):
     """Crée un nouveau type d'acte"""
@@ -1069,7 +1038,6 @@ def api_type_acte_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_type_acte_update(request, type_id):
     """Met à jour un type d'acte"""
@@ -1100,7 +1068,6 @@ def api_type_acte_update(request, type_id):
 # ===== API JURIDICTIONS =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_juridictions_list(request):
     """Liste des juridictions"""
@@ -1112,7 +1079,6 @@ def api_juridictions_list(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_juridiction_create(request):
     """Crée une nouvelle juridiction"""
@@ -1138,7 +1104,6 @@ def api_juridiction_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_juridiction_update(request, juridiction_id):
     """Met à jour une juridiction"""
@@ -1169,7 +1134,6 @@ def api_juridiction_update(request, juridiction_id):
 # ===== API SAUVEGARDES =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_backup_create(request):
     """Crée une sauvegarde manuelle"""
@@ -1201,7 +1165,6 @@ def api_backup_create(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_backup_restore(request, backup_id):
     """Restaure une sauvegarde"""
@@ -1224,7 +1187,6 @@ def api_backup_restore(request, backup_id):
 # ===== API EXPORTS =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_export_data(request, format_type):
     """Exporte les données"""
@@ -1282,7 +1244,6 @@ def api_export_data(request, format_type):
 # ===== API TEST CONNEXIONS =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_test_smtp(request):
     """Teste la configuration SMTP"""
@@ -1303,7 +1264,6 @@ def api_test_smtp(request):
 
 
 @login_required
-@user_passes_test(est_admin)
 @require_POST
 def api_test_sms(request):
     """Teste la configuration SMS"""
@@ -1326,7 +1286,6 @@ def api_test_sms(request):
 # ===== API JOURNAL =====
 
 @login_required
-@user_passes_test(est_admin)
 @require_GET
 def api_journal_list(request):
     """Liste du journal des modifications"""
