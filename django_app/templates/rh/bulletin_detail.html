@@ -3,6 +3,15 @@
 
 {% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
 
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'rh:dashboard' %}" class="breadcrumb-item">RH</a>
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'rh:paie' %}" class="breadcrumb-item">Paie</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">{{ bulletin.reference }}</span>
+{% endblock %}
+
 {% block content %}
 <div class="rh-page">
     <!-- Sous-navigation RH -->
@@ -24,9 +33,11 @@
         </a>
     </div>
 
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-        <a href="{% url 'rh:paie' %}"><i data-lucide="arrow-left"></i> Retour à la paie</a>
+    <!-- Bouton Retour -->
+    <div class="page-header">
+        <a href="javascript:history.back()" class="btn-back">
+            <i data-lucide="arrow-left"></i> Retour
+        </a>
     </div>
 
     <div class="bulletin-container">

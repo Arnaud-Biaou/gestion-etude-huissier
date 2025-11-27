@@ -1,15 +1,21 @@
 {% extends 'base.html' %}
 
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'comptabilite:dashboard' %}" class="breadcrumb-item">Comptabilité</a>
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'comptabilite:ecritures' %}" class="breadcrumb-item">Écritures</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">{{ ecriture.numero }}</span>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
-    <!-- Breadcrumb -->
-    <div class="flex" style="gap: 0.5rem; align-items: center;">
-        <a href="{% url 'comptabilite:ecritures' %}" class="btn btn-secondary btn-sm">
-            <i data-lucide="arrow-left"></i>
-            Retour à la liste
+    <!-- Bouton Retour -->
+    <div class="page-header">
+        <a href="javascript:history.back()" class="btn-back">
+            <i data-lucide="arrow-left"></i> Retour
         </a>
-        <span class="text-muted">/</span>
-        <span>Écriture {{ ecriture.numero }}</span>
     </div>
 
     <!-- En-tête -->
