@@ -1,0 +1,607 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item current">Gérance Immobilière</span>
+{% endblock %}
+
+{% block content %}
+<div class="gerance-container">
+    <!-- En-tête avec stats -->
+    <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon info">
+                    <i data-lucide="building-2"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Biens en gérance</div>
+                    <div class="stat-value">{{ stats.biens }}</div>
+                    <div class="stat-subtitle">{{ stats.biens_loues }} loués ({{ stats.taux_occupation }}%)</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon accent">
+                    <i data-lucide="users"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Propriétaires</div>
+                    <div class="stat-value">{{ stats.proprietaires }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon success">
+                    <i data-lucide="banknote"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Loyers du mois</div>
+                    <div class="stat-value">{{ stats.total_percu|floatformat:0 }} XOF</div>
+                    <div class="stat-subtitle">sur {{ stats.total_a_percevoir|floatformat:0 }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon {% if stats.loyers_impayes > 0 %}danger{% else %}success{% endif %}">
+                    <i data-lucide="alert-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Impayés</div>
+                    <div class="stat-value {% if stats.loyers_impayes > 0 %}danger{% endif %}">{{ stats.loyers_impayes }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+        <!-- Baux actifs -->
+        <div class="card col-span-2">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="file-text"></i>
+                    Baux récents
+                </h3>
+                <a href="{% url 'gerance:baux' %}" class="btn btn-outline btn-sm">
+                    Voir tout
+                </a>
+            </div>
+            <div class="card-body">
+                {% if derniers_baux %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th>Bien</th>
+                            <th>Locataire</th>
+                            <th>Loyer</th>
+                            <th>Fin</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bail in derniers_baux %}
+                        <tr>
+                            <td><strong>{{ bail.reference }}</strong></td>
+                            <td>
+                                <div class="bien-info">
+                                    <span>{{ bail.bien.designation }}</span>
+                                    <small>{{ bail.bien.ville }}</small>
+                                </div>
+                            </td>
+                            <td>{{ bail.locataire.nom }} {{ bail.locataire.prenom }}</td>
+                            <td>{{ bail.loyer_mensuel|floatformat:0 }} XOF</td>
+                            <td>{{ bail.date_fin|date:"d/m/Y" }}</td>
+                            <td>
+                                <span class="status-badge status-{{ bail.statut }}">
+                                    {{ bail.get_statut_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i data-lucide="file-text"></i>
+                    <p>Aucun bail enregistré</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Baux expirant bientôt -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="calendar-clock"></i>
+                    Baux expirant
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if baux_expirant %}
+                <div class="baux-expiration-list">
+                    {% for bail in baux_expirant %}
+                    <div class="bail-expiration-item">
+                        <div class="bail-icon warning">
+                            <i data-lucide="clock"></i>
+                        </div>
+                        <div class="bail-details">
+                            <div class="bail-bien">{{ bail.bien.designation }}</div>
+                            <div class="bail-locataire">{{ bail.locataire.nom }}</div>
+                        </div>
+                        <div class="bail-date">
+                            <strong>{{ bail.date_fin|date:"d/m/Y" }}</strong>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state small">
+                    <i data-lucide="check-circle"></i>
+                    <p>Aucun bail n'expire prochainement</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Incidents et Biens libres -->
+    <div class="grid grid-cols-2 gap-4 mt-4">
+        <!-- Incidents en cours -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="alert-triangle"></i>
+                    Incidents en cours
+                </h3>
+                <a href="{% url 'gerance:incidents' %}" class="btn btn-outline btn-sm">
+                    Voir tout
+                </a>
+            </div>
+            <div class="card-body">
+                {% if incidents_en_cours %}
+                <div class="incidents-list">
+                    {% for incident in incidents_en_cours %}
+                    <div class="incident-item incident-{{ incident.priorite }}">
+                        <div class="incident-priorite">
+                            <span class="priorite-badge priorite-{{ incident.priorite }}">
+                                {{ incident.get_priorite_display }}
+                            </span>
+                        </div>
+                        <div class="incident-details">
+                            <div class="incident-titre">{{ incident.titre }}</div>
+                            <div class="incident-bien">{{ incident.bien.designation }}</div>
+                        </div>
+                        <div class="incident-date">{{ incident.date_signalement|date:"d/m" }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state small">
+                    <i data-lucide="check-circle"></i>
+                    <p>Aucun incident en cours</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Biens libres -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="home"></i>
+                    Biens disponibles
+                </h3>
+                <a href="{% url 'gerance:biens' %}?statut=libre" class="btn btn-outline btn-sm">
+                    Voir tout
+                </a>
+            </div>
+            <div class="card-body">
+                {% if biens_libres %}
+                <div class="biens-libres-list">
+                    {% for bien in biens_libres %}
+                    <div class="bien-libre-item">
+                        <div class="bien-libre-icon">
+                            <i data-lucide="{% if bien.type_bien == 'appartement' %}building{% elif bien.type_bien == 'maison' %}home{% elif bien.type_bien == 'bureau' %}briefcase{% else %}map-pin{% endif %}"></i>
+                        </div>
+                        <div class="bien-libre-details">
+                            <div class="bien-libre-designation">{{ bien.designation }}</div>
+                            <div class="bien-libre-adresse">{{ bien.ville }}</div>
+                        </div>
+                        <div class="bien-libre-loyer">
+                            {{ bien.loyer_mensuel|floatformat:0 }} XOF/mois
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state small">
+                    <i data-lucide="check-circle"></i>
+                    <p>Tous les biens sont loués</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="zap"></i>
+                Actions rapides
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="quick-actions">
+                <a href="{% url 'gerance:proprietaires' %}" class="quick-action-btn">
+                    <div class="action-icon accent">
+                        <i data-lucide="user-plus"></i>
+                    </div>
+                    <span>Nouveau propriétaire</span>
+                </a>
+                <a href="{% url 'gerance:biens' %}" class="quick-action-btn">
+                    <div class="action-icon info">
+                        <i data-lucide="building-2"></i>
+                    </div>
+                    <span>Nouveau bien</span>
+                </a>
+                <a href="{% url 'gerance:locataires' %}" class="quick-action-btn">
+                    <div class="action-icon success">
+                        <i data-lucide="user-check"></i>
+                    </div>
+                    <span>Nouveau locataire</span>
+                </a>
+                <a href="{% url 'gerance:baux' %}" class="quick-action-btn">
+                    <div class="action-icon warning">
+                        <i data-lucide="file-plus"></i>
+                    </div>
+                    <span>Nouveau bail</span>
+                </a>
+                <a href="{% url 'gerance:loyers' %}" class="quick-action-btn">
+                    <div class="action-icon default">
+                        <i data-lucide="receipt"></i>
+                    </div>
+                    <span>Appel de loyers</span>
+                </a>
+                <a href="{% url 'gerance:incidents' %}" class="quick-action-btn">
+                    <div class="action-icon danger">
+                        <i data-lucide="alert-circle"></i>
+                    </div>
+                    <span>Signaler incident</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.gerance-container {
+    max-width: 100%;
+}
+
+.stat-subtitle {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+    margin-top: 0.25rem;
+}
+
+.bien-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.bien-info small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+/* Status badges */
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-actif {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-termine, .status-resilie {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.status-suspendu {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Baux expiration list */
+.baux-expiration-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.bail-expiration-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #fffbeb;
+    border-radius: 0.5rem;
+    border-left: 3px solid var(--warning);
+}
+
+.bail-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.bail-icon.warning {
+    background: #fef3c7;
+    color: var(--warning);
+}
+
+.bail-icon i {
+    width: 18px;
+    height: 18px;
+}
+
+.bail-details {
+    flex: 1;
+}
+
+.bail-bien {
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.bail-locataire {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.bail-date {
+    font-size: 0.875rem;
+    color: var(--warning);
+}
+
+/* Incidents list */
+.incidents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.incident-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+}
+
+.incident-item.incident-urgente {
+    background: #fef2f2;
+    border-left: 3px solid var(--danger);
+}
+
+.incident-item.incident-haute {
+    background: #fffbeb;
+    border-left: 3px solid var(--warning);
+}
+
+.priorite-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.priorite-basse {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.priorite-normale {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.priorite-haute {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.priorite-urgente {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.incident-details {
+    flex: 1;
+}
+
+.incident-titre {
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.incident-bien {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.incident-date {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+/* Biens libres list */
+.biens-libres-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.bien-libre-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+}
+
+.bien-libre-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    background: #dbeafe;
+    color: var(--info);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.bien-libre-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.bien-libre-details {
+    flex: 1;
+}
+
+.bien-libre-designation {
+    font-weight: 500;
+}
+
+.bien-libre-adresse {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.bien-libre-loyer {
+    font-weight: 600;
+    color: var(--success);
+    font-size: 0.875rem;
+}
+
+/* Quick actions */
+.quick-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    background: var(--neutral-50);
+    border: 1px solid var(--neutral-200);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+}
+
+.quick-action-btn:hover {
+    background: var(--neutral-100);
+    border-color: var(--neutral-300);
+    transform: translateY(-2px);
+}
+
+.action-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-icon.success {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.action-icon.danger {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.action-icon.info {
+    background: #dbeafe;
+    color: var(--info);
+}
+
+.action-icon.warning {
+    background: #fef3c7;
+    color: var(--warning);
+}
+
+.action-icon.accent {
+    background: var(--primary-50);
+    color: var(--primary);
+}
+
+.action-icon.default {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.action-icon i {
+    width: 24px;
+    height: 24px;
+}
+
+.quick-action-btn span {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.empty-state.small {
+    padding: 2rem 1rem;
+}
+
+.empty-state.small i {
+    width: 32px;
+    height: 32px;
+}
+
+.empty-state.small p {
+    font-size: 0.875rem;
+}
+
+.danger {
+    color: var(--danger);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
