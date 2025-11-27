@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, User, Menu, X, Home, FolderOpen, FileText, DollarSign, PiggyBank, Calculator, Users, HardDrive, Building2, Calendar, ChevronRight, ChevronLeft, Plus, Filter, Download, Upload, Edit, Trash2, Eye, EyeOff, Clock, CheckCircle, AlertCircle, Archive, MoreVertical, TrendingUp, TrendingDown, Briefcase, Scale, Gavel, Phone, Mail, MapPin, Check, ArrowRight, ArrowLeft, Save, Printer, Settings, Shield, QrCode, MessageSquare, Send, Bot, Folder, File, ChevronDown, ChevronUp, UserPlus, Building, Globe, CreditCard, Hash, Lock, Unlock, Key, Copy, RefreshCw, Percent, Receipt, FileSignature, Zap, Target, BarChart3, PieChart, Activity, Layers, GitBranch, AlertTriangle, Info, HelpCircle, Mic, Paperclip, Image, Video, Camera, MapPinned, Navigation, History } from 'lucide-react';
+import { Search, Bell, User, Menu, X, Home, FolderOpen, FileText, DollarSign, PiggyBank, Calculator, Users, HardDrive, Building2, Calendar, ChevronRight, ChevronLeft, Plus, Filter, Download, Upload, Edit, Trash2, Eye, EyeOff, Clock, CheckCircle, AlertCircle, Archive, MoreVertical, TrendingUp, TrendingDown, Briefcase, Scale, Gavel, Phone, Mail, MapPin, Check, ArrowRight, ArrowLeft, Save, Printer, Settings, Shield, QrCode, MessageSquare, Send, Bot, Folder, File, ChevronDown, ChevronUp, UserPlus, Building, Globe, CreditCard, Hash, Lock, Unlock, Key, Copy, RefreshCw, Percent, Receipt, FileSignature, Zap, Target, BarChart3, PieChart, Activity, Layers, GitBranch, AlertTriangle, Info, HelpCircle, Mic, Paperclip, Image, Video, Camera, MapPinned, Navigation, History, LogOut } from 'lucide-react';
 
 // ============================================
 // STYLES CSS COMPLETS
@@ -590,6 +590,473 @@ const styles = `
     border-radius: 50%;
     background: var(--success);
     animation: pulse 2s infinite;
+  }
+
+  /* ============================================
+     LOGIN PAGE STYLES
+     ============================================ */
+  .login-container {
+    min-height: 100vh;
+    display: flex;
+    background: var(--neutral-100);
+  }
+
+  /* Colonne gauche - Présentation */
+  .login-left {
+    flex: 0 0 60%;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px;
+    overflow: hidden;
+  }
+
+  .login-left::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.5;
+  }
+
+  .login-left-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    max-width: 500px;
+    color: white;
+  }
+
+  .login-logo {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 40px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  .login-logo-icon {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--primary-dark);
+  }
+
+  .login-title {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    line-height: 1.2;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .login-subtitle {
+    font-size: 20px;
+    opacity: 0.9;
+    margin-bottom: 48px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .login-features {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: left;
+  }
+
+  .login-feature {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .login-feature-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(198, 169, 98, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-light);
+  }
+
+  .login-feature-text {
+    flex: 1;
+  }
+
+  .login-feature-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .login-feature-desc {
+    font-size: 13px;
+    opacity: 0.8;
+  }
+
+  .login-decoration {
+    position: absolute;
+    bottom: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: rgba(198, 169, 98, 0.1);
+    border-radius: 50%;
+    z-index: 1;
+  }
+
+  .login-decoration-2 {
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    z-index: 1;
+  }
+
+  /* Colonne droite - Formulaire */
+  .login-right {
+    flex: 0 0 40%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 40px;
+    background: white;
+  }
+
+  .login-form-container {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .login-form-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .login-form-title {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 12px;
+  }
+
+  .login-form-subtitle {
+    color: var(--neutral-500);
+    font-size: 15px;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .login-input-group {
+    position: relative;
+  }
+
+  .login-input-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--neutral-700);
+    margin-bottom: 8px;
+  }
+
+  .login-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .login-input-icon {
+    position: absolute;
+    left: 16px;
+    color: var(--neutral-400);
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+
+  .login-input {
+    width: 100%;
+    padding: 14px 16px 14px 48px;
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+    font-family: var(--font-body);
+    background: var(--neutral-50);
+    transition: all 0.2s ease;
+  }
+
+  .login-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(26, 54, 93, 0.1);
+  }
+
+  .login-input:focus + .login-input-icon,
+  .login-input-wrapper:focus-within .login-input-icon {
+    color: var(--primary);
+  }
+
+  .login-input-toggle {
+    position: absolute;
+    right: 16px;
+    background: none;
+    border: none;
+    color: var(--neutral-400);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+  }
+
+  .login-input-toggle:hover {
+    color: var(--primary);
+  }
+
+  .login-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  .login-remember {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .login-remember input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
+  .login-remember span {
+    color: var(--neutral-600);
+  }
+
+  .login-forgot {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .login-forgot:hover {
+    color: var(--accent-dark);
+  }
+
+  .login-btn {
+    width: 100%;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(26, 54, 93, 0.3);
+  }
+
+  .login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(26, 54, 93, 0.4);
+  }
+
+  .login-btn:active {
+    transform: translateY(0);
+  }
+
+  .login-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .login-btn-loading {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .login-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 8px 0;
+  }
+
+  .login-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--neutral-200);
+  }
+
+  .login-divider-text {
+    color: var(--neutral-400);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .login-footer {
+    text-align: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--neutral-200);
+  }
+
+  .login-footer-text {
+    color: var(--neutral-500);
+    font-size: 13px;
+  }
+
+  .login-footer-link {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 4px;
+  }
+
+  .login-footer-link:hover {
+    text-decoration: underline;
+  }
+
+  .login-copyright {
+    position: absolute;
+    bottom: 24px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+  }
+
+  .login-error {
+    background: rgba(197, 48, 48, 0.1);
+    border: 1px solid rgba(197, 48, 48, 0.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--danger);
+    font-size: 13px;
+  }
+
+  .login-error-icon {
+    flex-shrink: 0;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 1024px) {
+    .login-container {
+      flex-direction: column;
+    }
+
+    .login-left {
+      display: none;
+    }
+
+    .login-right {
+      flex: 1;
+      padding: 40px 24px;
+    }
+
+    .login-form-container {
+      max-width: 100%;
+    }
+
+    .login-mobile-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .login-mobile-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(26, 54, 93, 0.3);
+    }
+
+    .login-mobile-logo-icon {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .login-mobile-title {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .login-mobile-subtitle {
+      color: var(--neutral-500);
+      font-size: 13px;
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .login-mobile-header {
+      display: none;
+    }
   }
 `;
 
@@ -2345,12 +2812,348 @@ const Chatbot = () => {
 };
 
 // ============================================
+// PAGE DE CONNEXION
+// ============================================
+const LoginPage = ({ onLogin }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Utilisateurs de démonstration
+  const DEMO_USERS = [
+    { id: 1, email: 'mab@etude-biaou.bj', password: 'admin123', nom: 'BIAOU Martial Arnaud', role: 'admin', initials: 'MA' },
+    { id: 2, email: 'huissier@etude-biaou.bj', password: 'huissier123', nom: 'Me BIAOU Martial', role: 'huissier', initials: 'MB' },
+    { id: 3, email: 'clerc@etude-biaou.bj', password: 'clerc123', nom: 'ADJOVI Carine', role: 'clerc_principal', initials: 'AC' },
+    { id: 4, email: 'secretaire@etude-biaou.bj', password: 'secret123', nom: 'DOSSOU Marie', role: 'secretaire', initials: 'DM' },
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    // Simulation d'une requête d'authentification
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const user = DEMO_USERS.find(u => u.email === email && u.password === password);
+
+    if (user) {
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+      onLogin(user);
+    } else {
+      setError('Identifiants incorrects. Veuillez vérifier votre email et mot de passe.');
+      setIsLoading(false);
+    }
+  };
+
+  // Charger l'email mémorisé au montage du composant
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
+  return (
+    <div className="login-container">
+      {/* Colonne gauche - Présentation */}
+      <div className="login-left">
+        <div className="login-decoration"></div>
+        <div className="login-decoration-2"></div>
+
+        <div className="login-left-content">
+          <div className="login-logo">
+            <span className="login-logo-icon">MAB</span>
+          </div>
+
+          <h1 className="login-title">Étude BIAOU</h1>
+          <p className="login-subtitle">Huissier de Justice</p>
+
+          <div className="login-features">
+            <div className="login-feature">
+              <div className="login-feature-icon">
+                <FolderOpen size={24} />
+              </div>
+              <div className="login-feature-text">
+                <div className="login-feature-title">Gestion des Dossiers</div>
+                <div className="login-feature-desc">Suivi complet de vos affaires juridiques</div>
+              </div>
+            </div>
+
+            <div className="login-feature">
+              <div className="login-feature-icon">
+                <FileText size={24} />
+              </div>
+              <div className="login-feature-text">
+                <div className="login-feature-title">Facturation MECeF</div>
+                <div className="login-feature-desc">Facturation normalisée conforme</div>
+              </div>
+            </div>
+
+            <div className="login-feature">
+              <div className="login-feature-icon">
+                <Calculator size={24} />
+              </div>
+              <div className="login-feature-text">
+                <div className="login-feature-title">Calculs OHADA</div>
+                <div className="login-feature-desc">Recouvrement et intérêts automatisés</div>
+              </div>
+            </div>
+
+            <div className="login-feature">
+              <div className="login-feature-icon">
+                <Shield size={24} />
+              </div>
+              <div className="login-feature-text">
+                <div className="login-feature-title">Sécurisé</div>
+                <div className="login-feature-desc">Protection des données confidentielles</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-copyright">
+          © {new Date().getFullYear()} Étude BIAOU - Tous droits réservés
+        </div>
+      </div>
+
+      {/* Colonne droite - Formulaire */}
+      <div className="login-right">
+        {/* Header mobile */}
+        <div className="login-mobile-header">
+          <div className="login-mobile-logo">
+            <span className="login-mobile-logo-icon">MAB</span>
+          </div>
+          <div className="login-mobile-title">Étude BIAOU</div>
+          <div className="login-mobile-subtitle">Huissier de Justice</div>
+        </div>
+
+        <div className="login-form-container">
+          <div className="login-form-header">
+            <h2 className="login-form-title">Connexion</h2>
+            <p className="login-form-subtitle">Accédez à votre espace de travail</p>
+          </div>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            {error && (
+              <div className="login-error">
+                <AlertCircle size={18} className="login-error-icon" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="login-input-group">
+              <label className="login-input-label">Adresse email</label>
+              <div className="login-input-wrapper">
+                <input
+                  type="email"
+                  className="login-input"
+                  placeholder="votre@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+                <Mail size={18} className="login-input-icon" />
+              </div>
+            </div>
+
+            <div className="login-input-group">
+              <label className="login-input-label">Mot de passe</label>
+              <div className="login-input-wrapper">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="login-input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <Lock size={18} className="login-input-icon" />
+                <button
+                  type="button"
+                  className="login-input-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="login-options">
+              <label className="login-remember">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span>Se souvenir de moi</span>
+              </label>
+              <a href="#" className="login-forgot" onClick={(e) => {
+                e.preventDefault();
+                alert('Veuillez contacter l\'administrateur pour réinitialiser votre mot de passe.');
+              }}>
+                Mot de passe oublié ?
+              </a>
+            </div>
+
+            <button
+              type="submit"
+              className="login-btn"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <div className="login-btn-loading"></div>
+                  Connexion en cours...
+                </>
+              ) : (
+                <>
+                  Se connecter
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+
+            <div className="login-divider">
+              <div className="login-divider-line"></div>
+              <span className="login-divider-text">Comptes de démonstration</span>
+              <div className="login-divider-line"></div>
+            </div>
+
+            <div style={{
+              background: 'var(--neutral-50)',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px',
+              fontSize: '12px',
+              color: 'var(--neutral-600)'
+            }}>
+              <div style={{ fontWeight: '600', marginBottom: '12px', color: 'var(--neutral-700)' }}>
+                Utilisez l'un des comptes suivants :
+              </div>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {DEMO_USERS.map(user => (
+                  <div
+                    key={user.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      background: 'white',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      border: '1px solid var(--neutral-200)',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => {
+                      setEmail(user.email);
+                      setPassword(user.password);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--primary)';
+                      e.currentTarget.style.background = 'rgba(26, 54, 93, 0.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--neutral-200)';
+                      e.currentTarget.style.background = 'white';
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: '500', color: 'var(--neutral-800)' }}>{user.nom}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{user.email}</div>
+                    </div>
+                    <div style={{
+                      background: 'var(--primary)',
+                      color: 'white',
+                      fontSize: '10px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      textTransform: 'capitalize'
+                    }}>
+                      {user.role.replace('_', ' ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </form>
+
+          <div className="login-footer">
+            <p className="login-footer-text">
+              Besoin d'aide ?
+              <a href="#" className="login-footer-link" onClick={(e) => {
+                e.preventDefault();
+                alert('Support : support@etude-biaou.bj');
+              }}>
+                Contactez le support
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // APP PRINCIPALE
 // ============================================
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [active, setActive] = useState('dashboard');
   const [modal, setModal] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Vérifier si un utilisateur est déjà connecté au chargement
+  useEffect(() => {
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+      } catch (e) {
+        localStorage.removeItem('currentUser');
+      }
+    }
+  }, []);
+
+  // Fonction de connexion
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+  };
+
+  // Fonction de déconnexion
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('currentUser');
+    setActive('dashboard');
+  };
+
+  // Si non authentifié, afficher la page de connexion
+  if (!isAuthenticated) {
+    return (
+      <>
+        <style>{styles}</style>
+        <LoginPage onLogin={handleLogin} />
+      </>
+    );
+  }
 
   const renderModule = () => {
     switch (active) {
@@ -2422,11 +3225,37 @@ export default function App() {
           </nav>
           <div className="sidebar-footer">
             <div className="user-card">
-              <div className="user-avatar">MA</div>
-              <div className="user-info">
-                <div style={{fontSize:'12px', fontWeight:'bold'}}>{CURRENT_USER.nom}</div>
-                <div style={{fontSize:'10px', opacity:0.8}}>Administrateur</div>
+              <div className="user-avatar">{currentUser?.initials || 'U'}</div>
+              <div className="user-info" style={{ flex: 1 }}>
+                <div style={{fontSize:'12px', fontWeight:'bold'}}>{currentUser?.nom || 'Utilisateur'}</div>
+                <div style={{fontSize:'10px', opacity:0.8, textTransform: 'capitalize'}}>{currentUser?.role?.replace('_', ' ') || 'Invité'}</div>
               </div>
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.7)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(197, 48, 48, 0.3)';
+                  e.currentTarget.style.color = '#fc8181';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+                }}
+                title="Se déconnecter"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           </div>
         </aside>
@@ -2440,7 +3269,17 @@ export default function App() {
             </div>
             <div className="topbar-actions">
               <button className="icon-btn"><Bell size={18} /></button>
-              <button className="icon-btn"><User size={18} /></button>
+              <button className="icon-btn" title={currentUser?.nom || 'Utilisateur'}>
+                <User size={18} />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={handleLogout}
+                title="Se déconnecter"
+                style={{ color: 'var(--danger)' }}
+              >
+                <LogOut size={18} />
+              </button>
             </div>
           </header>
           <div className="page-content">{renderModule()}</div>
