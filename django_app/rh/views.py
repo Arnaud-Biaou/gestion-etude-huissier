@@ -36,10 +36,10 @@ def get_default_context(request):
 
     modules = [
         # Principal
-        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard', 'category': 'principal', 'url': 'gestion:dashboard'},
-        {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'principal', 'url': 'gestion:dossiers'},
-        {'id': 'facturation', 'label': 'Facturation', 'icon': 'file-text', 'category': 'principal', 'url': 'gestion:facturation'},
-        {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'principal', 'url': 'gestion:calcul'},
+        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard', 'category': 'main', 'url': 'gestion:dashboard'},
+        {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers'},
+        {'id': 'facturation', 'label': 'Facturation', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
+        {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
         # Finance
         {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'wallet', 'category': 'finance', 'url': 'tresorerie:dashboard'},
         {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},

@@ -33,16 +33,53 @@ except ImportError:
 
 
 # ==========================================
+# CONTEXTE PAR DÉFAUT
+# ==========================================
+
+def get_default_context(request):
+    """Retourne le contexte par défaut pour les templates Documents"""
+    user = request.user
+
+    modules = [
+        # Principal
+        {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'layout-dashboard', 'category': 'main', 'url': 'gestion:dashboard'},
+        {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers'},
+        {'id': 'facturation', 'label': 'Facturation', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
+        {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
+        # Finance
+        {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'wallet', 'category': 'finance', 'url': 'tresorerie:dashboard'},
+        {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
+        # Gestion
+        {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
+        {'id': 'drive', 'label': 'Drive', 'icon': 'hard-drive', 'category': 'gestion', 'url': 'documents:drive'},
+        {'id': 'gerance', 'label': 'Gérance Immobilière', 'icon': 'building-2', 'category': 'gestion', 'url': 'gerance:dashboard'},
+        {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda:home'},
+        # Admin
+        {'id': 'parametres', 'label': 'Paramètres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres:index'},
+        {'id': 'securite', 'label': 'Sécurité & Accès', 'icon': 'shield', 'category': 'admin', 'url': 'gestion:securite'},
+    ]
+
+    return {
+        'current_user': {
+            'id': user.id if user.is_authenticated else None,
+            'nom': user.get_full_name() if user.is_authenticated else 'Invité',
+            'role': getattr(user, 'role', '') if user.is_authenticated else '',
+            'initials': user.get_initials() if user.is_authenticated and hasattr(user, 'get_initials') else 'XX',
+        },
+        'modules': modules,
+        'active_module': 'drive',
+    }
+
+
+# ==========================================
 # VUES PRINCIPALES
 # ==========================================
 
 @login_required
 def drive_view(request):
     """Vue principale du Drive"""
-    context = {
-        'current_user': request.user,
-        'module': 'drive',
-    }
+    context = get_default_context(request)
+    context['page_title'] = 'Drive'
     return render(request, 'documents/drive.html', context)
 
 
