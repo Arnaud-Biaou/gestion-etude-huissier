@@ -1,0 +1,315 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Étude Me BIAOU</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/auth.css' %}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Colonne gauche - Présentation -->
+        <div class="auth-branding">
+            <div class="auth-branding-content">
+                <!-- Logo -->
+                <div class="auth-logo">
+                    <div class="auth-logo-icon">
+                        <svg viewBox="0 0 100 100" class="balance-icon">
+                            <defs>
+                                <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#d4bc7c"/>
+                                    <stop offset="50%" style="stop-color:#c9a227"/>
+                                    <stop offset="100%" style="stop-color:#a68b3d"/>
+                                </linearGradient>
+                            </defs>
+                            <!-- Balance de la justice stylisée -->
+                            <path d="M50 8 L50 25" stroke="url(#goldGradient)" stroke-width="4" stroke-linecap="round"/>
+                            <circle cx="50" cy="10" r="4" fill="url(#goldGradient)"/>
+                            <path d="M20 25 L80 25" stroke="url(#goldGradient)" stroke-width="3" stroke-linecap="round"/>
+                            <path d="M20 25 L20 45 L10 45 Q5 55 20 55 Q35 55 30 45 L20 45" stroke="url(#goldGradient)" stroke-width="2" fill="none"/>
+                            <path d="M80 25 L80 45 L70 45 Q65 55 80 55 Q95 55 90 45 L80 45" stroke="url(#goldGradient)" stroke-width="2" fill="none"/>
+                            <path d="M50 25 L50 85" stroke="url(#goldGradient)" stroke-width="4"/>
+                            <path d="M35 85 L65 85 L60 92 L40 92 Z" fill="url(#goldGradient)"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Séparateur -->
+                <div class="auth-separator">
+                    <span></span>
+                </div>
+
+                <!-- Informations de l'étude -->
+                <div class="auth-study-info">
+                    <h1 class="auth-study-name">ÉTUDE Me MARTIAL ARNAUD BIAOU</h1>
+                    <p class="auth-study-title">Huissier de Justice</p>
+                    <p class="auth-study-court">près le Tribunal de Première Instance</p>
+                    <p class="auth-study-court">et la Cour d'Appel de Parakou</p>
+                </div>
+
+                <!-- Séparateur -->
+                <div class="auth-separator">
+                    <span></span>
+                </div>
+
+                <!-- Citation -->
+                <div class="auth-quote" id="authQuote">
+                    <p class="quote-text">"La justice est la vérité en action"</p>
+                    <p class="quote-author">- Joseph Joubert</p>
+                </div>
+
+                <!-- Illustration décorative -->
+                <div class="auth-illustration">
+                    <svg viewBox="0 0 200 100" class="columns-illustration">
+                        <!-- Colonnes grecques stylisées -->
+                        <rect x="30" y="20" width="15" height="70" fill="rgba(255,255,255,0.1)" rx="2"/>
+                        <rect x="92" y="20" width="15" height="70" fill="rgba(255,255,255,0.1)" rx="2"/>
+                        <rect x="155" y="20" width="15" height="70" fill="rgba(255,255,255,0.1)" rx="2"/>
+                        <rect x="20" y="10" width="35" height="10" fill="rgba(255,255,255,0.15)" rx="2"/>
+                        <rect x="82" y="10" width="35" height="10" fill="rgba(255,255,255,0.15)" rx="2"/>
+                        <rect x="145" y="10" width="35" height="10" fill="rgba(255,255,255,0.15)" rx="2"/>
+                        <rect x="20" y="90" width="35" height="8" fill="rgba(255,255,255,0.1)" rx="1"/>
+                        <rect x="82" y="90" width="35" height="8" fill="rgba(255,255,255,0.1)" rx="1"/>
+                        <rect x="145" y="90" width="35" height="8" fill="rgba(255,255,255,0.1)" rx="1"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Pattern de fond -->
+            <div class="auth-branding-pattern"></div>
+        </div>
+
+        <!-- Colonne droite - Formulaire -->
+        <div class="auth-form-section">
+            <div class="auth-form-container">
+                <!-- Logo mobile -->
+                <div class="auth-mobile-logo">
+                    <div class="mobile-logo-icon">MAB</div>
+                    <div class="mobile-logo-text">
+                        <span class="mobile-logo-title">Étude BIAOU</span>
+                        <span class="mobile-logo-subtitle">Huissier de Justice</span>
+                    </div>
+                </div>
+
+                <!-- En-tête du formulaire -->
+                <div class="auth-form-header">
+                    <h2 class="auth-welcome">Bienvenue</h2>
+                    <p class="auth-subtitle">Connectez-vous à votre espace</p>
+                </div>
+
+                <!-- Messages d'erreur/succès -->
+                {% if form.errors %}
+                <div class="auth-alert auth-alert-error" id="authAlert">
+                    <i data-lucide="x-circle"></i>
+                    <div class="auth-alert-content">
+                        <strong>Identifiants incorrects</strong>
+                        <p>Vérifiez votre email et mot de passe.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if messages %}
+                {% for message in messages %}
+                <div class="auth-alert auth-alert-{{ message.tags }}">
+                    {% if message.tags == 'success' %}
+                    <i data-lucide="check-circle"></i>
+                    {% elif message.tags == 'warning' %}
+                    <i data-lucide="alert-triangle"></i>
+                    {% elif message.tags == 'error' %}
+                    <i data-lucide="x-circle"></i>
+                    {% else %}
+                    <i data-lucide="info"></i>
+                    {% endif %}
+                    <div class="auth-alert-content">
+                        <p>{{ message }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- Formulaire de connexion -->
+                <form method="post" class="auth-form" id="loginForm" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Champ Email/Utilisateur -->
+                    <div class="auth-input-group">
+                        <label for="id_username" class="auth-label">
+                            <i data-lucide="mail"></i>
+                            Email ou nom d'utilisateur
+                        </label>
+                        <div class="auth-input-wrapper">
+                            <input
+                                type="text"
+                                name="username"
+                                id="id_username"
+                                class="auth-input {% if form.username.errors %}input-error{% endif %}"
+                                placeholder="votre.email@exemple.com"
+                                value="{{ form.username.value|default:'' }}"
+                                autocomplete="username"
+                                required
+                            >
+                            <span class="auth-input-focus"></span>
+                        </div>
+                        {% if form.username.errors %}
+                        <span class="auth-field-error">{{ form.username.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Champ Mot de passe -->
+                    <div class="auth-input-group">
+                        <label for="id_password" class="auth-label">
+                            <i data-lucide="lock"></i>
+                            Mot de passe
+                        </label>
+                        <div class="auth-input-wrapper auth-password-wrapper">
+                            <input
+                                type="password"
+                                name="password"
+                                id="id_password"
+                                class="auth-input {% if form.password.errors %}input-error{% endif %}"
+                                placeholder="Votre mot de passe"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button type="button" class="auth-password-toggle" onclick="togglePassword('id_password', this)">
+                                <i data-lucide="eye" class="eye-icon"></i>
+                                <i data-lucide="eye-off" class="eye-off-icon"></i>
+                            </button>
+                            <span class="auth-input-focus"></span>
+                        </div>
+                        {% if form.password.errors %}
+                        <span class="auth-field-error">{{ form.password.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Se souvenir de moi -->
+                    <div class="auth-remember-row">
+                        <label class="auth-checkbox-label">
+                            <input type="checkbox" name="remember" id="remember" class="auth-checkbox">
+                            <span class="auth-checkbox-custom"></span>
+                            <span class="auth-checkbox-text">Se souvenir de moi</span>
+                        </label>
+                    </div>
+
+                    <!-- Bouton de connexion -->
+                    <button type="submit" class="auth-submit-btn" id="loginBtn">
+                        <span class="btn-text">Se connecter</span>
+                        <span class="btn-loading">
+                            <span class="spinner"></span>
+                            Connexion...
+                        </span>
+                    </button>
+
+                    <!-- Mot de passe oublié -->
+                    <div class="auth-forgot-link">
+                        <a href="{% url 'password_reset' %}">Mot de passe oublié ?</a>
+                    </div>
+                </form>
+
+                <!-- Séparateur -->
+                <div class="auth-divider">
+                    <span></span>
+                </div>
+
+                <!-- Première connexion -->
+                <div class="auth-help-section">
+                    <p class="auth-help-text">Première connexion ?</p>
+                    <p class="auth-help-subtext">Contactez l'administrateur pour obtenir vos identifiants.</p>
+                </div>
+
+                <!-- Footer -->
+                <div class="auth-footer">
+                    <div class="auth-footer-divider"></div>
+                    <p class="auth-copyright">&copy; <span id="currentYear"></span> - Étude Me BIAOU</p>
+                    <p class="auth-rights">Tous droits réservés</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialiser Lucide Icons
+        lucide.createIcons();
+
+        // Année courante
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Toggle mot de passe
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const eyeIcon = button.querySelector('.eye-icon');
+            const eyeOffIcon = button.querySelector('.eye-off-icon');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                eyeIcon.style.display = 'none';
+                eyeOffIcon.style.display = 'block';
+            } else {
+                input.type = 'password';
+                eyeIcon.style.display = 'block';
+                eyeOffIcon.style.display = 'none';
+            }
+        }
+
+        // Citations rotatives
+        const quotes = [
+            { text: '"La justice est la vérité en action"', author: '- Joseph Joubert' },
+            { text: '"Là où il y a une volonté, il y a un chemin"', author: '- Proverbe' },
+            { text: '"Le droit est l\'ensemble des conditions qui permettent à la liberté de chacun de s\'accorder à la liberté de tous"', author: '- Emmanuel Kant' },
+            { text: '"La justice sans la force est impuissante, la force sans la justice est tyrannique"', author: '- Blaise Pascal' }
+        ];
+
+        function rotateQuote() {
+            const quoteElement = document.getElementById('authQuote');
+            if (quoteElement) {
+                const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+                quoteElement.querySelector('.quote-text').textContent = randomQuote.text;
+                quoteElement.querySelector('.quote-author').textContent = randomQuote.author;
+            }
+        }
+
+        // Changer de citation au chargement
+        rotateQuote();
+
+        // Formulaire - loading state
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            const btn = document.getElementById('loginBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+        });
+
+        // Animation shake sur erreur
+        {% if form.errors %}
+        document.querySelector('.auth-form-container').classList.add('shake');
+        setTimeout(() => {
+            document.querySelector('.auth-form-container').classList.remove('shake');
+        }, 500);
+        {% endif %}
+
+        // Mémoriser l'utilisateur
+        const rememberCheckbox = document.getElementById('remember');
+        const usernameInput = document.getElementById('id_username');
+
+        // Charger l'email sauvegardé
+        const savedUsername = localStorage.getItem('remembered_username');
+        if (savedUsername && usernameInput) {
+            usernameInput.value = savedUsername;
+            if (rememberCheckbox) {
+                rememberCheckbox.checked = true;
+            }
+        }
+
+        // Sauvegarder ou supprimer l'email
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            if (rememberCheckbox && rememberCheckbox.checked) {
+                localStorage.setItem('remembered_username', usernameInput.value);
+            } else {
+                localStorage.removeItem('remembered_username');
+            }
+        });
+    </script>
+</body>
+</html>
