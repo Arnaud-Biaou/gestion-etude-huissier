@@ -1,9 +1,21 @@
 {% extends 'base.html' %}
 
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'gestion:dossiers' %}" class="breadcrumb-item">Dossiers</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Nouveau dossier</span>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Création d'un nouveau dossier</h3>
+        <div class="flex items-center gap-4">
+            <a href="javascript:history.back()" class="btn-back">
+                <i data-lucide="arrow-left"></i> Retour
+            </a>
+            <h3 class="card-title">Création d'un nouveau dossier</h3>
+        </div>
         <a href="{% url 'gestion:dossiers' %}" class="btn btn-secondary btn-sm">
             <i data-lucide="x"></i> Annuler
         </a>

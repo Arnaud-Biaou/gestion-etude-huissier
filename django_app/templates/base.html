@@ -15,7 +15,7 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <a href="{% url 'gestion:dashboard' %}" class="logo">
+                <a href="/" class="logo">
                     <div class="logo-icon">MAB</div>
                     <div>
                         <div class="logo-text">Étude BIAOU</div>
@@ -110,6 +110,14 @@
                     </button>
                 </div>
             </header>
+            <!-- Fil d'Ariane (Breadcrumb) -->
+            <nav class="breadcrumb-nav" aria-label="Fil d'Ariane">
+                <a href="/" class="breadcrumb-item">
+                    <i data-lucide="home"></i>
+                    Accueil
+                </a>
+                {% block breadcrumb %}{% endblock %}
+            </nav>
             <div class="page-content">
                 {% block content %}{% endblock %}
             </div>
