@@ -13,6 +13,7 @@ urlpatterns = [
     path("rh/", include("rh.urls")),
     path("documents/", include("documents.urls")),
     path("agenda/", include("agenda.urls")),
+    path("parametres/", include("parametres.urls")),
     path("", include("gestion.urls")),
 ]
 
