@@ -26,7 +26,10 @@ from .models import (
 
 def est_admin(user):
     """Vérifie si l'utilisateur est administrateur"""
-    return user.is_authenticated and user.role in ['admin', 'huissier']
+    if not user.is_authenticated:
+        return False
+    role = getattr(user, 'role', None)
+    return role in ['admin', 'huissier']
 
 
 def get_default_context(request):
@@ -50,7 +53,7 @@ def get_default_context(request):
         'current_user': {
             'id': user.id,
             'nom': user.get_full_name() or user.username,
-            'role': user.role,
+            'role': getattr(user, 'role', ''),
             'initials': user.get_initials() if hasattr(user, 'get_initials') else user.username[:2].upper(),
         },
         'modules': modules,
