@@ -100,4 +100,7 @@ urlpatterns = [
     # API endpoints - Autorités requérantes
     path('api/autorites/', views.api_autorites_liste, name='api_autorites_liste'),
     path('api/autorites/creer/', views.api_autorite_creer, name='api_autorite_creer'),
+
+    # API endpoints - Tableau de bord avancé
+    path('api/dashboard/', views.api_dashboard_data, name='api_dashboard_data'),
 ]
