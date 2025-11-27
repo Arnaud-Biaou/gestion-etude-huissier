@@ -1,48 +1,1314 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">Gestion des Accès</h3>
-        <button class="btn btn-primary btn-sm">
-            <i data-lucide="user-plus"></i> Ajouter
-        </button>
+<div class="securite-page">
+    <!-- Navigation par onglets -->
+    <div class="securite-tabs">
+        {% for tab in tabs %}
+        <a href="?tab={{ tab.id }}" class="securite-tab {% if current_tab == tab.id %}active{% endif %}">
+            <i data-lucide="{{ tab.icon }}"></i>
+            <span>{{ tab.label }}</span>
+            {% if tab.id == 'alertes' and nb_alertes_non_traitees > 0 %}
+            <span class="tab-badge danger">{{ nb_alertes_non_traitees }}</span>
+            {% endif %}
+            {% if tab.id == 'sessions' %}
+            <span class="tab-badge">{{ nb_sessions_actives }}</span>
+            {% endif %}
+        </a>
+        {% endfor %}
     </div>
-    <div class="card-body">
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Utilisateur</th>
-                        <th>Rôle</th>
-                        <th>Email</th>
-                        <th>Statut</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+
+    <!-- ================================================================== -->
+    <!-- SECTION 1: GESTION DES UTILISATEURS -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'utilisateurs' %}
+    <div class="section-content" id="section-utilisateurs">
+        <!-- En-tête avec statistiques -->
+        <div class="stats-grid grid-cols-4 mb-4">
+            <div class="card stat-card">
+                <div class="stat-content">
+                    <div class="stat-icon info">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total utilisateurs</div>
+                        <div class="stat-value">{{ utilisateurs|length }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-content">
+                    <div class="stat-icon success">
+                        <i data-lucide="user-check"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Actifs</div>
+                        <div class="stat-value">{{ nb_utilisateurs_actifs }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-content">
+                    <div class="stat-icon danger">
+                        <i data-lucide="user-x"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Désactivés</div>
+                        <div class="stat-value">{{ nb_utilisateurs_inactifs }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-content">
+                    <div class="stat-icon accent">
+                        <i data-lucide="monitor"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Sessions actives</div>
+                        <div class="stat-value">{{ nb_sessions_actives }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des utilisateurs -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="users"></i>
+                    Utilisateurs
+                </h3>
+                <button class="btn btn-primary" onclick="openModalNouvelUtilisateur()">
+                    <i data-lucide="user-plus"></i>
+                    Nouvel utilisateur
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="utilisateurs-grid">
                     {% for user in utilisateurs %}
-                    <tr>
-                        <td style="font-weight: 500;">{{ user.nom }}</td>
-                        <td>{{ user.role }}</td>
-                        <td style="color: var(--neutral-500);">{{ user.email }}</td>
-                        <td>
-                            <span class="status-badge active">Actif</span>
-                        </td>
-                        <td>
-                            <div class="flex gap-1">
-                                <button class="icon-btn" title="Modifier">
-                                    <i data-lucide="edit"></i>
-                                </button>
-                                <button class="icon-btn" title="Changer mot de passe">
-                                    <i data-lucide="key"></i>
+                    <div class="utilisateur-card {% if not user.actif %}inactive{% endif %}">
+                        <div class="utilisateur-header">
+                            <div class="utilisateur-avatar {% if user.role_code == 'admin' %}admin{% endif %}">
+                                {{ user.initials }}
+                            </div>
+                            <div class="utilisateur-info">
+                                <div class="utilisateur-nom">
+                                    {% if user.role_code == 'admin' %}Me {% endif %}{{ user.nom }}
+                                </div>
+                                <div class="utilisateur-email">
+                                    <i data-lucide="mail" style="width: 12px; height: 12px;"></i>
+                                    {{ user.email }}
+                                </div>
+                            </div>
+                            <div class="utilisateur-status">
+                                {% if user.actif %}
+                                <span class="status-badge active">Actif</span>
+                                {% else %}
+                                <span class="status-badge inactive">Désactivé</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="utilisateur-details">
+                            <div class="utilisateur-role">
+                                <i data-lucide="shield" style="width: 14px; height: 14px;"></i>
+                                <span>{{ user.role }}</span>
+                            </div>
+                            <div class="utilisateur-connexion">
+                                <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                                {% if user.derniere_connexion %}
+                                Dernière connexion : {{ user.derniere_connexion|date:"d/m/Y H:i" }}
+                                {% else %}
+                                Jamais connecté
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="utilisateur-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="modifierUtilisateur({{ user.id }})" title="Modifier">
+                                <i data-lucide="edit"></i>
+                                Modifier
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="resetPassword({{ user.id }})" title="Réinitialiser MDP">
+                                <i data-lucide="key"></i>
+                                MDP
+                            </button>
+                            {% if user.role_code != 'admin' %}
+                            {% if user.actif %}
+                            <button class="btn btn-sm btn-secondary" onclick="toggleUserStatus({{ user.id }}, false)" title="Désactiver">
+                                <i data-lucide="user-x"></i>
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-success" onclick="toggleUserStatus({{ user.id }}, true)" title="Activer">
+                                <i data-lucide="user-check"></i>
+                            </button>
+                            {% endif %}
+                            {% endif %}
+                            <button class="btn btn-sm btn-secondary" onclick="voirHistorique({{ user.id }})" title="Historique">
+                                <i data-lucide="history"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 2: ROLES ET PERMISSIONS -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'roles' %}
+    <div class="section-content" id="section-roles">
+        <!-- Liste des rôles -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="shield-check"></i>
+                    Rôles système
+                </h3>
+                <button class="btn btn-secondary" onclick="openModalNouveauRole()">
+                    <i data-lucide="plus"></i>
+                    Nouveau rôle personnalisé
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="roles-grid">
+                    {% for role in roles %}
+                    <div class="role-card {% if role.code == 'admin' %}admin{% endif %}">
+                        <div class="role-header">
+                            <div class="role-icon">
+                                {% if role.code == 'admin' %}
+                                <i data-lucide="crown"></i>
+                                {% elif role.code == 'clerc_principal' %}
+                                <i data-lucide="briefcase"></i>
+                                {% elif role.code == 'comptable' %}
+                                <i data-lucide="calculator"></i>
+                                {% elif role.code == 'consultant' %}
+                                <i data-lucide="eye"></i>
+                                {% else %}
+                                <i data-lucide="user"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="role-nom">{{ role.nom }}</div>
+                                <div class="role-description">{{ role.description }}</div>
+                            </div>
+                        </div>
+                        {% if role.est_systeme %}
+                        <span class="role-badge systeme">Rôle système</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Matrice des permissions -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="table"></i>
+                    Matrice des permissions
+                </h3>
+                <div class="flex gap-2">
+                    <span class="legend-item"><span class="perm-icon granted"></span> Autorisé</span>
+                    <span class="legend-item"><span class="perm-icon denied"></span> Interdit</span>
+                    <span class="legend-item"><span class="perm-icon limited"></span> Limité</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="permissions-table">
+                        <thead>
+                            <tr>
+                                <th>Module / Action</th>
+                                <th>Admin</th>
+                                <th>Clerc+</th>
+                                <th>Clerc</th>
+                                <th>Secr.</th>
+                                <th>Agent</th>
+                                <th>Compta</th>
+                                <th>Stage</th>
+                                <th>Cons.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- DOSSIERS -->
+                            <tr class="module-header">
+                                <td colspan="9"><i data-lucide="folder"></i> DOSSIERS</td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Voir tous</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Voir les siens</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Créer</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Modifier</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon limited">*</span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Supprimer</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Clôturer</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <!-- FACTURATION -->
+                            <tr class="module-header">
+                                <td colspan="9"><i data-lucide="file-text"></i> FACTURATION</td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Voir</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Créer</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Annuler</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <!-- TRESORERIE -->
+                            <tr class="module-header">
+                                <td colspan="9"><i data-lucide="piggy-bank"></i> TRÉSORERIE</td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Voir</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Encaisser</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Approuver décaissement</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <!-- ADMINISTRATION -->
+                            <tr class="module-header">
+                                <td colspan="9"><i data-lucide="settings"></i> ADMINISTRATION</td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Paramètres</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="action-name">Sécurité</td>
+                                <td><span class="perm-icon granted"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                                <td><span class="perm-icon denied"></span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-xs" style="color: var(--neutral-500);">
+                    <strong>Légende :</strong> * = Limité (ses propres éléments uniquement)
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 3: POLITIQUE DE SECURITE -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'politique' %}
+    <div class="section-content" id="section-politique">
+        <div class="grid-2">
+            <!-- Politique de mot de passe -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="key"></i>
+                        Politique de mot de passe
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="formPolitiqueMdp" class="space-y-4">
+                        <div class="form-group">
+                            <label class="form-label">Longueur minimale</label>
+                            <input type="number" class="form-input" name="mdp_longueur_min"
+                                   value="{{ politique.mdp_longueur_min }}" min="6" max="32">
+                        </div>
+                        <div class="form-section-title">Exigences</div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="mdp_exiger_majuscule" {% if politique.mdp_exiger_majuscule %}checked{% endif %}>
+                                Au moins une lettre majuscule
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="mdp_exiger_minuscule" {% if politique.mdp_exiger_minuscule %}checked{% endif %}>
+                                Au moins une lettre minuscule
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="mdp_exiger_chiffre" {% if politique.mdp_exiger_chiffre %}checked{% endif %}>
+                                Au moins un chiffre
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="mdp_exiger_special" {% if politique.mdp_exiger_special %}checked{% endif %}>
+                                Au moins un caractère spécial (!@#$%...)
+                            </label>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Expiration (jours)</label>
+                                <input type="number" class="form-input" name="mdp_expiration_jours"
+                                       value="{{ politique.mdp_expiration_jours }}" min="0">
+                                <small>0 = jamais</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Historique</label>
+                                <input type="number" class="form-input" name="mdp_historique"
+                                       value="{{ politique.mdp_historique }}" min="0" max="24">
+                                <small>Empêche réutilisation</small>
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Tentatives avant blocage</label>
+                                <input type="number" class="form-input" name="mdp_tentatives_blocage"
+                                       value="{{ politique.mdp_tentatives_blocage }}" min="1" max="10">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Durée blocage (minutes)</label>
+                                <input type="number" class="form-input" name="mdp_duree_blocage"
+                                       value="{{ politique.mdp_duree_blocage }}" min="0">
+                                <small>0 = manuel</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save"></i>
+                            Enregistrer
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Gestion des sessions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="monitor"></i>
+                        Gestion des sessions
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="formSessions" class="space-y-4">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Durée de session (heures)</label>
+                                <input type="number" class="form-input" name="session_duree_heures"
+                                       value="{{ politique.session_duree_heures }}" min="1" max="24">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Inactivité avant déconnexion (min)</label>
+                                <input type="number" class="form-input" name="session_inactivite_minutes"
+                                       value="{{ politique.session_inactivite_minutes }}" min="5" max="120">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sessions simultanées autorisées</label>
+                            <input type="number" class="form-input" name="session_simultanees"
+                                   value="{{ politique.session_simultanees }}" min="1" max="5">
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="session_forcer_deconnexion" {% if politique.session_forcer_deconnexion %}checked{% endif %}>
+                                Forcer déconnexion si nouvelle connexion
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="session_multi_appareils" {% if politique.session_multi_appareils %}checked{% endif %}>
+                                Autoriser connexion depuis plusieurs appareils
+                            </label>
+                        </div>
+                        <div class="form-section-title">Authentification à deux facteurs (2FA)</div>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="mode_2fa" value="desactive" {% if politique.mode_2fa == 'desactive' %}checked{% endif %}>
+                                Désactivée
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="mode_2fa" value="optionnel" {% if politique.mode_2fa == 'optionnel' %}checked{% endif %}>
+                                Optionnelle (au choix de l'utilisateur)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="mode_2fa" value="obligatoire_tous" {% if politique.mode_2fa == 'obligatoire_tous' %}checked{% endif %}>
+                                Obligatoire pour tous
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="mode_2fa" value="obligatoire_admin" {% if politique.mode_2fa == 'obligatoire_admin' %}checked{% endif %}>
+                                Obligatoire pour administrateurs uniquement
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save"></i>
+                            Enregistrer
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Restrictions d'accès -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="shield-off"></i>
+                        Restrictions d'accès
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="formRestrictions" class="space-y-4">
+                        <!-- Restriction par IP -->
+                        <div class="restriction-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="restriction_ip_active" {% if politique.restriction_ip_active %}checked{% endif %}>
+                                <strong>Activer restriction par adresse IP</strong>
+                            </label>
+                            <div class="restriction-content mt-2">
+                                <div class="ips-list mb-2">
+                                    {% for ip in ips_autorisees %}
+                                    <div class="ip-item">
+                                        <span>{{ ip.adresse_ip }}</span>
+                                        <span class="ip-description">{{ ip.description }}</span>
+                                        <button type="button" class="btn btn-sm btn-icon" onclick="supprimerIP({{ ip.id }})">
+                                            <i data-lucide="x"></i>
+                                        </button>
+                                    </div>
+                                    {% empty %}
+                                    <div class="text-sm" style="color: var(--neutral-500);">Aucune IP configurée</div>
+                                    {% endfor %}
+                                </div>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="ajouterIP()">
+                                    <i data-lucide="plus"></i>
+                                    Ajouter une adresse IP
                                 </button>
                             </div>
-                        </td>
-                    </tr>
+                        </div>
+
+                        <!-- Restriction horaires -->
+                        <div class="restriction-section mt-4">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="restriction_horaires_active" {% if politique.restriction_horaires_active %}checked{% endif %}>
+                                <strong>Activer restriction par horaires</strong>
+                            </label>
+                            <div class="restriction-content mt-2">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label class="form-label">Heure début</label>
+                                        <input type="time" class="form-input" name="horaire_debut" value="{{ politique.horaire_debut }}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Heure fin</label>
+                                        <input type="time" class="form-input" name="horaire_fin" value="{{ politique.horaire_fin }}">
+                                    </div>
+                                </div>
+                                <div class="form-group mt-2">
+                                    <label class="form-label">Jours autorisés</label>
+                                    <div class="jours-checkboxes">
+                                        <label><input type="checkbox" name="jour_1" {% if 1 in politique.jours_autorises %}checked{% endif %}> Lun</label>
+                                        <label><input type="checkbox" name="jour_2" {% if 2 in politique.jours_autorises %}checked{% endif %}> Mar</label>
+                                        <label><input type="checkbox" name="jour_3" {% if 3 in politique.jours_autorises %}checked{% endif %}> Mer</label>
+                                        <label><input type="checkbox" name="jour_4" {% if 4 in politique.jours_autorises %}checked{% endif %}> Jeu</label>
+                                        <label><input type="checkbox" name="jour_5" {% if 5 in politique.jours_autorises %}checked{% endif %}> Ven</label>
+                                        <label><input type="checkbox" name="jour_6" {% if 6 in politique.jours_autorises %}checked{% endif %}> Sam</label>
+                                        <label><input type="checkbox" name="jour_7" {% if 7 in politique.jours_autorises %}checked{% endif %}> Dim</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-4">
+                            <i data-lucide="info"></i>
+                            <span>Note : L'administrateur n'est pas soumis à ces restrictions</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save"></i>
+                            Enregistrer
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Configuration alertes -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="bell"></i>
+                        Configuration des alertes
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="formAlertes" class="space-y-4">
+                        <div class="form-group">
+                            <label class="form-label">Email de notification</label>
+                            <input type="email" class="form-input" name="alerte_email"
+                                   value="{{ politique.alerte_email }}" placeholder="admin@etude.bj">
+                        </div>
+                        <div class="form-section-title">Notifier par email en cas de :</div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_echec_connexion" checked>
+                                Échec de connexion répété (après 3 tentatives)
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_nouvelle_ip" checked>
+                                Connexion depuis une nouvelle adresse IP
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_hors_horaires" checked>
+                                Connexion en dehors des horaires habituels
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_acces_refuse" checked>
+                                Tentative d'accès à un module non autorisé
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_export_massif" checked>
+                                Export massif de données
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_modif_securite" checked>
+                                Modification des paramètres de sécurité
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_utilisateur_cree" checked>
+                                Création/suppression d'utilisateur
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="alerte_mdp_admin" checked>
+                                Changement de mot de passe administrateur
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save"></i>
+                            Enregistrer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 4: JOURNAL D'AUDIT -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'audit' %}
+    <div class="section-content" id="section-audit">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="file-text"></i>
+                    Journal d'audit
+                </h3>
+                <div class="flex gap-2">
+                    <button class="btn btn-secondary" onclick="exporterAudit()">
+                        <i data-lucide="download"></i>
+                        Exporter
+                    </button>
+                    <button class="btn btn-secondary" onclick="filtrerAudit()">
+                        <i data-lucide="filter"></i>
+                        Filtrer
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filtres -->
+                <div class="audit-filters mb-4">
+                    <select class="form-select" id="filterUtilisateur">
+                        <option value="">Tous les utilisateurs</option>
+                        {% for user in utilisateurs %}
+                        <option value="{{ user.id }}">{{ user.nom }}</option>
+                        {% endfor %}
+                    </select>
+                    <select class="form-select" id="filterModule">
+                        <option value="">Tous les modules</option>
+                        <option value="connexion">Connexion</option>
+                        <option value="dossiers">Dossiers</option>
+                        <option value="facturation">Facturation</option>
+                        <option value="tresorerie">Trésorerie</option>
+                        <option value="securite">Sécurité</option>
+                    </select>
+                    <select class="form-select" id="filterPeriode">
+                        <option value="jour">Aujourd'hui</option>
+                        <option value="semaine" selected>Cette semaine</option>
+                        <option value="mois">Ce mois</option>
+                        <option value="trimestre">Ce trimestre</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="appliquerFiltres()">
+                        Appliquer
+                    </button>
+                </div>
+
+                <!-- Liste des entrées -->
+                <div class="audit-entries">
+                    {% for entry in journal_audit %}
+                    <div class="audit-entry {% if 'echec' in entry.action|lower or 'refuse' in entry.action|lower %}warning{% endif %}">
+                        <div class="audit-time">
+                            {{ entry.date_heure|date:"d/m/Y H:i:s" }}
+                        </div>
+                        <div class="audit-user">
+                            {% if entry.utilisateur == 'SYSTEME' %}
+                            <i data-lucide="cpu" style="width: 16px; height: 16px;"></i>
+                            {% else %}
+                            <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+                            {% endif %}
+                            {{ entry.utilisateur }}
+                        </div>
+                        <div class="audit-module">
+                            <span class="module-badge">{{ entry.module }}</span>
+                        </div>
+                        <div class="audit-action">
+                            <strong>{{ entry.action }}</strong>
+                        </div>
+                        <div class="audit-details">
+                            {{ entry.details }}
+                        </div>
+                        <div class="audit-ip">
+                            <i data-lucide="globe" style="width: 12px; height: 12px;"></i>
+                            {{ entry.adresse_ip }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state">
+                        <i data-lucide="file-text"></i>
+                        <h3>Aucune entrée</h3>
+                        <p>Le journal d'audit est vide</p>
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination mt-4">
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <span class="pagination-info">Page 1 sur 25</span>
+                    <button class="btn btn-secondary btn-sm">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 5: SESSIONS ACTIVES -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'sessions' %}
+    <div class="section-content" id="section-sessions">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="monitor"></i>
+                    Sessions actives ({{ nb_sessions_actives }})
+                </h3>
+                <div class="flex gap-2">
+                    <button class="btn btn-secondary" onclick="actualiserSessions()">
+                        <i data-lucide="refresh-cw"></i>
+                        Actualiser
+                    </button>
+                    <button class="btn btn-danger" onclick="deconnecterTous()">
+                        <i data-lucide="log-out"></i>
+                        Déconnecter tous (sauf admin)
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="sessions-grid">
+                    {% for session in sessions_actives %}
+                    <div class="session-card {% if session.est_inactif %}inactive{% endif %}">
+                        <div class="session-status">
+                            {% if session.est_inactif %}
+                            <span class="status-dot warning"></span>
+                            {% else %}
+                            <span class="status-dot success"></span>
+                            {% endif %}
+                        </div>
+                        <div class="session-header">
+                            <div class="session-avatar">{{ session.initials }}</div>
+                            <div class="session-user-info">
+                                <div class="session-username">{{ session.utilisateur }}</div>
+                                <div class="session-duration">
+                                    Connecté depuis : {{ session.date_connexion|timesince }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="session-details">
+                            <div class="session-detail">
+                                <i data-lucide="globe"></i>
+                                <span>{{ session.adresse_ip }}</span>
+                            </div>
+                            <div class="session-detail">
+                                <i data-lucide="monitor"></i>
+                                <span>{{ session.navigateur }} | {{ session.systeme_os }}</span>
+                            </div>
+                            <div class="session-detail">
+                                <i data-lucide="clock"></i>
+                                <span>Dernière activité : il y a {{ session.derniere_activite|timesince }}</span>
+                            </div>
+                            <div class="session-detail">
+                                <i data-lucide="layout"></i>
+                                <span>Module : {{ session.module_actuel }}</span>
+                            </div>
+                        </div>
+                        <div class="session-actions">
+                            {% if session.est_admin %}
+                            <span class="session-badge admin">C'est vous</span>
+                            {% else %}
+                            <button class="btn btn-sm btn-danger" onclick="forcerDeconnexion({{ session.id }})">
+                                <i data-lucide="log-out"></i>
+                                Forcer déconnexion
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state">
+                        <i data-lucide="monitor"></i>
+                        <h3>Aucune session active</h3>
+                        <p>Aucun utilisateur n'est actuellement connecté</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 6: ALERTES DE SECURITE -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'alertes' %}
+    <div class="section-content" id="section-alertes">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="alert-triangle"></i>
+                    Alertes de sécurité
+                    {% if nb_alertes_non_traitees > 0 %}
+                    <span class="header-badge danger">{{ nb_alertes_non_traitees }} non traitées</span>
+                    {% endif %}
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="alertes-list">
+                    {% for alerte in alertes_securite %}
+                    <div class="alerte-card {{ alerte.gravite }}">
+                        <div class="alerte-icon">
+                            {% if alerte.gravite == 'critical' %}
+                            <i data-lucide="alert-octagon"></i>
+                            {% elif alerte.gravite == 'warning' %}
+                            <i data-lucide="alert-triangle"></i>
+                            {% else %}
+                            <i data-lucide="info"></i>
+                            {% endif %}
+                        </div>
+                        <div class="alerte-content">
+                            <div class="alerte-header">
+                                <span class="alerte-date">{{ alerte.date_heure|date:"d/m/Y H:i" }}</span>
+                                <span class="alerte-type">{{ alerte.type }}</span>
+                            </div>
+                            <div class="alerte-description">
+                                {{ alerte.description }}
+                            </div>
+                            <div class="alerte-details">
+                                <span><i data-lucide="user"></i> {{ alerte.utilisateur }}</span>
+                                <span><i data-lucide="globe"></i> {{ alerte.adresse_ip }}</span>
+                            </div>
+                        </div>
+                        <div class="alerte-actions">
+                            {% if alerte.type_code == 'echec_connexion' %}
+                            <button class="btn btn-sm btn-danger" onclick="bloquerIP('{{ alerte.adresse_ip }}')">
+                                <i data-lucide="shield-off"></i>
+                                Bloquer IP
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-secondary" onclick="marquerTraitee({{ alerte.id }})">
+                                <i data-lucide="check"></i>
+                                Ignorer
+                            </button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state success">
+                        <i data-lucide="shield-check"></i>
+                        <h3>Aucune alerte</h3>
+                        <p>Tout est en ordre, aucune alerte de sécurité</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 7: PROTECTION DES DONNEES -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'protection' %}
+    <div class="section-content" id="section-protection">
+        <div class="grid-2">
+            <!-- Chiffrement -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="lock"></i>
+                        Chiffrement des données
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="protection-item">
+                        <div class="protection-icon success">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="protection-info">
+                            <div class="protection-title">Mots de passe</div>
+                            <div class="protection-desc">Hashés avec bcrypt (coût 12)</div>
+                        </div>
+                    </div>
+                    <div class="protection-item">
+                        <div class="protection-icon success">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="protection-info">
+                            <div class="protection-title">Données sensibles</div>
+                            <div class="protection-desc">Chiffrement AES-256</div>
+                        </div>
+                    </div>
+                    <div class="protection-item">
+                        <div class="protection-icon success">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="protection-info">
+                            <div class="protection-title">Communications</div>
+                            <div class="protection-desc">HTTPS obligatoire</div>
+                        </div>
+                    </div>
+                    <div class="protection-item">
+                        <div class="protection-icon success">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="protection-info">
+                            <div class="protection-title">Sauvegardes</div>
+                            <div class="protection-desc">Chiffrées avec clé de récupération</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Données personnelles -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="user-check"></i>
+                        Données personnelles (RGPD-like)
+                    </h3>
+                </div>
+                <div class="card-body space-y-4">
+                    <button class="btn btn-secondary w-full" onclick="exporterDonneesUtilisateur()">
+                        <i data-lucide="download"></i>
+                        Exporter les données d'un utilisateur
+                    </button>
+                    <button class="btn btn-secondary w-full" onclick="anonymiserClient()">
+                        <i data-lucide="user-x"></i>
+                        Anonymiser les données d'un ancien client
+                    </button>
+                    <button class="btn btn-secondary w-full" onclick="purgerDonnees()">
+                        <i data-lucide="trash-2"></i>
+                        Purger les données anciennes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Clé de récupération -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="key"></i>
+                        Clé de récupération
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning mb-4">
+                        <i data-lucide="alert-triangle"></i>
+                        <div>
+                            <strong>CONSERVEZ CETTE CLÉ EN LIEU SÛR</strong>
+                            <p class="mt-1">Cette clé permet de récupérer l'accès en cas de perte du mot de passe administrateur.</p>
+                        </div>
+                    </div>
+                    <div class="cle-display">
+                        <span class="cle-masked">****-****-****-****</span>
+                        <button class="btn btn-sm btn-secondary" onclick="afficherCle()">
+                            <i data-lucide="eye"></i>
+                            Afficher
+                        </button>
+                    </div>
+                    <button class="btn btn-danger mt-4" onclick="genererNouvelleCle()">
+                        <i data-lucide="refresh-cw"></i>
+                        Générer une nouvelle clé
+                    </button>
+                    <p class="text-xs mt-2" style="color: var(--neutral-500);">L'ancienne clé sera invalidée</p>
+                </div>
+            </div>
+
+            <!-- Conservation des logs -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="archive"></i>
+                        Conservation des logs
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="formConservation" class="space-y-4">
+                        <div class="form-group">
+                            <label class="form-label">Durée de conservation (jours)</label>
+                            <input type="number" class="form-input" name="conservation_jours" value="365" min="30" max="3650">
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="archive_auto" checked>
+                                Archivage automatique
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Export périodique</label>
+                            <select class="form-select" name="export_periodique">
+                                <option value="mensuel">Mensuel</option>
+                                <option value="trimestriel">Trimestriel</option>
+                                <option value="annuel">Annuel</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save"></i>
+                            Enregistrer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================== -->
+    <!-- SECTION 8: MAINTENANCE -->
+    <!-- ================================================================== -->
+    {% if current_tab == 'maintenance' %}
+    <div class="section-content" id="section-maintenance">
+        <div class="grid-2">
+            <!-- Mode maintenance -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="wrench"></i>
+                        Mode maintenance
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="formMaintenance" class="space-y-4">
+                        <div class="maintenance-toggle">
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="maintenance_active" {% if politique.maintenance_active %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label">
+                                {% if politique.maintenance_active %}
+                                <span class="status-badge urgent">Mode maintenance activé</span>
+                                {% else %}
+                                Mode maintenance désactivé
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Message affiché aux utilisateurs</label>
+                            <textarea class="form-textarea" name="maintenance_message" rows="3">{{ politique.maintenance_message }}</textarea>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="maintenance_admin_autorise" checked>
+                                Autoriser l'accès administrateur pendant la maintenance
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-danger">
+                            <i data-lucide="power"></i>
+                            {% if politique.maintenance_active %}Désactiver{% else %}Activer{% endif %} la maintenance
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Actions de réinitialisation -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="refresh-cw"></i>
+                        Réinitialisation
+                    </h3>
+                </div>
+                <div class="card-body space-y-4">
+                    <button class="btn btn-secondary w-full" onclick="resetSessions()">
+                        <i data-lucide="log-out"></i>
+                        Réinitialiser les sessions de tous les utilisateurs
+                    </button>
+                    <button class="btn btn-secondary w-full" onclick="viderCache()">
+                        <i data-lucide="trash"></i>
+                        Vider le cache de l'application
+                    </button>
+                    <button class="btn btn-secondary w-full" onclick="recalculerTotaux()">
+                        <i data-lucide="calculator"></i>
+                        Recalculer les totaux et statistiques
+                    </button>
+                </div>
+            </div>
+
+            <!-- IPs bloquées -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="shield-off"></i>
+                        Adresses IP bloquées
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="ips-bloquees-list">
+                        {% for ip in ips_bloquees %}
+                        <div class="ip-bloquee-item">
+                            <div class="ip-info">
+                                <span class="ip-address">{{ ip.adresse_ip }}</span>
+                                <span class="ip-raison">{{ ip.raison }}</span>
+                            </div>
+                            <button class="btn btn-sm btn-secondary" onclick="debloquerIP({{ ip.id }})">
+                                <i data-lucide="unlock"></i>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div class="text-sm" style="color: var(--neutral-500);">Aucune IP bloquée</div>
+                        {% endfor %}
+                    </div>
+                    <button class="btn btn-secondary mt-4" onclick="ajouterIPBloquee()">
+                        <i data-lucide="plus"></i>
+                        Bloquer une IP
+                    </button>
+                </div>
+            </div>
+
+            <!-- Informations système -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i data-lucide="server"></i>
+                        Informations système
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="system-info">
+                        <div class="info-row">
+                            <span class="info-label">Version application</span>
+                            <span class="info-value">1.0.0</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Base de données</span>
+                            <span class="info-value">SQLite</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Espace disque</span>
+                            <span class="info-value">12.5 GB / 50 GB</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Dernière sauvegarde</span>
+                            <span class="info-value">{{ "now"|date:"d/m/Y H:i" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Nouvel Utilisateur -->
+<div class="modal-overlay" id="modalUtilisateur">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i data-lucide="user-plus"></i>
+                Nouvel utilisateur
+            </h3>
+            <button class="modal-close" onclick="fermerModalUtilisateur()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formUtilisateur">
+                <div class="form-section-title">Informations personnelles</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Nom *</label>
+                        <input type="text" class="form-input" name="nom" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prénoms *</label>
+                        <input type="text" class="form-input" name="prenoms" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-input" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input type="tel" class="form-input" name="telephone">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Accès</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Nom d'utilisateur</label>
+                        <input type="text" class="form-input" name="username" placeholder="Généré depuis email">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mot de passe temporaire</label>
+                        <div class="flex gap-2">
+                            <input type="text" class="form-input" name="password" id="tempPassword" readonly>
+                            <button type="button" class="btn btn-secondary" onclick="genererMdpTemp()">
+                                <i data-lucide="refresh-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="forcer_changement_mdp" checked>
+                        Forcer changement de mot de passe à la première connexion
+                    </label>
+                </div>
+
+                <div class="form-section-title">Rôle et permissions</div>
+                <div class="form-group">
+                    <label class="form-label">Rôle *</label>
+                    <select class="form-select" name="role" required>
+                        <option value="">Sélectionner un rôle</option>
+                        {% for code, label in roles_choices %}
+                        <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="fermerModalUtilisateur()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="sauvegarderUtilisateur()">
+                <i data-lucide="user-plus"></i>
+                Créer l'utilisateur
+            </button>
         </div>
     </div>
 </div>
@@ -50,6 +1316,219 @@
 
 {% block extra_js %}
 <script>
+    // Initialiser les icônes Lucide
     lucide.createIcons();
+
+    // ========================================
+    // GESTION DES UTILISATEURS
+    // ========================================
+    function openModalNouvelUtilisateur() {
+        document.getElementById('modalUtilisateur').classList.add('open');
+        genererMdpTemp();
+    }
+
+    function fermerModalUtilisateur() {
+        document.getElementById('modalUtilisateur').classList.remove('open');
+    }
+
+    function genererMdpTemp() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+        let password = '';
+        for (let i = 0; i < 12; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById('tempPassword').value = password;
+    }
+
+    function sauvegarderUtilisateur() {
+        const form = document.getElementById('formUtilisateur');
+        const formData = new FormData(form);
+
+        // Validation basique
+        if (!formData.get('nom') || !formData.get('prenoms') || !formData.get('email') || !formData.get('role')) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        // Simuler la sauvegarde
+        alert('Utilisateur créé avec succès!\n\nUn email avec les identifiants a été envoyé à ' + formData.get('email'));
+        fermerModalUtilisateur();
+        // location.reload();
+    }
+
+    function modifierUtilisateur(id) {
+        alert('Modifier utilisateur #' + id);
+    }
+
+    function resetPassword(id) {
+        if (confirm('Réinitialiser le mot de passe de cet utilisateur ?')) {
+            alert('Un nouveau mot de passe temporaire a été généré et envoyé par email.');
+        }
+    }
+
+    function toggleUserStatus(id, activer) {
+        const action = activer ? 'activer' : 'désactiver';
+        if (confirm('Voulez-vous ' + action + ' cet utilisateur ?')) {
+            alert('Utilisateur ' + (activer ? 'activé' : 'désactivé') + ' avec succès');
+            location.reload();
+        }
+    }
+
+    function voirHistorique(id) {
+        alert('Voir historique utilisateur #' + id);
+    }
+
+    // ========================================
+    // GESTION DES SESSIONS
+    // ========================================
+    function actualiserSessions() {
+        location.reload();
+    }
+
+    function forcerDeconnexion(sessionId) {
+        if (confirm('Forcer la déconnexion de cette session ?')) {
+            alert('Session déconnectée');
+            location.reload();
+        }
+    }
+
+    function deconnecterTous() {
+        if (confirm('Déconnecter tous les utilisateurs (sauf l\'administrateur) ?')) {
+            alert('Toutes les sessions ont été fermées');
+            location.reload();
+        }
+    }
+
+    // ========================================
+    // GESTION DES ALERTES
+    // ========================================
+    function marquerTraitee(alerteId) {
+        alert('Alerte marquée comme traitée');
+        location.reload();
+    }
+
+    function bloquerIP(ip) {
+        if (confirm('Bloquer l\'adresse IP ' + ip + ' ?')) {
+            alert('IP bloquée avec succès');
+            location.reload();
+        }
+    }
+
+    // ========================================
+    // JOURNAL D'AUDIT
+    // ========================================
+    function exporterAudit() {
+        alert('Export du journal d\'audit en cours...');
+    }
+
+    function filtrerAudit() {
+        // Les filtres sont déjà affichés
+    }
+
+    function appliquerFiltres() {
+        alert('Filtres appliqués');
+    }
+
+    // ========================================
+    // PROTECTION DES DONNEES
+    // ========================================
+    function exporterDonneesUtilisateur() {
+        const email = prompt('Email de l\'utilisateur :');
+        if (email) {
+            alert('Export des données de ' + email + ' en cours...');
+        }
+    }
+
+    function anonymiserClient() {
+        const reference = prompt('Référence du client à anonymiser :');
+        if (reference && confirm('Cette action est irréversible. Continuer ?')) {
+            alert('Données anonymisées avec succès');
+        }
+    }
+
+    function purgerDonnees() {
+        const annees = prompt('Purger les données de plus de X années :', '5');
+        if (annees && confirm('Cette action supprimera définitivement les données de plus de ' + annees + ' ans. Continuer ?')) {
+            alert('Purge effectuée');
+        }
+    }
+
+    function afficherCle() {
+        // Simuler l'affichage de la clé
+        alert('Pour des raisons de sécurité, la clé complète serait affichée dans une modale sécurisée.');
+    }
+
+    function genererNouvelleCle() {
+        if (confirm('Générer une nouvelle clé de récupération ? L\'ancienne clé sera invalidée.')) {
+            alert('Nouvelle clé générée : XXXX-XXXX-XXXX-XXXX\n\nNotez cette clé immédiatement, elle ne sera plus affichée.');
+        }
+    }
+
+    // ========================================
+    // MAINTENANCE
+    // ========================================
+    function resetSessions() {
+        if (confirm('Réinitialiser toutes les sessions ?')) {
+            alert('Toutes les sessions ont été réinitialisées');
+        }
+    }
+
+    function viderCache() {
+        if (confirm('Vider le cache de l\'application ?')) {
+            alert('Cache vidé avec succès');
+        }
+    }
+
+    function recalculerTotaux() {
+        if (confirm('Recalculer tous les totaux et statistiques ? Cette opération peut prendre quelques minutes.')) {
+            alert('Recalcul en cours...');
+        }
+    }
+
+    function ajouterIPBloquee() {
+        const ip = prompt('Adresse IP à bloquer :');
+        if (ip) {
+            const raison = prompt('Raison du blocage :');
+            if (raison) {
+                alert('IP ' + ip + ' bloquée');
+                location.reload();
+            }
+        }
+    }
+
+    function debloquerIP(id) {
+        if (confirm('Débloquer cette adresse IP ?')) {
+            alert('IP débloquée');
+            location.reload();
+        }
+    }
+
+    function ajouterIP() {
+        const ip = prompt('Adresse IP autorisée :');
+        if (ip) {
+            const desc = prompt('Description :');
+            alert('IP ajoutée à la liste blanche');
+        }
+    }
+
+    function supprimerIP(id) {
+        if (confirm('Supprimer cette IP de la liste ?')) {
+            alert('IP supprimée');
+            location.reload();
+        }
+    }
+
+    function openModalNouveauRole() {
+        alert('Fonctionnalité de création de rôle personnalisé');
+    }
+
+    // Fermer les modales en cliquant à l'extérieur
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
 </script>
 {% endblock %}

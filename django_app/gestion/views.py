@@ -387,20 +387,420 @@ def drive(request):
 
 
 def securite(request):
-    """Vue Securite & Acces"""
+    """Vue Securite & Acces - Module complet de gestion de la securite"""
     context = get_default_context(request)
     context['active_module'] = 'securite'
     context['page_title'] = 'Securite & Acces'
 
-    # Utilisateurs avec leurs emails generes
-    context['utilisateurs'] = []
-    for collab in context['collaborateurs']:
-        email = collab['nom'].lower().replace(' ', '.').replace('me ', '') + '@etude-biaou.bj'
-        context['utilisateurs'].append({
-            **collab,
-            'email': email,
-            'statut': 'actif'
+    # Onglet actif
+    tab = request.GET.get('tab', 'utilisateurs')
+    context['current_tab'] = tab
+
+    # Import des modeles de securite
+    from .models import (
+        Role, Permission, SessionUtilisateur, JournalAudit,
+        AlerteSecurite, PolitiqueSecurite, AdresseIPAutorisee, AdresseIPBloquee
+    )
+
+    # =================================
+    # SECTION 1: UTILISATEURS
+    # =================================
+    utilisateurs_db = Utilisateur.objects.all().order_by('last_name', 'first_name')
+    utilisateurs_list = []
+
+    for u in utilisateurs_db:
+        utilisateurs_list.append({
+            'id': u.id,
+            'nom': f"{u.last_name} {u.first_name}" if u.last_name else u.username,
+            'prenoms': u.first_name,
+            'email': u.email,
+            'telephone': u.telephone,
+            'role': u.get_role_display(),
+            'role_code': u.role,
+            'actif': u.is_active,
+            'derniere_connexion': u.last_login,
+            'date_creation': u.date_joined,
+            'initials': u.get_initials(),
         })
+
+    # Si pas d'utilisateurs en base, utiliser les donnees de demo
+    if not utilisateurs_list:
+        utilisateurs_list = [
+            {
+                'id': 1,
+                'nom': 'BIAOU Martial Arnaud',
+                'prenoms': 'Martial Arnaud',
+                'email': 'biaou@etude.bj',
+                'telephone': '+229 97 00 00 01',
+                'role': 'Administrateur (Huissier titulaire)',
+                'role_code': 'admin',
+                'actif': True,
+                'derniere_connexion': timezone.now(),
+                'date_creation': timezone.now(),
+                'initials': 'MA',
+            },
+            {
+                'id': 2,
+                'nom': 'ADJOVI Marie',
+                'prenoms': 'Marie',
+                'email': 'adjovi@etude.bj',
+                'telephone': '+229 97 00 00 02',
+                'role': 'Clerc principal',
+                'role_code': 'clerc_principal',
+                'actif': True,
+                'derniere_connexion': timezone.now() - timedelta(hours=1),
+                'date_creation': timezone.now() - timedelta(days=365),
+                'initials': 'AM',
+            },
+            {
+                'id': 3,
+                'nom': 'KONOU Paul',
+                'prenoms': 'Paul',
+                'email': 'konou@etude.bj',
+                'telephone': '+229 97 00 00 03',
+                'role': 'Clerc',
+                'role_code': 'clerc',
+                'actif': False,
+                'derniere_connexion': timezone.now() - timedelta(days=12),
+                'date_creation': timezone.now() - timedelta(days=180),
+                'initials': 'KP',
+            },
+            {
+                'id': 4,
+                'nom': 'SAVI Jean',
+                'prenoms': 'Jean',
+                'email': 'savi@etude.bj',
+                'telephone': '+229 97 00 00 04',
+                'role': 'Secretaire',
+                'role_code': 'secretaire',
+                'actif': True,
+                'derniere_connexion': timezone.now() - timedelta(hours=2),
+                'date_creation': timezone.now() - timedelta(days=90),
+                'initials': 'SJ',
+            },
+        ]
+
+    context['utilisateurs'] = utilisateurs_list
+    context['nb_utilisateurs_actifs'] = len([u for u in utilisateurs_list if u['actif']])
+    context['nb_utilisateurs_inactifs'] = len([u for u in utilisateurs_list if not u['actif']])
+
+    # =================================
+    # SECTION 2: ROLES ET PERMISSIONS
+    # =================================
+    roles_systeme = [
+        {'code': 'admin', 'nom': 'Administrateur (Huissier titulaire)', 'description': 'Acces complet a tous les modules', 'est_systeme': True},
+        {'code': 'clerc_principal', 'nom': 'Clerc principal', 'description': 'Gestion des dossiers et supervision', 'est_systeme': True},
+        {'code': 'clerc', 'nom': 'Clerc', 'description': 'Gestion de ses propres dossiers', 'est_systeme': True},
+        {'code': 'secretaire', 'nom': 'Secretaire', 'description': 'Gestion administrative', 'est_systeme': True},
+        {'code': 'agent_recouvrement', 'nom': 'Agent de recouvrement', 'description': 'Encaissement sur dossiers assignes', 'est_systeme': True},
+        {'code': 'comptable', 'nom': 'Comptable', 'description': 'Acces comptabilite et tresorerie', 'est_systeme': True},
+        {'code': 'stagiaire', 'nom': 'Stagiaire', 'description': 'Acces limite en consultation', 'est_systeme': True},
+        {'code': 'consultant', 'nom': 'Consultant (lecture seule)', 'description': 'Consultation uniquement', 'est_systeme': True},
+    ]
+    context['roles'] = roles_systeme
+
+    # Matrice des permissions (simplifiee pour l'affichage)
+    context['matrice_permissions'] = {
+        'dossiers': {
+            'voir_tous': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': True},
+            'voir_siens': {'admin': True, 'clerc_principal': True, 'clerc': True, 'secretaire': True, 'agent_recouvrement': True, 'comptable': False, 'stagiaire': True, 'consultant': True},
+            'creer': {'admin': True, 'clerc_principal': True, 'clerc': True, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+            'modifier': {'admin': True, 'clerc_principal': True, 'clerc': 'limite', 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+            'supprimer': {'admin': True, 'clerc_principal': False, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+            'cloturer': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+        },
+        'facturation': {
+            'voir': {'admin': True, 'clerc_principal': True, 'clerc': True, 'secretaire': True, 'agent_recouvrement': False, 'comptable': True, 'stagiaire': False, 'consultant': True},
+            'creer': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': True, 'agent_recouvrement': False, 'comptable': True, 'stagiaire': False, 'consultant': False},
+            'modifier': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': True, 'stagiaire': False, 'consultant': False},
+            'annuler': {'admin': True, 'clerc_principal': False, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+            'normaliser_mecef': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': True, 'stagiaire': False, 'consultant': False},
+        },
+        'tresorerie': {
+            'voir': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': True, 'stagiaire': False, 'consultant': True},
+            'encaisser': {'admin': True, 'clerc_principal': True, 'clerc': True, 'secretaire': True, 'agent_recouvrement': True, 'comptable': True, 'stagiaire': False, 'consultant': False},
+            'decaisser': {'admin': True, 'clerc_principal': True, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': True, 'stagiaire': False, 'consultant': False},
+            'approuver_decaissement': {'admin': True, 'clerc_principal': False, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+        },
+        'securite': {
+            'acces': {'admin': True, 'clerc_principal': False, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+        },
+        'parametres': {
+            'acces': {'admin': True, 'clerc_principal': False, 'clerc': False, 'secretaire': False, 'agent_recouvrement': False, 'comptable': False, 'stagiaire': False, 'consultant': False},
+        },
+    }
+
+    # =================================
+    # SECTION 3: POLITIQUE DE SECURITE
+    # =================================
+    try:
+        politique = PolitiqueSecurite.get_politique()
+        context['politique'] = {
+            'mdp_longueur_min': politique.mdp_longueur_min,
+            'mdp_exiger_majuscule': politique.mdp_exiger_majuscule,
+            'mdp_exiger_minuscule': politique.mdp_exiger_minuscule,
+            'mdp_exiger_chiffre': politique.mdp_exiger_chiffre,
+            'mdp_exiger_special': politique.mdp_exiger_special,
+            'mdp_expiration_jours': politique.mdp_expiration_jours,
+            'mdp_historique': politique.mdp_historique,
+            'mdp_tentatives_blocage': politique.mdp_tentatives_blocage,
+            'mdp_duree_blocage': politique.mdp_duree_blocage,
+            'session_duree_heures': politique.session_duree_heures,
+            'session_inactivite_minutes': politique.session_inactivite_minutes,
+            'session_simultanees': politique.session_simultanees,
+            'session_forcer_deconnexion': politique.session_forcer_deconnexion,
+            'session_multi_appareils': politique.session_multi_appareils,
+            'mode_2fa': politique.mode_2fa,
+            'restriction_ip_active': politique.restriction_ip_active,
+            'restriction_horaires_active': politique.restriction_horaires_active,
+            'horaire_debut': politique.horaire_debut.strftime('%H:%M') if politique.horaire_debut else '06:00',
+            'horaire_fin': politique.horaire_fin.strftime('%H:%M') if politique.horaire_fin else '22:00',
+            'jours_autorises': politique.jours_autorises or [1, 2, 3, 4, 5],
+            'maintenance_active': politique.maintenance_active,
+            'maintenance_message': politique.maintenance_message,
+            'alerte_email': politique.alerte_email,
+        }
+    except:
+        # Valeurs par defaut si la politique n'existe pas
+        context['politique'] = {
+            'mdp_longueur_min': 8,
+            'mdp_exiger_majuscule': True,
+            'mdp_exiger_minuscule': True,
+            'mdp_exiger_chiffre': True,
+            'mdp_exiger_special': False,
+            'mdp_expiration_jours': 90,
+            'mdp_historique': 5,
+            'mdp_tentatives_blocage': 5,
+            'mdp_duree_blocage': 30,
+            'session_duree_heures': 8,
+            'session_inactivite_minutes': 30,
+            'session_simultanees': 1,
+            'session_forcer_deconnexion': True,
+            'session_multi_appareils': False,
+            'mode_2fa': 'optionnel',
+            'restriction_ip_active': False,
+            'restriction_horaires_active': False,
+            'horaire_debut': '06:00',
+            'horaire_fin': '22:00',
+            'jours_autorises': [1, 2, 3, 4, 5],
+            'maintenance_active': False,
+            'maintenance_message': "L'application est temporairement indisponible pour maintenance.",
+            'alerte_email': 'admin@etude.bj',
+        }
+
+    # =================================
+    # SECTION 4: JOURNAL D'AUDIT
+    # =================================
+    try:
+        journal_entries = JournalAudit.objects.all()[:50]
+        context['journal_audit'] = [{
+            'id': e.id,
+            'date_heure': e.date_heure,
+            'utilisateur': e.utilisateur_nom or 'SYSTEME',
+            'action': e.get_action_display(),
+            'module': e.get_module_display(),
+            'details': e.details,
+            'adresse_ip': e.adresse_ip,
+            'user_agent': e.user_agent[:50] if e.user_agent else '',
+        } for e in journal_entries]
+    except:
+        # Donnees de demo
+        context['journal_audit'] = [
+            {
+                'id': 1,
+                'date_heure': timezone.now() - timedelta(minutes=15),
+                'utilisateur': 'ADJOVI Marie',
+                'action': 'Creation',
+                'module': 'Dossiers',
+                'details': 'DOS-2025-090 - SANI c/ KOFFI - Recouvrement',
+                'adresse_ip': '192.168.1.45',
+                'user_agent': 'Chrome 120',
+            },
+            {
+                'id': 2,
+                'date_heure': timezone.now() - timedelta(minutes=18),
+                'utilisateur': 'ADJOVI Marie',
+                'action': 'Connexion',
+                'module': 'Connexion',
+                'details': 'Connexion reussie',
+                'adresse_ip': '192.168.1.45',
+                'user_agent': 'Chrome 120',
+            },
+            {
+                'id': 3,
+                'date_heure': timezone.now() - timedelta(minutes=35),
+                'utilisateur': 'Me BIAOU',
+                'action': 'Approbation',
+                'module': 'Tresorerie',
+                'details': '450 000 F - Paiement fournisseur SONEB',
+                'adresse_ip': '192.168.1.10',
+                'user_agent': 'Safari 17',
+            },
+            {
+                'id': 4,
+                'date_heure': timezone.now() - timedelta(minutes=40),
+                'utilisateur': 'SYSTEME',
+                'action': 'Echec de connexion',
+                'module': 'Connexion',
+                'details': '3eme tentative - konou@etude.bj',
+                'adresse_ip': '41.138.77.92',
+                'user_agent': '',
+            },
+            {
+                'id': 5,
+                'date_heure': timezone.now() - timedelta(minutes=45),
+                'utilisateur': 'Me BIAOU',
+                'action': 'Connexion',
+                'module': 'Connexion',
+                'details': 'Connexion reussie',
+                'adresse_ip': '192.168.1.10',
+                'user_agent': 'Safari 17 / MacOS',
+            },
+        ]
+
+    # =================================
+    # SECTION 5: SESSIONS ACTIVES
+    # =================================
+    try:
+        sessions_actives = SessionUtilisateur.objects.filter(active=True)
+        context['sessions_actives'] = [{
+            'id': s.id,
+            'utilisateur': str(s.utilisateur),
+            'initials': s.utilisateur.get_initials() if hasattr(s.utilisateur, 'get_initials') else 'XX',
+            'adresse_ip': s.adresse_ip,
+            'navigateur': s.navigateur or 'Inconnu',
+            'systeme_os': s.systeme_os or 'Inconnu',
+            'date_connexion': s.date_creation,
+            'derniere_activite': s.date_derniere_activite,
+            'module_actuel': s.module_actuel or 'Tableau de bord',
+            'est_inactif': s.est_inactive(),
+        } for s in sessions_actives]
+    except:
+        # Donnees de demo
+        context['sessions_actives'] = [
+            {
+                'id': 1,
+                'utilisateur': 'Me BIAOU Martial Arnaud',
+                'initials': 'MA',
+                'adresse_ip': '192.168.1.10',
+                'navigateur': 'Safari 17',
+                'systeme_os': 'MacOS',
+                'date_connexion': timezone.now() - timedelta(hours=3, minutes=30),
+                'derniere_activite': timezone.now() - timedelta(minutes=2),
+                'module_actuel': 'Tableau de bord',
+                'est_inactif': False,
+                'est_admin': True,
+            },
+            {
+                'id': 2,
+                'utilisateur': 'ADJOVI Marie',
+                'initials': 'AM',
+                'adresse_ip': '192.168.1.45',
+                'navigateur': 'Chrome 120',
+                'systeme_os': 'Windows 11',
+                'date_connexion': timezone.now() - timedelta(hours=3, minutes=3),
+                'derniere_activite': timezone.now() - timedelta(minutes=5),
+                'module_actuel': 'Dossiers',
+                'est_inactif': False,
+                'est_admin': False,
+            },
+            {
+                'id': 3,
+                'utilisateur': 'SAVI Jean',
+                'initials': 'SJ',
+                'adresse_ip': '192.168.1.52',
+                'navigateur': 'Firefox 121',
+                'systeme_os': 'Linux',
+                'date_connexion': timezone.now() - timedelta(hours=1, minutes=45),
+                'derniere_activite': timezone.now() - timedelta(minutes=25),
+                'module_actuel': 'Agenda',
+                'est_inactif': True,
+                'est_admin': False,
+            },
+        ]
+
+    context['nb_sessions_actives'] = len(context['sessions_actives'])
+
+    # =================================
+    # SECTION 6: ALERTES DE SECURITE
+    # =================================
+    try:
+        alertes = AlerteSecurite.objects.filter(traitee=False).order_by('-date_heure')[:10]
+        context['alertes_securite'] = [{
+            'id': a.id,
+            'date_heure': a.date_heure,
+            'type': a.get_type_alerte_display(),
+            'type_code': a.type_alerte,
+            'gravite': a.gravite,
+            'description': a.description,
+            'utilisateur': a.utilisateur_nom or 'Inconnu',
+            'adresse_ip': a.adresse_ip,
+            'traitee': a.traitee,
+        } for a in alertes]
+    except:
+        # Donnees de demo
+        context['alertes_securite'] = [
+            {
+                'id': 1,
+                'date_heure': timezone.now() - timedelta(minutes=40),
+                'type': 'Echec de connexion repete',
+                'type_code': 'echec_connexion',
+                'gravite': 'critical',
+                'description': '3 echecs de connexion consecutifs',
+                'utilisateur': 'konou@etude.bj',
+                'adresse_ip': '41.138.77.92',
+                'traitee': False,
+            },
+            {
+                'id': 2,
+                'date_heure': timezone.now() - timedelta(hours=10, minutes=45),
+                'type': 'Connexion hors horaires',
+                'type_code': 'hors_horaires',
+                'gravite': 'warning',
+                'description': 'Connexion en dehors des horaires autorises',
+                'utilisateur': 'adjovi@etude.bj',
+                'adresse_ip': '192.168.1.45',
+                'traitee': False,
+            },
+        ]
+
+    context['nb_alertes_non_traitees'] = len([a for a in context['alertes_securite'] if not a['traitee']])
+
+    # =================================
+    # SECTION 7: IPS AUTORISEES/BLOQUEES
+    # =================================
+    try:
+        context['ips_autorisees'] = list(AdresseIPAutorisee.objects.filter(active=True).values('id', 'adresse_ip', 'description'))
+        context['ips_bloquees'] = list(AdresseIPBloquee.objects.filter(active=True).values('id', 'adresse_ip', 'raison', 'date_blocage'))
+    except:
+        context['ips_autorisees'] = []
+        context['ips_bloquees'] = []
+
+    # =================================
+    # ONGLETS DE NAVIGATION
+    # =================================
+    context['tabs'] = [
+        {'id': 'utilisateurs', 'label': 'Utilisateurs', 'icon': 'users'},
+        {'id': 'roles', 'label': 'Roles & Permissions', 'icon': 'shield-check'},
+        {'id': 'politique', 'label': 'Politique de securite', 'icon': 'lock'},
+        {'id': 'audit', 'label': 'Journal d\'audit', 'icon': 'file-text'},
+        {'id': 'sessions', 'label': 'Sessions actives', 'icon': 'monitor'},
+        {'id': 'alertes', 'label': 'Alertes', 'icon': 'alert-triangle'},
+        {'id': 'protection', 'label': 'Protection des donnees', 'icon': 'database'},
+        {'id': 'maintenance', 'label': 'Maintenance', 'icon': 'wrench'},
+    ]
+
+    # Liste des roles pour le formulaire
+    context['roles_choices'] = [
+        ('admin', 'Administrateur (Huissier titulaire)'),
+        ('clerc_principal', 'Clerc principal'),
+        ('clerc', 'Clerc'),
+        ('secretaire', 'Secretaire'),
+        ('agent_recouvrement', 'Agent de recouvrement'),
+        ('comptable', 'Comptable'),
+        ('stagiaire', 'Stagiaire'),
+        ('consultant', 'Consultant (lecture seule)'),
+    ]
 
     return render(request, 'gestion/securite.html', context)
 
