@@ -608,6 +608,13 @@
                                    value="{{ config.numero_ifu }}">
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Numéro RCCM</label>
+                            <input type="text" id="numero_rccm" class="form-input"
+                                   value="{{ config.numero_rccm|default:'' }}"
+                                   placeholder="Ex: RB/COT/25 A 12345">
+                            <small class="form-help">Registre du Commerce et du Crédit Mobilier</small>
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">Numéro d'agrément / Inscription au tableau</label>
                             <input type="text" id="numero_agrement" class="form-input"
                                    value="{{ config.numero_agrement }}">
@@ -725,6 +732,38 @@
                                      style="background: {{ config.couleur_secondaire }}"></div>
                             </div>
                             <small class="form-help">Par défaut : #c6a962 (or)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signature de l'huissier -->
+            <div class="section-collapsible">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h4><i data-lucide="pen-tool"></i> Signature de l'huissier</h4>
+                    <i data-lucide="chevron-down" class="section-toggle"></i>
+                </div>
+                <div class="section-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Signature numérisée</label>
+                            <div class="file-upload" onclick="document.getElementById('signature_file').click()">
+                                <i data-lucide="upload-cloud"></i>
+                                <div class="file-upload-text">Cliquez pour uploader la signature</div>
+                                <div class="file-upload-hint">PNG transparent recommandé - Max 2 Mo</div>
+                            </div>
+                            <input type="file" id="signature_file" accept=".png,.jpg,.jpeg,.webp" style="display:none" onchange="previewSignature(this)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Aperçu de la signature</label>
+                            <div class="signature-preview" id="signature_preview" style="background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; min-height: 100px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--neutral-200);">
+                                {% if config.signature_huissier %}
+                                    <img src="{{ config.signature_huissier.url }}" alt="Signature" style="max-height: 100px; max-width: 100%;">
+                                {% else %}
+                                    <span style="color: var(--neutral-400)">Aucune signature</span>
+                                {% endif %}
+                            </div>
+                            <small class="form-help">Cette signature sera utilisée sur les documents officiels (PV, actes, etc.)</small>
                         </div>
                     </div>
                 </div>
@@ -2532,6 +2571,349 @@
         </div>
     </div>
 </div>
+
+<!-- ============================================== -->
+<!-- MODALES -->
+<!-- ============================================== -->
+
+<!-- Modal Site/Agence -->
+<div id="modalSite" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalSiteTitle">Ajouter un site</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalSite')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="siteId">
+            <div class="form-group">
+                <label class="form-label">Nom du site *</label>
+                <input type="text" id="siteNom" class="form-input" required placeholder="Ex: Bureau principal, Annexe...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Adresse</label>
+                <input type="text" id="siteAdresse" class="form-input" placeholder="Adresse complète">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Téléphone</label>
+                <input type="tel" id="siteTelephone" class="form-input" placeholder="+229 XX XX XX XX">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Responsable</label>
+                <input type="text" id="siteResponsable" class="form-input" placeholder="Nom du responsable">
+            </div>
+            <div class="form-group">
+                <label class="switch-container">
+                    <input type="checkbox" id="sitePrincipal">
+                    <span class="switch-slider"></span>
+                    <span style="margin-left: 10px;">Site principal</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalSite')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderSite()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Type de Dossier -->
+<div id="modalTypeDossier" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalTypeDossierTitle">Ajouter un type de dossier</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalTypeDossier')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="typeDossierId">
+            <div class="form-group">
+                <label class="form-label">Code *</label>
+                <input type="text" id="typeDossierCode" class="form-input" required placeholder="Ex: REC, EXP, SAI...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Libellé *</label>
+                <input type="text" id="typeDossierLibelle" class="form-input" required placeholder="Ex: Recouvrement de créances">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="typeDossierDescription" class="form-textarea" rows="2" placeholder="Description du type de dossier"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Couleur</label>
+                <input type="color" id="typeDossierCouleur" class="form-input" value="#3b82f6" style="width: 60px; height: 40px; padding: 2px;">
+            </div>
+            <div class="form-group">
+                <label class="switch-container">
+                    <input type="checkbox" id="typeDossierActif" checked>
+                    <span class="switch-slider"></span>
+                    <span style="margin-left: 10px;">Actif</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalTypeDossier')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderTypeDossier()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Statut de Dossier -->
+<div id="modalStatutDossier" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalStatutDossierTitle">Ajouter un statut de dossier</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalStatutDossier')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="statutDossierId">
+            <div class="form-group">
+                <label class="form-label">Code *</label>
+                <input type="text" id="statutDossierCode" class="form-input" required placeholder="Ex: EN_COURS, CLOS...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Libellé *</label>
+                <input type="text" id="statutDossierLibelle" class="form-input" required placeholder="Ex: En cours de traitement">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Couleur</label>
+                <input type="color" id="statutDossierCouleur" class="form-input" value="#10b981" style="width: 60px; height: 40px; padding: 2px;">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ordre d'affichage</label>
+                <input type="number" id="statutDossierOrdre" class="form-input" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label class="switch-container">
+                    <input type="checkbox" id="statutDossierActif" checked>
+                    <span class="switch-slider"></span>
+                    <span style="margin-left: 10px;">Actif</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalStatutDossier')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderStatutDossier()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Localité -->
+<div id="modalLocalite" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalLocaliteTitle">Ajouter une localité</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalLocalite')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="localiteId">
+            <div class="form-group">
+                <label class="form-label">Nom de la localité *</label>
+                <input type="text" id="localiteNom" class="form-input" required placeholder="Ex: Cotonou, Porto-Novo...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Département</label>
+                <input type="text" id="localiteDepartement" class="form-input" placeholder="Ex: Littoral, Atlantique...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Distance depuis l'étude (km) *</label>
+                <input type="number" id="localiteDistance" class="form-input" required min="0" step="0.1" placeholder="Distance en kilomètres">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalLocalite')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderLocalite()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Taux Légal -->
+<div id="modalTauxLegal" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalTauxLegalTitle">Ajouter un taux légal</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalTauxLegal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="tauxLegalId">
+            <div class="form-group">
+                <label class="form-label">Année *</label>
+                <input type="number" id="tauxLegalAnnee" class="form-input" required min="2000" max="2100" placeholder="Ex: 2024">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Semestre *</label>
+                <select id="tauxLegalSemestre" class="form-select" required>
+                    <option value="1">1er semestre (Jan-Juin)</option>
+                    <option value="2">2ème semestre (Juil-Déc)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Taux (%) *</label>
+                <input type="number" id="tauxLegalTaux" class="form-input" required min="0" step="0.01" placeholder="Ex: 3.25">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalTauxLegal')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderTauxLegal()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Type d'Acte -->
+<div id="modalTypeActe" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalTypeActeTitle">Ajouter un type d'acte</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalTypeActe')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="typeActeId">
+            <div class="form-group">
+                <label class="form-label">Code *</label>
+                <input type="text" id="typeActeCode" class="form-input" required placeholder="Ex: CMD, SOM, PV...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Libellé *</label>
+                <input type="text" id="typeActeLibelle" class="form-input" required placeholder="Ex: Commandement de payer">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Catégorie</label>
+                <select id="typeActeCategorie" class="form-select">
+                    <option value="signification">Signification</option>
+                    <option value="execution">Exécution</option>
+                    <option value="constat">Constat</option>
+                    <option value="autre">Autre</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Montant par défaut (F CFA)</label>
+                <input type="number" id="typeActeMontant" class="form-input" min="0" placeholder="Ex: 15000">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalTypeActe')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderTypeActe()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Juridiction -->
+<div id="modalJuridiction" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalJuridictionTitle">Ajouter une juridiction</h3>
+            <button class="btn btn-icon" onclick="fermerModal('modalJuridiction')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="juridictionId">
+            <div class="form-group">
+                <label class="form-label">Type *</label>
+                <select id="juridictionType" class="form-select" required>
+                    <option value="TPI">Tribunal de Première Instance</option>
+                    <option value="TCC">Tribunal de Commerce</option>
+                    <option value="CA">Cour d'Appel</option>
+                    <option value="CS">Cour Suprême</option>
+                    <option value="CCJA">CCJA (OHADA)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nom *</label>
+                <input type="text" id="juridictionNom" class="form-input" required placeholder="Ex: Tribunal de Première Instance de Cotonou">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ville *</label>
+                <input type="text" id="juridictionVille" class="form-input" required placeholder="Ex: Cotonou">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Adresse</label>
+                <input type="text" id="juridictionAdresse" class="form-input" placeholder="Adresse complète">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Téléphone</label>
+                <input type="tel" id="juridictionTelephone" class="form-input" placeholder="+229 XX XX XX XX">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModal('modalJuridiction')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderJuridiction()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Styles pour les modales -->
+<style>
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+.modal-container {
+    background: white;
+    border-radius: 12px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--neutral-200);
+}
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+.modal-body {
+    padding: 24px;
+}
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--neutral-200);
+    background: var(--neutral-50);
+    border-radius: 0 0 12px 12px;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -2575,16 +2957,62 @@
         preview.style.background = colorInput.value;
     }
 
-    // Preview logo
+    // Preview et upload logo
     function previewLogo(input) {
         if (input.files && input.files[0]) {
+            const file = input.files[0];
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('logo_preview').innerHTML =
                     '<img src="' + e.target.result + '" alt="Logo">';
             };
-            reader.readAsDataURL(input.files[0]);
+            reader.readAsDataURL(file);
+
+            // Upload au serveur
+            uploadImage(file, 'logo');
         }
+    }
+
+    // Preview et upload signature
+    function previewSignature(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('signature_preview').innerHTML =
+                    '<img src="' + e.target.result + '" alt="Signature" style="max-height: 100px; max-width: 100%;">';
+            };
+            reader.readAsDataURL(file);
+
+            // Upload au serveur
+            uploadImage(file, 'signature');
+        }
+    }
+
+    // Upload image générique
+    function uploadImage(file, imageType) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', imageType);
+
+        fetch('{% url "parametres:api_upload_image" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('success', result.message);
+            } else {
+                showNotification('error', 'Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            showNotification('error', 'Erreur de connexion');
+        });
     }
 
     // Mode MECeF
@@ -2659,6 +3087,7 @@
             data.juridiction = document.getElementById('juridiction').value;
             data.date_installation = document.getElementById('date_installation').value;
             data.numero_ifu = document.getElementById('numero_ifu').value;
+            data.numero_rccm = document.getElementById('numero_rccm').value;
             data.numero_agrement = document.getElementById('numero_agrement').value;
             data.adresse_rue = document.getElementById('adresse_rue').value;
             data.adresse_quartier = document.getElementById('adresse_quartier').value;
@@ -2912,35 +3341,535 @@
     `;
     document.head.appendChild(style);
 
-    // Fonctions modales (placeholder)
+    // ========== Fonctions utilitaires modales ==========
+    function ouvrirModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+        lucide.createIcons();
+    }
+
+    function fermerModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Fermer modal en cliquant sur l'overlay
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+    });
+
+    // ========== Sites/Agences ==========
     function openSiteModal() {
-        alert('Modal Site - À implémenter');
+        document.getElementById('siteId').value = '';
+        document.getElementById('modalSiteTitle').textContent = 'Ajouter un site';
+        document.getElementById('siteNom').value = '';
+        document.getElementById('siteAdresse').value = '';
+        document.getElementById('siteTelephone').value = '';
+        document.getElementById('siteResponsable').value = '';
+        document.getElementById('sitePrincipal').checked = false;
+        ouvrirModal('modalSite');
     }
 
     function editSite(id) {
-        alert('Modifier site ' + id + ' - À implémenter');
+        document.getElementById('siteId').value = id;
+        document.getElementById('modalSiteTitle').textContent = 'Modifier le site';
+
+        fetch(`{% url "parametres:api_sites_list" %}`)
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const site = result.data.find(s => s.id === id);
+                    if (site) {
+                        document.getElementById('siteNom').value = site.nom || '';
+                        document.getElementById('siteAdresse').value = site.adresse || '';
+                        document.getElementById('siteTelephone').value = site.telephone || '';
+                        document.getElementById('siteResponsable').value = site.responsable || '';
+                        document.getElementById('sitePrincipal').checked = site.est_principal || false;
+                        ouvrirModal('modalSite');
+                    }
+                }
+            });
+    }
+
+    function sauvegarderSite() {
+        const id = document.getElementById('siteId').value;
+        const data = {
+            nom: document.getElementById('siteNom').value,
+            adresse: document.getElementById('siteAdresse').value,
+            telephone: document.getElementById('siteTelephone').value,
+            responsable: document.getElementById('siteResponsable').value,
+            est_principal: document.getElementById('sitePrincipal').checked
+        };
+
+        if (!data.nom) {
+            showNotification('error', 'Le nom du site est obligatoire');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_site_update" site_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_site_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalSite');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        })
+        .catch(error => {
+            showNotification('error', 'Erreur de connexion');
+        });
     }
 
     function deleteSite(id) {
-        if (confirm('Supprimer ce site ?')) {
-            alert('Supprimer site ' + id + ' - À implémenter');
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce site ?')) {
+            fetch(`{% url "parametres:api_site_delete" site_id=0 %}`.replace('0', id), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    showNotification('success', result.message);
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showNotification('error', result.error || 'Erreur');
+                }
+            });
         }
     }
 
+    // ========== Types de Dossiers ==========
     function openTypeDossierModal() {
-        alert('Modal Type Dossier - À implémenter');
+        document.getElementById('typeDossierId').value = '';
+        document.getElementById('modalTypeDossierTitle').textContent = 'Ajouter un type de dossier';
+        document.getElementById('typeDossierCode').value = '';
+        document.getElementById('typeDossierLibelle').value = '';
+        document.getElementById('typeDossierDescription').value = '';
+        document.getElementById('typeDossierCouleur').value = '#3b82f6';
+        document.getElementById('typeDossierActif').checked = true;
+        ouvrirModal('modalTypeDossier');
     }
 
     function editTypeDossier(id) {
-        alert('Modifier type ' + id + ' - À implémenter');
+        document.getElementById('typeDossierId').value = id;
+        document.getElementById('modalTypeDossierTitle').textContent = 'Modifier le type de dossier';
+
+        fetch('{% url "parametres:api_types_dossier_list" %}')
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const type = result.data.find(t => t.id === id);
+                    if (type) {
+                        document.getElementById('typeDossierCode').value = type.code || '';
+                        document.getElementById('typeDossierLibelle').value = type.libelle || '';
+                        document.getElementById('typeDossierDescription').value = type.description || '';
+                        document.getElementById('typeDossierCouleur').value = type.couleur || '#3b82f6';
+                        document.getElementById('typeDossierActif').checked = type.actif !== false;
+                        ouvrirModal('modalTypeDossier');
+                    }
+                }
+            });
     }
 
+    function sauvegarderTypeDossier() {
+        const id = document.getElementById('typeDossierId').value;
+        const data = {
+            code: document.getElementById('typeDossierCode').value,
+            libelle: document.getElementById('typeDossierLibelle').value,
+            description: document.getElementById('typeDossierDescription').value,
+            couleur: document.getElementById('typeDossierCouleur').value,
+            actif: document.getElementById('typeDossierActif').checked
+        };
+
+        if (!data.code || !data.libelle) {
+            showNotification('error', 'Le code et le libellé sont obligatoires');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_type_dossier_update" type_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_type_dossier_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalTypeDossier');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        });
+    }
+
+    // ========== Statuts de Dossiers ==========
     function openStatutDossierModal() {
-        alert('Modal Statut Dossier - À implémenter');
+        document.getElementById('statutDossierId').value = '';
+        document.getElementById('modalStatutDossierTitle').textContent = 'Ajouter un statut de dossier';
+        document.getElementById('statutDossierCode').value = '';
+        document.getElementById('statutDossierLibelle').value = '';
+        document.getElementById('statutDossierCouleur').value = '#10b981';
+        document.getElementById('statutDossierOrdre').value = '0';
+        document.getElementById('statutDossierActif').checked = true;
+        ouvrirModal('modalStatutDossier');
     }
 
     function editStatutDossier(id) {
-        alert('Modifier statut ' + id + ' - À implémenter');
+        document.getElementById('statutDossierId').value = id;
+        document.getElementById('modalStatutDossierTitle').textContent = 'Modifier le statut de dossier';
+
+        fetch('{% url "parametres:api_statuts_dossier_list" %}')
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const statut = result.data.find(s => s.id === id);
+                    if (statut) {
+                        document.getElementById('statutDossierCode').value = statut.code || '';
+                        document.getElementById('statutDossierLibelle').value = statut.libelle || '';
+                        document.getElementById('statutDossierCouleur').value = statut.couleur || '#10b981';
+                        document.getElementById('statutDossierOrdre').value = statut.ordre || 0;
+                        document.getElementById('statutDossierActif').checked = statut.actif !== false;
+                        ouvrirModal('modalStatutDossier');
+                    }
+                }
+            });
+    }
+
+    function sauvegarderStatutDossier() {
+        const id = document.getElementById('statutDossierId').value;
+        const data = {
+            code: document.getElementById('statutDossierCode').value,
+            libelle: document.getElementById('statutDossierLibelle').value,
+            couleur: document.getElementById('statutDossierCouleur').value,
+            ordre: parseInt(document.getElementById('statutDossierOrdre').value) || 0,
+            actif: document.getElementById('statutDossierActif').checked
+        };
+
+        if (!data.code || !data.libelle) {
+            showNotification('error', 'Le code et le libellé sont obligatoires');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_statut_dossier_update" statut_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_statut_dossier_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalStatutDossier');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        });
+    }
+
+    // ========== Localités ==========
+    function openLocaliteModal() {
+        document.getElementById('localiteId').value = '';
+        document.getElementById('modalLocaliteTitle').textContent = 'Ajouter une localité';
+        document.getElementById('localiteNom').value = '';
+        document.getElementById('localiteDepartement').value = '';
+        document.getElementById('localiteDistance').value = '';
+        ouvrirModal('modalLocalite');
+    }
+
+    function editLocalite(id) {
+        document.getElementById('localiteId').value = id;
+        document.getElementById('modalLocaliteTitle').textContent = 'Modifier la localité';
+
+        fetch('{% url "parametres:api_localites_list" %}')
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const loc = result.data.find(l => l.id === id);
+                    if (loc) {
+                        document.getElementById('localiteNom').value = loc.nom || '';
+                        document.getElementById('localiteDepartement').value = loc.departement || '';
+                        document.getElementById('localiteDistance').value = loc.distance_km || '';
+                        ouvrirModal('modalLocalite');
+                    }
+                }
+            });
+    }
+
+    function sauvegarderLocalite() {
+        const id = document.getElementById('localiteId').value;
+        const data = {
+            nom: document.getElementById('localiteNom').value,
+            departement: document.getElementById('localiteDepartement').value,
+            distance_km: parseFloat(document.getElementById('localiteDistance').value) || 0
+        };
+
+        if (!data.nom) {
+            showNotification('error', 'Le nom de la localité est obligatoire');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_localite_update" localite_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_localite_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalLocalite');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        });
+    }
+
+    // ========== Taux Légaux ==========
+    function openTauxLegalModal() {
+        document.getElementById('tauxLegalId').value = '';
+        document.getElementById('modalTauxLegalTitle').textContent = 'Ajouter un taux légal';
+        document.getElementById('tauxLegalAnnee').value = new Date().getFullYear();
+        document.getElementById('tauxLegalSemestre').value = '1';
+        document.getElementById('tauxLegalTaux').value = '';
+        ouvrirModal('modalTauxLegal');
+    }
+
+    function editTauxLegal(id) {
+        document.getElementById('tauxLegalId').value = id;
+        document.getElementById('modalTauxLegalTitle').textContent = 'Modifier le taux légal';
+
+        fetch('{% url "parametres:api_taux_legaux_list" %}')
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const taux = result.data.find(t => t.id === id);
+                    if (taux) {
+                        document.getElementById('tauxLegalAnnee').value = taux.annee || '';
+                        document.getElementById('tauxLegalSemestre').value = taux.semestre || '1';
+                        document.getElementById('tauxLegalTaux').value = taux.taux || '';
+                        ouvrirModal('modalTauxLegal');
+                    }
+                }
+            });
+    }
+
+    function sauvegarderTauxLegal() {
+        const id = document.getElementById('tauxLegalId').value;
+        const data = {
+            annee: parseInt(document.getElementById('tauxLegalAnnee').value),
+            semestre: parseInt(document.getElementById('tauxLegalSemestre').value),
+            taux: parseFloat(document.getElementById('tauxLegalTaux').value)
+        };
+
+        if (!data.annee || !data.taux) {
+            showNotification('error', 'L\'année et le taux sont obligatoires');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_taux_legal_update" taux_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_taux_legal_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalTauxLegal');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        });
+    }
+
+    // ========== Types d'Actes ==========
+    function openTypeActeModal() {
+        document.getElementById('typeActeId').value = '';
+        document.getElementById('modalTypeActeTitle').textContent = 'Ajouter un type d\'acte';
+        document.getElementById('typeActeCode').value = '';
+        document.getElementById('typeActeLibelle').value = '';
+        document.getElementById('typeActeCategorie').value = 'signification';
+        document.getElementById('typeActeMontant').value = '';
+        ouvrirModal('modalTypeActe');
+    }
+
+    function editTypeActe(id) {
+        document.getElementById('typeActeId').value = id;
+        document.getElementById('modalTypeActeTitle').textContent = 'Modifier le type d\'acte';
+
+        fetch('{% url "parametres:api_types_actes_list" %}')
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const acte = result.data.find(a => a.id === id);
+                    if (acte) {
+                        document.getElementById('typeActeCode').value = acte.code || '';
+                        document.getElementById('typeActeLibelle').value = acte.libelle || '';
+                        document.getElementById('typeActeCategorie').value = acte.categorie || 'signification';
+                        document.getElementById('typeActeMontant').value = acte.montant_defaut || '';
+                        ouvrirModal('modalTypeActe');
+                    }
+                }
+            });
+    }
+
+    function sauvegarderTypeActe() {
+        const id = document.getElementById('typeActeId').value;
+        const data = {
+            code: document.getElementById('typeActeCode').value,
+            libelle: document.getElementById('typeActeLibelle').value,
+            categorie: document.getElementById('typeActeCategorie').value,
+            montant_defaut: parseFloat(document.getElementById('typeActeMontant').value) || 0
+        };
+
+        if (!data.code || !data.libelle) {
+            showNotification('error', 'Le code et le libellé sont obligatoires');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_type_acte_update" type_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_type_acte_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalTypeActe');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        });
+    }
+
+    // ========== Juridictions ==========
+    function openJuridictionModal() {
+        document.getElementById('juridictionId').value = '';
+        document.getElementById('modalJuridictionTitle').textContent = 'Ajouter une juridiction';
+        document.getElementById('juridictionType').value = 'TPI';
+        document.getElementById('juridictionNom').value = '';
+        document.getElementById('juridictionVille').value = '';
+        document.getElementById('juridictionAdresse').value = '';
+        document.getElementById('juridictionTelephone').value = '';
+        ouvrirModal('modalJuridiction');
+    }
+
+    function editJuridiction(id) {
+        document.getElementById('juridictionId').value = id;
+        document.getElementById('modalJuridictionTitle').textContent = 'Modifier la juridiction';
+
+        fetch('{% url "parametres:api_juridictions_list" %}')
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    const jur = result.data.find(j => j.id === id);
+                    if (jur) {
+                        document.getElementById('juridictionType').value = jur.type || 'TPI';
+                        document.getElementById('juridictionNom').value = jur.nom || '';
+                        document.getElementById('juridictionVille').value = jur.ville || '';
+                        document.getElementById('juridictionAdresse').value = jur.adresse || '';
+                        document.getElementById('juridictionTelephone').value = jur.telephone || '';
+                        ouvrirModal('modalJuridiction');
+                    }
+                }
+            });
+    }
+
+    function sauvegarderJuridiction() {
+        const id = document.getElementById('juridictionId').value;
+        const data = {
+            type: document.getElementById('juridictionType').value,
+            nom: document.getElementById('juridictionNom').value,
+            ville: document.getElementById('juridictionVille').value,
+            adresse: document.getElementById('juridictionAdresse').value,
+            telephone: document.getElementById('juridictionTelephone').value
+        };
+
+        if (!data.nom || !data.ville) {
+            showNotification('error', 'Le nom et la ville sont obligatoires');
+            return;
+        }
+
+        const url = id ?
+            `{% url "parametres:api_juridiction_update" juridiction_id=0 %}`.replace('0', id) :
+            '{% url "parametres:api_juridiction_create" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                fermerModal('modalJuridiction');
+                showNotification('success', result.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showNotification('error', result.error || 'Erreur');
+            }
+        });
     }
 
     // ========== Section Modèles de documents ==========

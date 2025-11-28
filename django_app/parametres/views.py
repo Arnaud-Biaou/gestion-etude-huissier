@@ -138,7 +138,7 @@ def api_sauvegarder_config(request):
         if section == 'etude':
             for field in ['nom_etude', 'titre', 'juridiction', 'adresse_rue', 'adresse_quartier',
                          'adresse_ville', 'adresse_bp', 'telephone_fixe', 'telephone_mobile1',
-                         'telephone_mobile2', 'email', 'site_web', 'numero_ifu', 'numero_agrement']:
+                         'telephone_mobile2', 'email', 'site_web', 'numero_ifu', 'numero_rccm', 'numero_agrement']:
                 if field in data:
                     log_modification(field, getattr(config, field), data[field])
                     setattr(config, field, data[field])
@@ -387,6 +387,80 @@ def api_get_config(request):
         'success': True,
         'data': config.to_dict()
     })
+
+
+@login_required
+@require_POST
+def api_upload_image(request):
+    """Upload du logo ou de la signature"""
+    try:
+        config = ConfigurationEtude.get_instance()
+        image_type = request.POST.get('type', 'logo')
+
+        if 'file' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'error': 'Aucun fichier fourni'
+            }, status=400)
+
+        uploaded_file = request.FILES['file']
+
+        # Validation du type de fichier
+        allowed_types = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+        if uploaded_file.content_type not in allowed_types:
+            return JsonResponse({
+                'success': False,
+                'error': 'Type de fichier non autorisé. Utilisez PNG, JPEG, GIF ou WebP.'
+            }, status=400)
+
+        # Validation de la taille (max 2 Mo)
+        if uploaded_file.size > 2 * 1024 * 1024:
+            return JsonResponse({
+                'success': False,
+                'error': 'Fichier trop volumineux. Maximum 2 Mo.'
+            }, status=400)
+
+        # Sauvegarder le fichier
+        if image_type == 'logo':
+            # Supprimer l'ancien logo si existant
+            if config.logo:
+                config.logo.delete(save=False)
+            config.logo = uploaded_file
+            config.save()
+            url = config.logo.url if config.logo else None
+        elif image_type == 'signature':
+            # Supprimer l'ancienne signature si existante
+            if config.signature_huissier:
+                config.signature_huissier.delete(save=False)
+            config.signature_huissier = uploaded_file
+            config.save()
+            url = config.signature_huissier.url if config.signature_huissier else None
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Type d\'image non reconnu'
+            }, status=400)
+
+        # Logger la modification
+        JournalModification.objects.create(
+            utilisateur=request.user,
+            section='etude',
+            champ=image_type,
+            ancienne_valeur='',
+            nouvelle_valeur=uploaded_file.name
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{image_type.capitalize()} mis à jour avec succès',
+            'url': url
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 # ===== API SITES/AGENCES =====
@@ -1137,7 +1211,11 @@ def api_juridiction_update(request, juridiction_id):
 @login_required
 @require_POST
 def api_backup_create(request):
-    """Crée une sauvegarde manuelle"""
+    """Crée une sauvegarde manuelle de la base de données"""
+    import os
+    import shutil
+    from django.conf import settings
+
     try:
         # Créer l'entrée dans l'historique
         sauvegarde = HistoriqueSauvegarde.objects.create(
@@ -1145,20 +1223,66 @@ def api_backup_create(request):
             emplacement='local'
         )
 
-        # TODO: Implémenter la logique de sauvegarde réelle
-        # Pour l'instant, simuler une sauvegarde réussie
-        import random
-        sauvegarde.taille = random.randint(100000000, 200000000)
+        # Créer le dossier de sauvegarde s'il n'existe pas
+        backup_dir = os.path.join(settings.BASE_DIR, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+
+        # Nom du fichier de sauvegarde avec timestamp
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'backup_{timestamp}.sqlite3'
+        backup_path = os.path.join(backup_dir, backup_filename)
+
+        # Récupérer le chemin de la base de données
+        db_path = settings.DATABASES['default']['NAME']
+
+        # Vérifier que la base de données existe
+        if not os.path.exists(db_path):
+            sauvegarde.statut = 'echoue'
+            sauvegarde.message = 'Base de données non trouvée'
+            sauvegarde.save()
+            return JsonResponse({
+                'success': False,
+                'error': 'Base de données non trouvée'
+            }, status=400)
+
+        # Copier la base de données
+        shutil.copy2(db_path, backup_path)
+
+        # Calculer la taille du fichier
+        file_size = os.path.getsize(backup_path)
+
+        # Mettre à jour l'entrée de sauvegarde
+        sauvegarde.taille = file_size
         sauvegarde.statut = 'reussi'
-        sauvegarde.message = 'Sauvegarde effectuée avec succès'
+        sauvegarde.message = f'Sauvegarde créée : {backup_filename}'
+        sauvegarde.emplacement = backup_path
         sauvegarde.save()
+
+        # Nettoyer les anciennes sauvegardes (garder les 10 dernières)
+        config = ConfigurationEtude.get_instance()
+        retention = getattr(config, 'backup_retention', 10)
+        old_backups = HistoriqueSauvegarde.objects.filter(
+            statut='reussi'
+        ).order_by('-date')[retention:]
+
+        for old_backup in old_backups:
+            if old_backup.emplacement and os.path.exists(old_backup.emplacement):
+                try:
+                    os.remove(old_backup.emplacement)
+                except OSError:
+                    pass
+            old_backup.delete()
 
         return JsonResponse({
             'success': True,
-            'message': 'Sauvegarde créée avec succès',
+            'message': f'Sauvegarde créée avec succès ({file_size / 1024 / 1024:.2f} Mo)',
             'data': sauvegarde.to_dict()
         })
     except Exception as e:
+        if 'sauvegarde' in locals():
+            sauvegarde.statut = 'echoue'
+            sauvegarde.message = str(e)
+            sauvegarde.save()
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -1247,16 +1371,95 @@ def api_export_data(request, format_type):
 @login_required
 @require_POST
 def api_test_smtp(request):
-    """Teste la configuration SMTP"""
+    """Teste la configuration SMTP en envoyant un email de test"""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
     try:
         config = ConfigurationEtude.get_instance()
 
-        # TODO: Implémenter le test réel de connexion SMTP
+        # Vérifier que la configuration est complète
+        if not config.smtp_serveur:
+            return JsonResponse({
+                'success': False,
+                'error': 'Serveur SMTP non configuré'
+            }, status=400)
 
-        return JsonResponse({
-            'success': True,
-            'message': 'Configuration SMTP valide'
-        })
+        if not config.smtp_expediteur:
+            return JsonResponse({
+                'success': False,
+                'error': 'Adresse expéditeur non configurée'
+            }, status=400)
+
+        if not config.email:
+            return JsonResponse({
+                'success': False,
+                'error': 'Adresse email de l\'étude non configurée (destinataire du test)'
+            }, status=400)
+
+        # Préparer le message de test
+        msg = MIMEMultipart()
+        msg['From'] = config.smtp_expediteur
+        msg['To'] = config.email
+        msg['Subject'] = 'Test SMTP - Gestion Étude Huissier'
+
+        body = f"""
+        Ce message confirme que la configuration SMTP fonctionne correctement.
+
+        Paramètres utilisés :
+        - Serveur : {config.smtp_serveur}
+        - Port : {config.smtp_port}
+        - Expéditeur : {config.smtp_expediteur}
+
+        Date du test : {timezone.now().strftime('%d/%m/%Y à %H:%M')}
+
+        ---
+        Gestion Étude Huissier - Message automatique
+        """
+
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        # Connexion et envoi
+        try:
+            if config.smtp_port == 465:
+                # SSL
+                server = smtplib.SMTP_SSL(config.smtp_serveur, config.smtp_port, timeout=10)
+            else:
+                # TLS ou non sécurisé
+                server = smtplib.SMTP(config.smtp_serveur, config.smtp_port, timeout=10)
+                if config.smtp_port == 587:
+                    server.starttls()
+
+            # Authentification si credentials fournis
+            if config.smtp_utilisateur and config.smtp_mot_de_passe:
+                server.login(config.smtp_utilisateur, config.smtp_mot_de_passe)
+
+            # Envoi
+            server.send_message(msg)
+            server.quit()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Email de test envoyé avec succès à {config.email}'
+            })
+
+        except smtplib.SMTPAuthenticationError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Erreur d\'authentification. Vérifiez identifiant et mot de passe.'
+            }, status=400)
+        except smtplib.SMTPConnectError:
+            return JsonResponse({
+                'success': False,
+                'error': f'Impossible de se connecter au serveur {config.smtp_serveur}:{config.smtp_port}'
+            }, status=400)
+        except smtplib.SMTPException as smtp_error:
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur SMTP : {str(smtp_error)}'
+            }, status=400)
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -1267,16 +1470,56 @@ def api_test_smtp(request):
 @login_required
 @require_POST
 def api_test_sms(request):
-    """Teste la configuration SMS"""
+    """
+    Teste la configuration SMS
+
+    Note: L'implémentation dépend du fournisseur SMS choisi.
+    Fournisseurs courants au Bénin:
+    - Twilio: https://www.twilio.com/docs/sms/send-messages
+    - Orange SMS API: https://developer.orange.com/apis/sms-bf
+    - InfoBip: https://www.infobip.com/docs/sms
+
+    Exemple avec Twilio:
+    ```
+    from twilio.rest import Client
+    client = Client(config.sms_api_key, config.sms_api_secret)
+    message = client.messages.create(
+        body="Test SMS - Étude Huissier",
+        from_=config.sms_expediteur,
+        to="+22912345678"
+    )
+    ```
+    """
     try:
         config = ConfigurationEtude.get_instance()
 
-        # TODO: Implémenter le test réel d'envoi SMS
+        # Vérifier que la configuration est présente
+        if not config.sms_fournisseur:
+            return JsonResponse({
+                'success': False,
+                'error': 'Fournisseur SMS non configuré'
+            }, status=400)
 
+        if not config.sms_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Clé API SMS non configurée'
+            }, status=400)
+
+        if not config.sms_expediteur:
+            return JsonResponse({
+                'success': False,
+                'error': 'Expéditeur SMS non configuré'
+            }, status=400)
+
+        # Pour le moment, valider seulement la présence de la configuration
+        # L'implémentation réelle dépend du fournisseur choisi
         return JsonResponse({
             'success': True,
-            'message': 'Configuration SMS valide'
+            'message': f'Configuration SMS ({config.sms_fournisseur}) validée. '
+                      f'L\'envoi réel de SMS sera disponible une fois le fournisseur intégré.'
         })
+
     except Exception as e:
         return JsonResponse({
             'success': False,
