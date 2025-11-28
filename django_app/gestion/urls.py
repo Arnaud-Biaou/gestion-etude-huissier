@@ -41,8 +41,10 @@ urlpatterns = [
 
     # API endpoints - Créanciers
     path('api/creanciers/', views.api_creanciers_liste, name='api_creanciers_liste'),
+    path('api/creanciers/export/', views.api_creanciers_export, name='api_creanciers_export'),
     path('api/creanciers/creer/', views.api_creancier_creer, name='api_creancier_creer'),
     path('api/creanciers/<int:creancier_id>/', views.api_creancier_detail, name='api_creancier_detail'),
+    path('api/creanciers/<int:creancier_id>/desactiver/', views.api_creancier_desactiver, name='api_creancier_desactiver'),
     path('api/creanciers/<int:creancier_id>/tableau-bord/', views.api_creancier_tableau_bord, name='api_creancier_tableau_bord'),
     path('api/creanciers/<int:creancier_id>/encaissements-disponibles/', views.api_reversements_encaissements_disponibles, name='api_encaissements_disponibles'),
     path('api/creanciers/<int:creancier_id>/point-global/generer/', views.api_point_global_generer, name='api_point_global_generer'),
@@ -56,12 +58,14 @@ urlpatterns = [
     path('api/encaissements/<int:encaissement_id>/', views.api_encaissement_detail, name='api_encaissement_detail'),
     path('api/encaissements/<int:encaissement_id>/valider/', views.api_encaissement_valider, name='api_encaissement_valider'),
     path('api/encaissements/<int:encaissement_id>/annuler/', views.api_encaissement_annuler, name='api_encaissement_annuler'),
+    path('api/encaissements/<int:encaissement_id>/recu/', views.encaissement_recu_pdf, name='encaissement_recu_pdf'),
     path('api/dossiers/<int:dossier_id>/encaissements/', views.api_encaissements_historique_dossier, name='api_encaissements_historique_dossier'),
 
     # API endpoints - Reversements
     path('api/reversements/', views.api_reversements_liste, name='api_reversements_liste'),
     path('api/reversements/creer/', views.api_reversement_creer, name='api_reversement_creer'),
     path('api/reversements/<int:reversement_id>/effectuer/', views.api_reversement_effectuer, name='api_reversement_effectuer'),
+    path('api/reversements/<int:reversement_id>/bordereau/', views.reversement_bordereau_pdf, name='reversement_bordereau_pdf'),
 
     # API endpoints - Basculement amiable → forcé
     path('api/dossiers/<int:dossier_id>/basculer-force/', views.api_dossier_basculer_force, name='api_dossier_basculer_force'),
