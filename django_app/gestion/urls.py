@@ -39,6 +39,9 @@ urlpatterns = [
     path('api/supprimer-calcul/', views.api_supprimer_calcul, name='api_supprimer_calcul'),
     path('api/charger-historique/', views.api_charger_historique, name='api_charger_historique'),
 
+    # API endpoints - Dossiers (pour encaissements)
+    path('api/dossiers/', views.api_dossiers_liste, name='api_dossiers_liste'),
+
     # API endpoints - Créanciers
     path('api/creanciers/', views.api_creanciers_liste, name='api_creanciers_liste'),
     path('api/creanciers/creer/', views.api_creancier_creer, name='api_creancier_creer'),

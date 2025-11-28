@@ -77,8 +77,8 @@
             </select>
             <select class="form-select" style="width: 150px;" id="statutFilter">
                 <option value="">Tous statuts</option>
-                <option value="brouillon">Brouillon</option>
-                <option value="valide">Validé</option>
+                <option value="en_attente">En attente</option>
+                <option value="en_cours">En cours</option>
                 <option value="effectue">Effectué</option>
                 <option value="annule">Annulé</option>
             </select>
@@ -131,13 +131,13 @@
                         <span class="status-badge actif">
                             <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Effectué
                         </span>
-                        {% elif rev.statut == 'valide' %}
+                        {% elif rev.statut == 'en_cours' %}
                         <span class="status-badge en-attente">
-                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> Validé
+                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> En cours
                         </span>
-                        {% elif rev.statut == 'brouillon' %}
+                        {% elif rev.statut == 'en_attente' %}
                         <span class="status-badge" style="background: var(--neutral-100); color: var(--neutral-600);">
-                            <i data-lucide="file-edit" style="width: 12px; height: 12px;"></i> Brouillon
+                            <i data-lucide="file-edit" style="width: 12px; height: 12px;"></i> En attente
                         </span>
                         {% elif rev.statut == 'annule' %}
                         <span class="status-badge cloture">
@@ -150,7 +150,7 @@
                             <button class="icon-btn" title="Voir détails" onclick="viewReversement({{ rev.id }})">
                                 <i data-lucide="eye"></i>
                             </button>
-                            {% if rev.statut == 'valide' %}
+                            {% if rev.statut == 'en_attente' or rev.statut == 'en_cours' %}
                             <button class="icon-btn" title="Effectuer le reversement" onclick="effectuerReversement({{ rev.id }})" style="color: #16A34A;">
                                 <i data-lucide="send"></i>
                             </button>
@@ -285,7 +285,7 @@
     document.querySelectorAll('tbody tr[data-statut]').forEach(row => {
         const statut = row.dataset.statut;
         if (statut === 'effectue') totalEffectue++;
-        else if (statut === 'valide' || statut === 'brouillon') totalEnAttente++;
+        else if (statut === 'en_cours' || statut === 'en_attente') totalEnAttente++;
     });
 
     {% for rev in reversements %}

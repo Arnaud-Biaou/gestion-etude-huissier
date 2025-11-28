@@ -974,6 +974,22 @@ class Reversement(models.Model):
     def __str__(self):
         return f"{self.reference} - {self.montant:,.0f} FCFA → {self.creancier.nom}"
 
+    @property
+    def montant_brut(self):
+        """Calcule le montant brut total des encaissements liés"""
+        total = self.encaissements.aggregate(total=models.Sum('montant'))['total']
+        return total or Decimal('0')
+
+    @property
+    def montant_honoraires(self):
+        """Calcule le montant des honoraires (montant brut - montant net)"""
+        return self.montant_brut - self.montant
+
+    @property
+    def montant_net(self):
+        """Retourne le montant net à reverser (équivalent au montant du reversement)"""
+        return self.montant
+
     @classmethod
     def generer_reference(cls):
         """Génère une référence unique pour le reversement"""

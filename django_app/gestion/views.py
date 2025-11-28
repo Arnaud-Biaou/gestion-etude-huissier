@@ -1684,6 +1684,57 @@ def creanciers(request):
     return render(request, 'gestion/creanciers.html', context)
 
 
+# ============================================
+# API DOSSIERS POUR ENCAISSEMENTS
+# ============================================
+
+@login_required
+@require_GET
+def api_dossiers_liste(request):
+    """API pour la liste des dossiers (utilisé pour les encaissements)"""
+    try:
+        # Filtres optionnels
+        creancier_id = request.GET.get('creancier')
+        statut = request.GET.get('statut')
+        search = request.GET.get('search', '')
+
+        dossiers_qs = Dossier.objects.select_related('creancier').filter(
+            statut__in=['en_cours', 'actif']
+        )
+
+        if creancier_id:
+            dossiers_qs = dossiers_qs.filter(creancier_id=creancier_id)
+        if statut:
+            dossiers_qs = dossiers_qs.filter(statut=statut)
+        if search:
+            dossiers_qs = dossiers_qs.filter(
+                models.Q(reference__icontains=search) |
+                models.Q(intitule__icontains=search)
+            )
+
+        dossiers_qs = dossiers_qs.order_by('-date_creation')[:100]
+
+        data = []
+        for dossier in dossiers_qs:
+            data.append({
+                'id': dossier.id,
+                'reference': dossier.reference,
+                'intitule': dossier.get_intitule(),
+                'creancier': {
+                    'id': dossier.creancier.id,
+                    'nom': dossier.creancier.nom,
+                } if dossier.creancier else None,
+                'montant_creance': float(dossier.montant_creance or 0),
+                'statut': dossier.statut,
+            })
+
+        return JsonResponse({'success': True, 'dossiers': data})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
 @require_GET
 def api_creanciers_liste(request):
     """API pour la liste des créanciers"""
@@ -1712,6 +1763,7 @@ def api_creanciers_liste(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_creancier_creer(request):
     """API pour créer un créancier"""
@@ -1757,6 +1809,7 @@ def api_creancier_creer(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_creancier_detail(request, creancier_id):
     """API pour le détail d'un créancier"""
@@ -1863,6 +1916,7 @@ def encaissements(request):
     return render(request, 'gestion/encaissements.html', context)
 
 
+@login_required
 @require_GET
 def api_encaissements_liste(request):
     """API pour la liste des encaissements avec filtres"""
@@ -1947,6 +2001,7 @@ def api_encaissements_liste(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_encaissement_creer(request):
     """API pour créer un encaissement"""
@@ -1992,6 +2047,7 @@ def api_encaissement_creer(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_encaissement_detail(request, encaissement_id):
     """API pour le détail d'un encaissement"""
@@ -2057,6 +2113,7 @@ def api_encaissement_detail(request, encaissement_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_encaissement_valider(request, encaissement_id):
     """API pour valider un encaissement"""
@@ -2069,8 +2126,8 @@ def api_encaissement_valider(request, encaissement_id):
                 'error': 'Cet encaissement ne peut pas être validé'
             }, status=400)
 
-        # Simuler un utilisateur (en production, utiliser request.user)
-        utilisateur = Utilisateur.objects.first()
+        # Utiliser l'utilisateur connecté
+        utilisateur = request.user
         enc.valider(utilisateur)
 
         return JsonResponse({
@@ -2084,6 +2141,7 @@ def api_encaissement_valider(request, encaissement_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_encaissement_annuler(request, encaissement_id):
     """API pour annuler un encaissement"""
@@ -2109,6 +2167,7 @@ def api_encaissement_annuler(request, encaissement_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_encaissements_historique_dossier(request, dossier_id):
     """API pour l'historique des encaissements d'un dossier avec cumuls"""
@@ -2157,6 +2216,7 @@ def api_encaissements_historique_dossier(request, dossier_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_encaissements_export(request):
     """API pour exporter les encaissements en CSV"""
@@ -2244,6 +2304,7 @@ def reversements(request):
     return render(request, 'gestion/reversements.html', context)
 
 
+@login_required
 @require_GET
 def api_reversements_liste(request):
     """API pour la liste des reversements"""
@@ -2312,6 +2373,7 @@ def api_reversements_liste(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_reversement_creer(request):
     """API pour créer un reversement"""
@@ -2352,6 +2414,7 @@ def api_reversement_creer(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_reversement_effectuer(request, reversement_id):
     """API pour marquer un reversement comme effectué"""
@@ -2373,7 +2436,7 @@ def api_reversement_effectuer(request, reversement_id):
         if 'date_reversement' in data:
             rev.date_reversement = data['date_reversement']
 
-        utilisateur = Utilisateur.objects.first()
+        utilisateur = request.user
         rev.effectuer(utilisateur)
 
         return JsonResponse({
@@ -2385,6 +2448,7 @@ def api_reversement_effectuer(request, reversement_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_reversements_encaissements_disponibles(request, creancier_id):
     """API pour lister les encaissements disponibles pour un reversement"""
@@ -2425,6 +2489,7 @@ def api_reversements_encaissements_disponibles(request, creancier_id):
 # API BASCULEMENT AMIABLE → FORCÉ
 # ============================================
 
+@login_required
 @require_POST
 def api_dossier_basculer_force(request, dossier_id):
     """API pour basculer un dossier de la phase amiable vers la phase forcée"""
@@ -2457,7 +2522,7 @@ def api_dossier_basculer_force(request, dossier_id):
             }
 
         motif = data.get('motif', 'titre_executoire')
-        utilisateur = Utilisateur.objects.first()
+        utilisateur = request.user
 
         basculement = dossier.basculer_vers_force(
             utilisateur=utilisateur,
@@ -2483,6 +2548,7 @@ def api_dossier_basculer_force(request, dossier_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_dossier_historique_basculements(request, dossier_id):
     """API pour l'historique des basculements d'un dossier"""
@@ -2536,6 +2602,7 @@ def api_dossier_historique_basculements(request, dossier_id):
 # API POINT CLIENT / TABLEAU DE BORD CREANCIER
 # ============================================
 
+@login_required
 @require_GET
 def api_creancier_tableau_bord(request, creancier_id):
     """API pour le tableau de bord d'un créancier"""
@@ -2629,6 +2696,7 @@ def api_creancier_tableau_bord(request, creancier_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_point_global_generer(request, creancier_id):
     """API pour générer un point global créancier"""
@@ -2644,7 +2712,7 @@ def api_point_global_generer(request, creancier_id):
         filtres = data.get('filtres', {})
 
         # Créer le point global
-        utilisateur = Utilisateur.objects.first()
+        utilisateur = request.user
 
         point = PointGlobalCreancier(
             creancier=creancier,
@@ -2674,6 +2742,7 @@ def api_point_global_generer(request, creancier_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_point_global_detail(request, point_id):
     """API pour le détail d'un point global"""
@@ -2714,6 +2783,7 @@ def api_point_global_detail(request, point_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_point_global_export_excel(request, point_id):
     """API pour exporter un point global en CSV (format Excel)"""
@@ -2771,6 +2841,7 @@ def api_point_global_export_excel(request, point_id):
 # API ENVOI AUTOMATIQUE
 # ============================================
 
+@login_required
 @require_POST
 def api_envoi_automatique_configurer(request, creancier_id):
     """API pour configurer l'envoi automatique de points"""
@@ -2807,6 +2878,7 @@ def api_envoi_automatique_configurer(request, creancier_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_GET
 def api_envoi_automatique_historique(request, creancier_id):
     """API pour l'historique des envois automatiques"""
