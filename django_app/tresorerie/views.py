@@ -33,6 +33,7 @@ def get_default_context(request):
         {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers', 'badge': 14},
         {'id': 'facturation', 'label': 'Facturation & MECeF', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
         {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
+        {'id': 'creanciers', 'label': 'Recouvrement Créances', 'icon': 'landmark', 'category': 'main', 'url': 'gestion:creanciers'},
         {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'piggy-bank', 'category': 'finance', 'url': 'tresorerie:dashboard'},
         {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
         {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
@@ -50,6 +51,7 @@ def get_default_context(request):
     }
 
 
+@login_required
 def dashboard(request):
     """Vue principale du module Trésorerie"""
     context = get_default_context(request)
@@ -107,6 +109,7 @@ def dashboard(request):
     return render(request, 'tresorerie/dashboard.html', context)
 
 
+@login_required
 def comptes(request):
     """Liste des comptes bancaires"""
     context = get_default_context(request)
@@ -118,6 +121,7 @@ def comptes(request):
     return render(request, 'tresorerie/comptes.html', context)
 
 
+@login_required
 def mouvements(request):
     """Liste des mouvements de trésorerie"""
     context = get_default_context(request)
@@ -150,6 +154,7 @@ def mouvements(request):
     return render(request, 'tresorerie/mouvements.html', context)
 
 
+@login_required
 def previsions_view(request):
     """Prévisions de trésorerie"""
     context = get_default_context(request)
@@ -161,6 +166,7 @@ def previsions_view(request):
     return render(request, 'tresorerie/previsions.html', context)
 
 
+@login_required
 def rapprochements(request):
     """Rapprochements bancaires"""
     context = get_default_context(request)

@@ -33,6 +33,7 @@ def get_default_context(request):
         {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers', 'badge': 14},
         {'id': 'facturation', 'label': 'Facturation & MECeF', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
         {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
+        {'id': 'creanciers', 'label': 'Recouvrement Créances', 'icon': 'landmark', 'category': 'main', 'url': 'gestion:creanciers'},
         {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'piggy-bank', 'category': 'finance', 'url': 'tresorerie:dashboard'},
         {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
         {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
@@ -50,6 +51,7 @@ def get_default_context(request):
     }
 
 
+@login_required
 def dashboard(request):
     """Vue principale du module Gérance"""
     context = get_default_context(request)
@@ -108,6 +110,7 @@ def dashboard(request):
     return render(request, 'gerance/dashboard.html', context)
 
 
+@login_required
 def proprietaires(request):
     """Liste des propriétaires"""
     context = get_default_context(request)
@@ -121,6 +124,7 @@ def proprietaires(request):
     return render(request, 'gerance/proprietaires.html', context)
 
 
+@login_required
 def biens(request):
     """Liste des biens immobiliers"""
     context = get_default_context(request)
@@ -147,6 +151,7 @@ def biens(request):
     return render(request, 'gerance/biens.html', context)
 
 
+@login_required
 def locataires(request):
     """Liste des locataires"""
     context = get_default_context(request)
@@ -158,6 +163,7 @@ def locataires(request):
     return render(request, 'gerance/locataires.html', context)
 
 
+@login_required
 def baux_view(request):
     """Liste des baux"""
     context = get_default_context(request)
@@ -177,6 +183,7 @@ def baux_view(request):
     return render(request, 'gerance/baux.html', context)
 
 
+@login_required
 def loyers_view(request):
     """Gestion des loyers"""
     context = get_default_context(request)
@@ -209,6 +216,7 @@ def loyers_view(request):
     return render(request, 'gerance/loyers.html', context)
 
 
+@login_required
 def incidents_view(request):
     """Gestion des incidents"""
     context = get_default_context(request)
@@ -231,6 +239,7 @@ def incidents_view(request):
     return render(request, 'gerance/incidents.html', context)
 
 
+@login_required
 def reversements_view(request):
     """Reversements aux propriétaires"""
     context = get_default_context(request)

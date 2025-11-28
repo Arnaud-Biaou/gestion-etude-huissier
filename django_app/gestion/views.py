@@ -43,6 +43,7 @@ def get_default_context(request):
         {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers', 'badge': 14},
         {'id': 'facturation', 'label': 'Facturation & MECeF', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
         {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
+        {'id': 'creanciers', 'label': 'Recouvrement Créances', 'icon': 'landmark', 'category': 'main', 'url': 'gestion:creanciers'},
         {'id': 'tresorerie', 'label': 'Trésorerie', 'icon': 'piggy-bank', 'category': 'finance', 'url': 'tresorerie:dashboard'},
         {'id': 'comptabilite', 'label': 'Comptabilité', 'icon': 'book-open', 'category': 'finance', 'url': 'comptabilite:dashboard'},
         {'id': 'rh', 'label': 'Ressources Humaines', 'icon': 'users', 'category': 'gestion', 'url': 'rh:dashboard'},
@@ -69,6 +70,7 @@ def get_default_context(request):
     }
 
 
+@login_required
 def dashboard(request):
     """Vue du tableau de bord"""
     context = get_default_context(request)
@@ -96,6 +98,7 @@ def dashboard(request):
     return render(request, 'gestion/dashboard.html', context)
 
 
+@login_required
 def dossiers(request):
     """Vue de la liste des dossiers"""
     context = get_default_context(request)
@@ -167,6 +170,7 @@ def dossiers(request):
     return render(request, 'gestion/dossiers.html', context)
 
 
+@login_required
 def nouveau_dossier(request):
     """Vue pour creer un nouveau dossier"""
     context = get_default_context(request)
@@ -187,6 +191,7 @@ def nouveau_dossier(request):
     return render(request, 'gestion/nouveau_dossier.html', context)
 
 
+@login_required
 def facturation(request):
     """Vue de la facturation"""
     context = get_default_context(request)
@@ -324,6 +329,7 @@ def facturation(request):
     return render(request, 'gestion/facturation.html', context)
 
 
+@login_required
 def calcul_recouvrement(request):
     """Vue du calcul de recouvrement OHADA"""
     context = get_default_context(request)
@@ -371,6 +377,7 @@ def calcul_recouvrement(request):
     return render(request, 'gestion/calcul_recouvrement.html', context)
 
 
+@login_required
 def drive(request):
     """Vue du Drive"""
     context = get_default_context(request)
@@ -386,6 +393,7 @@ def drive(request):
     return render(request, 'gestion/drive.html', context)
 
 
+@login_required
 def securite(request):
     """Vue Securite & Acces - Module complet de gestion de la securite"""
     context = get_default_context(request)
@@ -805,6 +813,7 @@ def securite(request):
     return render(request, 'gestion/securite.html', context)
 
 
+@login_required
 def module_en_construction(request, module_name):
     """Vue pour les modules non implementes"""
     context = get_default_context(request)
@@ -1421,6 +1430,7 @@ def api_supprimer_dossier(request):
 # API CREANCIERS
 # ============================================
 
+@login_required
 def creanciers(request):
     """Vue liste des créanciers"""
     context = get_default_context(request)
@@ -1576,6 +1586,7 @@ def api_creancier_detail(request, creancier_id):
 # API ENCAISSEMENTS
 # ============================================
 
+@login_required
 def encaissements(request):
     """Vue liste des encaissements"""
     context = get_default_context(request)
@@ -1972,6 +1983,7 @@ def api_encaissements_export(request):
 # API REVERSEMENTS
 # ============================================
 
+@login_required
 def reversements(request):
     """Vue liste des reversements"""
     context = get_default_context(request)
@@ -2610,6 +2622,7 @@ def api_envoi_automatique_historique(request, creancier_id):
 # MÉMOIRES DE CÉDULES - STRUCTURE HIÉRARCHIQUE
 # ============================================
 
+@login_required
 def memoires(request):
     """Vue principale du module Mémoires de Cédules"""
     context = get_default_context(request)

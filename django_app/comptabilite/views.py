@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q, F
 from django.db.models.functions import Coalesce
@@ -17,6 +18,7 @@ from .models import (
 )
 
 
+@login_required
 def dashboard_comptabilite(request):
     """Tableau de bord comptable"""
     config = ConfigurationComptable.get_instance()
@@ -153,6 +155,7 @@ def dashboard_comptabilite(request):
     return render(request, 'comptabilite/dashboard.html', context)
 
 
+@login_required
 def saisie_ecriture(request):
     """Page de saisie des écritures avec les 3 modes"""
     config = ConfigurationComptable.get_instance()

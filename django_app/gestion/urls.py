@@ -19,12 +19,9 @@ urlpatterns = [
     path('encaissements/', views.encaissements, name='encaissements'),
     path('reversements/', views.reversements, name='reversements'),
 
-    # Modules en construction
-    path('tresorerie/', views.module_en_construction, {'module_name': 'tresorerie'}, name='tresorerie'),
-    path('rh/', views.module_en_construction, {'module_name': 'rh'}, name='rh'),
-    path('gerance/', views.module_en_construction, {'module_name': 'gerance'}, name='gerance'),
-    path('agenda/', views.module_en_construction, {'module_name': 'agenda'}, name='agenda'),
-    path('parametres/', views.module_en_construction, {'module_name': 'parametres'}, name='parametres'),
+    # Note: Les modules tresorerie, rh, gerance, agenda, parametres
+    # ont maintenant leurs propres applications Django dediees
+    # et sont configures dans etude_huissier/urls.py
 
     # API endpoints - Facturation
     path('api/generer-numero-facture/', views.api_generer_numero_facture, name='api_generer_numero_facture'),
