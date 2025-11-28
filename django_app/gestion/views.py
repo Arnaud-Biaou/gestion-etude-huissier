@@ -1326,37 +1326,42 @@ def api_calculer_interets(request):
                     {'min': 1, 'max': 5000000, 'taux': Decimal('10')},
                     {'min': 5000001, 'max': 20000000, 'taux': Decimal('8')},
                     {'min': 20000001, 'max': 50000000, 'taux': Decimal('6')},
-                    {'min': 50000001, 'max': float('inf'), 'taux': Decimal('4')},
+                    {'min': 50000001, 'max': None, 'taux': Decimal('4')},  # None = illimite
                 ],
                 'avec': [
                     {'min': 1, 'max': 5000000, 'taux': Decimal('10')},
                     {'min': 5000001, 'max': 20000000, 'taux': Decimal('3.5')},
                     {'min': 20000001, 'max': 50000000, 'taux': Decimal('2')},
-                    {'min': 50000001, 'max': float('inf'), 'taux': Decimal('1')},
+                    {'min': 50000001, 'max': None, 'taux': Decimal('1')},  # None = illimite
                 ]
             }
 
             restant = base
             total = Decimal('0')
-            cumul = 0
+            cumul = Decimal('0')
             details = []
 
             for tranche in baremes[type_titre]:
                 if restant <= 0:
                     break
-                taille_tranche = Decimal(str(tranche['max'])) - cumul if tranche['max'] != float('inf') else restant
+                # Si max est None (illimite), prendre tout le restant
+                if tranche['max'] is None:
+                    taille_tranche = restant
+                else:
+                    taille_tranche = Decimal(str(tranche['max'])) - cumul
                 part = min(restant, taille_tranche)
                 if part > 0:
                     em = (part * tranche['taux']) / 100
                     total += em
+                    max_display = f"{tranche['max']:,.0f}" if tranche['max'] is not None else "+"
                     details.append({
-                        'tranche': f"{cumul+1:,.0f} - {tranche['max']:,.0f}" if tranche['max'] != float('inf') else f"> {cumul:,.0f}",
+                        'tranche': f"{int(cumul)+1:,.0f} - {max_display}" if tranche['max'] is not None else f"> {int(cumul):,.0f}",
                         'taux': float(tranche['taux']),
                         'base': float(part),
                         'emolument': float(round(em) if arrondir else em)
                     })
                     restant -= part
-                    cumul += float(part)
+                    cumul += part
 
             return {
                 'total': float(round(total) if arrondir else total),
@@ -1364,11 +1369,24 @@ def api_calculer_interets(request):
                 'type_titre': type_titre
             }
 
+        # Fonction helper pour ajouter 2 mois (Loi 2024)
+        def ajouter_2_mois(date):
+            mois = date.month + 2
+            annee = date.year
+            if mois > 12:
+                mois -= 12
+                annee += 1
+            # Gerer les jours depassant le mois (ex: 31 janvier + 2 mois = 31 mars ou 28 fevrier)
+            import calendar
+            jour_max = calendar.monthrange(annee, mois)[1]
+            jour = min(date.day, jour_max)
+            return datetime(annee, mois, jour)
+
         # Calcul principal
         date_maj = None
         if appliquer_majoration and date_decision:
             d = datetime.strptime(date_decision, '%Y-%m-%d')
-            date_maj = d + timedelta(days=60)  # 2 mois apres decision
+            date_maj = ajouter_2_mois(d)  # Exactement 2 mois apres decision (Loi 2024)
             if date_saisie <= date_maj:
                 date_maj = None  # Pas de majoration si saisie avant delai
 
@@ -1401,8 +1419,8 @@ def api_calculer_interets(request):
         # Total des actes
         total_actes = sum(float(a.get('montant', 0)) for a in actes)
 
-        # Total general
-        total = float(montant_principal) + interets_echus['total'] + float(frais_justice)
+        # Total general (inclut interets echus ET interets a echoir)
+        total = float(montant_principal) + interets_echus['total'] + interets_echoir['total'] + float(frais_justice)
         if emoluments:
             total += emoluments['total']
         total += total_actes
@@ -1450,37 +1468,41 @@ def api_calculer_emoluments(request):
                 {'min': 1, 'max': 5000000, 'taux': Decimal('10')},
                 {'min': 5000001, 'max': 20000000, 'taux': Decimal('8')},
                 {'min': 20000001, 'max': 50000000, 'taux': Decimal('6')},
-                {'min': 50000001, 'max': float('inf'), 'taux': Decimal('4')},
+                {'min': 50000001, 'max': None, 'taux': Decimal('4')},  # None = illimite
             ],
             'avec': [
                 {'min': 1, 'max': 5000000, 'taux': Decimal('10')},
                 {'min': 5000001, 'max': 20000000, 'taux': Decimal('3.5')},
                 {'min': 20000001, 'max': 50000000, 'taux': Decimal('2')},
-                {'min': 50000001, 'max': float('inf'), 'taux': Decimal('1')},
+                {'min': 50000001, 'max': None, 'taux': Decimal('1')},  # None = illimite
             ]
         }
 
         restant = base
         total = Decimal('0')
-        cumul = 0
+        cumul = Decimal('0')
         details = []
 
         for tranche in baremes[type_titre]:
             if restant <= 0:
                 break
-            taille_tranche = Decimal(str(tranche['max'])) - cumul if tranche['max'] != float('inf') else restant
+            # Si max est None (illimite), prendre tout le restant
+            if tranche['max'] is None:
+                taille_tranche = restant
+            else:
+                taille_tranche = Decimal(str(tranche['max'])) - cumul
             part = min(restant, taille_tranche)
             if part > 0:
                 em = (part * tranche['taux']) / 100
                 total += em
                 details.append({
-                    'tranche': f"De {cumul+1:,.0f} a {int(cumul + float(part)):,.0f}" if tranche['max'] != float('inf') else f"Au-dela de {cumul:,.0f}",
+                    'tranche': f"De {int(cumul)+1:,.0f} a {int(cumul + part):,.0f}" if tranche['max'] is not None else f"Au-dela de {int(cumul):,.0f}",
                     'taux': float(tranche['taux']),
                     'base': float(part),
                     'emolument': float(round(em) if arrondir else em)
                 })
                 restant -= part
-                cumul += float(part)
+                cumul += part
 
         emol_total = float(round(total) if arrondir else total)
 
@@ -1501,6 +1523,7 @@ def api_calculer_emoluments(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_sauvegarder_calcul(request):
     """API pour sauvegarder un calcul dans l'historique"""
@@ -1519,7 +1542,7 @@ def api_sauvegarder_calcul(request):
             donnees=donnees,
             resultats=resultats,
             total=total,
-            utilisateur=None  # A remplacer par request.user si authentification
+            utilisateur=request.user  # Lie l'utilisateur courant a la sauvegarde
         )
 
         return JsonResponse({
@@ -1532,6 +1555,7 @@ def api_sauvegarder_calcul(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_supprimer_calcul(request):
     """API pour supprimer un calcul de l'historique"""
@@ -1546,6 +1570,7 @@ def api_supprimer_calcul(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 def api_charger_historique(request):
     """API pour charger l'historique des calculs"""
     try:

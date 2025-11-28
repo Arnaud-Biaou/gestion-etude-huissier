@@ -1013,15 +1013,18 @@ const CalculRecouvrementModule = () => {
   const totalActesMontant = actesProcedure.reduce((sum, acte) => sum + (parseFloat(acte.montant) || 0), 0);
 
   const calculerEmolumentsProportionnels = (base) => {
+    // Baremes des emoluments proportionnels (null = illimite)
     const baremes = {
-      sans: [{min:1,max:5000000,taux:10}, {min:5000001,max:20000000,taux:8}, {min:20000001,max:50000000,taux:6}, {min:50000001,max:Infinity,taux:4}],
-      avec: [{min:1,max:5000000,taux:10}, {min:5000001,max:20000000,taux:3.5}, {min:20000001,max:50000000,taux:2}, {min:50000001,max:Infinity,taux:1}]
+      sans: [{min:1,max:5000000,taux:10}, {min:5000001,max:20000000,taux:8}, {min:20000001,max:50000000,taux:6}, {min:50000001,max:null,taux:4}],
+      avec: [{min:1,max:5000000,taux:10}, {min:5000001,max:20000000,taux:3.5}, {min:20000001,max:50000000,taux:2}, {min:50000001,max:null,taux:1}]
     };
     let restant = base, total = 0, cumul = 0;
-    
+
     baremes[typeTitreExecutoire].forEach(t => {
       if(restant <= 0) return;
-      const part = Math.min(restant, t.max - cumul);
+      // Si max est null (illimite), prendre tout le restant
+      const tailleTrache = t.max === null ? restant : (t.max - cumul);
+      const part = Math.min(restant, tailleTrache);
       if(part > 0) {
         const em = (part * t.taux) / 100;
         total += em;
