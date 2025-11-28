@@ -3,6 +3,7 @@ Service principal de gestion des documents
 Génération, stockage, partage et audit
 """
 import os
+import re
 import uuid
 import hashlib
 import mimetypes
@@ -19,6 +20,141 @@ from ..models import (
     VersionDocument
 )
 from .pdf_generator import PDFGenerator
+
+
+# ==========================================
+# FONCTIONS UTILITAIRES DE FORMATAGE
+# ==========================================
+
+def sanitize_nom_dossier(nom):
+    """
+    Nettoie un nom pour qu'il soit compatible avec tous les systèmes de fichiers.
+
+    Args:
+        nom: Nom à nettoyer
+
+    Returns:
+        str: Nom nettoyé et compatible
+    """
+    if not nom:
+        return "Sans_nom"
+
+    # Caractères interdits sur Windows et Linux
+    caracteres_interdits = r'[\\/:*?"<>|]'
+
+    # Remplacer les caractères interdits par des tirets
+    nom_clean = re.sub(caracteres_interdits, '-', str(nom))
+
+    # Remplacer les espaces multiples par un seul espace
+    nom_clean = re.sub(r'\s+', ' ', nom_clean)
+
+    # Supprimer les tirets multiples
+    nom_clean = re.sub(r'-+', '-', nom_clean)
+
+    # Supprimer les espaces et tirets en début et fin
+    nom_clean = nom_clean.strip(' -')
+
+    # Supprimer les points en fin (problème Windows)
+    nom_clean = nom_clean.rstrip('.')
+
+    # Limiter à 150 caractères pour le nom du dossier
+    if len(nom_clean) > 150:
+        nom_clean = nom_clean[:147] + '...'
+
+    if not nom_clean:
+        return "Sans_nom"
+
+    return nom_clean
+
+
+def formater_parties(parties_queryset):
+    """
+    Formate une liste de parties selon la règle :
+    - 1 partie : NOM
+    - 2 parties : NOM + 1 autre
+    - N parties : NOM + (N-1) autres
+
+    Args:
+        parties_queryset: QuerySet de Partie ou liste de parties
+
+    Returns:
+        str: Nom formaté
+    """
+    parties = list(parties_queryset)
+    count = len(parties)
+
+    if count == 0:
+        return "Inconnu"
+
+    # Récupérer le nom de la première partie
+    premiere_partie = parties[0]
+    if premiere_partie.type_personne == 'physique':
+        nom = f"{premiere_partie.nom or ''} {premiere_partie.prenoms or ''}".strip()
+    else:
+        nom = premiere_partie.denomination or premiere_partie.nom or "Société"
+
+    # Nettoyer le nom
+    nom = sanitize_nom_dossier(nom)
+
+    if count == 1:
+        return nom
+    elif count == 2:
+        return f"{nom} + 1 autre"
+    else:
+        return f"{nom} + {count - 1} autres"
+
+
+def generer_reference_dossier(dossier):
+    """
+    Génère la référence complète d'un dossier selon le format :
+    - Contentieux : ANNÉE-NUMÉRO C DEMANDEUR(S) c. DÉFENDEUR(S)
+    - Non contentieux : ANNÉE-NUMÉRO NC CLIENT - Objet
+
+    Exemples :
+    - 2025-001 C ECOBANK c. KOFFI Mathieu
+    - 2025-002 C BOA + 1 autre c. DOSSOU Pierre
+    - 2025-003 NC HOTEL IBIS - Constat dégât des eaux
+
+    Args:
+        dossier: Instance de gestion.Dossier
+
+    Returns:
+        str: Référence formatée et nettoyée
+    """
+    # Année de création
+    if hasattr(dossier, 'date_creation') and dossier.date_creation:
+        annee = dossier.date_creation.year
+    else:
+        annee = datetime.now().year
+
+    # Numéro séquentiel (extraire de la référence existante ou générer)
+    numero = dossier.reference if dossier.reference else "001"
+    # Si la référence contient déjà l'année, extraire juste le numéro
+    if '-' in str(numero):
+        numero = str(numero).split('-')[-1]
+
+    # Type : C (contentieux) ou NC (non contentieux)
+    type_dossier = "C" if dossier.is_contentieux else "NC"
+
+    # Construire la référence selon le type
+    if dossier.is_contentieux:
+        # Format : ANNÉE-NUMÉRO C DEMANDEUR(S) c. DÉFENDEUR(S)
+        demandeurs = formater_parties(dossier.demandeurs.all())
+        defendeurs = formater_parties(dossier.defendeurs.all())
+        reference = f"{annee}-{numero} {type_dossier} {demandeurs} c. {defendeurs}"
+    else:
+        # Format : ANNÉE-NUMÉRO NC CLIENT - Objet
+        # Pour non contentieux, les demandeurs sont les clients
+        clients = formater_parties(dossier.demandeurs.all())
+        # L'objet peut être dans description ou type_dossier
+        objet = dossier.description[:50] if dossier.description else dossier.type_dossier or "Divers"
+        objet = sanitize_nom_dossier(objet)
+        reference = f"{annee}-{numero} {type_dossier} {clients} - {objet}"
+
+    # Nettoyer et limiter la longueur
+    reference = sanitize_nom_dossier(reference)
+
+    return reference
 
 
 class DocumentService:
@@ -51,16 +187,25 @@ class DocumentService:
         """
         Crée l'arborescence complète de dossiers virtuels pour un dossier juridique.
 
+        Nouveau format de référence :
+        - Contentieux : ANNÉE-NUMÉRO C DEMANDEUR(S) c. DÉFENDEUR(S)
+        - Non contentieux : ANNÉE-NUMÉRO NC CLIENT - Objet
+
+        Exemples :
+        - 2025-001 C ECOBANK c. KOFFI Mathieu
+        - 2025-002 C BOA + 1 autre c. DOSSOU Pierre
+        - 2025-005 NC HOTEL IBIS - Constat dégât des eaux
+
         Structure métier huissier :
-        /2025/                                    ← Année de création du dossier
-        └── REF-2025-001 - NOM CREANCIER/        ← Référence + nom du créancier
-            ├── Projets d'actes/                  ← Brouillons, projets en cours
-            ├── Actes formalisés/                 ← Actes finaux signés
-            ├── Pièces/                           ← Pièces justificatives
-            ├── Courrier arrivée/                 ← Correspondances reçues
-            ├── Courrier départ/                  ← Correspondances envoyées
-            ├── Factures/                         ← Factures liées au dossier
-            └── Actes extérieurs/                 ← Actes d'avocats, confrères huissiers
+        /2025/                                          ← Année de création
+        └── 2025-001 C ECOBANK c. KOFFI Mathieu/       ← Référence formatée
+            ├── Projets d'actes/                        ← Brouillons, projets en cours
+            ├── Actes formalisés/                       ← Actes finaux signés
+            ├── Pièces/                                 ← Pièces justificatives
+            ├── Courrier arrivée/                       ← Correspondances reçues
+            ├── Courrier départ/                        ← Correspondances envoyées
+            ├── Factures/                               ← Factures liées au dossier
+            └── Actes extérieurs/                       ← Actes d'avocats, confrères
 
         Args:
             dossier_juridique: Instance du modèle Dossier (gestion.models.Dossier)
@@ -72,7 +217,10 @@ class DocumentService:
         utilisateur = user or self.utilisateur
 
         # Récupérer l'année de création
-        annee = str(dossier_juridique.date_creation.year)
+        if hasattr(dossier_juridique, 'date_creation') and dossier_juridique.date_creation:
+            annee = str(dossier_juridique.date_creation.year)
+        else:
+            annee = str(datetime.now().year)
 
         # Créer ou récupérer le dossier année (racine)
         dossier_annee, created = DossierVirtuel.objects.get_or_create(
@@ -87,19 +235,17 @@ class DocumentService:
             }
         )
 
-        # Construire le nom du dossier : Reference - Nom Créancier
-        nom_creancier = ""
-        if dossier_juridique.creancier:
-            nom_creancier = dossier_juridique.creancier.nom
-        elif dossier_juridique.demandeurs.exists():
-            # Fallback sur le premier demandeur si pas de créancier
-            premier_demandeur = dossier_juridique.demandeurs.first()
-            nom_creancier = premier_demandeur.get_nom_complet() if premier_demandeur else ""
+        # Générer le nom complet du dossier avec le nouveau format
+        nom_dossier = generer_reference_dossier(dossier_juridique)
 
-        if nom_creancier:
-            nom_dossier = f"{dossier_juridique.reference} - {nom_creancier}"
-        else:
-            nom_dossier = dossier_juridique.reference
+        # Vérifier si un dossier avec ce nom existe déjà
+        existing = DossierVirtuel.objects.filter(
+            nom=nom_dossier,
+            parent=dossier_annee
+        ).first()
+
+        if existing:
+            return existing
 
         # Créer le dossier principal du dossier juridique
         dossier_principal = DossierVirtuel.objects.create(
