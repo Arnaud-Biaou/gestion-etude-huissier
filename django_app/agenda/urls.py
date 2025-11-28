@@ -93,4 +93,21 @@ urlpatterns = [
     path('api/collaborateurs/', views.api_collaborateurs, name='api_collaborateurs'),
     path('api/dossiers-liste/', views.api_dossiers_liste, name='api_dossiers_liste'),
     path('api/recherche/', views.api_recherche_globale, name='api_recherche_globale'),
+
+    # ==========================================================================
+    # API VUES SAUVEGARDÉES
+    # ==========================================================================
+    path('api/vues/', views.api_liste_vues_sauvegardees, name='api_liste_vues_sauvegardees'),
+    path('api/vues/creer/', views.api_creer_vue_sauvegardee, name='api_creer_vue_sauvegardee'),
+    path('api/vues/<uuid:vue_id>/', views.api_appliquer_vue_sauvegardee, name='api_appliquer_vue_sauvegardee'),
+    path('api/vues/<uuid:vue_id>/modifier/', views.api_modifier_vue_sauvegardee, name='api_modifier_vue_sauvegardee'),
+    path('api/vues/<uuid:vue_id>/supprimer/', views.api_supprimer_vue_sauvegardee, name='api_supprimer_vue_sauvegardee'),
+
+    # ==========================================================================
+    # API PARTICIPATION RDV (STATUT PRÉSENCE)
+    # ==========================================================================
+    path('api/rdv/<uuid:rdv_id>/participations/', views.api_participations_rdv, name='api_participations_rdv'),
+    path('api/rdv/<uuid:rdv_id>/participations/ajouter/', views.api_ajouter_participation, name='api_ajouter_participation'),
+    path('api/rdv/<uuid:rdv_id>/repondre/', views.api_repondre_invitation, name='api_repondre_invitation'),
+    path('api/rdv/<uuid:rdv_id>/presences/', views.api_marquer_presence, name='api_marquer_presence'),
 ]

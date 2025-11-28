@@ -22,6 +22,31 @@
                 Nouvelle Tache
             </button>
         </div>
+        <div class="toolbar-center">
+            <!-- Vues sauvegardées -->
+            <div class="saved-views-container">
+                <div class="dropdown">
+                    <button class="btn btn-outline dropdown-toggle" id="savedViewsBtn">
+                        <i data-lucide="bookmark"></i>
+                        Mes vues
+                        <i data-lucide="chevron-down" class="dropdown-arrow"></i>
+                    </button>
+                    <div class="dropdown-menu" id="savedViewsMenu">
+                        <div class="dropdown-header">Vues sauvegardées</div>
+                        <div id="savedViewsList" class="saved-views-list">
+                            <div class="dropdown-item text-muted">Chargement...</div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item" onclick="openModalSaveView()">
+                            <i data-lucide="plus"></i> Sauvegarder vue actuelle
+                        </button>
+                        <button class="dropdown-item" onclick="openModalManageViews()">
+                            <i data-lucide="settings"></i> Gérer mes vues
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="toolbar-right">
             <div class="view-switcher">
                 <button class="view-btn active" data-view="jour" onclick="setView('jour')">
@@ -274,6 +299,88 @@
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal('modalNewTask')">Annuler</button>
             <button class="btn btn-primary" onclick="saveTask()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sauvegarder Vue -->
+<div class="modal" id="modalSaveView">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Sauvegarder cette vue</h3>
+            <button class="modal-close" onclick="closeModal('modalSaveView')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formSaveView">
+                <div class="form-group">
+                    <label>Nom de la vue *</label>
+                    <input type="text" class="form-input" name="nom" required placeholder="Ex: Mes taches urgentes">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea class="form-input" name="description" rows="2" placeholder="Description optionnelle"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="est_par_defaut">
+                        Definir comme vue par defaut
+                    </label>
+                </div>
+                <div class="form-info">
+                    <i data-lucide="info"></i>
+                    <span>Les filtres actuels seront sauvegardes avec cette vue</span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalSaveView')">Annuler</button>
+            <button class="btn btn-primary" onclick="saveCurrentView()">Sauvegarder</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Gerer Vues -->
+<div class="modal modal-lg" id="modalManageViews">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Gerer mes vues</h3>
+            <button class="modal-close" onclick="closeModal('modalManageViews')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="manageViewsList" class="manage-views-list">
+                <div class="loading-placeholder">Chargement...</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalManageViews')">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detail RDV avec Participants -->
+<div class="modal modal-lg" id="modalDetailRdv">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="detailRdvTitle">Detail du rendez-vous</h3>
+            <button class="modal-close" onclick="closeModal('modalDetailRdv')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="detailRdvContent">
+                <div class="loading-placeholder">Chargement...</div>
+            </div>
+            <div class="participants-section" id="participantsSection">
+                <h4>Participants</h4>
+                <div id="participantsList" class="participants-list"></div>
+                <button class="btn btn-sm btn-outline" onclick="openAddParticipant()">
+                    <i data-lucide="user-plus"></i> Ajouter participant
+                </button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalDetailRdv')">Fermer</button>
+            <button class="btn btn-primary" id="btnRepondreInvitation" style="display:none;">
+                Repondre a l'invitation
+            </button>
         </div>
     </div>
 </div>
@@ -593,6 +700,245 @@
             });
         }
     }
+
+    // =========================================================================
+    // VUES SAUVEGARDÉES
+    // =========================================================================
+
+    let currentFilters = {};  // Stocke les filtres actuels
+
+    // Toggle dropdown des vues sauvegardées
+    document.getElementById('savedViewsBtn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('savedViewsMenu');
+        menu.classList.toggle('show');
+        loadSavedViews();
+    });
+
+    // Fermer dropdown au clic ailleurs
+    document.addEventListener('click', function() {
+        document.getElementById('savedViewsMenu').classList.remove('show');
+    });
+
+    function loadSavedViews() {
+        fetch('/agenda/api/vues/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('savedViewsList');
+                if (data.success && data.data.length > 0) {
+                    container.innerHTML = data.data.map(v => `
+                        <button class="dropdown-item" onclick="applyView('${v.id}')">
+                            ${v.est_par_defaut ? '<i data-lucide="star" class="star-icon"></i>' : ''}
+                            ${v.nom}
+                        </button>
+                    `).join('');
+                    lucide.createIcons();
+                } else {
+                    container.innerHTML = '<div class="dropdown-item text-muted">Aucune vue sauvegardee</div>';
+                }
+            });
+    }
+
+    function applyView(viewId) {
+        fetch(`/agenda/api/vues/${viewId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentFilters = data.data.filtres;
+                    applyFiltersToUI(currentFilters);
+                    loadCalendarData();
+                    document.getElementById('savedViewsMenu').classList.remove('show');
+                }
+            });
+    }
+
+    function applyFiltersToUI(filters) {
+        // Appliquer les filtres aux éléments UI
+        if (filters.view) setView(filters.view);
+        // Ajouter d'autres filtres selon l'implémentation
+    }
+
+    function openModalSaveView() {
+        document.getElementById('savedViewsMenu').classList.remove('show');
+        document.getElementById('modalSaveView').classList.add('open');
+        document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function saveCurrentView() {
+        const form = document.getElementById('formSaveView');
+        const formData = new FormData(form);
+
+        const data = {
+            nom: formData.get('nom'),
+            description: formData.get('description') || '',
+            est_par_defaut: formData.get('est_par_defaut') === 'on',
+            filtres: {
+                view: currentView,
+                date: currentDate.toISOString(),
+                ...currentFilters
+            }
+        };
+
+        fetch('/agenda/api/vues/creer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeModal('modalSaveView');
+                form.reset();
+                alert('Vue sauvegardee avec succes');
+            } else {
+                alert(result.error || 'Erreur lors de la sauvegarde');
+            }
+        });
+    }
+
+    function openModalManageViews() {
+        document.getElementById('savedViewsMenu').classList.remove('show');
+        document.getElementById('modalManageViews').classList.add('open');
+        document.getElementById('modalOverlay').classList.add('open');
+        loadManageViewsList();
+    }
+
+    function loadManageViewsList() {
+        fetch('/agenda/api/vues/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('manageViewsList');
+                if (data.success && data.data.length > 0) {
+                    container.innerHTML = data.data.map(v => `
+                        <div class="manage-view-item">
+                            <div class="view-info">
+                                <span class="view-name">${v.nom}</span>
+                                ${v.est_par_defaut ? '<span class="badge badge-primary">Par defaut</span>' : ''}
+                                <span class="view-desc">${v.description || ''}</span>
+                            </div>
+                            <div class="view-actions">
+                                <button class="btn btn-sm btn-outline" onclick="deleteView('${v.id}')">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                    lucide.createIcons();
+                } else {
+                    container.innerHTML = '<div class="no-data">Aucune vue sauvegardee</div>';
+                }
+            });
+    }
+
+    function deleteView(viewId) {
+        if (!confirm('Supprimer cette vue ?')) return;
+
+        fetch(`/agenda/api/vues/${viewId}/supprimer/`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                loadManageViewsList();
+            } else {
+                alert(result.error || 'Erreur');
+            }
+        });
+    }
+
+    // =========================================================================
+    // PARTICIPATIONS RDV
+    // =========================================================================
+
+    let currentRdvId = null;
+
+    function openRdvDetail(rdvId) {
+        currentRdvId = rdvId;
+        document.getElementById('modalDetailRdv').classList.add('open');
+        document.getElementById('modalOverlay').classList.add('open');
+        loadRdvDetail(rdvId);
+        loadParticipants(rdvId);
+    }
+
+    function loadRdvDetail(rdvId) {
+        fetch(`/agenda/api/rdv/${rdvId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const rdv = data.data;
+                    document.getElementById('detailRdvTitle').textContent = rdv.titre;
+                    document.getElementById('detailRdvContent').innerHTML = `
+                        <div class="rdv-detail-grid">
+                            <div class="detail-row">
+                                <span class="label">Type:</span>
+                                <span class="value">${rdv.type_rdv_display}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Date:</span>
+                                <span class="value">${new Date(rdv.date_debut).toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Lieu:</span>
+                                <span class="value">${rdv.lieu || 'Non precise'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Statut:</span>
+                                <span class="value badge badge-${rdv.statut}">${rdv.statut_display}</span>
+                            </div>
+                            ${rdv.description ? `<div class="detail-desc">${rdv.description}</div>` : ''}
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function loadParticipants(rdvId) {
+        fetch(`/agenda/api/rdv/${rdvId}/participations/`)
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('participantsList');
+                if (data.success && data.data.length > 0) {
+                    container.innerHTML = data.data.map(p => `
+                        <div class="participant-item">
+                            <div class="participant-info">
+                                <i data-lucide="${p.participant.type === 'collaborateur' ? 'user' : 'user-circle'}"></i>
+                                <span>${p.participant.nom}</span>
+                            </div>
+                            <span class="presence-badge presence-${p.statut_presence}">
+                                ${p.statut_presence_display}
+                            </span>
+                        </div>
+                    `).join('');
+                    lucide.createIcons();
+                } else {
+                    container.innerHTML = '<div class="no-data">Aucun participant</div>';
+                }
+            });
+    }
+
+    function repondreInvitation(rdvId, reponse) {
+        fetch(`/agenda/api/rdv/${rdvId}/repondre/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ reponse: reponse })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                loadParticipants(rdvId);
+            } else {
+                alert(result.error || 'Erreur');
+            }
+        });
+    }
 </script>
 
 <style>
@@ -902,6 +1248,204 @@
         .form-row {
             grid-template-columns: 1fr;
         }
+    }
+
+    /* Dropdown vues sauvegardées */
+    .saved-views-container {
+        position: relative;
+    }
+
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .dropdown-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .dropdown-arrow {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.2s;
+    }
+
+    .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: 1000;
+        display: none;
+        min-width: 200px;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-lg);
+        margin-top: 0.25rem;
+    }
+
+    .dropdown-menu.show {
+        display: block;
+    }
+
+    .dropdown-header {
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.5rem 1rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .dropdown-item:hover {
+        background: var(--bg-secondary);
+    }
+
+    .dropdown-divider {
+        border-top: 1px solid var(--border-color);
+        margin: 0.25rem 0;
+    }
+
+    .star-icon {
+        width: 14px;
+        height: 14px;
+        color: var(--warning);
+    }
+
+    /* Gestion des vues */
+    .manage-view-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .manage-view-item:last-child {
+        border-bottom: none;
+    }
+
+    .view-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .view-name {
+        font-weight: 600;
+    }
+
+    .view-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    /* Participants RDV */
+    .participants-section {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .participants-section h4 {
+        margin-bottom: 1rem;
+    }
+
+    .participants-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .participant-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: var(--bg-secondary);
+        border-radius: 0.25rem;
+    }
+
+    .participant-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .presence-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .presence-invite { background: #e3e8ee; color: #5a6b7d; }
+    .presence-confirme { background: #d4edda; color: #155724; }
+    .presence-decline { background: #f8d7da; color: #721c24; }
+    .presence-present { background: #cce5ff; color: #004085; }
+    .presence-absent { background: #f5c6cb; color: #721c24; }
+    .presence-excuse { background: #fff3cd; color: #856404; }
+
+    /* RDV Detail */
+    .rdv-detail-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .detail-row {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .detail-row .label {
+        font-weight: 600;
+        min-width: 80px;
+        color: var(--text-secondary);
+    }
+
+    .detail-desc {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border-radius: 0.25rem;
+    }
+
+    /* Form info */
+    .form-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: var(--bg-secondary);
+        border-radius: 0.25rem;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    /* Modal lg */
+    .modal.modal-lg .modal-content {
+        max-width: 600px;
     }
 </style>
 {% endblock %}

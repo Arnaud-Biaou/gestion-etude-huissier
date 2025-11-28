@@ -5,12 +5,15 @@ Logique de notification, récurrence, clôture automatique, etc.
 Auteur: Maître Martial Arnaud BIAOU
 """
 
+import logging
 from datetime import datetime, timedelta, date, time
 from django.utils import timezone
 from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from django.core.mail import send_mail
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     RendezVous, Tache, Notification, RappelRdv, RappelTache,
@@ -65,6 +68,62 @@ class NotificationService:
         except Exception as e:
             print(f"Erreur envoi email: {e}")
         return False
+
+    @staticmethod
+    def envoyer_sms(numero, message):
+        """
+        Placeholder pour envoi SMS.
+
+        À implémenter avec un fournisseur SMS tel que :
+        - Twilio (https://www.twilio.com/)
+        - Orange SMS API (https://developer.orange.com/)
+        - Vonage/Nexmo (https://www.vonage.com/)
+        - OVH SMS (https://www.ovhtelecom.fr/sms/)
+
+        Exemple d'intégration Twilio :
+        ```python
+        from twilio.rest import Client
+
+        account_sid = settings.TWILIO_ACCOUNT_SID
+        auth_token = settings.TWILIO_AUTH_TOKEN
+        client = Client(account_sid, auth_token)
+
+        message = client.messages.create(
+            body=message,
+            from_=settings.TWILIO_PHONE_NUMBER,
+            to=numero
+        )
+        return True
+        ```
+
+        Args:
+            numero (str): Numéro de téléphone du destinataire (format international +229...)
+            message (str): Contenu du SMS (max 160 caractères recommandé)
+
+        Returns:
+            bool: True si l'envoi a réussi, False sinon
+        """
+        try:
+            config = ConfigurationAgenda.get_instance() if ConfigurationAgenda.objects.exists() else None
+            if not config or not config.activer_notifications_sms:
+                logger.debug(f"[SMS NON ENVOYÉ - Notifications SMS désactivées] À: {numero}")
+                return False
+
+            # Log le message au lieu de l'envoyer (placeholder)
+            logger.info(
+                f"[SMS NON ENVOYÉ - Placeholder] "
+                f"À: {numero}, "
+                f"Message: {message[:50]}{'...' if len(message) > 50 else ''}"
+            )
+
+            # TODO: Intégrer avec API SMS (Twilio, Orange, etc.)
+            # Décommenter et configurer selon le fournisseur choisi
+
+            return False  # Retourne False car le SMS n'est pas réellement envoyé
+
+        except Exception as e:
+            logger.error(f"Erreur envoi SMS: {e}")
+            return False
 
     @staticmethod
     def notifier_nouvelle_delegation(tache, createur, responsable):

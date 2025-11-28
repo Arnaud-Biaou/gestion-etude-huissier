@@ -25,7 +25,8 @@ from .models import (
     JourneeAgenda, ReportTache, ConfigurationAgenda,
     StatistiquesAgenda, HistoriqueAgenda,
     TypeRendezVous, TypeTache, StatutRendezVous, StatutTache,
-    StatutDelegation, Priorite, TypeRecurrence
+    StatutDelegation, Priorite, TypeRecurrence,
+    VueSauvegardee, ParticipationRdv
 )
 
 
@@ -2442,6 +2443,401 @@ def api_dossiers_liste(request):
 
         return JsonResponse({'success': True, 'data': dossiers})
 
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# =============================================================================
+# API VUES SAUVEGARDÉES
+# =============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_liste_vues_sauvegardees(request):
+    """Liste des vues sauvegardées de l'utilisateur"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        vues = VueSauvegardee.objects.filter(utilisateur=user)
+
+        vues_list = [
+            {
+                'id': str(v.id),
+                'nom': v.nom,
+                'description': v.description,
+                'filtres': v.filtres,
+                'est_par_defaut': v.est_par_defaut,
+                'ordre': v.ordre,
+                'created_at': v.created_at.isoformat(),
+                'updated_at': v.updated_at.isoformat(),
+            }
+            for v in vues
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'data': vues_list,
+            'count': len(vues_list)
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_creer_vue_sauvegardee(request):
+    """Créer une nouvelle vue sauvegardée"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        data = json.loads(request.body)
+
+        if not data.get('nom'):
+            return JsonResponse({'success': False, 'error': 'Le nom est obligatoire'}, status=400)
+
+        if VueSauvegardee.objects.filter(utilisateur=user, nom=data['nom']).exists():
+            return JsonResponse({'success': False, 'error': 'Une vue avec ce nom existe déjà'}, status=400)
+
+        # Déterminer l'ordre
+        dernier_ordre = VueSauvegardee.objects.filter(utilisateur=user).order_by('-ordre').first()
+        ordre = (dernier_ordre.ordre + 1) if dernier_ordre else 0
+
+        vue = VueSauvegardee.objects.create(
+            utilisateur=user,
+            nom=data['nom'],
+            description=data.get('description', ''),
+            filtres=data.get('filtres', {}),
+            est_par_defaut=data.get('est_par_defaut', False),
+            ordre=ordre,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Vue sauvegardée créée',
+            'data': {
+                'id': str(vue.id),
+                'nom': vue.nom,
+                'filtres': vue.filtres,
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON invalide'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "PATCH"])
+def api_modifier_vue_sauvegardee(request, vue_id):
+    """Modifier une vue sauvegardée"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        vue = get_object_or_404(VueSauvegardee, id=vue_id, utilisateur=user)
+        data = json.loads(request.body)
+
+        if 'nom' in data:
+            # Vérifier unicité du nom
+            if VueSauvegardee.objects.filter(utilisateur=user, nom=data['nom']).exclude(pk=vue.pk).exists():
+                return JsonResponse({'success': False, 'error': 'Une vue avec ce nom existe déjà'}, status=400)
+            vue.nom = data['nom']
+
+        if 'description' in data:
+            vue.description = data['description']
+        if 'filtres' in data:
+            vue.filtres = data['filtres']
+        if 'est_par_defaut' in data:
+            vue.est_par_defaut = data['est_par_defaut']
+        if 'ordre' in data:
+            vue.ordre = data['ordre']
+
+        vue.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Vue sauvegardée modifiée',
+            'data': {
+                'id': str(vue.id),
+                'nom': vue.nom,
+                'filtres': vue.filtres,
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON invalide'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def api_supprimer_vue_sauvegardee(request, vue_id):
+    """Supprimer une vue sauvegardée"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        vue = get_object_or_404(VueSauvegardee, id=vue_id, utilisateur=user)
+        nom = vue.nom
+        vue.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Vue "{nom}" supprimée'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_appliquer_vue_sauvegardee(request, vue_id):
+    """Retourne les filtres d'une vue sauvegardée pour les appliquer"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        vue = get_object_or_404(VueSauvegardee, id=vue_id, utilisateur=user)
+
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'id': str(vue.id),
+                'nom': vue.nom,
+                'filtres': vue.filtres,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# =============================================================================
+# API PARTICIPATION RDV (STATUT PRÉSENCE)
+# =============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_participations_rdv(request, rdv_id):
+    """Liste des participations d'un RDV avec statuts de présence"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        rdv = get_object_or_404(RendezVous, id=rdv_id, est_actif=True)
+
+        participations = []
+        for p in rdv.participations.select_related('collaborateur', 'participant_externe'):
+            participant_data = None
+            if p.collaborateur:
+                participant_data = {
+                    'type': 'collaborateur',
+                    'id': p.collaborateur.id,
+                    'nom': str(p.collaborateur),
+                }
+            elif p.participant_externe:
+                participant_data = {
+                    'type': 'externe',
+                    'id': str(p.participant_externe.id),
+                    'nom': p.participant_externe.nom,
+                    'email': p.participant_externe.email,
+                }
+
+            participations.append({
+                'id': str(p.id),
+                'participant': participant_data,
+                'statut_presence': p.statut_presence,
+                'statut_presence_display': p.get_statut_presence_display(),
+                'date_reponse': p.date_reponse.isoformat() if p.date_reponse else None,
+                'commentaire': p.commentaire,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'data': participations,
+            'count': len(participations)
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ajouter_participation(request, rdv_id):
+    """Ajouter un participant à un RDV"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        rdv = get_object_or_404(RendezVous, id=rdv_id, est_actif=True)
+        data = json.loads(request.body)
+
+        collaborateur = None
+        participant_externe = None
+
+        if data.get('collaborateur_id'):
+            from gestion.models import Collaborateur
+            collaborateur = get_object_or_404(Collaborateur, id=data['collaborateur_id'])
+            # Vérifier si déjà participant
+            if ParticipationRdv.objects.filter(rdv=rdv, collaborateur=collaborateur).exists():
+                return JsonResponse({'success': False, 'error': 'Ce collaborateur est déjà participant'}, status=400)
+
+        elif data.get('participant_externe_id'):
+            participant_externe = get_object_or_404(ParticipantExterne, id=data['participant_externe_id'])
+            if ParticipationRdv.objects.filter(rdv=rdv, participant_externe=participant_externe).exists():
+                return JsonResponse({'success': False, 'error': 'Ce participant est déjà ajouté'}, status=400)
+
+        else:
+            return JsonResponse({'success': False, 'error': 'Participant requis'}, status=400)
+
+        participation = ParticipationRdv.objects.create(
+            rdv=rdv,
+            collaborateur=collaborateur,
+            participant_externe=participant_externe,
+            statut_presence='invite',
+        )
+
+        # Notification si collaborateur
+        if collaborateur and collaborateur.utilisateur:
+            from .services import NotificationService
+            NotificationService.creer_notification(
+                collaborateur.utilisateur,
+                f"Invitation RDV: {rdv.titre}",
+                f"Vous êtes invité au rendez-vous '{rdv.titre}' prévu le {rdv.date_debut.strftime('%d/%m/%Y à %H:%M')}",
+                'rappel_rdv',
+                rdv
+            )
+            participation.notifie = True
+            participation.date_notification = timezone.now()
+            participation.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Participant ajouté',
+            'data': {'id': str(participation.id)}
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON invalide'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_repondre_invitation(request, rdv_id):
+    """Confirmer ou décliner une invitation à un RDV"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        rdv = get_object_or_404(RendezVous, id=rdv_id, est_actif=True)
+        data = json.loads(request.body)
+
+        reponse = data.get('reponse')  # 'confirme' ou 'decline'
+        commentaire = data.get('commentaire', '')
+
+        if reponse not in ['confirme', 'decline']:
+            return JsonResponse({'success': False, 'error': "Réponse invalide (confirme/decline)"}, status=400)
+
+        # Trouver la participation de l'utilisateur
+        from gestion.models import Collaborateur
+        try:
+            collaborateur = Collaborateur.objects.get(utilisateur=user)
+            participation = ParticipationRdv.objects.get(rdv=rdv, collaborateur=collaborateur)
+        except (Collaborateur.DoesNotExist, ParticipationRdv.DoesNotExist):
+            return JsonResponse({'success': False, 'error': "Vous n'êtes pas invité à ce RDV"}, status=404)
+
+        if reponse == 'confirme':
+            participation.confirmer(commentaire)
+            message = 'Participation confirmée'
+        else:
+            participation.decliner(commentaire)
+            message = 'Invitation déclinée'
+
+        # Notification au créateur du RDV
+        if rdv.createur and rdv.createur != user:
+            from .services import NotificationService
+            action = 'confirmé' if reponse == 'confirme' else 'décliné'
+            NotificationService.creer_notification(
+                rdv.createur,
+                f"Réponse invitation: {rdv.titre}",
+                f"{user.get_full_name()} a {action} sa participation au RDV '{rdv.titre}'",
+                'autre',
+                rdv
+            )
+
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'data': {
+                'statut_presence': participation.statut_presence,
+                'statut_presence_display': participation.get_statut_presence_display(),
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON invalide'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_marquer_presence(request, rdv_id):
+    """Marquer la présence/absence des participants après le RDV"""
+    try:
+        user = get_user_from_request(request)
+        if not user:
+            return JsonResponse({'success': False, 'error': 'Non authentifié'}, status=401)
+
+        rdv = get_object_or_404(RendezVous, id=rdv_id, est_actif=True)
+
+        # Vérifier que l'utilisateur peut modifier (créateur ou admin)
+        if not user_is_admin(user) and rdv.createur != user:
+            return JsonResponse({'success': False, 'error': 'Non autorisé'}, status=403)
+
+        data = json.loads(request.body)
+        presences = data.get('presences', [])  # [{id, statut: 'present'|'absent'|'excuse'}]
+
+        for p_data in presences:
+            participation_id = p_data.get('id')
+            statut = p_data.get('statut')
+
+            if statut not in ['present', 'absent', 'excuse']:
+                continue
+
+            try:
+                participation = ParticipationRdv.objects.get(id=participation_id, rdv=rdv)
+                if statut == 'present':
+                    participation.marquer_present()
+                else:
+                    participation.marquer_absent(excuse=(statut == 'excuse'))
+            except ParticipationRdv.DoesNotExist:
+                pass
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Présences enregistrées'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON invalide'}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
