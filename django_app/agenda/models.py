@@ -1334,3 +1334,147 @@ class HistoriqueAgenda(models.Model):
 
     def __str__(self):
         return f"{self.action} - {self.type_objet} - {self.date_creation}"
+
+
+# =============================================================================
+# VUES SAUVEGARDÉES (FILTRES PERSONNALISÉS)
+# =============================================================================
+
+class VueSauvegardee(models.Model):
+    """
+    Permet aux utilisateurs de sauvegarder des filtres personnalisés
+    pour l'affichage de l'agenda (RDV et tâches)
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    utilisateur = models.ForeignKey(
+        'gestion.Utilisateur',
+        on_delete=models.CASCADE,
+        related_name='vues_agenda'
+    )
+    nom = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    filtres = models.JSONField(
+        default=dict,
+        help_text="Filtres: {type, statut, priorite, collaborateur, date_debut, date_fin, etc.}"
+    )
+    est_par_defaut = models.BooleanField(default=False)
+    ordre = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['ordre', 'nom']
+        unique_together = ['utilisateur', 'nom']
+        verbose_name = 'Vue sauvegardée'
+        verbose_name_plural = 'Vues sauvegardées'
+
+    def __str__(self):
+        return f"{self.nom} - {self.utilisateur.get_full_name()}"
+
+    def save(self, *args, **kwargs):
+        # Si cette vue devient la vue par défaut, désactiver les autres
+        if self.est_par_defaut:
+            VueSauvegardee.objects.filter(
+                utilisateur=self.utilisateur,
+                est_par_defaut=True
+            ).exclude(pk=self.pk).update(est_par_defaut=False)
+        super().save(*args, **kwargs)
+
+
+# =============================================================================
+# PARTICIPATION RDV (STATUT PRÉSENCE)
+# =============================================================================
+
+class ParticipationRdv(models.Model):
+    """
+    Modèle intermédiaire pour gérer le statut de présence
+    de chaque participant à un rendez-vous
+    """
+    STATUT_PRESENCE = [
+        ('invite', 'Invité'),
+        ('confirme', 'Confirmé'),
+        ('decline', 'Décliné'),
+        ('present', 'Présent'),
+        ('absent', 'Absent'),
+        ('excuse', 'Excusé'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rdv = models.ForeignKey(
+        RendezVous,
+        on_delete=models.CASCADE,
+        related_name='participations'
+    )
+    collaborateur = models.ForeignKey(
+        'gestion.Collaborateur',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='participations_rdv'
+    )
+    participant_externe = models.ForeignKey(
+        ParticipantExterne,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='participations_rdv'
+    )
+    statut_presence = models.CharField(
+        max_length=20,
+        choices=STATUT_PRESENCE,
+        default='invite'
+    )
+    date_reponse = models.DateTimeField(null=True, blank=True)
+    commentaire = models.TextField(blank=True)
+    notifie = models.BooleanField(default=False)
+    date_notification = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Participation RDV'
+        verbose_name_plural = 'Participations RDV'
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(collaborateur__isnull=False, participant_externe__isnull=True) |
+                    models.Q(collaborateur__isnull=True, participant_externe__isnull=False)
+                ),
+                name='participation_rdv_one_participant_type'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['rdv', 'statut_presence']),
+            models.Index(fields=['collaborateur', 'statut_presence']),
+        ]
+
+    def __str__(self):
+        participant = self.collaborateur or self.participant_externe
+        return f"{participant} - {self.rdv.titre} ({self.get_statut_presence_display()})"
+
+    @property
+    def participant(self):
+        """Retourne le participant (collaborateur ou externe)"""
+        return self.collaborateur or self.participant_externe
+
+    def confirmer(self, commentaire=''):
+        """Confirme la participation"""
+        self.statut_presence = 'confirme'
+        self.date_reponse = timezone.now()
+        self.commentaire = commentaire
+        self.save()
+
+    def decliner(self, commentaire=''):
+        """Décline l'invitation"""
+        self.statut_presence = 'decline'
+        self.date_reponse = timezone.now()
+        self.commentaire = commentaire
+        self.save()
+
+    def marquer_present(self):
+        """Marque comme présent"""
+        self.statut_presence = 'present'
+        self.save()
+
+    def marquer_absent(self, excuse=False):
+        """Marque comme absent ou excusé"""
+        self.statut_presence = 'excuse' if excuse else 'absent'
+        self.save()

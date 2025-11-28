@@ -9,7 +9,8 @@ from .models import (
     DocumentRdv, DocumentTache, RappelRdv, RappelTache,
     CommentaireTache, SousTacheChecklist, Notification,
     JourneeAgenda, ReportTache, ConfigurationAgenda,
-    StatistiquesAgenda, HistoriqueAgenda
+    StatistiquesAgenda, HistoriqueAgenda,
+    VueSauvegardee, ParticipationRdv
 )
 
 
@@ -58,6 +59,12 @@ class ReportTacheInline(admin.TabularInline):
     fk_name = 'tache'
 
 
+class ParticipationRdvInline(admin.TabularInline):
+    model = ParticipationRdv
+    extra = 0
+    readonly_fields = ['date_reponse', 'date_notification']
+
+
 # =============================================================================
 # ADMIN RENDEZ-VOUS
 # =============================================================================
@@ -73,7 +80,7 @@ class RendezVousAdmin(admin.ModelAdmin):
     date_hierarchy = 'date_debut'
     readonly_fields = ['date_creation', 'date_modification']
     filter_horizontal = ['dossiers', 'collaborateurs_assignes', 'participants_externes']
-    inlines = [DocumentRdvInline, RappelRdvInline]
+    inlines = [ParticipationRdvInline, DocumentRdvInline, RappelRdvInline]
 
     fieldsets = (
         ('Informations de base', {
@@ -367,3 +374,68 @@ class ReportTacheAdmin(admin.ModelAdmin):
     search_fields = ['tache__titre', 'raison']
     date_hierarchy = 'date_creation'
     readonly_fields = ['date_creation']
+
+
+# =============================================================================
+# ADMIN VUES SAUVEGARDÉES
+# =============================================================================
+
+@admin.register(VueSauvegardee)
+class VueSauvegardeeAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'utilisateur', 'est_par_defaut', 'ordre', 'created_at']
+    list_filter = ['est_par_defaut', 'created_at']
+    search_fields = ['nom', 'description', 'utilisateur__username']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        ('Informations', {
+            'fields': ('utilisateur', 'nom', 'description')
+        }),
+        ('Filtres', {
+            'fields': ('filtres',)
+        }),
+        ('Options', {
+            'fields': ('est_par_defaut', 'ordre')
+        }),
+        ('Métadonnées', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+# =============================================================================
+# ADMIN PARTICIPATION RDV
+# =============================================================================
+
+@admin.register(ParticipationRdv)
+class ParticipationRdvAdmin(admin.ModelAdmin):
+    list_display = ['rdv', 'participant_display', 'statut_presence_badge', 'date_reponse', 'notifie']
+    list_filter = ['statut_presence', 'notifie']
+    search_fields = ['rdv__titre', 'collaborateur__nom', 'participant_externe__nom']
+    readonly_fields = ['date_reponse', 'date_notification']
+
+    def participant_display(self, obj):
+        if obj.collaborateur:
+            return f"[Collaborateur] {obj.collaborateur}"
+        elif obj.participant_externe:
+            return f"[Externe] {obj.participant_externe.nom}"
+        return "-"
+    participant_display.short_description = 'Participant'
+
+    def statut_presence_badge(self, obj):
+        couleurs = {
+            'invite': '#6c757d',
+            'confirme': '#28a745',
+            'decline': '#dc3545',
+            'present': '#007bff',
+            'absent': '#dc3545',
+            'excuse': '#ffc107',
+        }
+        couleur = couleurs.get(obj.statut_presence, '#6c757d')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; '
+            'border-radius: 3px;">{}</span>',
+            couleur, obj.get_statut_presence_display()
+        )
+    statut_presence_badge.short_description = 'Statut présence'
