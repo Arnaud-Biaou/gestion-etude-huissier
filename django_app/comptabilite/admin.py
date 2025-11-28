@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     ExerciceComptable, CompteComptable, Journal, EcritureComptable,
     LigneEcriture, TypeOperation, ParametrageFiscal, DeclarationTVA,
-    RapportComptable, ConfigurationComptable
+    RapportComptable, ConfigurationComptable, Lettrage
 )
 
 
@@ -99,3 +99,13 @@ class ConfigurationComptableAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(Lettrage)
+class LettrageAdmin(admin.ModelAdmin):
+    list_display = ('code', 'compte', 'montant', 'est_partiel', 'date_lettrage', 'lettre_par')
+    list_filter = ('est_partiel', 'compte__classe', 'date_lettrage')
+    search_fields = ('code', 'compte__numero', 'compte__libelle')
+    ordering = ('-date_lettrage',)
+    filter_horizontal = ('lignes',)
+    raw_id_fields = ('compte', 'lettre_par')

@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- En-tête -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Balance âgée {{ titre }}</h3>
+            <div class="flex" style="gap: 0.5rem;">
+                <a href="?type=clients" class="btn {% if type_compte == 'clients' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    Clients
+                </a>
+                <a href="?type=fournisseurs" class="btn {% if type_compte == 'fournisseurs' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    Fournisseurs
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="flex" style="gap: 1rem; align-items: flex-end;">
+                <input type="hidden" name="type" value="{{ type_compte }}">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Date de référence</label>
+                    <input type="date" name="date" value="{{ date_reference|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="refresh-cw"></i> Actualiser
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau Balance âgée -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Ancienneté des créances {{ titre|lower }}</h3>
+            {% if exercice %}
+            <span class="badge badge-info">{{ exercice.libelle }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>{{ titre|slice:":6" }}</th>
+                        <th class="text-right">Non échu</th>
+                        <th class="text-right">0-30 j</th>
+                        <th class="text-right">31-60 j</th>
+                        <th class="text-right">61-90 j</th>
+                        <th class="text-right">&gt; 90 j</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in balance_data %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.tiers|truncatechars:30 }}</strong>
+                            <br><small class="text-muted">{{ item.compte.numero }}</small>
+                        </td>
+                        <td class="text-right">
+                            {% if item.non_echu != 0 %}{{ item.non_echu|floatformat:0 }}{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if item.0_30 != 0 %}{{ item.0_30|floatformat:0 }}{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if item.31_60 != 0 %}<span class="text-warning">{{ item.31_60|floatformat:0 }}</span>{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if item.61_90 != 0 %}<span class="text-danger">{{ item.61_90|floatformat:0 }}</span>{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if item.plus_90 != 0 %}<strong class="text-danger">{{ item.plus_90|floatformat:0 }}</strong>{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right"><strong>{{ item.total|floatformat:0 }}</strong></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="padding: 2rem;">
+                            Aucune créance non lettrée
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if balance_data %}
+                <tfoot>
+                    <tr style="background: var(--neutral-100);">
+                        <td><strong>TOTAUX</strong></td>
+                        <td class="text-right"><strong>{{ totaux.non_echu|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ totaux.0_30|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ totaux.31_60|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ totaux.61_90|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ totaux.plus_90|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ totaux.total|floatformat:0 }}</strong></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Légende -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex" style="gap: 2rem;">
+                <div><span style="color: var(--neutral-800);">Non échu</span> - Échéance non dépassée</div>
+                <div><span style="color: var(--warning-600);">31-60 jours</span> - Retard modéré</div>
+                <div><span style="color: var(--danger-600);">61-90 jours</span> - Retard important</div>
+                <div><strong style="color: var(--danger-600);">&gt; 90 jours</strong> - Retard critique</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
