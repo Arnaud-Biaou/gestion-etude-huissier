@@ -1,0 +1,581 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'tresorerie:dashboard' %}" class="breadcrumb-item">Trésorerie</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item current">Comptes</span>
+{% endblock %}
+
+{% block content %}
+<div class="comptes-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <i data-lucide="landmark"></i>
+                Comptes bancaires
+            </h1>
+            <p class="page-subtitle">Gérez vos comptes bancaires, Mobile Money et caisses</p>
+        </div>
+        <button class="btn btn-primary" onclick="ouvrirModalCompte()">
+            <i data-lucide="plus"></i>
+            Nouveau compte
+        </button>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="filters-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Type de compte</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous les types</option>
+                            <option value="courant" {% if request.GET.type == 'courant' %}selected{% endif %}>Compte Courant</option>
+                            <option value="epargne" {% if request.GET.type == 'epargne' %}selected{% endif %}>Compte Épargne</option>
+                            <option value="sequestre" {% if request.GET.type == 'sequestre' %}selected{% endif %}>Compte Séquestre</option>
+                            <option value="caisse" {% if request.GET.type == 'caisse' %}selected{% endif %}>Caisse</option>
+                            <option value="mobile_money" {% if request.GET.type == 'mobile_money' %}selected{% endif %}>Mobile Money</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous les statuts</option>
+                            <option value="actif" {% if request.GET.statut == 'actif' %}selected{% endif %}>Actif</option>
+                            <option value="inactif" {% if request.GET.statut == 'inactif' %}selected{% endif %}>Inactif</option>
+                            <option value="cloture" {% if request.GET.statut == 'cloture' %}selected{% endif %}>Clôturé</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Recherche</label>
+                        <input type="text" name="q" class="form-input" placeholder="Nom, numéro, banque..." value="{{ request.GET.q }}">
+                    </div>
+                    <div class="form-group" style="align-self: flex-end;">
+                        <button type="submit" class="btn btn-outline">
+                            <i data-lucide="search"></i>
+                            Filtrer
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-4 gap-4 mb-4">
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon info">
+                    <i data-lucide="wallet"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Solde total</div>
+                    <div class="stat-value">{{ solde_total|floatformat:0|default:"0" }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon success">
+                    <i data-lucide="landmark"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Comptes actifs</div>
+                    <div class="stat-value">{{ nb_comptes_actifs|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon warning">
+                    <i data-lucide="smartphone"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Mobile Money</div>
+                    <div class="stat-value">{{ nb_mobile_money|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon danger">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Alertes seuil</div>
+                    <div class="stat-value">{{ nb_alertes|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des comptes -->
+    <div class="card">
+        <div class="card-body">
+            {% if comptes %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Compte</th>
+                        <th>Type</th>
+                        <th>Banque / Opérateur</th>
+                        <th class="text-right">Solde actuel</th>
+                        <th class="text-right">Seuil alerte</th>
+                        <th class="text-center">Statut</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for compte in comptes %}
+                    <tr class="{% if compte.solde_actuel < compte.seuil_alerte %}row-warning{% endif %}">
+                        <td>
+                            <div class="compte-info">
+                                <strong>{{ compte.nom }}</strong>
+                                <small>{{ compte.numero }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-{% if compte.type_compte == 'sequestre' %}warning{% elif compte.type_compte == 'caisse' %}info{% elif compte.type_compte == 'mobile_money' %}success{% else %}default{% endif %}">
+                                {{ compte.get_type_compte_display }}
+                            </span>
+                            {% if compte.type_compte == 'mobile_money' and compte.operateur_mobile %}
+                            <small class="d-block mt-1">{{ compte.get_operateur_mobile_display }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if compte.type_compte == 'mobile_money' %}
+                                {{ compte.get_operateur_mobile_display|default:compte.banque }}
+                            {% else %}
+                                {{ compte.banque }}
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <span class="{% if compte.solde_actuel < compte.seuil_alerte %}text-danger{% else %}text-success{% endif %} font-bold">
+                                {{ compte.solde_actuel|floatformat:0 }} XOF
+                            </span>
+                            {% if compte.solde_actuel < compte.seuil_alerte %}
+                            <i data-lucide="alert-triangle" class="text-danger" style="width: 16px; height: 16px;"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">{{ compte.seuil_alerte|floatformat:0 }} XOF</td>
+                        <td class="text-center">
+                            <span class="status-badge status-{{ compte.statut }}">
+                                {{ compte.get_statut_display }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group">
+                                <button class="btn btn-icon btn-sm" onclick="voirMouvements('{{ compte.id }}')" title="Voir mouvements">
+                                    <i data-lucide="list"></i>
+                                </button>
+                                <button class="btn btn-icon btn-sm" onclick="modifierCompte('{{ compte.id }}')" title="Modifier">
+                                    <i data-lucide="edit"></i>
+                                </button>
+                                {% if compte.statut != 'cloture' %}
+                                <button class="btn btn-icon btn-sm btn-danger" onclick="supprimerCompte('{{ compte.id }}', '{{ compte.nom }}')" title="Supprimer">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="landmark"></i>
+                <p>Aucun compte bancaire configuré</p>
+                <button class="btn btn-primary" onclick="ouvrirModalCompte()">
+                    <i data-lucide="plus"></i>
+                    Ajouter un compte
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouveau/Modifier Compte -->
+<div class="modal" id="modalCompte">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalCompteTitre">Nouveau compte</h3>
+            <button class="modal-close" onclick="fermerModal('modalCompte')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formCompte">
+                <input type="hidden" id="cpt_id" name="compte_id" value="">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Nom du compte *</label>
+                        <input type="text" id="cpt_nom" name="nom" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type de compte *</label>
+                        <select id="cpt_type" name="type_compte" class="form-select" onchange="toggleOperateurMobile()">
+                            <option value="courant">Compte Courant</option>
+                            <option value="epargne">Compte Épargne</option>
+                            <option value="sequestre">Compte Séquestre</option>
+                            <option value="caisse">Caisse</option>
+                            <option value="mobile_money">Mobile Money</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="groupOperateur" style="display: none;">
+                    <label class="form-label">Opérateur Mobile Money *</label>
+                    <select id="cpt_operateur" name="operateur_mobile" class="form-select">
+                        <option value="">Sélectionner un opérateur</option>
+                        <option value="mtn_momo">MTN Mobile Money</option>
+                        <option value="moov_money">Moov Money</option>
+                        <option value="celtiis_cash">Celtiis Cash</option>
+                        <option value="orange_money">Orange Money</option>
+                        <option value="free_money">Free Money</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" id="labelBanque">Banque *</label>
+                        <input type="text" id="cpt_banque" name="banque" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="labelNumero">Numéro de compte *</label>
+                        <input type="text" id="cpt_numero" name="numero" class="form-input" required placeholder="Ex: BJ01 0001 0000 0000 0000 00">
+                    </div>
+                </div>
+
+                <div class="form-row" id="rowIbanBic">
+                    <div class="form-group">
+                        <label class="form-label">IBAN</label>
+                        <input type="text" id="cpt_iban" name="iban" class="form-input" placeholder="Ex: BJ62 0001 0000 0000 0000 0000 00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">BIC</label>
+                        <input type="text" id="cpt_bic" name="bic" class="form-input" placeholder="Ex: BOACBJBJ">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Solde initial (XOF)</label>
+                        <input type="number" id="cpt_solde" name="solde_initial" class="form-input" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Seuil d'alerte (XOF)</label>
+                        <input type="number" id="cpt_seuil" name="seuil_alerte" class="form-input" value="100000" min="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Contact</label>
+                    <input type="text" id="cpt_contact" name="contact_banque" class="form-input" placeholder="Nom et téléphone du contact">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea id="cpt_notes" name="notes" class="form-textarea" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalCompte')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderCompte()">
+                <i data-lucide="save"></i>
+                <span id="btnCompteSaveText">Créer le compte</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmation Suppression -->
+<div class="modal" id="modalSupprimer">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>Confirmer la suppression</h3>
+            <button class="modal-close" onclick="fermerModal('modalSupprimer')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Êtes-vous sûr de vouloir supprimer le compte <strong id="nomCompteSupprimer"></strong> ?</p>
+            <p class="text-danger">Cette action est irréversible.</p>
+            <input type="hidden" id="idCompteSupprimer" value="">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalSupprimer')">Annuler</button>
+            <button class="btn btn-danger" onclick="confirmerSuppression()">
+                <i data-lucide="trash-2"></i>
+                Supprimer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.comptes-container {
+    max-width: 100%;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.page-title i {
+    width: 32px;
+    height: 32px;
+    color: var(--primary);
+}
+
+.page-subtitle {
+    color: var(--neutral-500);
+    margin: 0.25rem 0 0 0;
+}
+
+.filters-form .form-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filters-form .form-group {
+    flex: 1;
+}
+
+.compte-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.compte-info small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+.btn-group {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.row-warning {
+    background-color: #fffbeb;
+}
+
+.font-bold {
+    font-weight: 600;
+}
+
+.d-block {
+    display: block;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.modal-sm {
+    max-width: 400px;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-actif {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-inactif {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.status-cloture {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    let modeEdition = false;
+
+    function toggleOperateurMobile() {
+        const type = document.getElementById('cpt_type').value;
+        const groupOperateur = document.getElementById('groupOperateur');
+        const rowIbanBic = document.getElementById('rowIbanBic');
+        const labelBanque = document.getElementById('labelBanque');
+        const labelNumero = document.getElementById('labelNumero');
+
+        if (type === 'mobile_money') {
+            groupOperateur.style.display = 'block';
+            rowIbanBic.style.display = 'none';
+            labelBanque.textContent = 'Description';
+            labelNumero.textContent = 'Numéro de téléphone *';
+            document.getElementById('cpt_numero').placeholder = 'Ex: +229 97 00 00 00';
+        } else {
+            groupOperateur.style.display = 'none';
+            rowIbanBic.style.display = 'grid';
+            labelBanque.textContent = 'Banque *';
+            labelNumero.textContent = 'Numéro de compte *';
+            document.getElementById('cpt_numero').placeholder = 'Ex: BJ01 0001 0000 0000 0000 00';
+        }
+    }
+
+    function ouvrirModalCompte() {
+        modeEdition = false;
+        document.getElementById('formCompte').reset();
+        document.getElementById('cpt_id').value = '';
+        document.getElementById('modalCompteTitre').textContent = 'Nouveau compte';
+        document.getElementById('btnCompteSaveText').textContent = 'Créer le compte';
+        toggleOperateurMobile();
+        document.getElementById('modalCompte').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function modifierCompte(compteId) {
+        modeEdition = true;
+        // Charger les données du compte via API
+        fetch(`/tresorerie/api/comptes/${compteId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const compte = data.compte;
+                    document.getElementById('cpt_id').value = compte.id;
+                    document.getElementById('cpt_nom').value = compte.nom;
+                    document.getElementById('cpt_type').value = compte.type_compte;
+                    document.getElementById('cpt_operateur').value = compte.operateur_mobile || '';
+                    document.getElementById('cpt_banque').value = compte.banque;
+                    document.getElementById('cpt_numero').value = compte.numero;
+                    document.getElementById('cpt_iban').value = compte.iban || '';
+                    document.getElementById('cpt_bic').value = compte.bic || '';
+                    document.getElementById('cpt_solde').value = compte.solde_initial;
+                    document.getElementById('cpt_seuil').value = compte.seuil_alerte;
+                    document.getElementById('cpt_contact').value = compte.contact_banque || '';
+                    document.getElementById('cpt_notes').value = compte.notes || '';
+
+                    toggleOperateurMobile();
+
+                    document.getElementById('modalCompteTitre').textContent = 'Modifier le compte';
+                    document.getElementById('btnCompteSaveText').textContent = 'Enregistrer';
+                    document.getElementById('modalCompte').classList.add('open');
+                    lucide.createIcons();
+                }
+            });
+    }
+
+    function sauvegarderCompte() {
+        const form = document.getElementById('formCompte');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        const compteId = document.getElementById('cpt_id').value;
+
+        const url = compteId
+            ? `/tresorerie/api/comptes/${compteId}/modifier/`
+            : '{% url "tresorerie:api_creer_compte" %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(compteId ? 'Compte modifié avec succès' : 'Compte créé avec succès');
+                fermerModal('modalCompte');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la sauvegarde');
+            console.error(error);
+        });
+    }
+
+    function supprimerCompte(compteId, nomCompte) {
+        document.getElementById('idCompteSupprimer').value = compteId;
+        document.getElementById('nomCompteSupprimer').textContent = nomCompte;
+        document.getElementById('modalSupprimer').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function confirmerSuppression() {
+        const compteId = document.getElementById('idCompteSupprimer').value;
+
+        fetch(`/tresorerie/api/comptes/${compteId}/supprimer/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Compte supprimé avec succès');
+                fermerModal('modalSupprimer');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la suppression');
+            console.error(error);
+        });
+    }
+
+    function voirMouvements(compteId) {
+        window.location.href = '{% url "tresorerie:mouvements" %}?compte=' + compteId;
+    }
+
+    function fermerModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+    }
+
+    // Fermer modal en cliquant à l'extérieur
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+</script>
+{% endblock %}

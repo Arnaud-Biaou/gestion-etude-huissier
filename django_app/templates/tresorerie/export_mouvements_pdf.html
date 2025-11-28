@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Mouvements de Trésorerie</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            margin: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #1a365d;
+        }
+        .header p {
+            margin: 5px 0 0;
+            color: #666;
+        }
+        .info-box {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .info-box span {
+            margin-right: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th {
+            background: #1a365d;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: bold;
+        }
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .entree {
+            color: #059669;
+            font-weight: bold;
+        }
+        .sortie {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+        }
+        .totaux {
+            margin-top: 20px;
+            background: #e5e7eb;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .totaux-grid {
+            display: flex;
+            justify-content: space-around;
+        }
+        .total-item {
+            text-align: center;
+        }
+        .total-label {
+            font-size: 11px;
+            color: #666;
+        }
+        .total-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        @media print {
+            body {
+                margin: 0;
+                padding: 15px;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mouvements de Trésorerie</h1>
+        <p>Étude d'Huissier de Justice</p>
+        <p>Export du {{ date_export|date:"d/m/Y à H:i" }}</p>
+    </div>
+
+    <div class="info-box">
+        <span><strong>Période :</strong>
+            {% if date_debut %}{{ date_debut }}{% else %}Début{% endif %}
+            au
+            {% if date_fin %}{{ date_fin }}{% else %}{{ date_export|date:"d/m/Y" }}{% endif %}
+        </span>
+        <span><strong>Nombre de mouvements :</strong> {{ mouvements|length }}</span>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Compte</th>
+                <th>Libellé</th>
+                <th>Catégorie</th>
+                <th>Tiers</th>
+                <th class="text-right">Montant</th>
+                <th class="text-center">Mode</th>
+                <th class="text-center">Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mvt in mouvements %}
+            <tr>
+                <td>{{ mvt.date_mouvement|date:"d/m/Y" }}</td>
+                <td>{{ mvt.compte.nom }}</td>
+                <td>{{ mvt.libelle }}</td>
+                <td>{{ mvt.get_categorie_display }}</td>
+                <td>{{ mvt.tiers|default:"-" }}</td>
+                <td class="text-right {% if mvt.type_mouvement == 'entree' %}entree{% else %}sortie{% endif %}">
+                    {% if mvt.type_mouvement == 'entree' %}+{% else %}-{% endif %}{{ mvt.montant|floatformat:0 }} XOF
+                </td>
+                <td class="text-center">{{ mvt.get_mode_paiement_display }}</td>
+                <td class="text-center">{{ mvt.get_statut_display }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center">Aucun mouvement trouvé</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p>Document généré automatiquement - Système de Gestion Étude d'Huissier</p>
+        <p>Ce document est confidentiel et destiné à un usage interne uniquement.</p>
+    </div>
+
+    <button class="no-print" onclick="window.print()" style="margin-top: 20px; padding: 10px 20px; cursor: pointer;">
+        Imprimer / Enregistrer en PDF
+    </button>
+</body>
+</html>

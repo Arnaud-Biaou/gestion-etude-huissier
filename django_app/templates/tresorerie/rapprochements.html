@@ -1,0 +1,577 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'tresorerie:dashboard' %}" class="breadcrumb-item">Trésorerie</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item current">Rapprochements</span>
+{% endblock %}
+
+{% block content %}
+<div class="rapprochements-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <i data-lucide="check-square"></i>
+                Rapprochements bancaires
+            </h1>
+            <p class="page-subtitle">Vérifiez la concordance entre vos écritures et vos relevés bancaires</p>
+        </div>
+        <button class="btn btn-primary" onclick="ouvrirModalRapprochement()">
+            <i data-lucide="plus"></i>
+            Nouveau rapprochement
+        </button>
+    </div>
+
+    <!-- Résumé -->
+    <div class="grid grid-cols-4 gap-4 mb-4">
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon info">
+                    <i data-lucide="file-check"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Total rapprochements</div>
+                    <div class="stat-value">{{ nb_total|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon warning">
+                    <i data-lucide="clock"></i>
+                </div>
+                <div>
+                    <div class="stat-label">En cours</div>
+                    <div class="stat-value">{{ nb_en_cours|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon success">
+                    <i data-lucide="check-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Validés</div>
+                    <div class="stat-value">{{ nb_valides|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon danger">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Avec écart</div>
+                    <div class="stat-value">{{ nb_avec_ecart|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="filters-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Compte</label>
+                        <select name="compte" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous les comptes</option>
+                            {% for compte in comptes %}
+                            <option value="{{ compte.id }}" {% if request.GET.compte == compte.id|stringformat:"s" %}selected{% endif %}>
+                                {{ compte.nom }} - {{ compte.banque }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="en_cours" {% if request.GET.statut == 'en_cours' %}selected{% endif %}>En cours</option>
+                            <option value="termine" {% if request.GET.statut == 'termine' %}selected{% endif %}>Terminé</option>
+                            <option value="valide" {% if request.GET.statut == 'valide' %}selected{% endif %}>Validé</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Période</label>
+                        <input type="month" name="periode" class="form-input" value="{{ request.GET.periode }}" onchange="this.form.submit()">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des rapprochements -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="list"></i>
+                Historique des rapprochements
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if rapprochements %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Période</th>
+                        <th>Compte</th>
+                        <th class="text-right">Solde relevé</th>
+                        <th class="text-right">Solde comptable</th>
+                        <th class="text-right">Écart</th>
+                        <th class="text-center">Statut</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rapp in rapprochements %}
+                    <tr>
+                        <td>
+                            <div class="periode-cell">
+                                <strong>{{ rapp.date_fin|date:"F Y" }}</strong>
+                                <small>{{ rapp.date_debut|date:"d/m" }} au {{ rapp.date_fin|date:"d/m/Y" }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="compte-cell">
+                                <strong>{{ rapp.compte.nom }}</strong>
+                                <small>{{ rapp.compte.banque }}</small>
+                            </div>
+                        </td>
+                        <td class="text-right">{{ rapp.solde_releve|floatformat:0 }} XOF</td>
+                        <td class="text-right">{{ rapp.solde_comptable|floatformat:0 }} XOF</td>
+                        <td class="text-right">
+                            <span class="{% if rapp.ecart == 0 %}text-success{% else %}text-danger{% endif %} font-bold">
+                                {{ rapp.ecart|floatformat:0 }} XOF
+                            </span>
+                            {% if rapp.ecart != 0 %}
+                            <i data-lucide="alert-circle" class="text-danger" style="width: 16px; height: 16px;"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="status-badge status-{{ rapp.statut }}">{{ rapp.get_statut_display }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group">
+                                <button class="btn btn-icon btn-sm" onclick="voirRapprochement('{{ rapp.id }}')" title="Voir détails">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                                {% if rapp.statut == 'en_cours' %}
+                                <button class="btn btn-icon btn-sm" onclick="continuerRapprochement('{{ rapp.id }}')" title="Continuer">
+                                    <i data-lucide="edit"></i>
+                                </button>
+                                {% endif %}
+                                {% if rapp.statut == 'termine' %}
+                                <button class="btn btn-icon btn-sm btn-success" onclick="validerRapprochement('{{ rapp.id }}')" title="Valider">
+                                    <i data-lucide="check"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="check-square"></i>
+                <p>Aucun rapprochement bancaire</p>
+                <button class="btn btn-primary" onclick="ouvrirModalRapprochement()">
+                    <i data-lucide="plus"></i>
+                    Créer un rapprochement
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouveau Rapprochement -->
+<div class="modal" id="modalRapprochement">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>Nouveau rapprochement bancaire</h3>
+            <button class="modal-close" onclick="fermerModal('modalRapprochement')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formRapprochement">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Compte bancaire *</label>
+                        <select id="rapp_compte" name="compte_id" class="form-select" required onchange="chargerMouvementsCompte()">
+                            <option value="">Sélectionner un compte</option>
+                            {% for compte in comptes %}
+                            <option value="{{ compte.id }}" data-solde="{{ compte.solde_actuel }}">
+                                {{ compte.nom }} - {{ compte.banque }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Date début période *</label>
+                        <input type="date" id="rapp_date_debut" name="date_debut" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date fin période *</label>
+                        <input type="date" id="rapp_date_fin" name="date_fin" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Solde du relevé bancaire (XOF) *</label>
+                        <input type="number" id="rapp_solde_releve" name="solde_releve" class="form-input" required step="0.01" onchange="calculerEcart()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Solde comptable actuel</label>
+                        <input type="text" id="rapp_solde_comptable" class="form-input" readonly>
+                    </div>
+                </div>
+
+                <div class="ecart-display" id="ecartDisplay" style="display: none;">
+                    <div class="ecart-label">Écart constaté :</div>
+                    <div class="ecart-value" id="ecartValue">0 XOF</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea id="rapp_notes" name="notes" class="form-textarea" rows="2" placeholder="Observations sur ce rapprochement..."></textarea>
+                </div>
+
+                <!-- Zone de rapprochement des mouvements -->
+                <div class="mouvements-rapprochement" id="zoneMouvements" style="display: none;">
+                    <h4>Mouvements à rapprocher</h4>
+                    <p class="text-muted">Cochez les mouvements qui apparaissent sur votre relevé bancaire</p>
+                    <div id="listeMouvementsRapprochement">
+                        <!-- Chargé dynamiquement -->
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalRapprochement')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderRapprochement()">
+                <i data-lucide="save"></i>
+                Créer le rapprochement
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.rapprochements-container {
+    max-width: 100%;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.page-title i {
+    width: 32px;
+    height: 32px;
+    color: var(--primary);
+}
+
+.page-subtitle {
+    color: var(--neutral-500);
+    margin: 0.25rem 0 0 0;
+}
+
+.filters-form .form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.filters-form .form-group {
+    flex: 1;
+}
+
+.periode-cell, .compte-cell {
+    display: flex;
+    flex-direction: column;
+}
+
+.periode-cell small, .compte-cell small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+.font-bold { font-weight: 600; }
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+
+.btn-group {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-en_cours { background: #fef3c7; color: #92400e; }
+.status-termine { background: #dbeafe; color: #1e40af; }
+.status-valide { background: #d1fae5; color: #065f46; }
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.ecart-display {
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.ecart-label {
+    font-size: 0.875rem;
+    color: var(--neutral-600);
+}
+
+.ecart-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.ecart-value.success { color: var(--success); }
+.ecart-value.danger { color: var(--danger); }
+
+.mouvements-rapprochement {
+    border-top: 1px solid var(--neutral-200);
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.mouvements-rapprochement h4 {
+    margin: 0 0 0.5rem 0;
+}
+
+.text-muted {
+    color: var(--neutral-500);
+    font-size: 0.875rem;
+}
+
+.mouvement-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.mouvement-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.mouvement-checkbox .mvt-info {
+    flex: 1;
+}
+
+.mouvement-checkbox .mvt-montant {
+    font-weight: 600;
+}
+
+.mouvement-checkbox .mvt-montant.entree { color: var(--success); }
+.mouvement-checkbox .mvt-montant.sortie { color: var(--danger); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Initialiser les dates par défaut (mois précédent)
+    const today = new Date();
+    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+
+    document.getElementById('rapp_date_debut').valueAsDate = firstDayLastMonth;
+    document.getElementById('rapp_date_fin').valueAsDate = lastDayLastMonth;
+
+    function ouvrirModalRapprochement() {
+        document.getElementById('formRapprochement').reset();
+        document.getElementById('rapp_date_debut').valueAsDate = firstDayLastMonth;
+        document.getElementById('rapp_date_fin').valueAsDate = lastDayLastMonth;
+        document.getElementById('ecartDisplay').style.display = 'none';
+        document.getElementById('zoneMouvements').style.display = 'none';
+        document.getElementById('modalRapprochement').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function chargerMouvementsCompte() {
+        const select = document.getElementById('rapp_compte');
+        const option = select.options[select.selectedIndex];
+
+        if (option.value) {
+            const solde = option.dataset.solde || '0';
+            document.getElementById('rapp_solde_comptable').value = parseFloat(solde).toLocaleString('fr-FR') + ' XOF';
+            document.getElementById('zoneMouvements').style.display = 'block';
+
+            // Charger les mouvements non rapprochés
+            const dateDebut = document.getElementById('rapp_date_debut').value;
+            const dateFin = document.getElementById('rapp_date_fin').value;
+
+            fetch(`/tresorerie/api/mouvements/non-rapproches/?compte=${option.value}&date_debut=${dateDebut}&date_fin=${dateFin}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        afficherMouvements(data.mouvements);
+                    }
+                });
+        } else {
+            document.getElementById('rapp_solde_comptable').value = '';
+            document.getElementById('zoneMouvements').style.display = 'none';
+        }
+
+        calculerEcart();
+    }
+
+    function afficherMouvements(mouvements) {
+        const container = document.getElementById('listeMouvementsRapprochement');
+
+        if (mouvements.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">Aucun mouvement non rapproché sur cette période</p>';
+            return;
+        }
+
+        let html = '';
+        mouvements.forEach(mvt => {
+            const typeClass = mvt.type_mouvement === 'entree' ? 'entree' : 'sortie';
+            const signe = mvt.type_mouvement === 'entree' ? '+' : '-';
+            html += `
+                <div class="mouvement-checkbox">
+                    <input type="checkbox" name="mouvements[]" value="${mvt.id}" id="mvt_${mvt.id}">
+                    <label for="mvt_${mvt.id}" class="mvt-info">
+                        <strong>${mvt.libelle}</strong>
+                        <small>${mvt.date_mouvement}</small>
+                    </label>
+                    <span class="mvt-montant ${typeClass}">${signe}${parseInt(mvt.montant).toLocaleString('fr-FR')} XOF</span>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    function calculerEcart() {
+        const soldeReleve = parseFloat(document.getElementById('rapp_solde_releve').value) || 0;
+        const soldeComptableText = document.getElementById('rapp_solde_comptable').value;
+        const soldeComptable = parseFloat(soldeComptableText.replace(/[^\d.-]/g, '')) || 0;
+
+        if (soldeReleve > 0) {
+            const ecart = soldeReleve - soldeComptable;
+            const ecartElement = document.getElementById('ecartValue');
+            ecartElement.textContent = ecart.toLocaleString('fr-FR') + ' XOF';
+            ecartElement.className = 'ecart-value ' + (ecart === 0 ? 'success' : 'danger');
+            document.getElementById('ecartDisplay').style.display = 'block';
+        }
+    }
+
+    function sauvegarderRapprochement() {
+        const form = document.getElementById('formRapprochement');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Récupérer les mouvements cochés
+        const mouvementsCoches = [];
+        document.querySelectorAll('input[name="mouvements[]"]:checked').forEach(cb => {
+            mouvementsCoches.push(cb.value);
+        });
+        data.mouvements_ids = mouvementsCoches;
+
+        fetch('{% url "tresorerie:api_creer_rapprochement" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Rapprochement créé avec succès. Écart: ' + result.ecart + ' XOF');
+                fermerModal('modalRapprochement');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la création');
+            console.error(error);
+        });
+    }
+
+    function voirRapprochement(rapprochementId) {
+        window.location.href = '/tresorerie/rapprochements/' + rapprochementId + '/';
+    }
+
+    function continuerRapprochement(rapprochementId) {
+        window.location.href = '/tresorerie/rapprochements/' + rapprochementId + '/editer/';
+    }
+
+    function validerRapprochement(rapprochementId) {
+        if (!confirm('Valider ce rapprochement ? Cette action est définitive.')) return;
+
+        fetch(`/tresorerie/api/rapprochements/${rapprochementId}/valider/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Rapprochement validé avec succès');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function fermerModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+    }
+
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+</script>
+{% endblock %}

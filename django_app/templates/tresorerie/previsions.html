@@ -1,0 +1,569 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'tresorerie:dashboard' %}" class="breadcrumb-item">Trésorerie</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item current">Prévisions</span>
+{% endblock %}
+
+{% block content %}
+<div class="previsions-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <i data-lucide="calendar"></i>
+                Prévisions de trésorerie
+            </h1>
+            <p class="page-subtitle">Planifiez vos entrées et sorties futures</p>
+        </div>
+        <button class="btn btn-primary" onclick="ouvrirModalPrevision()">
+            <i data-lucide="plus"></i>
+            Nouvelle prévision
+        </button>
+    </div>
+
+    <!-- Résumé prévisionnel -->
+    <div class="grid grid-cols-4 gap-4 mb-4">
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon success">
+                    <i data-lucide="arrow-down-left"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Entrées prévues</div>
+                    <div class="stat-value success">+{{ total_entrees_prevues|floatformat:0|default:"0" }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon danger">
+                    <i data-lucide="arrow-up-right"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Sorties prévues</div>
+                    <div class="stat-value danger">-{{ total_sorties_prevues|floatformat:0|default:"0" }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon info">
+                    <i data-lucide="scale"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Solde prévisionnel</div>
+                    <div class="stat-value">{{ solde_previsionnel|floatformat:0|default:"0" }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon warning">
+                    <i data-lucide="clock"></i>
+                </div>
+                <div>
+                    <div class="stat-label">À venir (30j)</div>
+                    <div class="stat-value">{{ nb_previsions_30j|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="filters-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Compte</label>
+                        <select name="compte" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous les comptes</option>
+                            {% for compte in comptes %}
+                            <option value="{{ compte.id }}" {% if request.GET.compte == compte.id|stringformat:"s" %}selected{% endif %}>
+                                {{ compte.nom }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="entree" {% if request.GET.type == 'entree' %}selected{% endif %}>Entrées</option>
+                            <option value="sortie" {% if request.GET.type == 'sortie' %}selected{% endif %}>Sorties</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="prevue" {% if request.GET.statut == 'prevue' %}selected{% endif %}>Prévue</option>
+                            <option value="realisee" {% if request.GET.statut == 'realisee' %}selected{% endif %}>Réalisée</option>
+                            <option value="annulee" {% if request.GET.statut == 'annulee' %}selected{% endif %}>Annulée</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Périodicité</label>
+                        <select name="periodicite" class="form-select" onchange="this.form.submit()">
+                            <option value="">Toutes</option>
+                            <option value="unique" {% if request.GET.periodicite == 'unique' %}selected{% endif %}>Unique</option>
+                            <option value="hebdomadaire" {% if request.GET.periodicite == 'hebdomadaire' %}selected{% endif %}>Hebdomadaire</option>
+                            <option value="mensuel" {% if request.GET.periodicite == 'mensuel' %}selected{% endif %}>Mensuel</option>
+                            <option value="trimestriel" {% if request.GET.periodicite == 'trimestriel' %}selected{% endif %}>Trimestriel</option>
+                            <option value="annuel" {% if request.GET.periodicite == 'annuel' %}selected{% endif %}>Annuel</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Calendrier prévisionnel -->
+    <div class="grid grid-cols-3 gap-4">
+        <!-- Liste des prévisions -->
+        <div class="card col-span-2">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="list"></i>
+                    Prévisions à venir
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if previsions %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Libellé</th>
+                            <th>Compte</th>
+                            <th>Périodicité</th>
+                            <th class="text-right">Montant</th>
+                            <th class="text-center">Statut</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prev in previsions %}
+                        <tr>
+                            <td>
+                                <div class="date-badge">
+                                    <span class="date-jour">{{ prev.date_prevue|date:"d" }}</span>
+                                    <span class="date-mois">{{ prev.date_prevue|date:"M" }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="prevision-info">
+                                    <strong>{{ prev.libelle }}</strong>
+                                    <small>{{ prev.get_categorie_display }}</small>
+                                </div>
+                            </td>
+                            <td>{{ prev.compte.nom }}</td>
+                            <td>
+                                <span class="badge badge-{% if prev.periodicite == 'unique' %}default{% else %}info{% endif %}">
+                                    {{ prev.get_periodicite_display }}
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <span class="montant {% if prev.type_prevision == 'entree' %}success{% else %}danger{% endif %}">
+                                    {% if prev.type_prevision == 'entree' %}+{% else %}-{% endif %}{{ prev.montant|floatformat:0 }} XOF
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="status-badge status-{{ prev.statut }}">{{ prev.get_statut_display }}</span>
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    {% if prev.statut == 'prevue' %}
+                                    <button class="btn btn-icon btn-sm btn-success" onclick="realiserPrevision('{{ prev.id }}')" title="Marquer comme réalisée">
+                                        <i data-lucide="check"></i>
+                                    </button>
+                                    <button class="btn btn-icon btn-sm" onclick="modifierPrevision('{{ prev.id }}')" title="Modifier">
+                                        <i data-lucide="edit"></i>
+                                    </button>
+                                    <button class="btn btn-icon btn-sm btn-danger" onclick="annulerPrevision('{{ prev.id }}')" title="Annuler">
+                                        <i data-lucide="x"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i data-lucide="calendar-x"></i>
+                    <p>Aucune prévision enregistrée</p>
+                    <button class="btn btn-primary" onclick="ouvrirModalPrevision()">
+                        <i data-lucide="plus"></i>
+                        Créer une prévision
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Résumé par mois -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="bar-chart-3"></i>
+                    Résumé mensuel
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="monthly-summary">
+                    {% for mois in resume_mensuel %}
+                    <div class="month-item">
+                        <div class="month-label">{{ mois.label }}</div>
+                        <div class="month-values">
+                            <span class="success">+{{ mois.entrees|floatformat:0 }}</span>
+                            <span class="danger">-{{ mois.sorties|floatformat:0 }}</span>
+                        </div>
+                        <div class="month-balance {% if mois.solde >= 0 %}success{% else %}danger{% endif %}">
+                            {{ mois.solde|floatformat:0 }} XOF
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-muted">Aucune donnée</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle Prévision -->
+<div class="modal" id="modalPrevision">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalPrevisionTitre">Nouvelle prévision</h3>
+            <button class="modal-close" onclick="fermerModal('modalPrevision')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formPrevision">
+                <input type="hidden" id="prev_id" name="prevision_id" value="">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Type *</label>
+                        <select id="prev_type" name="type_prevision" class="form-select" required>
+                            <option value="entree">Entrée prévue</option>
+                            <option value="sortie">Sortie prévue</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Compte *</label>
+                        <select id="prev_compte" name="compte_id" class="form-select" required>
+                            {% for compte in comptes %}
+                            <option value="{{ compte.id }}">{{ compte.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé *</label>
+                    <input type="text" id="prev_libelle" name="libelle" class="form-input" required placeholder="Ex: Loyer mensuel">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Montant (XOF) *</label>
+                        <input type="number" id="prev_montant" name="montant" class="form-input" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date prévue *</label>
+                        <input type="date" id="prev_date" name="date_prevue" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Catégorie</label>
+                        <select id="prev_categorie" name="categorie" class="form-select">
+                            <option value="encaissement">Encaissement client</option>
+                            <option value="reversement">Reversement créancier</option>
+                            <option value="honoraires">Honoraires</option>
+                            <option value="frais_acte">Frais d'acte</option>
+                            <option value="salaire">Salaire</option>
+                            <option value="loyer">Loyer</option>
+                            <option value="charges">Charges</option>
+                            <option value="impot">Impôt et taxes</option>
+                            <option value="fournitures">Fournitures</option>
+                            <option value="transport">Transport</option>
+                            <option value="virement_interne">Virement interne</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Périodicité</label>
+                        <select id="prev_periodicite" name="periodicite" class="form-select">
+                            <option value="unique">Unique</option>
+                            <option value="hebdomadaire">Hebdomadaire</option>
+                            <option value="mensuel">Mensuel</option>
+                            <option value="trimestriel">Trimestriel</option>
+                            <option value="annuel">Annuel</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea id="prev_notes" name="notes" class="form-textarea" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalPrevision')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderPrevision()">
+                <i data-lucide="save"></i>
+                Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.previsions-container {
+    max-width: 100%;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.page-title i {
+    width: 32px;
+    height: 32px;
+    color: var(--primary);
+}
+
+.page-subtitle {
+    color: var(--neutral-500);
+    margin: 0.25rem 0 0 0;
+}
+
+.filters-form .form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.filters-form .form-group {
+    flex: 1;
+}
+
+.date-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--primary-50);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    min-width: 50px;
+}
+
+.date-jour {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.date-mois {
+    font-size: 0.75rem;
+    color: var(--primary);
+    text-transform: uppercase;
+}
+
+.prevision-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.prevision-info small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+.montant {
+    font-weight: 600;
+}
+
+.montant.success { color: var(--success); }
+.montant.danger { color: var(--danger); }
+
+.btn-group {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-prevue { background: #dbeafe; color: #1e40af; }
+.status-realisee { background: #d1fae5; color: #065f46; }
+.status-annulee { background: #fee2e2; color: #991b1b; }
+
+.monthly-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.month-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    background: var(--neutral-50);
+    border-radius: 0.5rem;
+}
+
+.month-label {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.month-values {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+}
+
+.month-values .success { color: var(--success); }
+.month-values .danger { color: var(--danger); }
+
+.month-balance {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.month-balance.success { color: var(--success); }
+.month-balance.danger { color: var(--danger); }
+
+.text-center { text-align: center; }
+.text-muted { color: var(--neutral-400); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function ouvrirModalPrevision() {
+        document.getElementById('formPrevision').reset();
+        document.getElementById('prev_id').value = '';
+        document.getElementById('prev_date').valueAsDate = new Date();
+        document.getElementById('modalPrevisionTitre').textContent = 'Nouvelle prévision';
+        document.getElementById('modalPrevision').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function sauvegarderPrevision() {
+        const form = document.getElementById('formPrevision');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "tresorerie:api_creer_prevision" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Prévision créée avec succès');
+                fermerModal('modalPrevision');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la création');
+            console.error(error);
+        });
+    }
+
+    function realiserPrevision(previsionId) {
+        if (!confirm('Marquer cette prévision comme réalisée ? Un mouvement sera créé automatiquement.')) return;
+
+        fetch(`/tresorerie/api/previsions/${previsionId}/realiser/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Prévision réalisée et mouvement créé');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function modifierPrevision(previsionId) {
+        // Charger et modifier la prévision
+        alert('Modification prévision ' + previsionId);
+    }
+
+    function annulerPrevision(previsionId) {
+        if (!confirm('Annuler cette prévision ?')) return;
+
+        fetch(`/tresorerie/api/previsions/${previsionId}/annuler/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function fermerModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+    }
+
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+</script>
+{% endblock %}

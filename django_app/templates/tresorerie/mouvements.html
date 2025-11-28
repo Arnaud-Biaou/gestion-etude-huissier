@@ -1,0 +1,603 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'tresorerie:dashboard' %}" class="breadcrumb-item">Trésorerie</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item current">Mouvements</span>
+{% endblock %}
+
+{% block content %}
+<div class="mouvements-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <i data-lucide="list"></i>
+                Mouvements de trésorerie
+            </h1>
+            <p class="page-subtitle">Historique des entrées et sorties de fonds</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-success" onclick="ouvrirModalMouvement('entree')">
+                <i data-lucide="plus-circle"></i>
+                Nouvelle entrée
+            </button>
+            <button class="btn btn-danger" onclick="ouvrirModalMouvement('sortie')">
+                <i data-lucide="minus-circle"></i>
+                Nouvelle sortie
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline dropdown-toggle" onclick="toggleDropdown('exportDropdown')">
+                    <i data-lucide="download"></i>
+                    Exporter
+                </button>
+                <div class="dropdown-menu" id="exportDropdown">
+                    <a href="#" onclick="exporterMouvements('pdf')" class="dropdown-item">
+                        <i data-lucide="file-text"></i>
+                        Export PDF
+                    </a>
+                    <a href="#" onclick="exporterMouvements('excel')" class="dropdown-item">
+                        <i data-lucide="file-spreadsheet"></i>
+                        Export Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="filters-form" id="filtresForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Compte</label>
+                        <select name="compte" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous les comptes</option>
+                            {% for compte in comptes %}
+                            <option value="{{ compte.id }}" {% if request.GET.compte == compte.id|stringformat:"s" %}selected{% endif %}>
+                                {{ compte.nom }} - {{ compte.banque }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="entree" {% if request.GET.type == 'entree' %}selected{% endif %}>Entrées</option>
+                            <option value="sortie" {% if request.GET.type == 'sortie' %}selected{% endif %}>Sorties</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Catégorie</label>
+                        <select name="categorie" class="form-select" onchange="this.form.submit()">
+                            <option value="">Toutes</option>
+                            {% for code, label in categories %}
+                            <option value="{{ code }}" {% if request.GET.categorie == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="en_attente" {% if request.GET.statut == 'en_attente' %}selected{% endif %}>En attente</option>
+                            <option value="valide" {% if request.GET.statut == 'valide' %}selected{% endif %}>Validé</option>
+                            <option value="annule" {% if request.GET.statut == 'annule' %}selected{% endif %}>Annulé</option>
+                            <option value="rapproche" {% if request.GET.statut == 'rapproche' %}selected{% endif %}>Rapproché</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row mt-3">
+                    <div class="form-group">
+                        <label class="form-label">Date début</label>
+                        <input type="date" name="date_debut" class="form-input" value="{{ request.GET.date_debut }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date fin</label>
+                        <input type="date" name="date_fin" class="form-input" value="{{ request.GET.date_fin }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Recherche</label>
+                        <input type="text" name="q" class="form-input" placeholder="Libellé, référence, tiers..." value="{{ request.GET.q }}">
+                    </div>
+                    <div class="form-group" style="align-self: flex-end;">
+                        <button type="submit" class="btn btn-outline">
+                            <i data-lucide="search"></i>
+                            Filtrer
+                        </button>
+                        <a href="{% url 'tresorerie:mouvements' %}" class="btn btn-ghost">
+                            <i data-lucide="x"></i>
+                            Réinitialiser
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon success">
+                    <i data-lucide="trending-up"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Total entrées</div>
+                    <div class="stat-value success">+{{ total_entrees|floatformat:0|default:"0" }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon danger">
+                    <i data-lucide="trending-down"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Total sorties</div>
+                    <div class="stat-value danger">-{{ total_sorties|floatformat:0|default:"0" }} XOF</div>
+                </div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-content">
+                <div class="stat-icon info">
+                    <i data-lucide="scale"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Solde période</div>
+                    <div class="stat-value {% if solde_periode >= 0 %}success{% else %}danger{% endif %}">
+                        {% if solde_periode >= 0 %}+{% endif %}{{ solde_periode|floatformat:0|default:"0" }} XOF
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des mouvements -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="list"></i>
+                {{ mouvements|length }} mouvement{{ mouvements|length|pluralize }}
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if mouvements %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Compte</th>
+                        <th>Libellé</th>
+                        <th>Catégorie</th>
+                        <th>Mode</th>
+                        <th class="text-right">Montant</th>
+                        <th class="text-center">Statut</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mvt in mouvements %}
+                    <tr>
+                        <td>
+                            <div class="date-cell">
+                                <strong>{{ mvt.date_mouvement|date:"d/m/Y" }}</strong>
+                                {% if mvt.date_valeur %}
+                                <small>Valeur: {{ mvt.date_valeur|date:"d/m" }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ mvt.compte.nom }}</td>
+                        <td>
+                            <div class="libelle-cell">
+                                <strong>{{ mvt.libelle }}</strong>
+                                {% if mvt.tiers %}
+                                <small>{{ mvt.tiers }}</small>
+                                {% endif %}
+                                {% if mvt.reference %}
+                                <small class="text-muted">Réf: {{ mvt.reference }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-default">{{ mvt.get_categorie_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-outline">{{ mvt.get_mode_paiement_display }}</span>
+                        </td>
+                        <td class="text-right">
+                            <span class="montant {% if mvt.type_mouvement == 'entree' %}success{% else %}danger{% endif %}">
+                                {% if mvt.type_mouvement == 'entree' %}+{% else %}-{% endif %}{{ mvt.montant|floatformat:0 }} XOF
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="status-badge status-{{ mvt.statut }}">{{ mvt.get_statut_display }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group">
+                                {% if mvt.statut == 'en_attente' %}
+                                <button class="btn btn-icon btn-sm btn-success" onclick="validerMouvement('{{ mvt.id }}')" title="Valider">
+                                    <i data-lucide="check"></i>
+                                </button>
+                                <button class="btn btn-icon btn-sm btn-danger" onclick="annulerMouvement('{{ mvt.id }}')" title="Annuler">
+                                    <i data-lucide="x"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-icon btn-sm" onclick="voirDetails('{{ mvt.id }}')" title="Détails">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="inbox"></i>
+                <p>Aucun mouvement trouvé</p>
+                <button class="btn btn-primary" onclick="ouvrirModalMouvement('entree')">
+                    <i data-lucide="plus"></i>
+                    Enregistrer un mouvement
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouveau Mouvement -->
+<div class="modal" id="modalMouvement">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalMouvementTitre">Nouveau mouvement</h3>
+            <button class="modal-close" onclick="fermerModal('modalMouvement')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formMouvement">
+                <input type="hidden" id="mvt_type" name="type_mouvement" value="entree">
+
+                <div class="form-group">
+                    <label class="form-label">Compte *</label>
+                    <select id="mvt_compte" name="compte_id" class="form-select" required>
+                        {% for compte in comptes %}
+                        <option value="{{ compte.id }}">{{ compte.nom }} - {{ compte.banque }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Montant (XOF) *</label>
+                        <input type="number" id="mvt_montant" name="montant" class="form-input" required min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date *</label>
+                        <input type="date" id="mvt_date" name="date_mouvement" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé *</label>
+                    <input type="text" id="mvt_libelle" name="libelle" class="form-input" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Catégorie</label>
+                        <select id="mvt_categorie" name="categorie" class="form-select">
+                            <option value="encaissement">Encaissement client</option>
+                            <option value="reversement">Reversement créancier</option>
+                            <option value="honoraires">Honoraires</option>
+                            <option value="frais_acte">Frais d'acte</option>
+                            <option value="salaire">Salaire</option>
+                            <option value="loyer">Loyer</option>
+                            <option value="charges">Charges</option>
+                            <option value="impot">Impôt et taxes</option>
+                            <option value="fournitures">Fournitures</option>
+                            <option value="transport">Transport</option>
+                            <option value="virement_interne">Virement interne</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mode de paiement</label>
+                        <select id="mvt_mode" name="mode_paiement" class="form-select">
+                            <option value="especes">Espèces</option>
+                            <option value="cheque">Chèque</option>
+                            <option value="virement">Virement</option>
+                            <option value="carte">Carte bancaire</option>
+                            <option value="mobile_money">Mobile Money</option>
+                            <option value="prelevement">Prélèvement</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tiers</label>
+                        <input type="text" id="mvt_tiers" name="tiers" class="form-input" placeholder="Nom du payeur/bénéficiaire">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Référence</label>
+                        <input type="text" id="mvt_reference" name="reference" class="form-input" placeholder="N° facture, chèque...">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea id="mvt_notes" name="notes" class="form-textarea" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalMouvement')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderMouvement()">
+                <i data-lucide="save"></i>
+                Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.mouvements-container {
+    max-width: 100%;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.page-title i {
+    width: 32px;
+    height: 32px;
+    color: var(--primary);
+}
+
+.page-subtitle {
+    color: var(--neutral-500);
+    margin: 0.25rem 0 0 0;
+}
+
+.filters-form .form-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filters-form .form-group {
+    flex: 1;
+}
+
+.mt-3 {
+    margin-top: 1rem;
+}
+
+.date-cell, .libelle-cell {
+    display: flex;
+    flex-direction: column;
+}
+
+.date-cell small, .libelle-cell small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+.montant {
+    font-weight: 600;
+}
+
+.montant.success { color: var(--success); }
+.montant.danger { color: var(--danger); }
+
+.btn-group {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-en_attente { background: #fef3c7; color: #92400e; }
+.status-valide { background: #d1fae5; color: #065f46; }
+.status-annule { background: #fee2e2; color: #991b1b; }
+.status-rapproche { background: #dbeafe; color: #1e40af; }
+
+.badge-outline {
+    background: transparent;
+    border: 1px solid var(--neutral-300);
+    color: var(--neutral-600);
+}
+
+.dropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    min-width: 160px;
+    z-index: 100;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    color: var(--neutral-700);
+    text-decoration: none;
+}
+
+.dropdown-item:hover {
+    background: var(--neutral-50);
+}
+
+.dropdown-item i {
+    width: 16px;
+    height: 16px;
+}
+
+.text-muted {
+    color: var(--neutral-400);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Initialiser la date du jour
+    document.getElementById('mvt_date').valueAsDate = new Date();
+
+    function toggleDropdown(id) {
+        const menu = document.getElementById(id);
+        menu.classList.toggle('show');
+    }
+
+    // Fermer dropdown en cliquant ailleurs
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+        }
+    });
+
+    function ouvrirModalMouvement(type) {
+        document.getElementById('mvt_type').value = type;
+        document.getElementById('modalMouvementTitre').textContent =
+            type === 'entree' ? 'Nouvelle entrée' : 'Nouvelle sortie';
+        document.getElementById('modalMouvement').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function sauvegarderMouvement() {
+        const form = document.getElementById('formMouvement');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "tresorerie:api_creer_mouvement" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Mouvement créé avec succès');
+                fermerModal('modalMouvement');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la création du mouvement');
+            console.error(error);
+        });
+    }
+
+    function validerMouvement(mouvementId) {
+        if (!confirm('Valider ce mouvement ?')) return;
+
+        fetch(`/tresorerie/api/mouvements/${mouvementId}/valider/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function annulerMouvement(mouvementId) {
+        if (!confirm('Annuler ce mouvement ?')) return;
+
+        fetch(`/tresorerie/api/mouvements/${mouvementId}/annuler/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function voirDetails(mouvementId) {
+        alert('Affichage détails mouvement ' + mouvementId);
+    }
+
+    function exporterMouvements(format) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('format', format);
+        window.location.href = '/tresorerie/api/mouvements/export/?' + params.toString();
+    }
+
+    function fermerModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+    }
+
+    // Fermer modal en cliquant à l'extérieur
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+</script>
+{% endblock %}
