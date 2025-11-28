@@ -64,6 +64,9 @@ body { font-family: var(--font-body); background: var(--neutral-100); color: var
 .user-info { flex: 1; }
 .user-name { font-size: 12px; font-weight: bold; }
 .user-role { font-size: 10px; opacity: 0.8; }
+.logout-btn { display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-top: 10px; border-radius: var(--radius-md); background: rgba(197, 48, 48, 0.15); color: #ff8a8a; text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s; border: 1px solid rgba(197, 48, 48, 0.2); }
+.logout-btn:hover { background: rgba(197, 48, 48, 0.3); color: #ffa8a8; border-color: rgba(197, 48, 48, 0.4); }
+.logout-btn i, .logout-btn svg { width: 16px; height: 16px; }
 
 /* MAIN CONTENT */
 .main-content { flex: 1; margin-left: 280px; display: flex; flex-direction: column; }
