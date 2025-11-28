@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'gestion:dossiers' %}" class="breadcrumb-item">Dossiers</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">{{ dossier.reference }}</span>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'gestion:dossiers' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left"></i> Retour
+        </a>
+        <div>
+            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ dossier.reference }}</h2>
+            <p style="color: var(--neutral-500);">{{ dossier.get_intitule }}</p>
+        </div>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'gestion:modifier_dossier' dossier.pk %}" class="btn btn-primary">
+            <i data-lucide="edit"></i> Modifier
+        </a>
+        <button class="btn btn-secondary" onclick="window.print()">
+            <i data-lucide="printer"></i> Imprimer
+        </button>
+    </div>
+</div>
+
+<!-- Badges statut et phase -->
+<div class="flex gap-2 mb-4">
+    <span class="status-badge {{ dossier.statut }}">
+        {% if dossier.statut == 'actif' %}
+        <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Actif
+        {% elif dossier.statut == 'urgent' %}
+        <i data-lucide="alert-circle" style="width: 12px; height: 12px;"></i> Urgent
+        {% elif dossier.statut == 'archive' %}
+        <i data-lucide="archive" style="width: 12px; height: 12px;"></i> Archivé
+        {% elif dossier.statut == 'cloture' %}
+        <i data-lucide="lock" style="width: 12px; height: 12px;"></i> Clôturé
+        {% endif %}
+    </span>
+    <span class="status-badge {% if dossier.is_contentieux %}contentieux{% else %}non-contentieux{% endif %}">
+        {{ dossier.is_contentieux|yesno:"Contentieux,Non-contentieux" }}
+    </span>
+    <span class="status-badge {% if dossier.phase == 'force' %}urgent{% else %}actif{% endif %}">
+        <i data-lucide="{% if dossier.phase == 'force' %}gavel{% else %}handshake{% endif %}" style="width: 12px; height: 12px;"></i>
+        Phase {{ dossier.get_phase_display }}
+    </span>
+</div>
+
+<!-- Statistiques financières -->
+<div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="card" style="padding: 16px;">
+        <div style="font-size: 12px; color: var(--neutral-500); margin-bottom: 4px;">Montant Total Dû</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ stats.montant_total_du|floatformat:0 }} F</div>
+    </div>
+    <div class="card" style="padding: 16px;">
+        <div style="font-size: 12px; color: var(--neutral-500); margin-bottom: 4px;">Total Encaissé</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">{{ stats.total_encaisse|floatformat:0 }} F</div>
+    </div>
+    <div class="card" style="padding: 16px;">
+        <div style="font-size: 12px; color: var(--neutral-500); margin-bottom: 4px;">Solde Restant</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning);">{{ stats.solde_restant|floatformat:0 }} F</div>
+    </div>
+    <div class="card" style="padding: 16px;">
+        <div style="font-size: 12px; color: var(--neutral-500); margin-bottom: 4px;">Taux Recouvrement</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--info);">{{ stats.taux_recouvrement|floatformat:1 }}%</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2 gap-4">
+    <!-- Colonne gauche -->
+    <div>
+        <!-- Informations générales -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="info" style="width: 18px; height: 18px;"></i> Informations générales</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Référence</span>
+                        <p style="font-weight: 600;">{{ dossier.reference }}</p>
+                    </div>
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Type</span>
+                        <p style="font-weight: 500;">{{ dossier.get_type_dossier_display|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Date d'ouverture</span>
+                        <p style="font-weight: 500;">{{ dossier.date_ouverture|date:"d/m/Y" }}</p>
+                    </div>
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Affecté à</span>
+                        <p style="font-weight: 500;">{{ dossier.affecte_a.nom|default:"-" }}</p>
+                    </div>
+                    {% if dossier.creancier %}
+                    <div class="col-span-2">
+                        <span style="color: var(--neutral-500); font-size: 12px;">Créancier</span>
+                        <p style="font-weight: 500;">{{ dossier.creancier.nom }}</p>
+                    </div>
+                    {% endif %}
+                    {% if dossier.description %}
+                    <div class="col-span-2">
+                        <span style="color: var(--neutral-500); font-size: 12px;">Description</span>
+                        <p style="font-weight: 500;">{{ dossier.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Montants détaillés -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="calculator" style="width: 18px; height: 18px;"></i> Montants détaillés</h3>
+            </div>
+            <div class="card-body">
+                <table class="w-full">
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--neutral-200);">
+                            <td style="padding: 8px 0; color: var(--neutral-600);">Montant créance</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ dossier.montant_creance|floatformat:0|default:"0" }} F</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--neutral-200);">
+                            <td style="padding: 8px 0; color: var(--neutral-600);">Principal</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ dossier.montant_principal|floatformat:0|default:"0" }} F</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--neutral-200);">
+                            <td style="padding: 8px 0; color: var(--neutral-600);">Intérêts</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ dossier.montant_interets|floatformat:0|default:"0" }} F</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--neutral-200);">
+                            <td style="padding: 8px 0; color: var(--neutral-600);">Frais de procédure</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ dossier.montant_frais|floatformat:0|default:"0" }} F</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--neutral-200);">
+                            <td style="padding: 8px 0; color: var(--neutral-600);">Émoluments</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ dossier.montant_emoluments|floatformat:0|default:"0" }} F</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--neutral-200);">
+                            <td style="padding: 8px 0; color: var(--neutral-600);">Dépens</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ dossier.montant_depens|floatformat:0|default:"0" }} F</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; font-weight: 700;">TOTAL</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 700; color: var(--primary);">{{ stats.montant_total_du|floatformat:0 }} F</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if dossier.phase == 'force' and dossier.titre_executoire_type %}
+        <!-- Titre exécutoire -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="file-check" style="width: 18px; height: 18px;"></i> Titre exécutoire</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Type</span>
+                        <p style="font-weight: 500;">{{ dossier.titre_executoire_type }}</p>
+                    </div>
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Référence</span>
+                        <p style="font-weight: 500;">{{ dossier.titre_executoire_reference|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Date</span>
+                        <p style="font-weight: 500;">{{ dossier.titre_executoire_date|date:"d/m/Y"|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <span style="color: var(--neutral-500); font-size: 12px;">Juridiction</span>
+                        <p style="font-weight: 500;">{{ dossier.titre_executoire_juridiction|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Colonne droite -->
+    <div>
+        <!-- Demandeurs -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="user" style="width: 18px; height: 18px;"></i> Demandeur(s) / Client(s)</h3>
+            </div>
+            <div class="card-body">
+                {% for partie in demandeurs %}
+                <div style="{% if not forloop.last %}border-bottom: 1px solid var(--neutral-200); margin-bottom: 12px; padding-bottom: 12px;{% endif %}">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: {% if partie.type_personne == 'physique' %}var(--info-light){% else %}var(--accent-light){% endif %}; color: {% if partie.type_personne == 'physique' %}white{% else %}var(--primary-dark){% endif %};">
+                            {{ partie.type_personne|title }}
+                        </span>
+                    </div>
+                    <p style="font-weight: 600; margin-bottom: 4px;">{{ partie.get_nom_complet }}</p>
+                    {% if partie.domicile or partie.siege_social %}
+                    <p style="font-size: 13px; color: var(--neutral-600);">
+                        <i data-lucide="map-pin" style="width: 12px; height: 12px; display: inline;"></i>
+                        {{ partie.domicile|default:partie.siege_social }}
+                    </p>
+                    {% endif %}
+                    {% if partie.telephone %}
+                    <p style="font-size: 13px; color: var(--neutral-600);">
+                        <i data-lucide="phone" style="width: 12px; height: 12px; display: inline;"></i>
+                        {{ partie.telephone }}
+                    </p>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p style="color: var(--neutral-500); font-style: italic;">Aucun demandeur enregistré</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Défendeurs -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="users" style="width: 18px; height: 18px;"></i> Défendeur(s) / Débiteur(s)</h3>
+            </div>
+            <div class="card-body">
+                {% for partie in defendeurs %}
+                <div style="{% if not forloop.last %}border-bottom: 1px solid var(--neutral-200); margin-bottom: 12px; padding-bottom: 12px;{% endif %}">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: {% if partie.type_personne == 'physique' %}var(--warning-light){% else %}var(--danger-light){% endif %}; color: var(--primary-dark);">
+                            {{ partie.type_personne|title }}
+                        </span>
+                    </div>
+                    <p style="font-weight: 600; margin-bottom: 4px;">{{ partie.get_nom_complet }}</p>
+                    {% if partie.domicile or partie.siege_social %}
+                    <p style="font-size: 13px; color: var(--neutral-600);">
+                        <i data-lucide="map-pin" style="width: 12px; height: 12px; display: inline;"></i>
+                        {{ partie.domicile|default:partie.siege_social }}
+                    </p>
+                    {% endif %}
+                    {% if partie.telephone %}
+                    <p style="font-size: 13px; color: var(--neutral-600);">
+                        <i data-lucide="phone" style="width: 12px; height: 12px; display: inline;"></i>
+                        {{ partie.telephone }}
+                    </p>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p style="color: var(--neutral-500); font-style: italic;">Aucun défendeur enregistré</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Encaissements récents -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="banknote" style="width: 18px; height: 18px;"></i> Encaissements récents</h3>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                {% if encaissements %}
+                <table class="w-full">
+                    <thead>
+                        <tr style="background: var(--neutral-50);">
+                            <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
+                            <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Référence</th>
+                            <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Montant</th>
+                            <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enc in encaissements %}
+                        <tr style="border-bottom: 1px solid var(--neutral-100);">
+                            <td style="padding: 8px 12px; font-size: 13px;">{{ enc.date_encaissement|date:"d/m/Y" }}</td>
+                            <td style="padding: 8px 12px; font-size: 13px;">{{ enc.reference }}</td>
+                            <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600;">{{ enc.montant|floatformat:0 }} F</td>
+                            <td style="padding: 8px 12px; text-align: center;">
+                                <span class="status-badge {{ enc.statut }}">{{ enc.get_statut_display }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="padding: 16px; color: var(--neutral-500); font-style: italic;">Aucun encaissement</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métadonnées -->
+<div class="card">
+    <div class="card-body" style="padding: 12px 16px; background: var(--neutral-50);">
+        <div class="flex justify-between" style="font-size: 12px; color: var(--neutral-500);">
+            <span>Créé le {{ dossier.date_creation|date:"d/m/Y à H:i" }}{% if dossier.cree_par %} par {{ dossier.cree_par }}{% endif %}</span>
+            <span>Dernière modification: {{ dossier.date_modification|date:"d/m/Y à H:i" }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
