@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Encaissements</span>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 600; margin: 0;">Historique des Encaissements</h1>
+        <p style="color: var(--neutral-500); margin-top: 4px;">Suivi des paiements reçus sur les dossiers de recouvrement</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModalEncaissement()">
+        <i data-lucide="plus"></i> Nouvel encaissement
+    </button>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #DCFCE7; padding: 12px; border-radius: 8px;">
+                <i data-lucide="banknote" style="color: #16A34A; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Total encaissé (validé)</p>
+                <p style="font-size: 1.5rem; font-weight: 600; color: #16A34A;">
+                    {{ stats.total|floatformat:0|default:"0" }} F
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: var(--primary-light); padding: 12px; border-radius: 8px;">
+                <i data-lucide="receipt" style="color: var(--primary); width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Nombre d'encaissements</p>
+                <p style="font-size: 1.5rem; font-weight: 600;">{{ stats.count|default:"0" }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #FEF3C7; padding: 12px; border-radius: 8px;">
+                <i data-lucide="clock" style="color: #D97706; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">En attente de validation</p>
+                <p style="font-size: 1.5rem; font-weight: 600;" id="enAttenteCount">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters & Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex gap-4 flex-wrap" style="flex: 1;">
+            <select class="form-select" style="width: 200px;" id="creancierFilter">
+                <option value="">Tous les créanciers</option>
+                {% for c in creanciers %}
+                <option value="{{ c.id }}">{{ c.nom }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select" style="width: 150px;" id="statutFilter">
+                <option value="">Tous statuts</option>
+                <option value="brouillon">Brouillon</option>
+                <option value="valide">Validé</option>
+                <option value="annule">Annulé</option>
+            </select>
+            <input type="date" class="form-input" style="width: 150px;" id="dateDebut" placeholder="Date début">
+            <input type="date" class="form-input" style="width: 150px;" id="dateFin" placeholder="Date fin">
+            <button class="btn btn-secondary btn-sm" onclick="applyFilters()">
+                <i data-lucide="filter"></i> Filtrer
+            </button>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="exportEncaissements()">
+                <i data-lucide="download"></i> Exporter
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Date</th>
+                    <th>Dossier</th>
+                    <th>Créancier</th>
+                    <th>Mode</th>
+                    <th>Montant</th>
+                    <th>Statut</th>
+                    <th>Reversement</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enc in encaissements %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ enc.reference }}</td>
+                    <td>{{ enc.date_encaissement|date:"d/m/Y" }}</td>
+                    <td>
+                        <a href="{% url 'gestion:dossiers' %}?id={{ enc.dossier.id }}" style="color: var(--primary);">
+                            {{ enc.dossier.reference }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if enc.dossier.creancier %}
+                        {{ enc.dossier.creancier.nom }}
+                        {% else %}
+                        <span style="color: var(--neutral-400);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge" style="background: var(--neutral-100);">
+                            {{ enc.get_mode_paiement_display }}
+                        </span>
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">
+                        {{ enc.montant|floatformat:0 }} F
+                    </td>
+                    <td>
+                        {% if enc.statut == 'valide' %}
+                        <span class="status-badge actif">
+                            <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Validé
+                        </span>
+                        {% elif enc.statut == 'brouillon' %}
+                        <span class="status-badge en-attente">
+                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> Brouillon
+                        </span>
+                        {% elif enc.statut == 'annule' %}
+                        <span class="status-badge cloture">
+                            <i data-lucide="x-circle" style="width: 12px; height: 12px;"></i> Annulé
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if enc.reversement_statut == 'effectue' %}
+                        <span class="status-badge actif">Reversé</span>
+                        {% elif enc.reversement_statut == 'en_cours' %}
+                        <span class="status-badge en-attente">En cours</span>
+                        {% else %}
+                        <span class="status-badge" style="background: var(--neutral-100); color: var(--neutral-600);">Non reversé</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Voir détails" onclick="viewEncaissement({{ enc.id }})">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            {% if enc.statut == 'brouillon' %}
+                            <button class="icon-btn" title="Valider" onclick="validerEncaissement({{ enc.id }})" style="color: #16A34A;">
+                                <i data-lucide="check"></i>
+                            </button>
+                            <button class="icon-btn" title="Annuler" onclick="annulerEncaissement({{ enc.id }})" style="color: var(--danger);">
+                                <i data-lucide="x"></i>
+                            </button>
+                            {% endif %}
+                            <button class="icon-btn" title="Imprimer reçu" onclick="printRecu({{ enc.id }})">
+                                <i data-lucide="printer"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        <i data-lucide="inbox" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <p>Aucun encaissement trouvé</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if encaissements.has_other_pages %}
+    <div class="card-footer" style="display: flex; justify-content: center; padding: 16px; gap: 8px;">
+        {% if encaissements.has_previous %}
+        <a href="?page={{ encaissements.previous_page_number }}" class="btn btn-secondary btn-sm">
+            <i data-lucide="chevron-left"></i> Précédent
+        </a>
+        {% endif %}
+        <span style="padding: 8px 16px; color: var(--neutral-600);">
+            Page {{ encaissements.number }} sur {{ encaissements.paginator.num_pages }}
+        </span>
+        {% if encaissements.has_next %}
+        <a href="?page={{ encaissements.next_page_number }}" class="btn btn-secondary btn-sm">
+            Suivant <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Nouvel Encaissement -->
+<div id="modalEncaissement" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Nouvel encaissement</h3>
+            <button class="icon-btn" onclick="closeModalEncaissement()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="formEncaissement">
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px;">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Dossier *</label>
+                    <select class="form-select" id="enc_dossier" name="dossier_id" required>
+                        <option value="">Sélectionner un dossier...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date d'encaissement *</label>
+                    <input type="date" class="form-input" id="enc_date" name="date_encaissement" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Montant *</label>
+                    <input type="number" class="form-input" id="enc_montant" name="montant" required min="1" step="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mode de paiement *</label>
+                    <select class="form-select" id="enc_mode" name="mode_paiement" required>
+                        <option value="especes">Espèces</option>
+                        <option value="cheque">Chèque</option>
+                        <option value="virement">Virement</option>
+                        <option value="mobile_money">Mobile Money</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Référence paiement</label>
+                    <input type="text" class="form-input" id="enc_ref" name="reference_paiement" placeholder="N° chèque, réf. virement...">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Observations</label>
+                    <textarea class="form-input" id="enc_obs" name="observations" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalEncaissement()">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Compter les encaissements en attente
+    let enAttente = 0;
+    {% for enc in encaissements %}
+    {% if enc.statut == 'brouillon' %}enAttente++;{% endif %}
+    {% endfor %}
+    document.getElementById('enAttenteCount').textContent = enAttente;
+
+    // Date par défaut
+    document.getElementById('enc_date').valueAsDate = new Date();
+
+    // Appliquer filtres
+    function applyFilters() {
+        const creancier = document.getElementById('creancierFilter').value;
+        const statut = document.getElementById('statutFilter').value;
+        const dateDebut = document.getElementById('dateDebut').value;
+        const dateFin = document.getElementById('dateFin').value;
+
+        let url = new URL(window.location.href);
+        url.searchParams.set('creancier', creancier);
+        url.searchParams.set('statut', statut);
+        url.searchParams.set('date_debut', dateDebut);
+        url.searchParams.set('date_fin', dateFin);
+        window.location.href = url.toString();
+    }
+
+    // Modal encaissement
+    function openModalEncaissement() {
+        // Charger les dossiers
+        fetch('{% url "gestion:api_dossiers_liste" %}')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('enc_dossier');
+                    select.innerHTML = '<option value="">Sélectionner un dossier...</option>';
+                    data.dossiers.forEach(d => {
+                        select.innerHTML += `<option value="${d.id}">${d.reference} - ${d.intitule}</option>`;
+                    });
+                }
+            });
+        document.getElementById('modalEncaissement').style.display = 'flex';
+    }
+
+    function closeModalEncaissement() {
+        document.getElementById('modalEncaissement').style.display = 'none';
+    }
+
+    document.getElementById('formEncaissement').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gestion:api_encaissement_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur');
+            }
+        });
+    });
+
+    function validerEncaissement(id) {
+        if (confirm('Valider cet encaissement ?')) {
+            fetch(`{% url 'gestion:api_encaissement_valider' encaissement_id=0 %}`.replace('/0/', `/${id}/`), {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert(data.error || 'Erreur');
+            });
+        }
+    }
+
+    function annulerEncaissement(id) {
+        if (confirm('Annuler cet encaissement ?')) {
+            fetch(`{% url 'gestion:api_encaissement_annuler' encaissement_id=0 %}`.replace('/0/', `/${id}/`), {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert(data.error || 'Erreur');
+            });
+        }
+    }
+
+    function viewEncaissement(id) {
+        fetch(`{% url 'gestion:api_encaissement_detail' encaissement_id=0 %}`.replace('/0/', `/${id}/`))
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(JSON.stringify(data.encaissement, null, 2));
+                }
+            });
+    }
+
+    function printRecu(id) {
+        window.open(`{% url 'gestion:api_encaissement_detail' encaissement_id=0 %}`.replace('/0/', `/${id}/`) + '?format=pdf', '_blank');
+    }
+
+    function exportEncaissements() {
+        window.location.href = '{% url "gestion:api_encaissements_export" %}?format=excel';
+    }
+
+    // Fermer modal au clic extérieur
+    document.getElementById('modalEncaissement').addEventListener('click', function(e) {
+        if (e.target === this) closeModalEncaissement();
+    });
+</script>
+{% endblock %}

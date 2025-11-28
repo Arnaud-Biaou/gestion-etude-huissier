@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Reversements</span>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 600; margin: 0;">Suivi des Reversements</h1>
+        <p style="color: var(--neutral-500); margin-top: 4px;">Gestion des reversements aux créanciers</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModalReversement()">
+        <i data-lucide="plus"></i> Nouveau reversement
+    </button>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #DCFCE7; padding: 12px; border-radius: 8px;">
+                <i data-lucide="check-circle" style="color: #16A34A; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Reversements effectués</p>
+                <p style="font-size: 1.5rem; font-weight: 600; color: #16A34A;" id="totalEffectue">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #FEF3C7; padding: 12px; border-radius: 8px;">
+                <i data-lucide="clock" style="color: #D97706; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">En attente</p>
+                <p style="font-size: 1.5rem; font-weight: 600; color: #D97706;" id="totalEnAttente">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: var(--primary-light); padding: 12px; border-radius: 8px;">
+                <i data-lucide="send" style="color: var(--primary); width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Montant total reversé</p>
+                <p style="font-size: 1.5rem; font-weight: 600;" id="montantTotal">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #FEE2E2; padding: 12px; border-radius: 8px;">
+                <i data-lucide="alert-triangle" style="color: #DC2626; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">À reverser (retard)</p>
+                <p style="font-size: 1.5rem; font-weight: 600; color: #DC2626;" id="enRetard">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters & Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex gap-4 flex-wrap" style="flex: 1;">
+            <select class="form-select" style="width: 200px;" id="creancierFilter">
+                <option value="">Tous les créanciers</option>
+                {% for c in creanciers %}
+                <option value="{{ c.id }}">{{ c.nom }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select" style="width: 150px;" id="statutFilter">
+                <option value="">Tous statuts</option>
+                <option value="brouillon">Brouillon</option>
+                <option value="valide">Validé</option>
+                <option value="effectue">Effectué</option>
+                <option value="annule">Annulé</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="applyFilters()">
+                <i data-lucide="filter"></i> Filtrer
+            </button>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="exportReversements()">
+                <i data-lucide="download"></i> Exporter
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Date création</th>
+                    <th>Créancier</th>
+                    <th>Nb encaissements</th>
+                    <th>Montant brut</th>
+                    <th>Honoraires</th>
+                    <th>Montant net</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rev in reversements %}
+                <tr data-statut="{{ rev.statut }}">
+                    <td style="font-weight: 600; color: var(--primary);">{{ rev.reference }}</td>
+                    <td>{{ rev.date_creation|date:"d/m/Y" }}</td>
+                    <td>
+                        <div>
+                            <div style="font-weight: 500;">{{ rev.creancier.nom }}</div>
+                            <div style="font-size: 0.75rem; color: var(--neutral-500);">{{ rev.creancier.code }}</div>
+                        </div>
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="badge" style="background: var(--primary-light); color: var(--primary);">
+                            {{ rev.encaissements.count }}
+                        </span>
+                    </td>
+                    <td style="text-align: right;">{{ rev.montant_brut|floatformat:0 }} F</td>
+                    <td style="text-align: right; color: var(--danger);">{{ rev.montant_honoraires|floatformat:0 }} F</td>
+                    <td style="text-align: right; font-weight: 600; color: #16A34A;">{{ rev.montant_net|floatformat:0 }} F</td>
+                    <td>
+                        {% if rev.statut == 'effectue' %}
+                        <span class="status-badge actif">
+                            <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Effectué
+                        </span>
+                        {% elif rev.statut == 'valide' %}
+                        <span class="status-badge en-attente">
+                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> Validé
+                        </span>
+                        {% elif rev.statut == 'brouillon' %}
+                        <span class="status-badge" style="background: var(--neutral-100); color: var(--neutral-600);">
+                            <i data-lucide="file-edit" style="width: 12px; height: 12px;"></i> Brouillon
+                        </span>
+                        {% elif rev.statut == 'annule' %}
+                        <span class="status-badge cloture">
+                            <i data-lucide="x-circle" style="width: 12px; height: 12px;"></i> Annulé
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Voir détails" onclick="viewReversement({{ rev.id }})">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            {% if rev.statut == 'valide' %}
+                            <button class="icon-btn" title="Effectuer le reversement" onclick="effectuerReversement({{ rev.id }})" style="color: #16A34A;">
+                                <i data-lucide="send"></i>
+                            </button>
+                            {% endif %}
+                            <button class="icon-btn" title="Bordereau" onclick="printBordereau({{ rev.id }})">
+                                <i data-lucide="file-text"></i>
+                            </button>
+                            <button class="icon-btn" title="Imprimer" onclick="printReversement({{ rev.id }})">
+                                <i data-lucide="printer"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        <i data-lucide="send" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <p>Aucun reversement trouvé</p>
+                        <button class="btn btn-primary" style="margin-top: 16px;" onclick="openModalReversement()">
+                            <i data-lucide="plus"></i> Créer un reversement
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if reversements.has_other_pages %}
+    <div class="card-footer" style="display: flex; justify-content: center; padding: 16px; gap: 8px;">
+        {% if reversements.has_previous %}
+        <a href="?page={{ reversements.previous_page_number }}" class="btn btn-secondary btn-sm">
+            <i data-lucide="chevron-left"></i> Précédent
+        </a>
+        {% endif %}
+        <span style="padding: 8px 16px; color: var(--neutral-600);">
+            Page {{ reversements.number }} sur {{ reversements.paginator.num_pages }}
+        </span>
+        {% if reversements.has_next %}
+        <a href="?page={{ reversements.next_page_number }}" class="btn btn-secondary btn-sm">
+            Suivant <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Nouveau Reversement -->
+<div id="modalReversement" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3>Nouveau reversement</h3>
+            <button class="icon-btn" onclick="closeModalReversement()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="formReversement">
+            <div style="padding: 20px;">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Créancier *</label>
+                    <select class="form-select" id="rev_creancier" name="creancier_id" required onchange="loadEncaissementsDisponibles()">
+                        <option value="">Sélectionner un créancier...</option>
+                        {% for c in creanciers %}
+                        <option value="{{ c.id }}">{{ c.nom }} ({{ c.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="encaissementsContainer" style="display: none;">
+                    <h4 style="margin-bottom: 12px; font-size: 0.875rem; font-weight: 600;">Encaissements disponibles</h4>
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                    </th>
+                                    <th>Référence</th>
+                                    <th>Date</th>
+                                    <th>Dossier</th>
+                                    <th>Montant</th>
+                                </tr>
+                            </thead>
+                            <tbody id="encaissementsTbody">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 16px; background: var(--neutral-50); border-radius: 8px;">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="form-label">Montant brut</label>
+                                <input type="text" class="form-input" id="montantBrut" readonly style="font-weight: 600;">
+                            </div>
+                            <div>
+                                <label class="form-label">Honoraires (%)</label>
+                                <input type="number" class="form-input" id="tauxHonoraires" value="10" min="0" max="100" onchange="calculerMontants()">
+                            </div>
+                            <div>
+                                <label class="form-label">Montant net à reverser</label>
+                                <input type="text" class="form-input" id="montantNet" readonly style="font-weight: 600; color: #16A34A;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="form-label">Observations</label>
+                    <textarea class="form-input" id="rev_observations" name="observations" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalReversement()">Annuler</button>
+                <button type="submit" class="btn btn-primary">Créer le reversement</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Calculer les stats
+    let totalEffectue = 0;
+    let totalEnAttente = 0;
+    let montantTotal = 0;
+    let enRetard = 0;
+
+    document.querySelectorAll('tbody tr[data-statut]').forEach(row => {
+        const statut = row.dataset.statut;
+        if (statut === 'effectue') totalEffectue++;
+        else if (statut === 'valide' || statut === 'brouillon') totalEnAttente++;
+    });
+
+    {% for rev in reversements %}
+    {% if rev.statut == 'effectue' %}
+    montantTotal += {{ rev.montant_net|default:0 }};
+    {% endif %}
+    {% endfor %}
+
+    document.getElementById('totalEffectue').textContent = totalEffectue;
+    document.getElementById('totalEnAttente').textContent = totalEnAttente;
+    document.getElementById('montantTotal').textContent = new Intl.NumberFormat('fr-FR').format(montantTotal) + ' F';
+    document.getElementById('enRetard').textContent = enRetard;
+
+    // Appliquer filtres
+    function applyFilters() {
+        const creancier = document.getElementById('creancierFilter').value;
+        const statut = document.getElementById('statutFilter').value;
+
+        let url = new URL(window.location.href);
+        if (creancier) url.searchParams.set('creancier', creancier);
+        else url.searchParams.delete('creancier');
+        if (statut) url.searchParams.set('statut', statut);
+        else url.searchParams.delete('statut');
+        window.location.href = url.toString();
+    }
+
+    // Modal reversement
+    function openModalReversement() {
+        document.getElementById('formReversement').reset();
+        document.getElementById('encaissementsContainer').style.display = 'none';
+        document.getElementById('modalReversement').style.display = 'flex';
+    }
+
+    function closeModalReversement() {
+        document.getElementById('modalReversement').style.display = 'none';
+    }
+
+    let encaissementsSelectionnes = [];
+
+    function loadEncaissementsDisponibles() {
+        const creancierIdValue = document.getElementById('rev_creancier').value;
+        if (!creancierIdValue) {
+            document.getElementById('encaissementsContainer').style.display = 'none';
+            return;
+        }
+
+        fetch(`{% url 'gestion:api_encaissements_disponibles' creancier_id=0 %}`.replace('/0/', `/${creancierIdValue}/`))
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const tbody = document.getElementById('encaissementsTbody');
+                    tbody.innerHTML = '';
+                    encaissementsSelectionnes = [];
+
+                    if (data.encaissements.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--neutral-500);">Aucun encaissement disponible</td></tr>';
+                    } else {
+                        data.encaissements.forEach(enc => {
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td><input type="checkbox" class="enc-checkbox" data-id="${enc.id}" data-montant="${enc.montant}" onchange="updateSelection()"></td>
+                                    <td>${enc.reference}</td>
+                                    <td>${enc.date}</td>
+                                    <td>${enc.dossier}</td>
+                                    <td style="text-align: right;">${new Intl.NumberFormat('fr-FR').format(enc.montant)} F</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    document.getElementById('encaissementsContainer').style.display = 'block';
+                    calculerMontants();
+                }
+            });
+    }
+
+    function toggleSelectAll() {
+        const checked = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.enc-checkbox').forEach(cb => {
+            cb.checked = checked;
+        });
+        updateSelection();
+    }
+
+    function updateSelection() {
+        encaissementsSelectionnes = [];
+        let total = 0;
+        document.querySelectorAll('.enc-checkbox:checked').forEach(cb => {
+            encaissementsSelectionnes.push(parseInt(cb.dataset.id));
+            total += parseFloat(cb.dataset.montant);
+        });
+        document.getElementById('montantBrut').value = new Intl.NumberFormat('fr-FR').format(total) + ' F';
+        calculerMontants();
+    }
+
+    function calculerMontants() {
+        const montantBrutText = document.getElementById('montantBrut').value.replace(/[^\d]/g, '');
+        const montantBrut = parseFloat(montantBrutText) || 0;
+        const taux = parseFloat(document.getElementById('tauxHonoraires').value) || 0;
+        const honoraires = montantBrut * (taux / 100);
+        const montantNet = montantBrut - honoraires;
+        document.getElementById('montantNet').value = new Intl.NumberFormat('fr-FR').format(montantNet) + ' F';
+    }
+
+    document.getElementById('formReversement').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        if (encaissementsSelectionnes.length === 0) {
+            alert('Veuillez sélectionner au moins un encaissement');
+            return;
+        }
+
+        const data = {
+            creancier_id: document.getElementById('rev_creancier').value,
+            encaissement_ids: encaissementsSelectionnes,
+            taux_honoraires: parseFloat(document.getElementById('tauxHonoraires').value),
+            observations: document.getElementById('rev_observations').value
+        };
+
+        fetch('{% url "gestion:api_reversement_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur');
+            }
+        });
+    });
+
+    function effectuerReversement(id) {
+        if (confirm('Confirmer que ce reversement a été effectué ?')) {
+            fetch(`{% url 'gestion:api_reversement_effectuer' reversement_id=0 %}`.replace('/0/', `/${id}/`), {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert(data.error || 'Erreur');
+            });
+        }
+    }
+
+    function viewReversement(id) {
+        alert('Détails du reversement #' + id);
+    }
+
+    function printBordereau(id) {
+        window.open(`/gestion/api/reversements/${id}/?format=bordereau`, '_blank');
+    }
+
+    function printReversement(id) {
+        window.open(`/gestion/api/reversements/${id}/?format=pdf`, '_blank');
+    }
+
+    function exportReversements() {
+        window.location.href = '{% url "gestion:api_reversements_liste" %}?export=excel';
+    }
+
+    // Fermer modal au clic extérieur
+    document.getElementById('modalReversement').addEventListener('click', function(e) {
+        if (e.target === this) closeModalReversement();
+    });
+</script>
+{% endblock %}
