@@ -635,6 +635,142 @@
     </div>
 </div>
 
+{% csrf_token %}
+
+<!-- Modal de prévisualisation -->
+<div class="modal" id="previewModal">
+    <div class="modal-content" style="max-width: 900px; height: 80vh;">
+        <div class="modal-header">
+            <h3 id="previewTitle">Aperçu du document</h3>
+            <button class="modal-close" onclick="closeModal('previewModal')">&times;</button>
+        </div>
+        <div class="modal-body" style="height: calc(100% - 120px); padding: 0;">
+            <iframe id="previewFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+            <img id="previewImage" style="max-width: 100%; max-height: 100%; display: none; margin: auto;">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('previewModal')">Fermer</button>
+            <button class="btn btn-primary" onclick="downloadDocument()">Télécharger</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de déplacement -->
+<div class="modal" id="moveModal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Déplacer le document</h3>
+            <button class="modal-close" onclick="closeModal('moveModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 15px; color: var(--neutral-600);">Sélectionnez le dossier de destination :</p>
+            <div id="foldersList" class="folders-select"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('moveModal')">Annuler</button>
+            <button class="btn btn-primary" id="confirmMoveBtn" disabled onclick="confirmMove()">Déplacer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de génération de fiche dossier -->
+<div class="modal" id="ficheDossierModal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Générer une fiche dossier</h3>
+            <button class="modal-close" onclick="closeModal('ficheDossierModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Sélectionnez un dossier juridique :</label>
+                <select id="selectDossierJuridique" class="form-control">
+                    <option value="">-- Choisir un dossier --</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('ficheDossierModal')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmGenererFiche()">Générer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de génération d'acte -->
+<div class="modal" id="acteModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Générer un acte</h3>
+            <button class="modal-close" onclick="closeModal('acteModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Type d'acte :</label>
+                <select id="selectTypeActe" class="form-control">
+                    <option value="">-- Choisir un type --</option>
+                    <option value="commandement">Commandement de payer</option>
+                    <option value="signification">Signification</option>
+                    <option value="pv_saisie">PV de saisie</option>
+                    <option value="pv_constat">PV de constat</option>
+                    <option value="denonciation">Dénonciation</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Dossier juridique :</label>
+                <select id="selectDossierActe" class="form-control">
+                    <option value="">-- Choisir un dossier --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Titre de l'acte :</label>
+                <input type="text" id="titreActe" class="form-control" placeholder="Ex: Commandement de payer">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('acteModal')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmGenererActe()">Générer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de génération de lettre -->
+<div class="modal" id="lettreModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Générer une lettre</h3>
+            <button class="modal-close" onclick="closeModal('lettreModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Type de lettre :</label>
+                <select id="selectTypeLettre" class="form-control">
+                    <option value="">-- Choisir un type --</option>
+                    <option value="mise_demeure">Mise en demeure</option>
+                    <option value="relance">Lettre de relance</option>
+                    <option value="courrier">Courrier simple</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Dossier juridique (optionnel) :</label>
+                <select id="selectDossierLettre" class="form-control">
+                    <option value="">-- Aucun dossier --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Objet :</label>
+                <input type="text" id="objetLettre" class="form-control" placeholder="Objet de la lettre">
+            </div>
+            <div class="form-group">
+                <label>Destinataire :</label>
+                <input type="text" id="destinataireLettre" class="form-control" placeholder="Nom du destinataire">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('lettreModal')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmGenererLettre()">Générer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Menu contextuel -->
 <div class="context-menu" id="contextMenu">
     <div class="context-menu-item" onclick="previewDocument()">
@@ -670,18 +806,75 @@
     let currentFolder = 'all';
     let documents = [];
     let selectedDocument = null;
+    let selectedMoveFolder = null;
+    let dossiersJuridiques = [];
+    let dossiersList = [];
+
+    // Helper CSRF
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value
+            || document.cookie.match(/csrftoken=([^;]+)/)?.[1];
+    }
+
+    // Fonctions modales
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('visible');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('visible');
+    }
 
     // Initialisation
     document.addEventListener('DOMContentLoaded', function() {
         loadDocuments();
         loadFolders();
         loadStats();
+        loadDossiersJuridiques();
 
         // Fermer le menu contextuel au clic
         document.addEventListener('click', function() {
             document.getElementById('contextMenu').classList.remove('visible');
         });
+
+        // Fermer les modales au clic sur le fond
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('visible');
+                }
+            });
+        });
     });
+
+    // Charger les dossiers juridiques pour les selects
+    async function loadDossiersJuridiques() {
+        try {
+            const response = await fetch('/api/dossiers/');
+            const data = await response.json();
+            if (data.success) {
+                dossiersJuridiques = data.dossiers || [];
+                populateDossiersSelects();
+            }
+        } catch (error) {
+            console.log('Dossiers juridiques non disponibles');
+        }
+    }
+
+    function populateDossiersSelects() {
+        const selects = ['selectDossierJuridique', 'selectDossierActe', 'selectDossierLettre'];
+        selects.forEach(selectId => {
+            const select = document.getElementById(selectId);
+            if (select) {
+                dossiersJuridiques.forEach(d => {
+                    const option = document.createElement('option');
+                    option.value = d.id;
+                    option.textContent = d.reference + ' - ' + (d.objet || 'Sans objet');
+                    select.appendChild(option);
+                });
+            }
+        });
+    }
 
     // Chargement des documents
     async function loadDocuments() {
@@ -843,9 +1036,32 @@
     }
 
     function previewDocument() {
-        if (selectedDocument && selectedDocument.url) {
-            window.open(selectedDocument.url, '_blank');
+        if (!selectedDocument) return;
+
+        const url = selectedDocument.url || `/documents/api/documents/${selectedDocument.id}/telecharger/`;
+        const mimeType = selectedDocument.mime_type || '';
+        const name = selectedDocument.nom || 'Document';
+
+        document.getElementById('previewTitle').textContent = name;
+
+        const iframe = document.getElementById('previewFrame');
+        const img = document.getElementById('previewImage');
+
+        if (mimeType.startsWith('image/')) {
+            iframe.style.display = 'none';
+            img.style.display = 'block';
+            img.src = url;
+        } else if (mimeType === 'application/pdf') {
+            img.style.display = 'none';
+            iframe.style.display = 'block';
+            iframe.src = url;
+        } else {
+            // Pour les autres types, ouvrir dans un nouvel onglet
+            window.open(url, '_blank');
+            return;
         }
+
+        openModal('previewModal');
     }
 
     function downloadDocument() {
@@ -861,7 +1077,10 @@
         try {
             const response = await fetch('/documents/api/documents/supprimer/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: JSON.stringify({ document_id: selectedDocument.id })
             });
             const data = await response.json();
@@ -904,6 +1123,9 @@
         try {
             const response = await fetch('/documents/api/documents/upload/', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: formData
             });
             const data = await response.json();
@@ -932,17 +1154,117 @@
         documents = originalDocs;
     }
 
-    // Fonctions de génération (à implémenter avec modals)
+    // Fonctions de génération avec modals
     function genererFicheDossier() {
-        alert('Sélectionnez un dossier juridique pour générer sa fiche');
+        openModal('ficheDossierModal');
+    }
+
+    async function confirmGenererFiche() {
+        const dossierId = document.getElementById('selectDossierJuridique').value;
+        if (!dossierId) {
+            alert('Veuillez sélectionner un dossier juridique');
+            return;
+        }
+        try {
+            const response = await fetch('/documents/api/generer/fiche/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({ dossier_id: dossierId })
+            });
+            const data = await response.json();
+            if (data.success) {
+                closeModal('ficheDossierModal');
+                loadDocuments();
+                alert('Fiche générée avec succès');
+            } else {
+                alert(data.error || 'Erreur lors de la génération');
+            }
+        } catch (error) {
+            alert('Erreur lors de la génération');
+        }
     }
 
     function genererActe() {
-        alert('Fonctionnalité de génération d\'acte');
+        openModal('acteModal');
+    }
+
+    async function confirmGenererActe() {
+        const typeActe = document.getElementById('selectTypeActe').value;
+        const dossierId = document.getElementById('selectDossierActe').value;
+        const titre = document.getElementById('titreActe').value;
+
+        if (!typeActe || !dossierId) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+        try {
+            const response = await fetch('/documents/api/generer/acte/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({
+                    dossier_id: dossierId,
+                    type_acte: typeActe,
+                    titre: titre
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                closeModal('acteModal');
+                loadDocuments();
+                alert('Acte généré avec succès');
+            } else {
+                alert(data.error || 'Erreur lors de la génération');
+            }
+        } catch (error) {
+            alert('Erreur lors de la génération');
+        }
     }
 
     function genererLettre() {
-        alert('Fonctionnalité de génération de lettre');
+        openModal('lettreModal');
+    }
+
+    async function confirmGenererLettre() {
+        const typeLettre = document.getElementById('selectTypeLettre').value;
+        const dossierId = document.getElementById('selectDossierLettre').value;
+        const objet = document.getElementById('objetLettre').value;
+        const destinataire = document.getElementById('destinataireLettre').value;
+
+        if (!typeLettre || !objet) {
+            alert('Veuillez remplir les champs obligatoires (type et objet)');
+            return;
+        }
+        try {
+            const response = await fetch('/documents/api/generer/lettre/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({
+                    dossier_id: dossierId || null,
+                    type_lettre: typeLettre,
+                    objet: objet,
+                    destinataire: { nom: destinataire }
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                closeModal('lettreModal');
+                loadDocuments();
+                alert('Lettre générée avec succès');
+            } else {
+                alert(data.error || 'Erreur lors de la génération');
+            }
+        } catch (error) {
+            alert('Erreur lors de la génération');
+        }
     }
 
     function creerDossier() {
@@ -950,7 +1272,10 @@
         if (nom) {
             fetch('/documents/api/dossiers/creer/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: JSON.stringify({ nom: nom })
             }).then(r => r.json()).then(data => {
                 if (data.success) {
@@ -968,7 +1293,10 @@
         if (email) {
             fetch('/documents/api/partage/creer/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: JSON.stringify({
                     document_id: selectedDocument.id,
                     destinataire_email: email
@@ -989,7 +1317,10 @@
         if (newName) {
             fetch('/documents/api/documents/renommer/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: JSON.stringify({
                     document_id: selectedDocument.id,
                     nom: newName
@@ -1004,9 +1335,69 @@
         }
     }
 
-    function moveDocument() {
-        // À implémenter avec modal de sélection de dossier
-        alert('Fonctionnalité de déplacement à venir');
+    async function moveDocument() {
+        if (!selectedDocument) return;
+        // Charger les dossiers pour le modal
+        try {
+            const response = await fetch('/documents/api/dossiers/');
+            const data = await response.json();
+            if (data.success) {
+                dossiersList = data.dossiers;
+                renderFoldersForMove(dossiersList);
+                openModal('moveModal');
+            }
+        } catch (error) {
+            alert('Erreur lors du chargement des dossiers');
+        }
+    }
+
+    function renderFoldersForMove(folders) {
+        const container = document.getElementById('foldersList');
+        container.innerHTML = '';
+        folders.forEach(folder => {
+            const item = document.createElement('div');
+            item.className = 'folder-select-item';
+            item.style.cssText = 'padding: 12px; border: 1px solid var(--neutral-200); border-radius: 8px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px;';
+            item.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>${folder.nom}</span>
+            `;
+            item.onclick = function() {
+                document.querySelectorAll('.folder-select-item').forEach(i => i.style.borderColor = 'var(--neutral-200)');
+                this.style.borderColor = 'var(--primary)';
+                selectedMoveFolder = folder.id;
+                document.getElementById('confirmMoveBtn').disabled = false;
+            };
+            container.appendChild(item);
+        });
+    }
+
+    async function confirmMove() {
+        if (!selectedDocument || !selectedMoveFolder) return;
+
+        try {
+            const response = await fetch('/documents/api/documents/deplacer/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({
+                    document_id: selectedDocument.id,
+                    dossier_id: selectedMoveFolder
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                closeModal('moveModal');
+                loadDocuments();
+                selectedMoveFolder = null;
+            } else {
+                alert(data.error || 'Erreur lors du déplacement');
+            }
+        } catch (error) {
+            alert('Erreur lors du déplacement');
+        }
     }
 
     function navigateToFolder(folderId) {

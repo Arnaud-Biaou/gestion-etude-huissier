@@ -25,7 +25,9 @@ SECRET_KEY = "django-insecure-ea+p-1a1cizds1ln#fm_w1s6twc2$b_wa$v)xx+$0)&(0s&8qh
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+# PRODUCTION: Définir les hosts autorisés (ex: ['etude-huissier.bj', 'www.etude-huissier.bj'])
+# ALLOWED_HOSTS = ['*']  # NE PAS UTILISER EN PRODUCTION
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']  # Développement uniquement
 
 
 # Application definition
