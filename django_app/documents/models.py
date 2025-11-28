@@ -80,10 +80,19 @@ class DossierVirtuel(models.Model):
     """Structure de dossiers virtuels pour l'organisation des documents"""
     TYPE_DOSSIER_CHOICES = [
         ('racine', 'Racine'),
+        ('annee', 'Année'),
         ('dossier_juridique', 'Dossier Juridique'),
+        # Nouveaux types métier huissier
+        ('projets_actes', "Projets d'actes"),
+        ('actes_formalises', 'Actes formalisés'),
+        ('pieces', 'Pièces'),
+        ('courrier_arrivee', 'Courrier arrivée'),
+        ('courrier_depart', 'Courrier départ'),
+        ('factures', 'Factures'),
+        ('actes_exterieurs', 'Actes extérieurs'),
+        # Types legacy (conservés pour compatibilité)
         ('actes', '01_Actes'),
         ('decisions', '02_Decisions_Titres'),
-        ('pieces', '03_Pieces_Client'),
         ('correspondances', '04_Correspondances'),
         ('facturation', '05_Facturation'),
         ('divers', '06_Divers'),
