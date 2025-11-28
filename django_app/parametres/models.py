@@ -449,20 +449,20 @@ class ConfigurationEtude(models.Model):
     cedules_mission_1_repas = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('10000'),
-        verbose_name="Frais mission 1 repas (F)"
+        default=Decimal('15000'),
+        verbose_name="Frais mission 1 repas (100-149 km)"
     )
     cedules_mission_2_repas = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('20000'),
-        verbose_name="Frais mission 2 repas (F)"
+        default=Decimal('30000'),
+        verbose_name="Frais mission 2 repas (150-199 km)"
     )
     cedules_mission_journee = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('35000'),
-        verbose_name="Frais mission journée complète (F)"
+        default=Decimal('45000'),
+        verbose_name="Frais mission journée entière (≥200 km)"
     )
 
     # ===== SECTION 2.9: PARAMÈTRES AGENDA =====

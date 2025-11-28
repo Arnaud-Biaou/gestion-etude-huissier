@@ -8,6 +8,7 @@ from .models import (
     EnvoiAutomatiquePoint, HistoriqueEnvoiPoint,
     # Mémoires de Cédules
     AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire,
+    RegistreParquet,
     # Modèles de sécurité
     Role, Permission, RolePermission, PermissionUtilisateur,
     SessionUtilisateur, JournalAudit, AlerteSecurite,
@@ -545,6 +546,29 @@ class ActeDestinataireAdmin(admin.ModelAdmin):
         ('Montants (calculés automatiquement)', {
             'fields': ('montant_base', 'montant_copies', 'montant_pieces', 'montant_total_acte'),
             'description': 'Base: 4 985 F, Copies: 900 F/copie, Pièces: 1 000 F/rôle'
+        }),
+        ('Observations', {
+            'fields': ('observations',)
+        }),
+    )
+
+
+@admin.register(RegistreParquet)
+class RegistreParquetAdmin(admin.ModelAdmin):
+    list_display = ('reference_affaire', 'memoire', 'nature_diligence', 'date_diligence',
+                    'montant_emoluments')
+    list_filter = ('memoire__annee', 'memoire__mois', 'date_diligence')
+    search_fields = ('reference_affaire', 'nature_diligence', 'memoire__numero')
+    date_hierarchy = 'date_diligence'
+    readonly_fields = ('date_creation',)
+
+    fieldsets = (
+        ('Mémoire', {
+            'fields': ('memoire', 'acte')
+        }),
+        ('Diligence', {
+            'fields': ('reference_affaire', 'nature_diligence', 'date_diligence',
+                       'montant_emoluments')
         }),
         ('Observations', {
             'fields': ('observations',)
