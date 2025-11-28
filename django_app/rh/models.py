@@ -307,13 +307,52 @@ class Employe(models.Model):
         return f"{prefix}{num:04d}"
 
     def clean(self):
+        import re
+        errors = {}
+
         # Vérifier que le salaire est >= SMIG
         if self.salaire_base and self.salaire_base < SMIG_BENIN:
-            raise ValidationError(f"Le salaire ne peut pas être inférieur au SMIG ({SMIG_BENIN} FCFA)")
+            errors['salaire_base'] = f"Le salaire ne peut pas être inférieur au SMIG ({SMIG_BENIN} FCFA)"
 
         # Vérifier la cohérence des dates pour CDD
         if self.type_contrat == 'cdd' and not self.date_fin_contrat:
-            raise ValidationError("Un CDD doit avoir une date de fin")
+            errors['date_fin_contrat'] = "Un CDD doit avoir une date de fin"
+
+        # Vérifier date embauche <= aujourd'hui
+        if self.date_embauche and self.date_embauche > timezone.now().date():
+            errors['date_embauche'] = "La date d'embauche ne peut pas être dans le futur"
+
+        # Vérifier que date_fin_contrat > date_embauche si CDD
+        if self.date_fin_contrat and self.date_embauche:
+            if self.date_fin_contrat <= self.date_embauche:
+                errors['date_fin_contrat'] = "La date de fin doit être postérieure à la date d'embauche"
+
+        # Vérifier âge >= 18 ans
+        if self.date_naissance:
+            age = self.age
+            if age < 18:
+                errors['date_naissance'] = "L'employé doit avoir au moins 18 ans"
+
+        # Valider format email
+        if self.email:
+            email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_regex, self.email):
+                errors['email'] = "Format d'email invalide"
+
+        # Valider format IFU (13 chiffres au Bénin)
+        if self.numero_ifu:
+            ifu_clean = re.sub(r'\D', '', self.numero_ifu)
+            if len(ifu_clean) != 13:
+                errors['numero_ifu'] = "L'IFU doit contenir exactement 13 chiffres"
+
+        # Valider format numéro CNSS
+        if self.numero_cnss:
+            cnss_clean = re.sub(r'\D', '', self.numero_cnss)
+            if len(cnss_clean) < 7:
+                errors['numero_cnss'] = "Le numéro CNSS semble invalide"
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class DocumentEmploye(models.Model):
@@ -687,9 +726,19 @@ class BulletinPaie(models.Model):
         # Prime d'ancienneté
         prime_anciennete = self.employe.prime_anciennete_montant
 
-        # Heures supplémentaires (majoration 15% à 100%)
+        # Heures supplémentaires selon Code du Travail Bénin
+        # - 1ère à 8ème heure : majoration 15%
+        # - Au-delà de 8h : majoration 25%
         taux_horaire = self.salaire_base / (jours_ouvrables * 8)
-        heures_sup_montant = self.heures_supplementaires * taux_horaire * Decimal('1.15')
+        heures_sup = self.heures_supplementaires
+        if heures_sup <= 8:
+            heures_sup_montant = heures_sup * taux_horaire * Decimal('1.15')
+        else:
+            # 8 premières heures à 15%, le reste à 25%
+            heures_sup_montant = (
+                Decimal('8') * taux_horaire * Decimal('1.15') +
+                (heures_sup - 8) * taux_horaire * Decimal('1.25')
+            )
 
         # Total gains depuis les lignes
         total_lignes_gains = sum(

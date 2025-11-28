@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:prets' %}" class="rh-subnav-item">
+            <i data-lucide="hand-coins"></i> Prêts
+        </a>
+        <a href="{% url 'rh:evaluations' %}" class="rh-subnav-item">
+            <i data-lucide="clipboard-check"></i> Évaluations
+        </a>
+        <a href="{% url 'rh:formations' %}" class="rh-subnav-item">
+            <i data-lucide="graduation-cap"></i> Formations
+        </a>
+        <a href="{% url 'rh:discipline' %}" class="rh-subnav-item active">
+            <i data-lucide="alert-triangle"></i> Discipline
+        </a>
+        <a href="{% url 'rh:fins_contrat' %}" class="rh-subnav-item">
+            <i data-lucide="user-minus"></i> Fins contrat
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="alert-triangle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_sanctions }}</div>
+                <div class="stat-label">Sanctions (année)</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="alert-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.avertissements }}</div>
+                <div class="stat-label">Avertissements</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="user-x"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.mises_a_pied }}</div>
+                <div class="stat-label">Mises à pied</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="list"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ types_sanction|length }}</div>
+                <div class="stat-label">Types de sanctions</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Types de sanctions -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="list"></i> Types de sanctions
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if types_sanction %}
+                <div class="types-list">
+                    {% for type in types_sanction %}
+                    <div class="type-item niveau-{{ type.niveau }}">
+                        <div class="type-info">
+                            <div class="type-libelle">{{ type.libelle }}</div>
+                            <div class="type-description">{{ type.description|truncatewords:10 }}</div>
+                        </div>
+                        <div class="type-niveau">
+                            <span class="badge badge-niveau-{{ type.niveau }}">
+                                Niveau {{ type.niveau }}
+                            </span>
+                            {% if type.duree_max_jours %}
+                            <span class="type-duree">Max {{ type.duree_max_jours }}j</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun type de sanction configuré</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Procédure disciplinaire -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="info"></i> Procédure disciplinaire
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="procedure-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <div class="step-title">Constatation des faits</div>
+                            <div class="step-desc">Documentation et preuves</div>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <div class="step-title">Convocation</div>
+                            <div class="step-desc">Lettre de convocation à entretien</div>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <div class="step-title">Entretien préalable</div>
+                            <div class="step-desc">Audition de l'employé</div>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <div class="step-title">Notification</div>
+                            <div class="step-desc">Décision et sanction</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sanctions récentes -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="history"></i> Sanctions récentes
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if sanctions %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th>Employé</th>
+                            <th>Type</th>
+                            <th>Date des faits</th>
+                            <th>Motif</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sanction in sanctions %}
+                        <tr>
+                            <td><strong>{{ sanction.reference }}</strong></td>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar-sm">{{ sanction.employe.get_initiales }}</div>
+                                    {{ sanction.employe.get_nom_complet }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-niveau-{{ sanction.type_sanction.niveau }}">
+                                    {{ sanction.type_sanction.libelle }}
+                                </span>
+                            </td>
+                            <td>{{ sanction.date_faits|date:"d/m/Y" }}</td>
+                            <td>{{ sanction.motif|truncatewords:8 }}</td>
+                            <td>
+                                <span class="status-badge {{ sanction.statut }}">
+                                    {{ sanction.get_statut_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="check-circle"></i>
+                <h3>Aucune sanction</h3>
+                <p>Aucune procédure disciplinaire enregistrée</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge-niveau-1 { background: #fbbf24; color: #1f2937; }
+    .badge-niveau-2 { background: #f97316; color: white; }
+    .badge-niveau-3 { background: #ef4444; color: white; }
+    .badge-niveau-4 { background: #7f1d1d; color: white; }
+
+    .procedure-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .step {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    .step-content {
+        flex: 1;
+    }
+
+    .step-title {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .step-desc {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .type-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    .type-info {
+        flex: 1;
+    }
+
+    .type-libelle {
+        font-weight: 600;
+    }
+
+    .type-description {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .type-niveau {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.25rem;
+    }
+
+    .type-duree {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

@@ -7,12 +7,17 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Sum, Count, Avg, Q
+from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from decimal import Decimal
 import json
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Employe, DocumentEmploye, CategorieEmploye, Poste, Site,
@@ -310,6 +315,7 @@ def nouveau_employe(request):
 
 @login_required
 @require_POST
+@transaction.atomic
 def sauvegarder_employe(request):
     """Sauvegarde d'un employé (création ou modification)"""
     try:
@@ -401,17 +407,33 @@ def sauvegarder_employe(request):
                 jours_reportes=0,
             )
 
+        logger.info(f"Employé {'modifié' if employe_id else 'créé'}: {employe.matricule} - {employe.get_nom_complet()}")
+
         return JsonResponse({
             'success': True,
             'employe_id': employe.id,
             'message': 'Employé enregistré avec succès'
         })
 
-    except Exception as e:
+    except ValidationError as e:
+        logger.warning(f"Erreur de validation employé: {e}")
+        # Gérer les erreurs de validation Django
+        if hasattr(e, 'message_dict'):
+            return JsonResponse({
+                'success': False,
+                'errors': e.message_dict
+            }, status=400)
         return JsonResponse({
             'success': False,
             'error': str(e)
         }, status=400)
+
+    except Exception as e:
+        logger.exception("Erreur lors de la sauvegarde de l'employé")
+        return JsonResponse({
+            'success': False,
+            'error': 'Une erreur est survenue lors de l\'enregistrement'
+        }, status=500)
 
 
 # =============================================================================
@@ -525,6 +547,7 @@ def paie_dashboard(request):
 
 @login_required
 @require_POST
+@transaction.atomic
 def generer_bulletins(request):
     """Génère les bulletins de paie pour la période"""
     try:
@@ -552,6 +575,8 @@ def generer_bulletins(request):
             bulletin.calculer()
             bulletins_crees += 1
 
+        logger.info(f"Génération paie {periode}: {bulletins_crees} bulletins créés")
+
         return JsonResponse({
             'success': True,
             'bulletins_crees': bulletins_crees,
@@ -559,10 +584,11 @@ def generer_bulletins(request):
         })
 
     except Exception as e:
+        logger.exception("Erreur lors de la génération des bulletins")
         return JsonResponse({
             'success': False,
-            'error': str(e)
-        }, status=400)
+            'error': 'Erreur lors de la génération des bulletins'
+        }, status=500)
 
 
 @login_required
