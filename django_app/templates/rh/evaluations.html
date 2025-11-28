@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:prets' %}" class="rh-subnav-item">
+            <i data-lucide="hand-coins"></i> Prêts
+        </a>
+        <a href="{% url 'rh:evaluations' %}" class="rh-subnav-item active">
+            <i data-lucide="clipboard-check"></i> Évaluations
+        </a>
+        <a href="{% url 'rh:formations' %}" class="rh-subnav-item">
+            <i data-lucide="graduation-cap"></i> Formations
+        </a>
+        <a href="{% url 'rh:discipline' %}" class="rh-subnav-item">
+            <i data-lucide="alert-triangle"></i> Discipline
+        </a>
+        <a href="{% url 'rh:fins_contrat' %}" class="rh-subnav-item">
+            <i data-lucide="user-minus"></i> Fins contrat
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="clipboard-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ evaluations_recentes|length }}</div>
+                <div class="stat-label">Évaluations récentes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="calendar"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ evaluations_planifiees|length }}</div>
+                <div class="stat-label">Planifiées</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="star"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ criteres|length }}</div>
+                <div class="stat-label">Critères actifs</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="target"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">--</div>
+                <div class="stat-label">Note moyenne</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Évaluations planifiées -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="calendar"></i> Évaluations planifiées
+                </h3>
+                <button class="btn btn-primary" onclick="ouvrirModalEvaluation()">
+                    <i data-lucide="plus"></i> Planifier
+                </button>
+            </div>
+            <div class="card-body">
+                {% if evaluations_planifiees %}
+                <div class="evaluations-list">
+                    {% for eval in evaluations_planifiees %}
+                    <div class="evaluation-item planifiee">
+                        <div class="evaluation-employe">
+                            <div class="employe-avatar">{{ eval.employe.get_initiales }}</div>
+                            <div class="employe-info">
+                                <div class="employe-nom">{{ eval.employe.get_nom_complet }}</div>
+                                <div class="employe-date">{{ eval.date_evaluation|date:"d/m/Y" }}</div>
+                            </div>
+                        </div>
+                        <div class="evaluation-evaluateur">
+                            {% if eval.evaluateur %}
+                            Par {{ eval.evaluateur.get_nom_complet }}
+                            {% else %}
+                            <span class="text-muted">Non assigné</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune évaluation planifiée</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Critères d'évaluation -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="list-checks"></i> Critères d'évaluation
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if criteres %}
+                <div class="criteres-list">
+                    {% for critere in criteres %}
+                    <div class="critere-item">
+                        <div class="critere-info">
+                            <div class="critere-libelle">{{ critere.libelle }}</div>
+                            <div class="critere-description">{{ critere.description|truncatewords:10 }}</div>
+                        </div>
+                        <div class="critere-coefficient">
+                            <span class="badge badge-info">Coef. {{ critere.coefficient }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun critère configuré</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Évaluations récentes -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="history"></i> Évaluations récentes
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if evaluations_recentes %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>Date</th>
+                            <th>Période évaluée</th>
+                            <th>Évaluateur</th>
+                            <th>Note</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for eval in evaluations_recentes %}
+                        <tr>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar-sm">{{ eval.employe.get_initiales }}</div>
+                                    {{ eval.employe.get_nom_complet }}
+                                </div>
+                            </td>
+                            <td>{{ eval.date_evaluation|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if eval.periode_debut and eval.periode_fin %}
+                                {{ eval.periode_debut|date:"m/Y" }} - {{ eval.periode_fin|date:"m/Y" }}
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if eval.evaluateur %}
+                                {{ eval.evaluateur.get_nom_complet }}
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if eval.note_globale %}
+                                <span class="note-badge {% if eval.note_globale >= 15 %}note-excellent{% elif eval.note_globale >= 12 %}note-bien{% elif eval.note_globale >= 10 %}note-moyen{% else %}note-insuffisant{% endif %}">
+                                    {{ eval.note_globale }}/20
+                                </span>
+                                {% else %}
+                                <span class="text-muted">--</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-badge {{ eval.statut }}">
+                                    {{ eval.get_statut_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="clipboard-x"></i>
+                <h3>Aucune évaluation</h3>
+                <p>Planifiez une première évaluation pour commencer</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle évaluation -->
+<div class="modal" id="modalEvaluation" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Planifier une évaluation</h3>
+            <button class="modal-close" onclick="fermerModalEvaluation()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formEvaluation">
+                <div class="form-group">
+                    <label class="form-label">Employé à évaluer</label>
+                    <select id="eval_employe_id" class="form-select" required>
+                        <option value="">-- Sélectionner --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Évaluateur</label>
+                    <select id="eval_evaluateur_id" class="form-select">
+                        <option value="">-- Sélectionner (optionnel) --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date de l'évaluation</label>
+                    <input type="date" id="eval_date" class="form-input" required>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Période - Début</label>
+                        <input type="date" id="eval_periode_debut" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Période - Fin</label>
+                        <input type="date" id="eval_periode_fin" class="form-input">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalEvaluation()">Annuler</button>
+            <button class="btn btn-primary" onclick="creerEvaluation()">Planifier</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function ouvrirModalEvaluation() {
+        // Charger la liste des employés
+        fetch('{% url "rh:api_employes" %}')
+            .then(response => response.json())
+            .then(data => {
+                const selectEmploye = document.getElementById('eval_employe_id');
+                const selectEvaluateur = document.getElementById('eval_evaluateur_id');
+
+                selectEmploye.innerHTML = '<option value="">-- Sélectionner --</option>';
+                selectEvaluateur.innerHTML = '<option value="">-- Sélectionner (optionnel) --</option>';
+
+                data.employes.forEach(emp => {
+                    selectEmploye.innerHTML += `<option value="${emp.id}">${emp.nom} ${emp.prenoms}</option>`;
+                    selectEvaluateur.innerHTML += `<option value="${emp.id}">${emp.nom} ${emp.prenoms}</option>`;
+                });
+            });
+
+        // Date par défaut = aujourd'hui
+        document.getElementById('eval_date').value = new Date().toISOString().split('T')[0];
+
+        document.getElementById('modalEvaluation').style.display = 'flex';
+    }
+
+    function fermerModalEvaluation() {
+        document.getElementById('modalEvaluation').style.display = 'none';
+    }
+
+    function creerEvaluation() {
+        const data = {
+            employe_id: document.getElementById('eval_employe_id').value,
+            evaluateur_id: document.getElementById('eval_evaluateur_id').value || null,
+            date_evaluation: document.getElementById('eval_date').value,
+            periode_debut: document.getElementById('eval_periode_debut').value || null,
+            periode_fin: document.getElementById('eval_periode_fin').value || null,
+        };
+
+        if (!data.employe_id || !data.date_evaluation) {
+            alert('Veuillez sélectionner un employé et une date');
+            return;
+        }
+
+        fetch('{% url "rh:creer_evaluation" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                fermerModalEvaluation();
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:prets' %}" class="rh-subnav-item">
+            <i data-lucide="hand-coins"></i> Prêts
+        </a>
+        <a href="{% url 'rh:evaluations' %}" class="rh-subnav-item">
+            <i data-lucide="clipboard-check"></i> Évaluations
+        </a>
+        <a href="{% url 'rh:formations' %}" class="rh-subnav-item">
+            <i data-lucide="graduation-cap"></i> Formations
+        </a>
+        <a href="{% url 'rh:discipline' %}" class="rh-subnav-item">
+            <i data-lucide="alert-triangle"></i> Discipline
+        </a>
+        <a href="{% url 'rh:fins_contrat' %}" class="rh-subnav-item active">
+            <i data-lucide="user-minus"></i> Fins contrat
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="clock"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ procedures_en_cours|length }}</div>
+                <div class="stat-label">Procédures en cours</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="user-minus"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ fins_contrat|length }}</div>
+                <div class="stat-label">Fins récentes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="hand-shake"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">--</div>
+                <div class="stat-label">Démissions</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="ban"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">--</div>
+                <div class="stat-label">Licenciements</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Procédures en cours -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="clock"></i> Procédures en cours
+            </h3>
+            <button class="btn btn-primary" onclick="ouvrirModalFinContrat()">
+                <i data-lucide="plus"></i> Nouvelle procédure
+            </button>
+        </div>
+        <div class="card-body">
+            {% if procedures_en_cours %}
+            <div class="procedures-list">
+                {% for fin in procedures_en_cours %}
+                <div class="procedure-item">
+                    <div class="procedure-employe">
+                        <div class="employe-avatar">{{ fin.employe.get_initiales }}</div>
+                        <div class="employe-info">
+                            <div class="employe-nom">{{ fin.employe.get_nom_complet }}</div>
+                            <div class="employe-poste">{{ fin.employe.poste.libelle|default:"--" }}</div>
+                        </div>
+                    </div>
+                    <div class="procedure-details">
+                        <div class="procedure-type">
+                            <span class="badge badge-{{ fin.type_rupture }}">
+                                {{ fin.get_type_rupture_display }}
+                            </span>
+                        </div>
+                        <div class="procedure-date">
+                            Effet: {{ fin.date_fin_effective|date:"d/m/Y" }}
+                        </div>
+                    </div>
+                    <div class="procedure-statut">
+                        <span class="status-badge {{ fin.statut }}">
+                            {{ fin.get_statut_display }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted text-center">Aucune procédure en cours</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Historique des fins de contrat -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="history"></i> Historique des fins de contrat
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if fins_contrat %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>Type de rupture</th>
+                            <th>Date notification</th>
+                            <th>Date effet</th>
+                            <th>Indemnités</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fin in fins_contrat %}
+                        <tr>
+                            <td>
+                                <div class="employe-cell">
+                                    <div class="employe-avatar-sm">{{ fin.employe.get_initiales }}</div>
+                                    {{ fin.employe.get_nom_complet }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-{{ fin.type_rupture }}">
+                                    {{ fin.get_type_rupture_display }}
+                                </span>
+                            </td>
+                            <td>{{ fin.date_notification|date:"d/m/Y" }}</td>
+                            <td>{{ fin.date_fin_effective|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if fin.total_solde_compte %}
+                                {{ fin.total_solde_compte|floatformat:0 }} F
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-badge {{ fin.statut }}">
+                                    {{ fin.get_statut_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="users"></i>
+                <h3>Aucune fin de contrat</h3>
+                <p>L'historique des fins de contrat apparaîtra ici</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle procédure -->
+<div class="modal" id="modalFinContrat" style="display:none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>Initier une fin de contrat</h3>
+            <button class="modal-close" onclick="fermerModalFinContrat()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formFinContrat">
+                <div class="form-group">
+                    <label class="form-label">Employé</label>
+                    <select id="fin_employe_id" class="form-select" required>
+                        <option value="">-- Sélectionner --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type de rupture</label>
+                    <select id="fin_type_rupture" class="form-select" required>
+                        <option value="demission">Démission</option>
+                        <option value="licenciement_personnel">Licenciement pour motif personnel</option>
+                        <option value="licenciement_economique">Licenciement économique</option>
+                        <option value="licenciement_faute">Licenciement pour faute</option>
+                        <option value="fin_cdd">Fin de CDD</option>
+                        <option value="fin_essai">Fin de période d'essai</option>
+                        <option value="retraite">Départ à la retraite</option>
+                        <option value="rupture_conventionnelle">Rupture conventionnelle</option>
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Date de notification</label>
+                        <input type="date" id="fin_date_notification" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date d'effet</label>
+                        <input type="date" id="fin_date_effet" class="form-input" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Motif</label>
+                    <textarea id="fin_motif" class="form-textarea" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalFinContrat()">Annuler</button>
+            <button class="btn btn-primary" onclick="initierFinContrat()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge-demission { background: #3b82f6; color: white; }
+    .badge-licenciement_personnel { background: #f97316; color: white; }
+    .badge-licenciement_economique { background: #f59e0b; color: white; }
+    .badge-licenciement_faute { background: #ef4444; color: white; }
+    .badge-fin_cdd { background: #8b5cf6; color: white; }
+    .badge-fin_essai { background: #6b7280; color: white; }
+    .badge-retraite { background: #10b981; color: white; }
+    .badge-rupture_conventionnelle { background: #06b6d4; color: white; }
+    .badge-deces { background: #1f2937; color: white; }
+
+    .procedures-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .procedure-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        border-radius: 8px;
+        background: var(--bg-secondary);
+    }
+
+    .procedure-employe {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .procedure-details {
+        text-align: center;
+    }
+
+    .procedure-date {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function ouvrirModalFinContrat() {
+        // Charger la liste des employés actifs
+        fetch('{% url "rh:api_employes" %}')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('fin_employe_id');
+                select.innerHTML = '<option value="">-- Sélectionner --</option>';
+                data.employes.forEach(emp => {
+                    select.innerHTML += `<option value="${emp.id}">${emp.nom} ${emp.prenoms}</option>`;
+                });
+            });
+
+        // Date par défaut = aujourd'hui
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('fin_date_notification').value = today;
+
+        document.getElementById('modalFinContrat').style.display = 'flex';
+    }
+
+    function fermerModalFinContrat() {
+        document.getElementById('modalFinContrat').style.display = 'none';
+    }
+
+    function initierFinContrat() {
+        const data = {
+            employe_id: document.getElementById('fin_employe_id').value,
+            type_rupture: document.getElementById('fin_type_rupture').value,
+            date_notification: document.getElementById('fin_date_notification').value,
+            date_fin_effective: document.getElementById('fin_date_effet').value,
+            motif: document.getElementById('fin_motif').value,
+        };
+
+        if (!data.employe_id || !data.date_notification || !data.date_fin_effective) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        fetch('{% url "rh:initier_fin_contrat" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                let message = result.message;
+                if (result.indemnites) {
+                    message += '\n\nIndemnités calculées:';
+                    message += '\n- Préavis: ' + result.indemnites.preavis.toLocaleString() + ' F';
+                    message += '\n- Licenciement: ' + result.indemnites.licenciement.toLocaleString() + ' F';
+                    message += '\n- Congés: ' + result.indemnites.conges.toLocaleString() + ' F';
+                    message += '\n- TOTAL: ' + result.indemnites.total.toLocaleString() + ' F';
+                }
+                alert(message);
+                fermerModalFinContrat();
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

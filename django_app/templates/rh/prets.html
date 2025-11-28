@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:prets' %}" class="rh-subnav-item active">
+            <i data-lucide="hand-coins"></i> Prêts
+        </a>
+        <a href="{% url 'rh:evaluations' %}" class="rh-subnav-item">
+            <i data-lucide="clipboard-check"></i> Évaluations
+        </a>
+        <a href="{% url 'rh:formations' %}" class="rh-subnav-item">
+            <i data-lucide="graduation-cap"></i> Formations
+        </a>
+        <a href="{% url 'rh:discipline' %}" class="rh-subnav-item">
+            <i data-lucide="alert-triangle"></i> Discipline
+        </a>
+        <a href="{% url 'rh:fins_contrat' %}" class="rh-subnav-item">
+            <i data-lucide="user-minus"></i> Fins contrat
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="hand-coins"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.nb_prets_en_cours }}</div>
+                <div class="stat-label">Prêts en cours</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="wallet"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_prete|floatformat:0 }} F</div>
+                <div class="stat-label">Montant total prêté</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_rembourse|floatformat:0 }} F</div>
+                <div class="stat-label">Total remboursé</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="clock"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ stats.total_restant|floatformat:0 }} F</div>
+                <div class="stat-label">Reste à rembourser</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Demandes en attente -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="clock"></i> Demandes en attente
+                </h3>
+                <button class="btn btn-primary" onclick="ouvrirModalPret()">
+                    <i data-lucide="plus"></i> Nouvelle demande
+                </button>
+            </div>
+            <div class="card-body">
+                {% if demandes_en_attente %}
+                <div class="demandes-list">
+                    {% for pret in demandes_en_attente %}
+                    <div class="demande-item">
+                        <div class="demande-employe">
+                            <div class="employe-avatar">{{ pret.employe.get_initiales }}</div>
+                            <div class="employe-info">
+                                <div class="employe-nom">{{ pret.employe.get_nom_complet }}</div>
+                                <div class="employe-type">
+                                    {% if pret.type_pret == 'avance' %}Avance sur salaire{% else %}Prêt{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="demande-montant">
+                            <div class="montant-value">{{ pret.montant|floatformat:0 }} F</div>
+                            <div class="montant-echeances">{{ pret.nombre_echeances }} échéance(s)</div>
+                        </div>
+                        <div class="demande-actions">
+                            <button class="btn btn-sm btn-success" onclick="approuverPret({{ pret.id }})" title="Approuver">
+                                <i data-lucide="check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="refuserPret({{ pret.id }})" title="Refuser">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune demande en attente</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Prêts en cours -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="repeat"></i> Prêts en cours de remboursement
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if prets_en_cours %}
+                <div class="prets-list">
+                    {% for pret in prets_en_cours %}
+                    <div class="pret-item">
+                        <div class="pret-employe">
+                            <div class="employe-avatar">{{ pret.employe.get_initiales }}</div>
+                            <div class="employe-info">
+                                <div class="employe-nom">{{ pret.employe.get_nom_complet }}</div>
+                                <div class="employe-ref">{{ pret.reference }}</div>
+                            </div>
+                        </div>
+                        <div class="pret-details">
+                            <div class="pret-montant">{{ pret.montant|floatformat:0 }} F</div>
+                            <div class="pret-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: {% widthratio pret.montant_rembourse pret.montant 100 %}%"></div>
+                                </div>
+                                <div class="progress-text">
+                                    {{ pret.montant_rembourse|floatformat:0 }} / {{ pret.montant|floatformat:0 }} F
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun prêt en cours</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle demande de prêt -->
+<div class="modal" id="modalPret" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouvelle demande de prêt/avance</h3>
+            <button class="modal-close" onclick="fermerModalPret()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formPret">
+                <div class="form-group">
+                    <label class="form-label">Employé</label>
+                    <select id="pret_employe_id" class="form-select" required>
+                        <option value="">-- Sélectionner --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select id="pret_type" class="form-select" required>
+                        <option value="avance">Avance sur salaire</option>
+                        <option value="pret">Prêt</option>
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Montant (FCFA)</label>
+                        <input type="number" id="pret_montant" class="form-input" required min="1000" step="1000">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre d'échéances</label>
+                        <input type="number" id="pret_echeances" class="form-input" required min="1" max="24" value="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Motif</label>
+                    <textarea id="pret_motif" class="form-textarea" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fermerModalPret()">Annuler</button>
+            <button class="btn btn-primary" onclick="soumettreDemanderPret()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function ouvrirModalPret() {
+        // Charger la liste des employés
+        fetch('{% url "rh:api_employes" %}')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('pret_employe_id');
+                select.innerHTML = '<option value="">-- Sélectionner --</option>';
+                data.employes.forEach(emp => {
+                    select.innerHTML += `<option value="${emp.id}">${emp.nom} ${emp.prenoms}</option>`;
+                });
+            });
+
+        document.getElementById('modalPret').style.display = 'flex';
+    }
+
+    function fermerModalPret() {
+        document.getElementById('modalPret').style.display = 'none';
+    }
+
+    function soumettreDemanderPret() {
+        const data = {
+            employe_id: document.getElementById('pret_employe_id').value,
+            type_pret: document.getElementById('pret_type').value,
+            montant: document.getElementById('pret_montant').value,
+            nombre_echeances: document.getElementById('pret_echeances').value,
+            motif: document.getElementById('pret_motif').value,
+        };
+
+        if (!data.employe_id || !data.montant) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        fetch('{% url "rh:demander_pret" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                fermerModalPret();
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        });
+    }
+
+    function approuverPret(pretId) {
+        if (!confirm('Approuver cette demande de prêt/avance ?')) return;
+
+        fetch('{% url "rh:approuver_pret" 0 %}'.replace('0', pretId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({action: 'approuver'})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+
+    function refuserPret(pretId) {
+        const motif = prompt('Motif du refus:');
+        if (motif === null) return;
+
+        fetch('{% url "rh:approuver_pret" 0 %}'.replace('0', pretId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({action: 'refuser', motif_refus: motif})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="rh-page">
+    <!-- Sous-navigation RH -->
+    <div class="rh-subnav">
+        <a href="{% url 'rh:dashboard' %}" class="rh-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'rh:employes' %}" class="rh-subnav-item">
+            <i data-lucide="users"></i> Employés
+        </a>
+        <a href="{% url 'rh:contrats' %}" class="rh-subnav-item">
+            <i data-lucide="file-signature"></i> Contrats
+        </a>
+        <a href="{% url 'rh:paie' %}" class="rh-subnav-item">
+            <i data-lucide="banknote"></i> Paie
+        </a>
+        <a href="{% url 'rh:conges' %}" class="rh-subnav-item">
+            <i data-lucide="palm-tree"></i> Congés
+        </a>
+        <a href="{% url 'rh:absences' %}" class="rh-subnav-item">
+            <i data-lucide="user-x"></i> Absences
+        </a>
+        <a href="{% url 'rh:prets' %}" class="rh-subnav-item">
+            <i data-lucide="hand-coins"></i> Prêts
+        </a>
+        <a href="{% url 'rh:evaluations' %}" class="rh-subnav-item">
+            <i data-lucide="clipboard-check"></i> Évaluations
+        </a>
+        <a href="{% url 'rh:formations' %}" class="rh-subnav-item active">
+            <i data-lucide="graduation-cap"></i> Formations
+        </a>
+        <a href="{% url 'rh:discipline' %}" class="rh-subnav-item">
+            <i data-lucide="alert-triangle"></i> Discipline
+        </a>
+        <a href="{% url 'rh:fins_contrat' %}" class="rh-subnav-item">
+            <i data-lucide="user-minus"></i> Fins contrat
+        </a>
+        <a href="{% url 'rh:declarations' %}" class="rh-subnav-item">
+            <i data-lucide="file-check"></i> Déclarations
+        </a>
+        <a href="{% url 'rh:configuration' %}" class="rh-subnav-item">
+            <i data-lucide="settings"></i> Configuration
+        </a>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="calendar"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ formations_a_venir|length }}</div>
+                <div class="stat-label">À venir</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="play-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ formations_en_cours|length }}</div>
+                <div class="stat-label">En cours</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i data-lucide="graduation-cap"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ budget.nb_formations }}</div>
+                <div class="stat-label">Formations (année)</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="wallet"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ budget.total_depense|floatformat:0 }} F</div>
+                <div class="stat-label">Budget dépensé</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Formations à venir -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="calendar"></i> Formations à venir
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if formations_a_venir %}
+                <div class="formations-list">
+                    {% for formation in formations_a_venir %}
+                    <div class="formation-item a-venir">
+                        <div class="formation-info">
+                            <div class="formation-titre">{{ formation.intitule }}</div>
+                            <div class="formation-organisme">{{ formation.organisme|default:"--" }}</div>
+                        </div>
+                        <div class="formation-details">
+                            <div class="formation-dates">
+                                <i data-lucide="calendar"></i>
+                                {{ formation.date_debut|date:"d/m/Y" }}
+                                {% if formation.date_fin != formation.date_debut %}
+                                - {{ formation.date_fin|date:"d/m/Y" }}
+                                {% endif %}
+                            </div>
+                            <div class="formation-duree">{{ formation.duree_heures }}h</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune formation planifiée</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Formations en cours -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i data-lucide="play-circle"></i> Formations en cours
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if formations_en_cours %}
+                <div class="formations-list">
+                    {% for formation in formations_en_cours %}
+                    <div class="formation-item en-cours">
+                        <div class="formation-info">
+                            <div class="formation-titre">{{ formation.intitule }}</div>
+                            <div class="formation-formateur">
+                                <i data-lucide="user"></i> {{ formation.formateur|default:"--" }}
+                            </div>
+                        </div>
+                        <div class="formation-details">
+                            <div class="formation-lieu">
+                                <i data-lucide="map-pin"></i> {{ formation.lieu|default:"--" }}
+                            </div>
+                            <span class="badge badge-success">En cours</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucune formation en cours</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Formations passées -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="history"></i> Formations terminées
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if formations_passees %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Intitulé</th>
+                            <th>Type</th>
+                            <th>Organisme</th>
+                            <th>Dates</th>
+                            <th>Durée</th>
+                            <th>Participants</th>
+                            <th>Coût</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for formation in formations_passees %}
+                        <tr>
+                            <td>
+                                <strong>{{ formation.intitule }}</strong>
+                            </td>
+                            <td>{{ formation.get_type_formation_display }}</td>
+                            <td>{{ formation.organisme|default:"--" }}</td>
+                            <td>
+                                {{ formation.date_debut|date:"d/m/Y" }}
+                                {% if formation.date_fin != formation.date_debut %}
+                                - {{ formation.date_fin|date:"d/m/Y" }}
+                                {% endif %}
+                            </td>
+                            <td>{{ formation.duree_heures }}h</td>
+                            <td>
+                                <span class="badge badge-info">
+                                    {{ formation.participations.count }}
+                                </span>
+                            </td>
+                            <td>{{ formation.cout|floatformat:0 }} F</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="book-open"></i>
+                <h3>Aucune formation terminée</h3>
+                <p>Les formations terminées apparaîtront ici</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Budget formation -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="pie-chart"></i> Récapitulatif annuel
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="recap-grid">
+                <div class="recap-item">
+                    <div class="recap-value">{{ budget.nb_formations }}</div>
+                    <div class="recap-label">Formations organisées</div>
+                </div>
+                <div class="recap-item">
+                    <div class="recap-value">{{ budget.nb_participants }}</div>
+                    <div class="recap-label">Participations</div>
+                </div>
+                <div class="recap-item">
+                    <div class="recap-value">{{ budget.total_depense|floatformat:0 }} F</div>
+                    <div class="recap-label">Budget consommé</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
