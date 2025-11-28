@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Créanciers</span>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 600; margin: 0;">Gestion des Créanciers</h1>
+        <p style="color: var(--neutral-500); margin-top: 4px;">Portefeuille créanciers et suivi des recouvrements</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModalCreancier()">
+        <i data-lucide="plus"></i> Nouveau créancier
+    </button>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: var(--primary-light); padding: 12px; border-radius: 8px;">
+                <i data-lucide="users" style="color: var(--primary); width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Total Créanciers</p>
+                <p style="font-size: 1.5rem; font-weight: 600;">{{ creanciers|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #E0F2FE; padding: 12px; border-radius: 8px;">
+                <i data-lucide="folder-open" style="color: #0284C7; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Dossiers actifs</p>
+                <p style="font-size: 1.5rem; font-weight: 600;" id="totalDossiers">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #DCFCE7; padding: 12px; border-radius: 8px;">
+                <i data-lucide="trending-up" style="color: #16A34A; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Total encaissé</p>
+                <p style="font-size: 1.5rem; font-weight: 600;" id="totalEncaisse">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="flex items-center gap-3">
+            <div style="background: #FEF3C7; padding: 12px; border-radius: 8px;">
+                <i data-lucide="send" style="color: #D97706; width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <p style="font-size: 0.875rem; color: var(--neutral-500);">Total reversé</p>
+                <p style="font-size: 1.5rem; font-weight: 600;" id="totalReverse">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Créanciers Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex gap-4 flex-wrap" style="flex: 1;">
+            <div class="search-bar" style="max-width: 300px;">
+                <i data-lucide="search"></i>
+                <input type="text" placeholder="Rechercher un créancier..." id="searchInput">
+            </div>
+            <select class="form-select" style="width: 180px;" id="typeFilter">
+                <option value="all">Tous types</option>
+                <option value="entreprise">Entreprise</option>
+                <option value="banque">Banque</option>
+                <option value="particulier">Particulier</option>
+                <option value="institution">Institution</option>
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="exportCreanciers()">
+                <i data-lucide="download"></i> Exporter
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Nom / Raison sociale</th>
+                    <th>Type</th>
+                    <th>Contact</th>
+                    <th>Dossiers</th>
+                    <th>Créances</th>
+                    <th>Encaissé</th>
+                    <th>Reversé</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="creanciersTbody">
+                {% for creancier in creanciers %}
+                <tr data-id="{{ creancier.id }}" data-type="{{ creancier.type_creancier }}">
+                    <td style="font-weight: 600; color: var(--primary);">{{ creancier.code }}</td>
+                    <td>
+                        <div>
+                            <div style="font-weight: 500;">{{ creancier.nom }}</div>
+                            {% if creancier.email %}
+                            <div style="font-size: 0.75rem; color: var(--neutral-500);">{{ creancier.email }}</div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge {{ creancier.type_creancier }}">
+                            {{ creancier.get_type_creancier_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if creancier.telephone %}
+                        {{ creancier.telephone }}
+                        {% else %}
+                        <span style="color: var(--neutral-400);">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="badge" style="background: var(--primary-light); color: var(--primary);">
+                            {{ creancier.nb_dossiers }}
+                        </span>
+                    </td>
+                    <td style="text-align: right; font-weight: 500;">
+                        {{ creancier.total_creances|floatformat:0|default:"0" }} F
+                    </td>
+                    <td style="text-align: right; color: #16A34A; font-weight: 500;">
+                        {{ creancier.total_encaisse|floatformat:0|default:"0" }} F
+                    </td>
+                    <td style="text-align: right; color: #D97706; font-weight: 500;">
+                        {{ creancier.total_reverse|floatformat:0|default:"0" }} F
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Tableau de bord" onclick="openDashboard({{ creancier.id }})">
+                                <i data-lucide="layout-dashboard"></i>
+                            </button>
+                            <button class="icon-btn" title="Voir dossiers" onclick="viewDossiers({{ creancier.id }})">
+                                <i data-lucide="folder"></i>
+                            </button>
+                            <button class="icon-btn" title="Modifier" onclick="editCreancier({{ creancier.id }})">
+                                <i data-lucide="edit"></i>
+                            </button>
+                            <button class="icon-btn" title="Point global" onclick="generatePointGlobal({{ creancier.id }})">
+                                <i data-lucide="file-text"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        <i data-lucide="users" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <p>Aucun créancier enregistré</p>
+                        <button class="btn btn-primary" style="margin-top: 16px;" onclick="openModalCreancier()">
+                            <i data-lucide="plus"></i> Ajouter un créancier
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Créer/Modifier Créancier -->
+<div id="modalCreancier" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 id="modalCreancierTitle">Nouveau créancier</h3>
+            <button class="icon-btn" onclick="closeModalCreancier()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="formCreancier">
+            <input type="hidden" id="creancier_id" name="creancier_id">
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Code *</label>
+                    <input type="text" class="form-input" id="code" name="code" required placeholder="CR-001">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type *</label>
+                    <select class="form-select" id="type_creancier" name="type_creancier" required>
+                        <option value="entreprise">Entreprise</option>
+                        <option value="banque">Banque</option>
+                        <option value="particulier">Particulier</option>
+                        <option value="institution">Institution</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Nom / Raison sociale *</label>
+                    <input type="text" class="form-input" id="nom" name="nom" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" id="email" name="email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Téléphone</label>
+                    <input type="tel" class="form-input" id="telephone" name="telephone">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Adresse</label>
+                    <textarea class="form-input" id="adresse" name="adresse" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Délai de reversement (jours)</label>
+                    <input type="number" class="form-input" id="delai_reversement" name="delai_reversement" value="15" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact principal</label>
+                    <input type="text" class="form-input" id="contact_principal" name="contact_principal">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalCreancier()">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Calculer les totaux
+    let totalDossiers = 0;
+    let totalEncaisse = 0;
+    let totalReverse = 0;
+
+    {% for creancier in creanciers %}
+    totalDossiers += {{ creancier.nb_dossiers|default:0 }};
+    totalEncaisse += {{ creancier.total_encaisse|default:0 }};
+    totalReverse += {{ creancier.total_reverse|default:0 }};
+    {% endfor %}
+
+    document.getElementById('totalDossiers').textContent = totalDossiers;
+    document.getElementById('totalEncaisse').textContent = new Intl.NumberFormat('fr-FR').format(totalEncaisse) + ' F';
+    document.getElementById('totalReverse').textContent = new Intl.NumberFormat('fr-FR').format(totalReverse) + ' F';
+
+    // Filtrage
+    document.getElementById('searchInput').addEventListener('input', filterTable);
+    document.getElementById('typeFilter').addEventListener('change', filterTable);
+
+    function filterTable() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const type = document.getElementById('typeFilter').value;
+        const rows = document.querySelectorAll('#creanciersTbody tr[data-id]');
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const rowType = row.dataset.type;
+            const matchSearch = text.includes(search);
+            const matchType = type === 'all' || rowType === type;
+            row.style.display = matchSearch && matchType ? '' : 'none';
+        });
+    }
+
+    // Modal créancier
+    function openModalCreancier() {
+        document.getElementById('modalCreancierTitle').textContent = 'Nouveau créancier';
+        document.getElementById('formCreancier').reset();
+        document.getElementById('creancier_id').value = '';
+        document.getElementById('modalCreancier').style.display = 'flex';
+    }
+
+    function closeModalCreancier() {
+        document.getElementById('modalCreancier').style.display = 'none';
+    }
+
+    function editCreancier(id) {
+        fetch(`{% url 'gestion:api_creanciers_liste' %}?id=${id}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.creanciers.length > 0) {
+                    const c = data.creanciers.find(x => x.id === id);
+                    if (c) {
+                        document.getElementById('modalCreancierTitle').textContent = 'Modifier créancier';
+                        document.getElementById('creancier_id').value = c.id;
+                        document.getElementById('code').value = c.code;
+                        document.getElementById('nom').value = c.nom;
+                        document.getElementById('type_creancier').value = c.type_creancier;
+                        document.getElementById('email').value = c.email || '';
+                        document.getElementById('telephone').value = c.telephone || '';
+                        document.getElementById('modalCreancier').style.display = 'flex';
+                    }
+                }
+            });
+    }
+
+    document.getElementById('formCreancier').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gestion:api_creancier_creer" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur lors de l\'enregistrement');
+            }
+        });
+    });
+
+    function openDashboard(id) {
+        window.location.href = `?dashboard=${id}`;
+    }
+
+    function viewDossiers(id) {
+        window.location.href = `{% url 'gestion:dossiers' %}?creancier=${id}`;
+    }
+
+    function generatePointGlobal(id) {
+        if (confirm('Générer le point global pour ce créancier ?')) {
+            fetch(`{% url 'gestion:api_point_global_generer' creancier_id=0 %}`.replace('/0/', `/${id}/`), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Point global généré avec succès');
+                } else {
+                    alert(data.error || 'Erreur');
+                }
+            });
+        }
+    }
+
+    function exportCreanciers() {
+        window.location.href = '{% url "gestion:api_creanciers_liste" %}?export=excel';
+    }
+
+    // Fermer modal au clic extérieur
+    document.getElementById('modalCreancier').addEventListener('click', function(e) {
+        if (e.target === this) closeModalCreancier();
+    });
+</script>
+{% endblock %}
