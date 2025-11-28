@@ -257,6 +257,21 @@
         </div>
     </div>
 
+    <!-- Graphique évolution -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="bar-chart-3"></i>
+                Évolution sur 12 mois
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="chartEvolution"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Actions rapides -->
     <div class="card mt-4">
         <div class="card-header">
@@ -354,6 +369,7 @@
                             <option value="impot">Impôt et taxes</option>
                             <option value="fournitures">Fournitures</option>
                             <option value="transport">Transport</option>
+                            <option value="virement_interne">Virement interne</option>
                             <option value="autre">Autre</option>
                         </select>
                     </div>
@@ -415,27 +431,41 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Type de compte</label>
-                        <select id="cpt_type" name="type_compte" class="form-select">
+                        <select id="cpt_type" name="type_compte" class="form-select" onchange="toggleOperateurMobile()">
                             <option value="courant">Compte Courant</option>
                             <option value="epargne">Compte Épargne</option>
                             <option value="sequestre">Compte Séquestre</option>
                             <option value="caisse">Caisse</option>
+                            <option value="mobile_money">Mobile Money</option>
                         </select>
                     </div>
                 </div>
 
+                <div class="form-group" id="groupOperateur" style="display: none;">
+                    <label class="form-label">Opérateur Mobile Money</label>
+                    <select id="cpt_operateur" name="operateur_mobile" class="form-select">
+                        <option value="">Sélectionner un opérateur</option>
+                        <option value="mtn_momo">MTN Mobile Money</option>
+                        <option value="moov_money">Moov Money</option>
+                        <option value="celtiis_cash">Celtiis Cash</option>
+                        <option value="orange_money">Orange Money</option>
+                        <option value="free_money">Free Money</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Banque</label>
+                        <label class="form-label" id="labelBanque">Banque</label>
                         <input type="text" id="cpt_banque" name="banque" class="form-input" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Numéro de compte</label>
+                        <label class="form-label" id="labelNumero">Numéro de compte</label>
                         <input type="text" id="cpt_numero" name="numero" class="form-input" required>
                     </div>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row" id="rowIbanBic">
                     <div class="form-group">
                         <label class="form-label">IBAN</label>
                         <input type="text" id="cpt_iban" name="iban" class="form-input">
@@ -468,6 +498,146 @@
             <button class="btn btn-primary" onclick="sauvegarderCompte()">
                 <i data-lucide="save"></i>
                 Créer le compte
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Virement Interne -->
+<div class="modal" id="modalVirement">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Virement interne</h3>
+            <button class="modal-close" onclick="fermerModal('modalVirement')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formVirement">
+                <div class="form-group">
+                    <label class="form-label">Compte source</label>
+                    <select id="vir_source" name="compte_source_id" class="form-select" required>
+                        <option value="">Sélectionner le compte source</option>
+                        {% for compte in comptes %}
+                        <option value="{{ compte.id }}">{{ compte.nom }} ({{ compte.solde_actuel|floatformat:0 }} XOF)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Compte destination</label>
+                    <select id="vir_destination" name="compte_destination_id" class="form-select" required>
+                        <option value="">Sélectionner le compte destination</option>
+                        {% for compte in comptes %}
+                        <option value="{{ compte.id }}">{{ compte.nom }} ({{ compte.solde_actuel|floatformat:0 }} XOF)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Montant (XOF)</label>
+                        <input type="number" id="vir_montant" name="montant" class="form-input" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" id="vir_date" name="date_mouvement" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé</label>
+                    <input type="text" id="vir_libelle" name="libelle" class="form-input" value="Virement interne">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalVirement')">Annuler</button>
+            <button class="btn btn-primary" onclick="effectuerVirement()">
+                <i data-lucide="repeat"></i>
+                Effectuer le virement
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle Prévision -->
+<div class="modal" id="modalPrevision">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouvelle prévision</h3>
+            <button class="modal-close" onclick="fermerModal('modalPrevision')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formPrevision">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select id="prev_type" name="type_prevision" class="form-select" required>
+                            <option value="entree">Entrée prévue</option>
+                            <option value="sortie">Sortie prévue</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Compte</label>
+                        <select id="prev_compte" name="compte_id" class="form-select" required>
+                            {% for compte in comptes %}
+                            <option value="{{ compte.id }}">{{ compte.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Libellé</label>
+                    <input type="text" id="prev_libelle" name="libelle" class="form-input" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Montant (XOF)</label>
+                        <input type="number" id="prev_montant" name="montant" class="form-input" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date prévue</label>
+                        <input type="date" id="prev_date" name="date_prevue" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Catégorie</label>
+                        <select id="prev_categorie" name="categorie" class="form-select">
+                            <option value="encaissement">Encaissement</option>
+                            <option value="reversement">Reversement</option>
+                            <option value="honoraires">Honoraires</option>
+                            <option value="salaire">Salaire</option>
+                            <option value="loyer">Loyer</option>
+                            <option value="charges">Charges</option>
+                            <option value="impot">Impôt</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Périodicité</label>
+                        <select id="prev_periodicite" name="periodicite" class="form-select">
+                            <option value="unique">Unique</option>
+                            <option value="hebdomadaire">Hebdomadaire</option>
+                            <option value="mensuel">Mensuel</option>
+                            <option value="trimestriel">Trimestriel</option>
+                            <option value="annuel">Annuel</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modalPrevision')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderPrevision()">
+                <i data-lucide="save"></i>
+                Créer la prévision
             </button>
         </div>
     </div>
@@ -877,11 +1047,35 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     lucide.createIcons();
 
-    // Initialiser la date du jour
+    // Initialiser les dates
     document.getElementById('mvt_date').valueAsDate = new Date();
+    document.getElementById('vir_date').valueAsDate = new Date();
+    document.getElementById('prev_date').valueAsDate = new Date();
+
+    // Toggle operateur mobile pour compte
+    function toggleOperateurMobile() {
+        const type = document.getElementById('cpt_type').value;
+        const groupOperateur = document.getElementById('groupOperateur');
+        const rowIbanBic = document.getElementById('rowIbanBic');
+        const labelBanque = document.getElementById('labelBanque');
+        const labelNumero = document.getElementById('labelNumero');
+
+        if (type === 'mobile_money') {
+            groupOperateur.style.display = 'block';
+            rowIbanBic.style.display = 'none';
+            labelBanque.textContent = 'Description';
+            labelNumero.textContent = 'Numéro de téléphone';
+        } else {
+            groupOperateur.style.display = 'none';
+            rowIbanBic.style.display = 'grid';
+            labelBanque.textContent = 'Banque';
+            labelNumero.textContent = 'Numéro de compte';
+        }
+    }
 
     function ouvrirModalMouvement(type) {
         document.getElementById('mvt_type').value = type;
@@ -892,12 +1086,24 @@
     }
 
     function ouvrirModalCompte() {
+        document.getElementById('formCompte').reset();
+        toggleOperateurMobile();
         document.getElementById('modalCompte').classList.add('open');
         lucide.createIcons();
     }
 
     function ouvrirModalVirement() {
-        alert('Fonctionnalité de virement interne à implémenter');
+        document.getElementById('formVirement').reset();
+        document.getElementById('vir_date').valueAsDate = new Date();
+        document.getElementById('modalVirement').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function ouvrirModalPrevision() {
+        document.getElementById('formPrevision').reset();
+        document.getElementById('prev_date').valueAsDate = new Date();
+        document.getElementById('modalPrevision').classList.add('open');
+        lucide.createIcons();
     }
 
     function fermerModal(modalId) {
@@ -962,6 +1168,69 @@
         });
     }
 
+    function effectuerVirement() {
+        const form = document.getElementById('formVirement');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        if (data.compte_source_id === data.compte_destination_id) {
+            alert('Les comptes source et destination doivent être différents');
+            return;
+        }
+
+        fetch('{% url "tresorerie:api_virement_interne" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Virement effectué avec succès');
+                fermerModal('modalVirement');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors du virement');
+            console.error(error);
+        });
+    }
+
+    function sauvegarderPrevision() {
+        const form = document.getElementById('formPrevision');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "tresorerie:api_creer_prevision" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Prévision créée avec succès');
+                fermerModal('modalPrevision');
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la création de la prévision');
+            console.error(error);
+        });
+    }
+
     function marquerAlerteLue(alerteId) {
         fetch(`/tresorerie/api/alertes/${alerteId}/lue/`, {
             method: 'POST',
@@ -982,7 +1251,7 @@
     }
 
     function exporterReleve() {
-        alert('Export du relevé à implémenter');
+        window.location.href = '{% url "tresorerie:export_mouvements" %}?format=excel';
     }
 
     // Fermer modal en cliquant à l'extérieur
@@ -993,5 +1262,59 @@
             }
         });
     });
+
+    // Charger et afficher le graphique d'évolution
+    fetch('{% url "tresorerie:api_statistiques" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.evolution && data.evolution.length > 0) {
+                const ctx = document.getElementById('chartEvolution');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.evolution.map(e => e.mois),
+                            datasets: [
+                                {
+                                    label: 'Entrées',
+                                    data: data.evolution.map(e => parseFloat(e.entrees)),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    fill: true,
+                                    tension: 0.3
+                                },
+                                {
+                                    label: 'Sorties',
+                                    data: data.evolution.map(e => parseFloat(e.sorties)),
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    fill: true,
+                                    tension: 0.3
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('fr-FR') + ' XOF';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
 </script>
 {% endblock %}

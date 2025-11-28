@@ -19,6 +19,16 @@ class CompteBancaire(models.Model):
         ('epargne', 'Compte Épargne'),
         ('sequestre', 'Compte Séquestre'),
         ('caisse', 'Caisse'),
+        ('mobile_money', 'Mobile Money'),
+    ]
+
+    OPERATEURS_MOBILE = [
+        ('mtn_momo', 'MTN Mobile Money'),
+        ('moov_money', 'Moov Money'),
+        ('celtiis_cash', 'Celtiis Cash'),
+        ('orange_money', 'Orange Money'),
+        ('free_money', 'Free Money'),
+        ('autre', 'Autre'),
     ]
 
     STATUTS = [
@@ -32,6 +42,14 @@ class CompteBancaire(models.Model):
     numero = models.CharField(max_length=50, verbose_name='Numéro de compte')
     banque = models.CharField(max_length=100, verbose_name='Banque')
     type_compte = models.CharField(max_length=20, choices=TYPES_COMPTE, default='courant')
+    operateur_mobile = models.CharField(
+        max_length=20,
+        choices=OPERATEURS_MOBILE,
+        blank=True,
+        null=True,
+        verbose_name='Opérateur Mobile Money',
+        help_text='Requis si le type de compte est Mobile Money'
+    )
     devise = models.CharField(max_length=3, default='XOF', verbose_name='Devise')
     solde_initial = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='Solde initial')
     solde_actuel = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='Solde actuel')
@@ -116,8 +134,22 @@ class MouvementTresorerie(models.Model):
     mode_paiement = models.CharField(max_length=20, choices=MODES_PAIEMENT, default='virement')
 
     # Liens vers d'autres entités
-    dossier_id = models.IntegerField(blank=True, null=True, verbose_name='ID Dossier')
-    facture_id = models.IntegerField(blank=True, null=True, verbose_name='ID Facture')
+    dossier = models.ForeignKey(
+        'gestion.Dossier',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='mouvements_tresorerie',
+        verbose_name='Dossier lié'
+    )
+    facture = models.ForeignKey(
+        'gestion.Facture',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='mouvements_tresorerie',
+        verbose_name='Facture liée'
+    )
 
     tiers = models.CharField(max_length=200, blank=True, null=True, verbose_name='Tiers')
     numero_piece = models.CharField(max_length=50, blank=True, null=True, verbose_name='N° pièce')
