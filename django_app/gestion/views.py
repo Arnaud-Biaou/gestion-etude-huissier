@@ -3635,6 +3635,106 @@ def api_memoire_verifier(request, memoire_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@require_POST
+def api_memoire_viser(request, memoire_id):
+    """API pour marquer un mémoire comme visé par le Procureur"""
+    try:
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        if memoire.statut != 'soumis':
+            return JsonResponse({
+                'success': False,
+                'error': 'Le mémoire doit être soumis pour être visé'
+            }, status=400)
+
+        memoire.statut = 'vise'
+        memoire.date_visa = timezone.now()
+        memoire.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mémoire N° {memoire.numero} visé par le Procureur'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_memoire_taxer(request, memoire_id):
+    """API pour marquer un mémoire comme taxé par le Président (Exécutoire)"""
+    try:
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        if memoire.statut != 'vise':
+            return JsonResponse({
+                'success': False,
+                'error': 'Le mémoire doit être visé pour être taxé'
+            }, status=400)
+
+        memoire.statut = 'taxe'
+        memoire.date_taxation = timezone.now()
+        memoire.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mémoire N° {memoire.numero} taxé (Exécutoire délivré)'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_memoire_transmettre_tresor(request, memoire_id):
+    """API pour transmettre un mémoire au Trésor pour paiement"""
+    try:
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        if memoire.statut != 'taxe':
+            return JsonResponse({
+                'success': False,
+                'error': 'Le mémoire doit être taxé pour être transmis au Trésor'
+            }, status=400)
+
+        memoire.statut = 'en_paiement'
+        memoire.date_transmission_tresor = timezone.now()
+        memoire.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mémoire N° {memoire.numero} transmis au Trésor'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_memoire_payer(request, memoire_id):
+    """API pour marquer un mémoire comme payé"""
+    try:
+        memoire = get_object_or_404(Memoire, pk=memoire_id)
+
+        if memoire.statut != 'en_paiement':
+            return JsonResponse({
+                'success': False,
+                'error': 'Le mémoire doit être transmis au Trésor pour être payé'
+            }, status=400)
+
+        memoire.statut = 'paye'
+        memoire.date_paiement = timezone.now()
+        memoire.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mémoire N° {memoire.numero} marqué comme payé'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
 # API AFFAIRES
 @require_POST
 def api_affaire_creer(request, memoire_id):

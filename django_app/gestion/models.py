@@ -1443,8 +1443,11 @@ class Memoire(models.Model):
         ('brouillon', 'Brouillon'),
         ('en_cours', 'En cours de rédaction'),
         ('a_verifier', 'À vérifier'),
-        ('certifie', 'Certifié'),
-        ('soumis', 'Soumis'),
+        ('certifie', 'Certifié par l\'huissier'),
+        ('soumis', 'Soumis au Parquet'),
+        ('vise', 'Visé par le Procureur'),
+        ('taxe', 'Taxé par le Président'),
+        ('en_paiement', 'Transmis au Trésor'),
         ('paye', 'Payé'),
         ('rejete', 'Rejeté'),
     ]
@@ -1519,6 +1522,24 @@ class Memoire(models.Model):
     lieu_certification = models.CharField(
         max_length=100, blank=True, default='Parakou',
         verbose_name='Lieu de certification'
+    )
+
+    # Dates du workflow de validation
+    date_visa = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date visa Procureur'
+    )
+    date_taxation = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date taxation Président'
+    )
+    date_transmission_tresor = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date transmission Trésor'
+    )
+    date_paiement = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de paiement'
     )
 
     # Observations
@@ -1841,9 +1862,9 @@ class DestinataireAffaire(models.Model):
 
     TYPE_MISSION_CHOICES = [
         ('aucune', 'Aucune mission'),
-        ('2_repas', '2 repas (distance 100-200 km)'),
-        ('journee_incomplete', 'Journée incomplète (distance 200-300 km)'),
-        ('journee_complete', 'Journée complète (distance > 300 km)'),
+        ('1_repas', '1 repas (distance 100-149 km)'),
+        ('2_repas', '2 repas (distance 150-199 km)'),
+        ('journee_complete', 'Journée entière (distance ≥ 200 km)'),
     ]
 
     # Constantes de tarification
@@ -1853,9 +1874,9 @@ class DestinataireAffaire(models.Model):
 
     TARIFS_MISSION = {
         'aucune': 0,
-        '2_repas': 15000,
-        'journee_incomplete': 30000,
-        'journee_complete': 45000,
+        '1_repas': 15000,         # 15 000 FCFA (100-149 km)
+        '2_repas': 30000,         # 30 000 FCFA (150-199 km)
+        'journee_complete': 45000, # 45 000 FCFA (≥ 200 km)
     }
 
     affaire = models.ForeignKey(
@@ -1908,7 +1929,7 @@ class DestinataireAffaire(models.Model):
     frais_mission = models.DecimalField(
         max_digits=15, decimal_places=0, default=0,
         verbose_name='Frais de mission',
-        help_text='15 000 / 30 000 / 45 000 F selon durée - UNE SEULE FOIS'
+        help_text='15 000 (1 repas) / 30 000 (2 repas) / 45 000 F (journée) - UNE SEULE FOIS'
     )
 
     # Totaux
@@ -1950,10 +1971,10 @@ class DestinataireAffaire(models.Model):
         """Détermine automatiquement le type de mission selon la distance"""
         if self.distance_km < self.SEUIL_MISSION_KM:
             return 'aucune'
+        elif self.distance_km < 150:
+            return '1_repas'
         elif self.distance_km < 200:
             return '2_repas'
-        elif self.distance_km < 300:
-            return 'journee_incomplete'
         else:
             return 'journee_complete'
 
@@ -2130,6 +2151,49 @@ class ActeDestinataire(models.Model):
 
         # Mettre à jour le destinataire parent
         self.destinataire.calculer_totaux()
+
+
+class RegistreParquet(models.Model):
+    """
+    Registre obligatoire au Parquet (Article 75 - Décret n°2012-143)
+    Trace toutes les diligences effectuées pour les mémoires de cédules
+    """
+    memoire = models.ForeignKey(
+        Memoire, on_delete=models.CASCADE,
+        related_name='registre_parquet',
+        verbose_name='Mémoire'
+    )
+    acte = models.ForeignKey(
+        ActeDestinataire, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='entrees_registre',
+        verbose_name='Acte lié'
+    )
+    reference_affaire = models.CharField(
+        max_length=100,
+        verbose_name='Référence affaire'
+    )
+    nature_diligence = models.CharField(
+        max_length=200,
+        verbose_name='Nature de la diligence'
+    )
+    date_diligence = models.DateField(
+        verbose_name='Date de la diligence'
+    )
+    montant_emoluments = models.DecimalField(
+        max_digits=12, decimal_places=0, default=0,
+        verbose_name='Montant des émoluments'
+    )
+    observations = models.TextField(blank=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Entrée registre Parquet'
+        verbose_name_plural = 'Registre Parquet'
+        ordering = ['-date_diligence', '-date_creation']
+
+    def __str__(self):
+        return f"{self.reference_affaire} - {self.date_diligence}"
 
 
 # =============================================================================

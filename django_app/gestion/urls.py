@@ -94,6 +94,10 @@ urlpatterns = [
     path('api/memoires/<int:memoire_id>/certifier/', views.api_memoire_certifier, name='api_memoire_certifier'),
     path('api/memoires/<int:memoire_id>/verifier/', views.api_memoire_verifier, name='api_memoire_verifier'),
     path('api/memoires/<int:memoire_id>/export/', views.api_memoire_export_pdf, name='api_memoire_export_pdf'),
+    path('api/memoires/<int:memoire_id>/viser/', views.api_memoire_viser, name='api_memoire_viser'),
+    path('api/memoires/<int:memoire_id>/taxer/', views.api_memoire_taxer, name='api_memoire_taxer'),
+    path('api/memoires/<int:memoire_id>/transmettre-tresor/', views.api_memoire_transmettre_tresor, name='api_memoire_transmettre_tresor'),
+    path('api/memoires/<int:memoire_id>/payer/', views.api_memoire_payer, name='api_memoire_payer'),
 
     # API endpoints - Affaires du mémoire
     path('api/memoires/<int:memoire_id>/affaires/creer/', views.api_affaire_creer, name='api_affaire_creer'),

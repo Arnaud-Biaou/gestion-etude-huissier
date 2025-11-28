@@ -257,9 +257,29 @@
             <a href="{% url 'gestion:api_memoire_export_pdf' memoire_id %}" class="btn btn-secondary" target="_blank">
                 <i data-lucide="file-text"></i> Previsualiser PDF
             </a>
-            {% if memoire_detail.statut == 'brouillon' or memoire_detail.statut == 'en_cours' %}
+            {% if memoire_detail.statut == 'brouillon' or memoire_detail.statut == 'en_cours' or memoire_detail.statut == 'a_verifier' %}
             <button class="btn btn-accent" onclick="certifierMemoire({{ memoire_id }})">
-                <i data-lucide="award"></i> Certifier et soumettre
+                <i data-lucide="award"></i> Certifier
+            </button>
+            {% endif %}
+            {% if memoire_detail.statut == 'soumis' %}
+            <button class="btn btn-info" onclick="viserMemoire({{ memoire_id }})">
+                <i data-lucide="stamp"></i> Marquer Visé (Procureur)
+            </button>
+            {% endif %}
+            {% if memoire_detail.statut == 'vise' %}
+            <button class="btn btn-warning" onclick="taxerMemoire({{ memoire_id }})">
+                <i data-lucide="gavel"></i> Marquer Taxé (Exécutoire)
+            </button>
+            {% endif %}
+            {% if memoire_detail.statut == 'taxe' %}
+            <button class="btn btn-success" onclick="transmettreMemoire({{ memoire_id }})">
+                <i data-lucide="send"></i> Transmettre au Trésor
+            </button>
+            {% endif %}
+            {% if memoire_detail.statut == 'en_paiement' %}
+            <button class="btn btn-primary" onclick="payerMemoire({{ memoire_id }})">
+                <i data-lucide="banknote"></i> Marquer Payé
             </button>
             {% endif %}
         </div>
@@ -282,12 +302,17 @@
                 <option value="{{ m.id }}">{{ m.nom }}</option>
                 {% endfor %}
             </select>
-            <select class="form-select" style="width: 150px;" id="filterStatut">
+            <select class="form-select" style="width: 180px;" id="filterStatut">
                 <option value="">Tous statuts</option>
                 <option value="brouillon">Brouillon</option>
-                <option value="certifie">Certifie</option>
+                <option value="en_cours">En cours</option>
+                <option value="certifie">Certifié</option>
                 <option value="soumis">Soumis</option>
-                <option value="paye">Paye</option>
+                <option value="vise">Visé</option>
+                <option value="taxe">Taxé</option>
+                <option value="en_paiement">En paiement</option>
+                <option value="paye">Payé</option>
+                <option value="rejete">Rejeté</option>
             </select>
         </div>
     </div>
@@ -575,8 +600,8 @@
         seuil_mission: {{ tarifs.seuil_mission }},
         tarifs_mission: {
             'aucune': 0,
-            '2_repas': 15000,
-            'journee_incomplete': 30000,
+            '1_repas': 15000,
+            '2_repas': 30000,
             'journee_complete': 45000
         }
     };
@@ -793,10 +818,10 @@
         }
 
         if (distance >= TARIFS.seuil_mission) {
-            if (distance < 200) {
+            if (distance < 150) {
+                typeMission = '1_repas';
+            } else if (distance < 200) {
                 typeMission = '2_repas';
-            } else if (distance < 300) {
-                typeMission = 'journee_incomplete';
             } else {
                 typeMission = 'journee_complete';
             }
@@ -1037,6 +1062,87 @@
             const result = await response.json();
             if (result.success) {
                 alert('Memoire certifie avec succes !\n\nMontant total: ' + result.montant_total.toLocaleString() + ' FCFA');
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    // Fonctions workflow validation
+    async function viserMemoire(memoireId) {
+        if (!confirm('Confirmer le visa du Procureur pour ce memoire ?')) return;
+        try {
+            const response = await fetch('{% url "gestion:api_memoire_viser" memoire_id=0 %}'.replace('0', memoireId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    async function taxerMemoire(memoireId) {
+        if (!confirm('Confirmer la taxation (Executoire) par le President ?')) return;
+        try {
+            const response = await fetch('{% url "gestion:api_memoire_taxer" memoire_id=0 %}'.replace('0', memoireId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    async function transmettreMemoire(memoireId) {
+        if (!confirm('Confirmer la transmission au Tresor pour paiement ?')) return;
+        try {
+            const response = await fetch('{% url "gestion:api_memoire_transmettre_tresor" memoire_id=0 %}'.replace('0', memoireId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert(result.error);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
+        }
+    }
+
+    async function payerMemoire(memoireId) {
+        if (!confirm('Confirmer le paiement de ce memoire ?')) return;
+        try {
+            const response = await fetch('{% url "gestion:api_memoire_payer" memoire_id=0 %}'.replace('0', memoireId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
                 location.reload();
             } else {
                 alert(result.error);
