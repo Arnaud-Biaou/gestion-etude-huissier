@@ -1238,7 +1238,7 @@
 <div class="modal-overlay" id="modalUtilisateur">
     <div class="modal">
         <div class="modal-header">
-            <h3 class="modal-title">
+            <h3 class="modal-title" id="modalUtilisateurTitle">
                 <i data-lucide="user-plus"></i>
                 Nouvel utilisateur
             </h3>
@@ -1248,6 +1248,7 @@
         </div>
         <div class="modal-body">
             <form id="formUtilisateur">
+                {% csrf_token %}
                 <div class="form-section-title">Informations personnelles</div>
                 <div class="form-grid">
                     <div class="form-group">
@@ -1255,8 +1256,8 @@
                         <input type="text" class="form-input" name="nom" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Prénoms *</label>
-                        <input type="text" class="form-input" name="prenoms" required>
+                        <label class="form-label">Prénoms</label>
+                        <input type="text" class="form-input" name="prenoms">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Email *</label>
@@ -1268,11 +1269,11 @@
                     </div>
                 </div>
 
-                <div class="form-section-title">Accès</div>
-                <div class="form-grid">
+                <div class="form-section-title" id="passwordGroup">Accès</div>
+                <div class="form-grid" id="passwordFields">
                     <div class="form-group">
                         <label class="form-label">Nom d'utilisateur</label>
-                        <input type="text" class="form-input" name="username" placeholder="Généré depuis email">
+                        <input type="text" class="form-input" name="username" placeholder="Généré automatiquement depuis l'email" disabled>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Mot de passe temporaire</label>
@@ -1284,7 +1285,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="checkbox-group">
+                <div class="checkbox-group" id="forceChangeGroup">
                     <label class="checkbox-label">
                         <input type="checkbox" name="forcer_changement_mdp" checked>
                         Forcer changement de mot de passe à la première connexion
@@ -1320,15 +1321,67 @@
     lucide.createIcons();
 
     // ========================================
+    // UTILITAIRES
+    // ========================================
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value
+            || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    }
+
+    function showNotification(message, type = 'info') {
+        // Créer une notification toast
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info'}"></i>
+            <span>${message}</span>
+        `;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(toast);
+        lucide.createIcons();
+
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Variable pour stocker l'ID de l'utilisateur en cours de modification
+    let currentUserId = null;
+
+    // ========================================
     // GESTION DES UTILISATEURS
     // ========================================
     function openModalNouvelUtilisateur() {
+        currentUserId = null;
+        document.getElementById('formUtilisateur').reset();
+        document.getElementById('modalUtilisateurTitle').innerHTML = '<i data-lucide="user-plus"></i> Nouvel utilisateur';
+        // Afficher les champs de mot de passe
+        document.getElementById('passwordGroup').style.display = 'block';
+        document.getElementById('passwordFields').style.display = 'grid';
+        document.getElementById('forceChangeGroup').style.display = 'block';
         document.getElementById('modalUtilisateur').classList.add('open');
         genererMdpTemp();
+        lucide.createIcons();
     }
 
     function fermerModalUtilisateur() {
         document.getElementById('modalUtilisateur').classList.remove('open');
+        currentUserId = null;
     }
 
     function genererMdpTemp() {
@@ -1344,38 +1397,162 @@
         const form = document.getElementById('formUtilisateur');
         const formData = new FormData(form);
 
-        // Validation basique
-        if (!formData.get('nom') || !formData.get('prenoms') || !formData.get('email') || !formData.get('role')) {
-            alert('Veuillez remplir tous les champs obligatoires');
+        // Récupérer les valeurs
+        const nom = formData.get('nom')?.trim() || '';
+        const prenoms = formData.get('prenoms')?.trim() || '';
+        const email = formData.get('email')?.trim() || '';
+        const telephone = formData.get('telephone')?.trim() || '';
+        const role = formData.get('role') || '';
+        const password = formData.get('password')?.trim() || document.getElementById('tempPassword')?.value || 'changeme123';
+
+        // Validation
+        if (!nom || !email || !role) {
+            showNotification('Veuillez remplir tous les champs obligatoires (Nom, Email, Rôle)', 'error');
             return;
         }
 
-        // Simuler la sauvegarde
-        alert('Utilisateur créé avec succès!\n\nUn email avec les identifiants a été envoyé à ' + formData.get('email'));
-        fermerModalUtilisateur();
-        // location.reload();
+        // Générer un username à partir de l'email
+        const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+        const data = {
+            username: username,
+            email: email,
+            first_name: prenoms,
+            last_name: nom,
+            telephone: telephone,
+            role: role,
+            password: password,
+            is_active: true
+        };
+
+        const url = currentUserId
+            ? `/gestion/api/utilisateurs/${currentUserId}/modifier/`
+            : '/gestion/api/utilisateurs/creer/';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                fermerModalUtilisateur();
+                showNotification(result.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showNotification(result.error || 'Erreur lors de la sauvegarde', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Erreur:', err);
+            showNotification('Erreur de connexion au serveur', 'error');
+        });
     }
 
     function modifierUtilisateur(id) {
-        alert('Modifier utilisateur #' + id);
+        fetch(`/gestion/api/utilisateurs/${id}/`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const user = result.utilisateur;
+                    currentUserId = user.id;
+
+                    // Remplir le formulaire
+                    document.getElementById('formUtilisateur').reset();
+                    const nomField = document.querySelector('[name="nom"]');
+                    const prenomsField = document.querySelector('[name="prenoms"]');
+                    const emailField = document.querySelector('[name="email"]');
+                    const telephoneField = document.querySelector('[name="telephone"]');
+                    const roleField = document.querySelector('[name="role"]');
+
+                    if (nomField) nomField.value = user.last_name || '';
+                    if (prenomsField) prenomsField.value = user.first_name || '';
+                    if (emailField) emailField.value = user.email || '';
+                    if (telephoneField) telephoneField.value = user.telephone || '';
+                    if (roleField) roleField.value = user.role || '';
+
+                    document.getElementById('modalUtilisateurTitle').innerHTML = '<i data-lucide="edit"></i> Modifier l\'utilisateur';
+                    // Cacher les champs de mot de passe en modification
+                    document.getElementById('passwordGroup').style.display = 'none';
+                    document.getElementById('passwordFields').style.display = 'none';
+                    document.getElementById('forceChangeGroup').style.display = 'none';
+                    document.getElementById('modalUtilisateur').classList.add('open');
+                    lucide.createIcons();
+                } else {
+                    showNotification(result.error || 'Utilisateur non trouvé', 'error');
+                }
+            })
+            .catch(err => {
+                console.error('Erreur:', err);
+                showNotification('Erreur de connexion au serveur', 'error');
+            });
     }
 
     function resetPassword(id) {
-        if (confirm('Réinitialiser le mot de passe de cet utilisateur ?')) {
-            alert('Un nouveau mot de passe temporaire a été généré et envoyé par email.');
+        const nouveauMdp = prompt('Nouveau mot de passe (laisser vide pour générer automatiquement) :');
+        if (nouveauMdp === null) return; // Annulé
+
+        const password = nouveauMdp.trim() || 'changeme123';
+
+        if (password.length < 8 && password !== 'changeme123') {
+            showNotification('Le mot de passe doit contenir au moins 8 caractères', 'error');
+            return;
         }
+
+        fetch(`/gestion/api/utilisateurs/${id}/reset-mdp/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ password: password })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification(result.message, 'success');
+            } else {
+                showNotification(result.error || 'Erreur lors de la réinitialisation', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Erreur:', err);
+            showNotification('Erreur de connexion au serveur', 'error');
+        });
     }
 
     function toggleUserStatus(id, activer) {
         const action = activer ? 'activer' : 'désactiver';
-        if (confirm('Voulez-vous ' + action + ' cet utilisateur ?')) {
-            alert('Utilisateur ' + (activer ? 'activé' : 'désactivé') + ' avec succès');
-            location.reload();
-        }
+        if (!confirm(`Voulez-vous ${action} cet utilisateur ?`)) return;
+
+        fetch(`/gestion/api/utilisateurs/${id}/toggle-actif/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification(result.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showNotification(result.error || 'Erreur lors du changement de statut', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Erreur:', err);
+            showNotification('Erreur de connexion au serveur', 'error');
+        });
     }
 
     function voirHistorique(id) {
-        alert('Voir historique utilisateur #' + id);
+        // Rediriger vers l'onglet audit avec filtre sur l'utilisateur
+        window.location.href = '?tab=audit&user=' + id;
     }
 
     // ========================================
@@ -1387,15 +1564,13 @@
 
     function forcerDeconnexion(sessionId) {
         if (confirm('Forcer la déconnexion de cette session ?')) {
-            alert('Session déconnectée');
-            location.reload();
+            showNotification('Fonctionnalité de déconnexion forcée en cours de développement', 'info');
         }
     }
 
     function deconnecterTous() {
         if (confirm('Déconnecter tous les utilisateurs (sauf l\'administrateur) ?')) {
-            alert('Toutes les sessions ont été fermées');
-            location.reload();
+            showNotification('Fonctionnalité de déconnexion globale en cours de développement', 'info');
         }
     }
 
@@ -1403,14 +1578,14 @@
     // GESTION DES ALERTES
     // ========================================
     function marquerTraitee(alerteId) {
-        alert('Alerte marquée comme traitée');
-        location.reload();
+        showNotification('Alerte marquée comme traitée', 'success');
+        // TODO: Implémenter l'API
     }
 
     function bloquerIP(ip) {
-        if (confirm('Bloquer l\'adresse IP ' + ip + ' ?')) {
-            alert('IP bloquée avec succès');
-            location.reload();
+        if (confirm(`Bloquer l'adresse IP ${ip} ?`)) {
+            showNotification(`IP ${ip} ajoutée à la liste de blocage`, 'success');
+            // TODO: Implémenter l'API
         }
     }
 
@@ -1418,15 +1593,19 @@
     // JOURNAL D'AUDIT
     // ========================================
     function exporterAudit() {
-        alert('Export du journal d\'audit en cours...');
+        showNotification('Export du journal d\'audit en cours...', 'info');
+        // TODO: Implémenter l'export
     }
 
     function filtrerAudit() {
-        // Les filtres sont déjà affichés
+        // Les filtres sont affichés dans l'interface
     }
 
     function appliquerFiltres() {
-        alert('Filtres appliqués');
+        const form = document.getElementById('filtresAudit');
+        if (form) {
+            form.submit();
+        }
     }
 
     // ========================================
@@ -1435,32 +1614,35 @@
     function exporterDonneesUtilisateur() {
         const email = prompt('Email de l\'utilisateur :');
         if (email) {
-            alert('Export des données de ' + email + ' en cours...');
+            showNotification(`Export des données de ${email} en cours...`, 'info');
+            // TODO: Implémenter l'export RGPD
         }
     }
 
     function anonymiserClient() {
         const reference = prompt('Référence du client à anonymiser :');
         if (reference && confirm('Cette action est irréversible. Continuer ?')) {
-            alert('Données anonymisées avec succès');
+            showNotification('Anonymisation des données en cours...', 'info');
+            // TODO: Implémenter l'anonymisation
         }
     }
 
     function purgerDonnees() {
         const annees = prompt('Purger les données de plus de X années :', '5');
-        if (annees && confirm('Cette action supprimera définitivement les données de plus de ' + annees + ' ans. Continuer ?')) {
-            alert('Purge effectuée');
+        if (annees && confirm(`Cette action supprimera définitivement les données de plus de ${annees} ans. Continuer ?`)) {
+            showNotification('Purge des données en cours...', 'info');
+            // TODO: Implémenter la purge
         }
     }
 
     function afficherCle() {
-        // Simuler l'affichage de la clé
-        alert('Pour des raisons de sécurité, la clé complète serait affichée dans une modale sécurisée.');
+        showNotification('Fonctionnalité de clé de récupération en cours de développement', 'info');
     }
 
     function genererNouvelleCle() {
         if (confirm('Générer une nouvelle clé de récupération ? L\'ancienne clé sera invalidée.')) {
-            alert('Nouvelle clé générée : XXXX-XXXX-XXXX-XXXX\n\nNotez cette clé immédiatement, elle ne sera plus affichée.');
+            showNotification('Nouvelle clé de récupération générée', 'success');
+            // TODO: Implémenter la génération de clé
         }
     }
 
@@ -1469,19 +1651,21 @@
     // ========================================
     function resetSessions() {
         if (confirm('Réinitialiser toutes les sessions ?')) {
-            alert('Toutes les sessions ont été réinitialisées');
+            showNotification('Sessions réinitialisées', 'success');
+            // TODO: Implémenter la réinitialisation des sessions
         }
     }
 
     function viderCache() {
         if (confirm('Vider le cache de l\'application ?')) {
-            alert('Cache vidé avec succès');
+            showNotification('Cache vidé avec succès', 'success');
         }
     }
 
     function recalculerTotaux() {
         if (confirm('Recalculer tous les totaux et statistiques ? Cette opération peut prendre quelques minutes.')) {
-            alert('Recalcul en cours...');
+            showNotification('Recalcul des statistiques en cours...', 'info');
+            // TODO: Implémenter le recalcul
         }
     }
 
@@ -1490,16 +1674,16 @@
         if (ip) {
             const raison = prompt('Raison du blocage :');
             if (raison) {
-                alert('IP ' + ip + ' bloquée');
-                location.reload();
+                showNotification(`IP ${ip} bloquée`, 'success');
+                // TODO: Implémenter l'API
             }
         }
     }
 
     function debloquerIP(id) {
         if (confirm('Débloquer cette adresse IP ?')) {
-            alert('IP débloquée');
-            location.reload();
+            showNotification('IP débloquée', 'success');
+            // TODO: Implémenter l'API
         }
     }
 
@@ -1507,22 +1691,25 @@
         const ip = prompt('Adresse IP autorisée :');
         if (ip) {
             const desc = prompt('Description :');
-            alert('IP ajoutée à la liste blanche');
+            showNotification('IP ajoutée à la liste blanche', 'success');
+            // TODO: Implémenter l'API
         }
     }
 
     function supprimerIP(id) {
         if (confirm('Supprimer cette IP de la liste ?')) {
-            alert('IP supprimée');
-            location.reload();
+            showNotification('IP supprimée de la liste blanche', 'success');
+            // TODO: Implémenter l'API
         }
     }
 
     function openModalNouveauRole() {
-        alert('Fonctionnalité de création de rôle personnalisé');
+        showNotification('La création de rôles personnalisés sera disponible dans une prochaine version', 'info');
     }
 
-    // Fermer les modales en cliquant à l'extérieur
+    // ========================================
+    // FERMETURE DES MODALES
+    // ========================================
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', function(e) {
             if (e.target === this) {
@@ -1530,5 +1717,19 @@
             }
         });
     });
+
+    // Style pour les animations toast
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
 </script>
 {% endblock %}

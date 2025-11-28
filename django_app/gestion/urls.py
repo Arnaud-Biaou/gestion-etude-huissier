@@ -25,6 +25,14 @@ urlpatterns = [
     # ont maintenant leurs propres applications Django dediees
     # et sont configures dans etude_huissier/urls.py
 
+    # API endpoints - Gestion des utilisateurs (sécurité)
+    path('api/utilisateurs/', views.api_utilisateurs_liste, name='api_utilisateurs_liste'),
+    path('api/utilisateurs/creer/', views.api_utilisateur_creer, name='api_utilisateur_creer'),
+    path('api/utilisateurs/<int:pk>/', views.api_utilisateur_detail, name='api_utilisateur_detail'),
+    path('api/utilisateurs/<int:pk>/modifier/', views.api_utilisateur_modifier, name='api_utilisateur_modifier'),
+    path('api/utilisateurs/<int:pk>/toggle-actif/', views.api_utilisateur_toggle_actif, name='api_utilisateur_toggle_actif'),
+    path('api/utilisateurs/<int:pk>/reset-mdp/', views.api_utilisateur_reset_mdp, name='api_utilisateur_reset_mdp'),
+
     # API endpoints - Facturation
     path('api/generer-numero-facture/', views.api_generer_numero_facture, name='api_generer_numero_facture'),
     path('api/sauvegarder-facture/', views.api_sauvegarder_facture, name='api_sauvegarder_facture'),
