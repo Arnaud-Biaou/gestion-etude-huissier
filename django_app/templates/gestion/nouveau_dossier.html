@@ -327,16 +327,73 @@
             if (currentStep === 4) {
                 updateRecap();
             }
-            // Before moving to step 6, update card
+            // Before moving to step 6, update card and submit form
             if (currentStep === 5) {
                 updateCard();
+                submitDossier();
             }
             currentStep++;
             updateStepper();
         } else {
-            // Submit form
+            // Final step - return to dossiers list
             window.location.href = "{% url 'gestion:dossiers' %}";
         }
+    }
+
+    function submitDossier() {
+        // Preparer les donnees des parties en JSON
+        const form = document.getElementById('dossierForm');
+
+        // Ajouter les champs caches pour les donnees JSON
+        let demandeursInput = document.getElementById('demandeursJson');
+        if (!demandeursInput) {
+            demandeursInput = document.createElement('input');
+            demandeursInput.type = 'hidden';
+            demandeursInput.id = 'demandeursJson';
+            demandeursInput.name = 'demandeurs';
+            form.appendChild(demandeursInput);
+        }
+        demandeursInput.value = JSON.stringify(demandeurs);
+
+        let defendeursInput = document.getElementById('defendeursJson');
+        if (!defendeursInput) {
+            defendeursInput = document.createElement('input');
+            defendeursInput.type = 'hidden';
+            defendeursInput.id = 'defendeursJson';
+            defendeursInput.name = 'defendeurs';
+            form.appendChild(defendeursInput);
+        }
+        defendeursInput.value = JSON.stringify(isContentieux ? defendeurs : []);
+
+        // Ajouter la reference
+        let refInput = document.getElementById('referenceInput');
+        if (!refInput) {
+            refInput = document.createElement('input');
+            refInput.type = 'hidden';
+            refInput.id = 'referenceInput';
+            refInput.name = 'reference';
+            form.appendChild(refInput);
+        }
+        refInput.value = reference;
+
+        // Soumettre le formulaire via AJAX pour ne pas interrompre l'affichage
+        const formData = new FormData(form);
+
+        fetch('{% url "gestion:nouveau_dossier" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('Dossier cree avec succes');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
     }
 
     function prevStep() {

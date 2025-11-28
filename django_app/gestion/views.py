@@ -180,9 +180,83 @@ def nouveau_dossier(request):
     if request.method == 'POST':
         # Traitement du formulaire
         data = request.POST
-        # Creer le dossier...
-        messages.success(request, 'Dossier cree avec succes!')
-        return redirect('dossiers')
+
+        try:
+            # Recuperer les donnees du formulaire
+            reference = data.get('reference', '') or Dossier.generer_reference()
+            type_dossier = data.get('type_dossier', '')
+            is_contentieux = data.get('is_contentieux', 'false') == 'true'
+            description = data.get('description', '')
+            affecte_a_id = data.get('affecte_a')
+
+            # Recuperer le collaborateur
+            affecte_a = None
+            if affecte_a_id:
+                try:
+                    affecte_a = Collaborateur.objects.get(id=affecte_a_id)
+                except Collaborateur.DoesNotExist:
+                    pass
+
+            # Creer le dossier
+            dossier = Dossier.objects.create(
+                reference=reference,
+                type_dossier=type_dossier if type_dossier else 'recouvrement',
+                is_contentieux=is_contentieux,
+                description=description,
+                affecte_a=affecte_a,
+                statut='actif'
+            )
+
+            # Creer les parties (demandeurs et defendeurs)
+            demandeurs_json = data.get('demandeurs', '[]')
+            defendeurs_json = data.get('defendeurs', '[]')
+
+            try:
+                demandeurs_data = json.loads(demandeurs_json) if demandeurs_json else []
+                for dem in demandeurs_data:
+                    if dem.get('nom') or dem.get('denomination'):
+                        Partie.objects.create(
+                            dossier=dossier,
+                            type_partie='demandeur',
+                            type_personne=dem.get('typePersonne', 'physique'),
+                            nom=dem.get('nom', ''),
+                            prenoms=dem.get('prenoms', ''),
+                            denomination=dem.get('denomination', ''),
+                            nationalite=dem.get('nationalite', ''),
+                            domicile=dem.get('domicile', ''),
+                            siege_social=dem.get('siegeSocial', ''),
+                            telephone=dem.get('telephone', ''),
+                            ifu=dem.get('ifu', ''),
+                        )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+            try:
+                defendeurs_data = json.loads(defendeurs_json) if defendeurs_json else []
+                for def_ in defendeurs_data:
+                    if def_.get('nom') or def_.get('denomination'):
+                        Partie.objects.create(
+                            dossier=dossier,
+                            type_partie='defendeur',
+                            type_personne=def_.get('typePersonne', 'physique'),
+                            nom=def_.get('nom', ''),
+                            prenoms=def_.get('prenoms', ''),
+                            denomination=def_.get('denomination', ''),
+                            nationalite=def_.get('nationalite', ''),
+                            domicile=def_.get('domicile', ''),
+                            siege_social=def_.get('siegeSocial', ''),
+                            telephone=def_.get('telephone', ''),
+                            ifu=def_.get('ifu', ''),
+                        )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+            messages.success(request, f'Dossier {reference} cree avec succes!')
+            return redirect('gestion:dossiers')
+
+        except Exception as e:
+            messages.error(request, f'Erreur lors de la creation du dossier: {str(e)}')
+            return redirect('gestion:nouveau_dossier')
 
     # Generer une nouvelle reference
     context['reference'] = Dossier.generer_reference()
