@@ -47,51 +47,104 @@ class DocumentService:
     # GESTION DES DOSSIERS VIRTUELS
     # ==========================================
 
-    def creer_structure_dossier_juridique(self, dossier_juridique):
+    def creer_structure_dossier_juridique(self, dossier_juridique, user=None):
         """
-        Crée la structure de dossiers standard pour un dossier juridique
+        Crée l'arborescence complète de dossiers virtuels pour un dossier juridique.
 
-        Structure:
-        - [Reference]/
-          - 01_Actes/
-          - 02_Decisions_Titres/
-          - 03_Pieces_Client/
-          - 04_Correspondances/
-          - 05_Facturation/
-          - 06_Divers/
+        Structure métier huissier :
+        /2025/                                    ← Année de création du dossier
+        └── REF-2025-001 - NOM CREANCIER/        ← Référence + nom du créancier
+            ├── Projets d'actes/                  ← Brouillons, projets en cours
+            ├── Actes formalisés/                 ← Actes finaux signés
+            ├── Pièces/                           ← Pièces justificatives
+            ├── Courrier arrivée/                 ← Correspondances reçues
+            ├── Courrier départ/                  ← Correspondances envoyées
+            ├── Factures/                         ← Factures liées au dossier
+            └── Actes extérieurs/                 ← Actes d'avocats, confrères huissiers
+
+        Args:
+            dossier_juridique: Instance du modèle Dossier (gestion.models.Dossier)
+            user: Utilisateur créateur (optionnel, sinon self.utilisateur)
+
+        Returns:
+            DossierVirtuel: Le dossier principal créé
         """
-        # Dossier racine du dossier juridique
-        racine = DossierVirtuel.objects.create(
-            nom=dossier_juridique.reference,
-            type_dossier='dossier_juridique',
-            dossier_juridique=dossier_juridique,
-            est_systeme=True,
-            cree_par=self.utilisateur
+        utilisateur = user or self.utilisateur
+
+        # Récupérer l'année de création
+        annee = str(dossier_juridique.date_creation.year)
+
+        # Créer ou récupérer le dossier année (racine)
+        dossier_annee, created = DossierVirtuel.objects.get_or_create(
+            nom=annee,
+            parent=None,
+            type_dossier='annee',
+            defaults={
+                'cree_par': utilisateur,
+                'est_systeme': True,
+                'icone': 'calendar',
+                'couleur': '#4a5568',
+            }
         )
 
-        # Sous-dossiers standards
+        # Construire le nom du dossier : Reference - Nom Créancier
+        nom_creancier = ""
+        if dossier_juridique.creancier:
+            nom_creancier = dossier_juridique.creancier.nom
+        elif dossier_juridique.demandeurs.exists():
+            # Fallback sur le premier demandeur si pas de créancier
+            premier_demandeur = dossier_juridique.demandeurs.first()
+            nom_creancier = premier_demandeur.get_nom_complet() if premier_demandeur else ""
+
+        if nom_creancier:
+            nom_dossier = f"{dossier_juridique.reference} - {nom_creancier}"
+        else:
+            nom_dossier = dossier_juridique.reference
+
+        # Créer le dossier principal du dossier juridique
+        dossier_principal = DossierVirtuel.objects.create(
+            nom=nom_dossier,
+            type_dossier='dossier_juridique',
+            parent=dossier_annee,
+            dossier_juridique=dossier_juridique,
+            est_systeme=True,
+            icone='briefcase',
+            couleur='#1a365d',
+            cree_par=utilisateur,
+        )
+
+        # Sous-dossiers métier d'une étude d'huissier
+        # Format: (nom, type_dossier, icone, couleur, description)
         sous_dossiers = [
-            ('01_Actes', 'actes', 'file-text', '#1a365d'),
-            ('02_Decisions_Titres', 'decisions', 'gavel', '#c6a962'),
-            ('03_Pieces_Client', 'pieces', 'folder-open', '#2f855a'),
-            ('04_Correspondances', 'correspondances', 'mail', '#3182ce'),
-            ('05_Facturation', 'facturation', 'receipt', '#c05621'),
-            ('06_Divers', 'divers', 'file', '#718096'),
+            ("Projets d'actes", 'projets_actes', 'edit', '#805ad5',
+             "Brouillons et projets d'actes en cours de rédaction"),
+            ("Actes formalisés", 'actes_formalises', 'file-text', '#2f855a',
+             "Actes finaux signés et formalisés"),
+            ("Pièces", 'pieces', 'folder-open', '#dd6b20',
+             "Pièces justificatives et documents probatoires"),
+            ("Courrier arrivée", 'courrier_arrivee', 'inbox', '#3182ce',
+             "Correspondances reçues (clients, avocats, tribunaux)"),
+            ("Courrier départ", 'courrier_depart', 'send', '#00b5d8',
+             "Correspondances envoyées"),
+            ("Factures", 'factures', 'receipt', '#c05621',
+             "Factures et documents de facturation"),
+            ("Actes extérieurs", 'actes_exterieurs', 'users', '#718096',
+             "Actes provenant d'avocats, confrères huissiers, notaires"),
         ]
 
-        for nom, type_dossier, icone, couleur in sous_dossiers:
+        for nom, type_dossier, icone, couleur, description in sous_dossiers:
             DossierVirtuel.objects.create(
                 nom=nom,
                 type_dossier=type_dossier,
-                parent=racine,
+                parent=dossier_principal,
                 dossier_juridique=dossier_juridique,
                 icone=icone,
                 couleur=couleur,
                 est_systeme=True,
-                cree_par=self.utilisateur
+                cree_par=utilisateur,
             )
 
-        return racine
+        return dossier_principal
 
     def obtenir_dossier_pour_type_document(self, dossier_juridique, type_document):
         """

@@ -255,6 +255,17 @@ def nouveau_dossier(request):
             except (json.JSONDecodeError, TypeError):
                 pass
 
+            # Creer l'arborescence de dossiers virtuels dans le Drive
+            try:
+                from documents.services.document_service import DocumentService
+                service = DocumentService(utilisateur=request.user)
+                service.creer_structure_dossier_juridique(dossier, user=request.user)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Erreur creation arborescence Drive pour {reference}: {e}"
+                )
+
             messages.success(request, f'Dossier {reference} cree avec succes!')
             return redirect('gestion:dossiers')
 
