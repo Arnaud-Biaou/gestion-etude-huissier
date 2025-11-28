@@ -1,0 +1,907 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Agenda</span>
+{% endblock %}
+
+{% block content %}
+<div class="agenda-dashboard">
+    <!-- Barre d'outils -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <button class="btn btn-primary" onclick="openModalNewRdv()">
+                <i data-lucide="calendar-plus"></i>
+                Nouveau RDV
+            </button>
+            <button class="btn btn-secondary" onclick="openModalNewTask()">
+                <i data-lucide="list-plus"></i>
+                Nouvelle Tache
+            </button>
+        </div>
+        <div class="toolbar-right">
+            <div class="view-switcher">
+                <button class="view-btn active" data-view="jour" onclick="setView('jour')">
+                    <i data-lucide="calendar-days"></i> Jour
+                </button>
+                <button class="view-btn" data-view="semaine" onclick="setView('semaine')">
+                    <i data-lucide="calendar-range"></i> Semaine
+                </button>
+                <button class="view-btn" data-view="mois" onclick="setView('mois')">
+                    <i data-lucide="calendar"></i> Mois
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation des vues principales -->
+    <div class="agenda-tabs">
+        <button class="agenda-tab active" onclick="showSection('calendar')">
+            <i data-lucide="calendar"></i>
+            RDV & Taches
+        </button>
+        <button class="agenda-tab" onclick="showSection('delegations')">
+            <i data-lucide="users"></i>
+            Taches Deleguees
+        </button>
+        <button class="agenda-tab" onclick="showSection('dossiers')">
+            <i data-lucide="folder-clock"></i>
+            Dossiers en attente
+        </button>
+        <button class="agenda-tab" onclick="showSection('actions')">
+            <i data-lucide="check-circle"></i>
+            Actions du jour
+        </button>
+        <button class="agenda-tab" onclick="showSection('overview')">
+            <i data-lucide="pie-chart"></i>
+            Vue d'ensemble
+        </button>
+    </div>
+
+    <!-- Statistiques du jour -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i data-lucide="calendar-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="todayRdvCount">0</div>
+                <div class="stat-label">RDV aujourd'hui</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i data-lucide="list-todo"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="todayTaskCount">0</div>
+                <div class="stat-label">Taches a faire</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="check-circle-2"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="completedTaskCount">0</div>
+                <div class="stat-label">Terminees</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="alert-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="overdueCount">0</div>
+                <div class="stat-label">En retard</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Calendrier -->
+    <div class="agenda-section active" id="section-calendar">
+        <div class="calendar-container">
+            <!-- Header du calendrier -->
+            <div class="calendar-header">
+                <button class="btn btn-icon" onclick="navigateCalendar(-1)">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <h3 id="calendarTitle">{{ current_date|default:"Novembre 2025" }}</h3>
+                <button class="btn btn-icon" onclick="navigateCalendar(1)">
+                    <i data-lucide="chevron-right"></i>
+                </button>
+                <button class="btn btn-sm" onclick="goToToday()">Aujourd'hui</button>
+            </div>
+
+            <!-- Grille du calendrier -->
+            <div class="calendar-grid" id="calendarGrid">
+                <div class="calendar-loading">
+                    <i data-lucide="loader-2" class="spin"></i>
+                    Chargement...
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des evenements du jour -->
+        <div class="events-sidebar">
+            <h4>Evenements du jour</h4>
+            <div class="events-list" id="eventsList">
+                <div class="no-events">Aucun evenement aujourd'hui</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Delegations -->
+    <div class="agenda-section" id="section-delegations">
+        <div class="section-header">
+            <h3>Taches Deleguees</h3>
+        </div>
+        <div class="delegations-list" id="delegationsList">
+            <div class="loading-placeholder">Chargement des delegations...</div>
+        </div>
+    </div>
+
+    <!-- Section Dossiers en attente -->
+    <div class="agenda-section" id="section-dossiers">
+        <div class="section-header">
+            <h3>Dossiers en attente d'action</h3>
+        </div>
+        <div class="dossiers-list" id="dossiersList">
+            <div class="loading-placeholder">Chargement des dossiers...</div>
+        </div>
+    </div>
+
+    <!-- Section Actions du jour -->
+    <div class="agenda-section" id="section-actions">
+        <div class="section-header">
+            <h3>Actions du jour</h3>
+            <button class="btn btn-primary" onclick="cloturerJournee()">
+                <i data-lucide="check-circle"></i>
+                Cloturer la journee
+            </button>
+        </div>
+        <div class="actions-list" id="actionsList">
+            <div class="loading-placeholder">Chargement des actions...</div>
+        </div>
+    </div>
+
+    <!-- Section Vue d'ensemble -->
+    <div class="agenda-section" id="section-overview">
+        <div class="section-header">
+            <h3>Vue d'ensemble</h3>
+        </div>
+        <div class="overview-content" id="overviewContent">
+            <div class="loading-placeholder">Chargement des statistiques...</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block modal %}
+<!-- Modal Nouveau RDV -->
+<div class="modal" id="modalNewRdv">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouveau Rendez-vous</h3>
+            <button class="modal-close" onclick="closeModal('modalNewRdv')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formNewRdv">
+                <div class="form-group">
+                    <label>Titre *</label>
+                    <input type="text" class="form-input" name="titre" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" class="form-input" name="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Heure *</label>
+                        <input type="time" class="form-input" name="heure" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select class="form-input" name="type_rdv">
+                        {% for type in types_rdv %}
+                        <option value="{{ type.0 }}">{{ type.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Lieu</label>
+                    <input type="text" class="form-input" name="lieu">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea class="form-input" name="description" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalNewRdv')">Annuler</button>
+            <button class="btn btn-primary" onclick="saveRdv()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle Tache -->
+<div class="modal" id="modalNewTask">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouvelle Tache</h3>
+            <button class="modal-close" onclick="closeModal('modalNewTask')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formNewTask">
+                <div class="form-group">
+                    <label>Titre *</label>
+                    <input type="text" class="form-input" name="titre" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Echeance</label>
+                        <input type="date" class="form-input" name="date_echeance">
+                    </div>
+                    <div class="form-group">
+                        <label>Priorite</label>
+                        <select class="form-input" name="priorite">
+                            {% for prio in priorites %}
+                            <option value="{{ prio.0 }}">{{ prio.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select class="form-input" name="type_tache">
+                        {% for type in types_tache %}
+                        <option value="{{ type.0 }}">{{ type.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea class="form-input" name="description" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalNewTask')">Annuler</button>
+            <button class="btn btn-primary" onclick="saveTask()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variables globales
+    let currentView = 'mois';
+    let currentDate = new Date();
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCalendarData();
+        loadStats();
+        lucide.createIcons();
+    });
+
+    // Navigation du calendrier
+    function navigateCalendar(direction) {
+        if (currentView === 'jour') {
+            currentDate.setDate(currentDate.getDate() + direction);
+        } else if (currentView === 'semaine') {
+            currentDate.setDate(currentDate.getDate() + (direction * 7));
+        } else {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+        }
+        loadCalendarData();
+    }
+
+    function goToToday() {
+        currentDate = new Date();
+        loadCalendarData();
+    }
+
+    function setView(view) {
+        currentView = view;
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`[data-view="${view}"]`).classList.add('active');
+        loadCalendarData();
+    }
+
+    // Afficher les sections
+    function showSection(section) {
+        document.querySelectorAll('.agenda-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.agenda-tab').forEach(t => t.classList.remove('active'));
+
+        document.getElementById('section-' + section).classList.add('active');
+        event.target.closest('.agenda-tab').classList.add('active');
+
+        if (section === 'delegations') loadDelegations();
+        if (section === 'dossiers') loadDossiersEnAttente();
+        if (section === 'actions') loadActionsJour();
+        if (section === 'overview') loadOverview();
+    }
+
+    // Chargement des donnees
+    function loadCalendarData() {
+        const monthNames = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
+                           'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
+        document.getElementById('calendarTitle').textContent =
+            `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+        // Appel API pour charger les RDV et taches
+        fetch(`/agenda/api/rdv/?vue=${currentView}&date=${currentDate.toISOString().split('T')[0]}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderCalendar(data.rdvs || []);
+                }
+            })
+            .catch(error => console.error('Erreur:', error));
+    }
+
+    function loadStats() {
+        fetch('/agenda/api/actions-jour/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('todayRdvCount').textContent = data.rdv_count || 0;
+                    document.getElementById('todayTaskCount').textContent = data.taches_count || 0;
+                    document.getElementById('completedTaskCount').textContent = data.terminees || 0;
+                    document.getElementById('overdueCount').textContent = data.en_retard || 0;
+                }
+            })
+            .catch(error => console.error('Erreur stats:', error));
+    }
+
+    function loadDelegations() {
+        fetch('/agenda/api/delegations/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('delegationsList');
+                if (data.success && data.delegations && data.delegations.length > 0) {
+                    container.innerHTML = data.delegations.map(d => `
+                        <div class="delegation-card">
+                            <div class="delegation-title">${d.titre}</div>
+                            <div class="delegation-meta">Delegue par: ${d.delegateur}</div>
+                            <div class="delegation-status status-${d.statut}">${d.statut}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="no-data">Aucune tache deleguee</div>';
+                }
+            });
+    }
+
+    function loadDossiersEnAttente() {
+        fetch('/agenda/api/dossiers-attente/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('dossiersList');
+                if (data.success && data.dossiers && data.dossiers.length > 0) {
+                    container.innerHTML = data.dossiers.map(d => `
+                        <div class="dossier-card">
+                            <div class="dossier-ref">${d.reference}</div>
+                            <div class="dossier-title">${d.objet}</div>
+                            <div class="dossier-action">${d.action_requise}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="no-data">Aucun dossier en attente</div>';
+                }
+            });
+    }
+
+    function loadActionsJour() {
+        fetch('/agenda/api/actions-jour/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('actionsList');
+                if (data.success && data.actions && data.actions.length > 0) {
+                    container.innerHTML = data.actions.map(a => `
+                        <div class="action-card">
+                            <input type="checkbox" ${a.termine ? 'checked' : ''}>
+                            <span class="action-title">${a.titre}</span>
+                            <span class="action-type">${a.type}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="no-data">Aucune action pour aujourd\'hui</div>';
+                }
+            });
+    }
+
+    function loadOverview() {
+        fetch('/agenda/api/vue-ensemble/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('overviewContent');
+                if (data.success) {
+                    container.innerHTML = `
+                        <div class="overview-stats">
+                            <div class="overview-stat">
+                                <h4>Cette semaine</h4>
+                                <p>${data.semaine_rdv || 0} RDV</p>
+                                <p>${data.semaine_taches || 0} Taches</p>
+                            </div>
+                            <div class="overview-stat">
+                                <h4>Ce mois</h4>
+                                <p>${data.mois_rdv || 0} RDV</p>
+                                <p>${data.mois_taches || 0} Taches</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function renderCalendar(events) {
+        const grid = document.getElementById('calendarGrid');
+        const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
+        let html = '<div class="calendar-days-header">';
+        ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].forEach(d => {
+            html += `<div class="calendar-day-name">${d}</div>`;
+        });
+        html += '</div><div class="calendar-days">';
+
+        // Jours vides avant le 1er
+        for (let i = 0; i < firstDay; i++) {
+            html += '<div class="calendar-day empty"></div>';
+        }
+
+        // Jours du mois
+        const today = new Date();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const isToday = day === today.getDate() &&
+                           currentDate.getMonth() === today.getMonth() &&
+                           currentDate.getFullYear() === today.getFullYear();
+            const dayEvents = events.filter(e => {
+                const eDate = new Date(e.date_debut);
+                return eDate.getDate() === day;
+            });
+
+            html += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="selectDay(${day})">
+                <span class="day-number">${day}</span>
+                ${dayEvents.length > 0 ? `<span class="event-dot"></span>` : ''}
+            </div>`;
+        }
+
+        html += '</div>';
+        grid.innerHTML = html;
+    }
+
+    function selectDay(day) {
+        currentDate.setDate(day);
+        loadEventsList(day);
+    }
+
+    function loadEventsList(day) {
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        fetch(`/agenda/api/rdv/?date=${dateStr}`)
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('eventsList');
+                if (data.success && data.rdvs && data.rdvs.length > 0) {
+                    container.innerHTML = data.rdvs.map(e => `
+                        <div class="event-item">
+                            <div class="event-time">${e.heure_debut}</div>
+                            <div class="event-title">${e.titre}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="no-events">Aucun evenement ce jour</div>';
+                }
+            });
+    }
+
+    // Modals
+    function openModalNewRdv() {
+        document.getElementById('modalNewRdv').classList.add('open');
+        document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function openModalNewTask() {
+        document.getElementById('modalNewTask').classList.add('open');
+        document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+        document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    // Sauvegarder RDV
+    function saveRdv() {
+        const form = document.getElementById('formNewRdv');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        fetch('/agenda/api/rdv/creer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeModal('modalNewRdv');
+                loadCalendarData();
+                loadStats();
+                form.reset();
+            } else {
+                alert(result.error || 'Erreur lors de la creation');
+            }
+        });
+    }
+
+    // Sauvegarder Tache
+    function saveTask() {
+        const form = document.getElementById('formNewTask');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        fetch('/agenda/api/taches/creer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeModal('modalNewTask');
+                loadCalendarData();
+                loadStats();
+                form.reset();
+            } else {
+                alert(result.error || 'Erreur lors de la creation');
+            }
+        });
+    }
+
+    // Cloturer la journee
+    function cloturerJournee() {
+        if (confirm('Etes-vous sur de vouloir cloturer la journee ?')) {
+            fetch('/agenda/api/cloturer-journee/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Journee cloturee avec succes');
+                    loadStats();
+                }
+            });
+        }
+    }
+</script>
+
+<style>
+    .agenda-dashboard {
+        padding: 1rem;
+    }
+
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .toolbar-left, .toolbar-right {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .view-switcher {
+        display: flex;
+        background: var(--bg-secondary);
+        border-radius: 0.5rem;
+        padding: 0.25rem;
+    }
+
+    .view-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .view-btn.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    .agenda-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .agenda-tab {
+        padding: 0.75rem 1rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.5rem 0.5rem 0 0;
+        color: var(--text-secondary);
+    }
+
+    .agenda-tab:hover {
+        background: var(--bg-secondary);
+    }
+
+    .agenda-tab.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    .agenda-section {
+        display: none;
+    }
+
+    .agenda-section.active {
+        display: block;
+    }
+
+    #section-calendar {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 1rem;
+    }
+
+    #section-calendar.active {
+        display: grid;
+    }
+
+    .calendar-container {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .calendar-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .calendar-header h3 {
+        flex: 1;
+        text-align: center;
+    }
+
+    .calendar-days-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .calendar-day-name {
+        text-align: center;
+        font-weight: 600;
+        padding: 0.5rem;
+        color: var(--text-secondary);
+    }
+
+    .calendar-days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.25rem;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .calendar-day:hover {
+        background: var(--bg-secondary);
+    }
+
+    .calendar-day.today {
+        background: var(--primary);
+        color: white;
+    }
+
+    .calendar-day.empty {
+        background: transparent;
+        cursor: default;
+    }
+
+    .event-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--danger);
+        border-radius: 50%;
+        position: absolute;
+        bottom: 4px;
+    }
+
+    .events-sidebar {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .events-sidebar h4 {
+        margin-bottom: 1rem;
+    }
+
+    .events-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .event-item {
+        padding: 0.75rem;
+        background: var(--bg-secondary);
+        border-radius: 0.25rem;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .event-time {
+        font-weight: 600;
+        color: var(--primary);
+    }
+
+    .no-events, .no-data, .loading-placeholder {
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .delegation-card, .dossier-card, .action-card {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .delegation-title, .dossier-title, .action-title {
+        font-weight: 600;
+    }
+
+    .overview-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .overview-stat {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .overview-stat h4 {
+        margin-bottom: 1rem;
+        color: var(--text-secondary);
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1001;
+        width: 90%;
+        max-width: 500px;
+    }
+
+    .modal.open {
+        display: block;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+        #section-calendar {
+            grid-template-columns: 1fr;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
