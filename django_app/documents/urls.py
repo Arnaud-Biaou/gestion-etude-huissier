@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/dossiers/', views.api_dossiers_liste, name='api_dossiers_liste'),
     path('api/dossiers/creer/', views.api_dossier_creer, name='api_dossier_creer'),
     path('api/dossiers/supprimer/', views.api_dossier_supprimer, name='api_dossier_supprimer'),
+    path('api/dossiers/renommer/', views.api_dossier_renommer, name='api_dossier_renommer'),
 
     # API Modèles de documents
     path('api/modeles/', views.api_modeles_liste, name='api_modeles_liste'),

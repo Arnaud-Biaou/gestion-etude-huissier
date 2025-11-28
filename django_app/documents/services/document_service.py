@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import Q
 
 from ..models import (
     Document, DossierVirtuel, ModeleDocument, GenerationDocument,
@@ -766,9 +767,9 @@ class DocumentService:
 
         if query:
             qs = qs.filter(
-                models.Q(nom__icontains=query) |
-                models.Q(description__icontains=query) |
-                models.Q(contenu_texte__icontains=query)
+                Q(nom__icontains=query) |
+                Q(description__icontains=query) |
+                Q(contenu_texte__icontains=query)
             )
 
         if type_document:

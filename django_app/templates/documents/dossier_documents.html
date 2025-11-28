@@ -1,0 +1,584 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Documents - {{ dossier.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .documents-container {
+        padding: 20px;
+        background: var(--neutral-50);
+        min-height: calc(100vh - 140px);
+    }
+
+    .documents-header {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--neutral-600);
+        margin-bottom: 15px;
+    }
+
+    .breadcrumb-item {
+        cursor: pointer;
+        color: var(--primary);
+        text-decoration: none;
+    }
+
+    .breadcrumb-item:hover {
+        text-decoration: underline;
+    }
+
+    .breadcrumb-separator {
+        color: var(--neutral-400);
+    }
+
+    .breadcrumb-current {
+        color: var(--neutral-600);
+        font-weight: 500;
+    }
+
+    .dossier-title {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .dossier-icon {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, var(--primary), #2d4a7c);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    .dossier-info h1 {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 24px;
+        color: var(--primary);
+        margin: 0 0 4px 0;
+    }
+
+    .dossier-info p {
+        color: var(--neutral-500);
+        margin: 0;
+        font-size: 14px;
+    }
+
+    .dossier-actions {
+        display: flex;
+        gap: 10px;
+        margin-left: auto;
+    }
+
+    .btn {
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: #142c4f;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: var(--primary);
+        border: 2px solid var(--primary);
+    }
+
+    .btn-secondary:hover {
+        background: var(--neutral-50);
+    }
+
+    .documents-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .toolbar-search {
+        flex: 1;
+        position: relative;
+        max-width: 400px;
+    }
+
+    .toolbar-search input {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border: 1px solid var(--neutral-300);
+        border-radius: 8px;
+        font-size: 14px;
+        background: white;
+    }
+
+    .toolbar-search svg {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--neutral-400);
+    }
+
+    .documents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 15px;
+    }
+
+    .document-card {
+        background: white;
+        border: 1px solid var(--neutral-200);
+        border-radius: 10px;
+        padding: 15px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .document-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .document-preview {
+        height: 100px;
+        background: var(--neutral-100);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+
+    .document-preview svg {
+        width: 48px;
+        height: 48px;
+        color: var(--neutral-400);
+    }
+
+    .document-preview.pdf svg { color: #c53030; }
+    .document-preview.doc svg { color: #3182ce; }
+    .document-preview.xls svg { color: #2f855a; }
+    .document-preview.img svg { color: #805ad5; }
+
+    .document-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--neutral-800);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+    }
+
+    .document-meta {
+        font-size: 12px;
+        color: var(--neutral-500);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .document-type {
+        background: var(--neutral-100);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--neutral-600);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 12px;
+    }
+
+    .empty-state svg {
+        width: 80px;
+        height: 80px;
+        color: var(--neutral-300);
+        margin-bottom: 20px;
+    }
+
+    .empty-state h3 {
+        margin: 0 0 8px 0;
+        color: var(--neutral-600);
+    }
+
+    .empty-state p {
+        color: var(--neutral-500);
+        margin: 0;
+    }
+
+    .stats-bar {
+        display: flex;
+        gap: 30px;
+        padding: 15px 20px;
+        background: var(--neutral-50);
+        border-radius: 8px;
+        margin-top: 15px;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+        background: white;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+    }
+
+    .stat-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--primary);
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: var(--neutral-500);
+    }
+
+    /* Context Menu */
+    .context-menu {
+        position: fixed;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 8px 0;
+        z-index: 1000;
+        display: none;
+        min-width: 180px;
+    }
+
+    .context-menu.visible {
+        display: block;
+    }
+
+    .context-menu-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--neutral-700);
+    }
+
+    .context-menu-item:hover {
+        background: var(--neutral-100);
+    }
+
+    .context-menu-item svg {
+        width: 16px;
+        height: 16px;
+        color: var(--neutral-500);
+    }
+
+    .context-menu-item.danger {
+        color: #c53030;
+    }
+
+    .context-menu-item.danger svg {
+        color: #c53030;
+    }
+
+    .context-menu-divider {
+        height: 1px;
+        background: var(--neutral-200);
+        margin: 8px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="documents-container">
+    <div class="documents-header">
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="{% url 'documents:drive' %}" class="breadcrumb-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                Drive
+            </a>
+            <span class="breadcrumb-separator">/</span>
+            {% if dossier.parent %}
+            <a href="{% url 'documents:dossier_documents' dossier.parent.id %}" class="breadcrumb-item">{{ dossier.parent.nom }}</a>
+            <span class="breadcrumb-separator">/</span>
+            {% endif %}
+            <span class="breadcrumb-current">{{ dossier.nom }}</span>
+        </div>
+
+        <!-- Titre et actions -->
+        <div class="dossier-title">
+            <div class="dossier-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+            <div class="dossier-info">
+                <h1>{{ dossier.nom }}</h1>
+                <p>{{ dossier.get_type_dossier_display }} {% if dossier.dossier_juridique %} - Dossier {{ dossier.dossier_juridique.reference }}{% endif %}</p>
+            </div>
+            <div class="dossier-actions">
+                <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Ajouter un fichier
+                </button>
+                <input type="file" id="fileInput" multiple style="display: none" onchange="uploadFiles(this.files)">
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div>
+                    <div class="stat-value" id="docCount">{{ documents.count }}</div>
+                    <div class="stat-label">Documents</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <div>
+                    <div class="stat-value">{{ dossier.sous_dossiers.count }}</div>
+                    <div class="stat-label">Sous-dossiers</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre d'outils -->
+    <div class="documents-toolbar">
+        <div class="toolbar-search">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="searchInput" placeholder="Rechercher dans ce dossier..." onkeyup="filterDocuments()">
+        </div>
+    </div>
+
+    <!-- Sous-dossiers -->
+    {% if dossier.sous_dossiers.exists %}
+    <h3 style="color: var(--neutral-600); font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Sous-dossiers</h3>
+    <div class="documents-grid" style="margin-bottom: 30px;">
+        {% for sous_dossier in dossier.sous_dossiers.all %}
+        <div class="document-card" onclick="window.location.href='{% url 'documents:dossier_documents' sous_dossier.id %}'">
+            <div class="document-preview" style="background: {{ sous_dossier.couleur }}20;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="{{ sous_dossier.couleur }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+            <div class="document-name">{{ sous_dossier.nom }}</div>
+            <div class="document-meta">
+                <span>{{ sous_dossier.documents.count }} fichiers</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Documents -->
+    <h3 style="color: var(--neutral-600); font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Documents</h3>
+
+    {% if documents %}
+    <div class="documents-grid" id="documentsGrid">
+        {% for doc in documents %}
+        <div class="document-card" data-id="{{ doc.id }}" data-name="{{ doc.nom|lower }}" oncontextmenu="showContextMenu(event, '{{ doc.id }}')" ondblclick="previewDocument('{{ doc.id }}')">
+            <div class="document-preview {% if doc.extension == '.pdf' %}pdf{% elif doc.extension in '.doc,.docx' %}doc{% elif doc.extension in '.xls,.xlsx' %}xls{% elif doc.extension in '.jpg,.jpeg,.png,.gif' %}img{% endif %}">
+                {% if doc.extension == '.pdf' %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                {% elif doc.extension in '.jpg,.jpeg,.png,.gif' %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                {% endif %}
+            </div>
+            <div class="document-name" title="{{ doc.nom }}">{{ doc.nom }}</div>
+            <div class="document-meta">
+                <span class="document-type">{{ doc.get_type_document_display }}</span>
+                <span>{{ doc.taille_humaine }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <h3>Aucun document</h3>
+        <p>Uploadez des fichiers dans ce dossier pour commencer</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Menu contextuel -->
+<div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="previewDocument(selectedDocId)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        Apercu
+    </div>
+    <div class="context-menu-item" onclick="downloadDocument(selectedDocId)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Telecharger
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="renameDocument(selectedDocId)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+        Renommer
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" onclick="deleteDocument(selectedDocId)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        Supprimer
+    </div>
+</div>
+
+{% csrf_token %}
+
+<script>
+    let selectedDocId = null;
+    const dossierId = '{{ dossier.id }}';
+
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value
+            || document.cookie.match(/csrftoken=([^;]+)/)?.[1];
+    }
+
+    // Fermer le menu contextuel au clic
+    document.addEventListener('click', function() {
+        document.getElementById('contextMenu').classList.remove('visible');
+    });
+
+    function showContextMenu(event, docId) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectedDocId = docId;
+
+        const menu = document.getElementById('contextMenu');
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+        menu.classList.add('visible');
+    }
+
+    function filterDocuments() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const cards = document.querySelectorAll('#documentsGrid .document-card');
+
+        cards.forEach(card => {
+            const name = card.dataset.name;
+            card.style.display = name.includes(query) ? 'block' : 'none';
+        });
+    }
+
+    function previewDocument(docId) {
+        window.open(`/documents/api/documents/${docId}/telecharger/`, '_blank');
+    }
+
+    function downloadDocument(docId) {
+        window.location.href = `/documents/api/documents/${docId}/telecharger/`;
+    }
+
+    function renameDocument(docId) {
+        const newName = prompt('Nouveau nom du document:');
+        if (newName) {
+            fetch('/documents/api/documents/renommer/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({
+                    document_id: docId,
+                    nom: newName
+                })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Erreur lors du renommage');
+                }
+            });
+        }
+    }
+
+    function deleteDocument(docId) {
+        if (!confirm('Voulez-vous vraiment supprimer ce document ?')) return;
+
+        fetch('/documents/api/documents/supprimer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ document_id: docId })
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Erreur lors de la suppression');
+            }
+        });
+    }
+
+    async function uploadFiles(files) {
+        if (!files || files.length === 0) return;
+
+        const formData = new FormData();
+        for (let file of files) {
+            formData.append('fichiers', file);
+        }
+        formData.append('dossier_id', dossierId);
+        formData.append('type_document', 'autre');
+
+        try {
+            const response = await fetch('/documents/api/documents/upload/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Erreur lors de l\'upload');
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de l\'upload');
+        }
+    }
+</script>
+{% endblock %}

@@ -256,7 +256,6 @@ def api_document_detail(request, document_id):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_document_upload(request):
     """
@@ -337,7 +336,6 @@ def api_document_telecharger(request, document_id):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_document_supprimer(request):
     """
@@ -366,7 +364,6 @@ def api_document_supprimer(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_document_restaurer(request):
     """Restauration d'un document de la corbeille"""
@@ -388,7 +385,6 @@ def api_document_restaurer(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_document_deplacer(request):
     """Déplacement d'un document"""
@@ -413,7 +409,6 @@ def api_document_deplacer(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_document_renommer(request):
     """Renommage d'un document"""
@@ -443,7 +438,6 @@ def api_document_renommer(request):
 # ==========================================
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_generer_fiche_dossier(request):
     """
@@ -478,7 +472,6 @@ def api_generer_fiche_dossier(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_generer_acte(request):
     """
@@ -545,7 +538,6 @@ def api_generer_acte(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_generer_facture_pdf(request):
     """
@@ -580,7 +572,6 @@ def api_generer_facture_pdf(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_generer_decompte(request):
     """
@@ -617,7 +608,6 @@ def api_generer_decompte(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_generer_lettre(request):
     """
@@ -719,7 +709,6 @@ def api_dossiers_liste(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_dossier_creer(request):
     """
@@ -768,7 +757,6 @@ def api_dossier_creer(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_dossier_supprimer(request):
     """Suppression d'un dossier virtuel"""
@@ -796,6 +784,45 @@ def api_dossier_supprimer(request):
         return JsonResponse({
             'success': True,
             'message': 'Dossier supprimé'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_dossier_renommer(request):
+    """Renommage d'un dossier virtuel"""
+    try:
+        data = json.loads(request.body)
+        dossier_id = data.get('dossier_id')
+        nouveau_nom = data.get('nom')
+
+        if not nouveau_nom:
+            return JsonResponse({
+                'success': False,
+                'error': 'Le nom est requis'
+            }, status=400)
+
+        dossier = get_object_or_404(DossierVirtuel, id=dossier_id)
+
+        if dossier.est_systeme:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de renommer un dossier système'
+            }, status=400)
+
+        dossier.nom = nouveau_nom
+        dossier.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Dossier renommé',
+            'dossier': {
+                'id': str(dossier.id),
+                'nom': dossier.nom
+            }
         })
 
     except Exception as e:
@@ -866,7 +893,6 @@ def api_modele_detail(request, modele_id):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_modele_sauvegarder(request):
     """Création ou modification d'un modèle"""
@@ -923,7 +949,6 @@ def api_modele_sauvegarder(request):
 # ==========================================
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_partage_creer(request):
     """
@@ -976,7 +1001,6 @@ def api_partage_creer(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_partage_revoquer(request):
     """Révocation d'un partage"""
@@ -1150,7 +1174,6 @@ def api_corbeille_liste(request):
 
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST"])
 def api_corbeille_vider(request):
     """Vide la corbeille"""
