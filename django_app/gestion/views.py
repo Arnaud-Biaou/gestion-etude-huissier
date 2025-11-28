@@ -1,11 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import get_user_model
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from django.core.paginator import Paginator
+from functools import wraps
 from datetime import datetime, timedelta
 from decimal import Decimal
 import json
@@ -13,6 +17,37 @@ import csv
 import hashlib
 import random
 import string
+
+
+# =============================================================================
+# DÉCORATEURS DE SÉCURITÉ
+# =============================================================================
+
+def admin_required(view_func):
+    """
+    Décorateur pour restreindre l'accès aux administrateurs uniquement.
+    Un administrateur est défini comme :
+    - Un superuser Django
+    - Un utilisateur avec le rôle 'admin'
+    - Un membre du staff (is_staff=True)
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+
+        # Vérifier si l'utilisateur est admin
+        is_admin = (
+            request.user.is_superuser or
+            getattr(request.user, 'role', None) == 'admin' or
+            request.user.is_staff
+        )
+
+        if not is_admin:
+            raise PermissionDenied("Accès réservé aux administrateurs")
+
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
 from .models import (
     Dossier, Facture, Collaborateur, Partie, ActeProcedure,
@@ -603,9 +638,9 @@ def drive(request):
     return render(request, 'gestion/drive.html', context)
 
 
-@login_required
+@admin_required
 def securite(request):
-    """Vue Securite & Acces - Module complet de gestion de la securite"""
+    """Vue Securite & Acces - Module complet de gestion de la securite (accès admin uniquement)"""
     context = get_default_context(request)
     context['active_module'] = 'securite'
     context['page_title'] = 'Securite & Acces'
@@ -1021,6 +1056,219 @@ def securite(request):
     ]
 
     return render(request, 'gestion/securite.html', context)
+
+
+# =============================================================================
+# API ENDPOINTS - GESTION DES UTILISATEURS
+# =============================================================================
+
+User = get_user_model()
+
+
+@admin_required
+def api_utilisateurs_liste(request):
+    """Liste tous les utilisateurs"""
+    utilisateurs = User.objects.all().order_by('last_name', 'first_name')
+    data = []
+    for u in utilisateurs:
+        data.append({
+            'id': u.id,
+            'username': u.username,
+            'email': u.email,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'is_active': u.is_active,
+            'is_staff': u.is_staff,
+            'is_superuser': u.is_superuser,
+            'role': getattr(u, 'role', None),
+            'telephone': getattr(u, 'telephone', ''),
+            'date_joined': u.date_joined.isoformat() if u.date_joined else None,
+            'last_login': u.last_login.isoformat() if u.last_login else None,
+        })
+    return JsonResponse({'success': True, 'utilisateurs': data})
+
+
+@admin_required
+def api_utilisateur_detail(request, pk):
+    """Récupère les détails d'un utilisateur"""
+    try:
+        user = User.objects.get(pk=pk)
+        data = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_active': user.is_active,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'role': getattr(user, 'role', None),
+            'telephone': getattr(user, 'telephone', ''),
+            'date_joined': user.date_joined.isoformat() if user.date_joined else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+        }
+        return JsonResponse({'success': True, 'utilisateur': data})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Utilisateur non trouvé'}, status=404)
+
+
+@admin_required
+@require_http_methods(["POST"])
+def api_utilisateur_creer(request):
+    """Crée un nouvel utilisateur"""
+    try:
+        data = json.loads(request.body)
+
+        # Validation
+        username = data.get('username', '').strip()
+        if not username:
+            return JsonResponse({'success': False, 'error': 'Nom d\'utilisateur requis'}, status=400)
+
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({'success': False, 'error': 'Ce nom d\'utilisateur existe déjà'}, status=400)
+
+        email = data.get('email', '').strip()
+        if email and User.objects.filter(email=email).exists():
+            return JsonResponse({'success': False, 'error': 'Cette adresse email est déjà utilisée'}, status=400)
+
+        # Création de l'utilisateur
+        user = User.objects.create(
+            username=username,
+            email=email,
+            first_name=data.get('first_name', '').strip(),
+            last_name=data.get('last_name', '').strip(),
+            is_active=data.get('is_active', True),
+            is_staff=data.get('is_staff', False),
+            password=make_password(data.get('password', 'changeme123'))
+        )
+
+        # Assigner le rôle si le modèle le supporte
+        if hasattr(user, 'role') and data.get('role'):
+            user.role = data['role']
+
+        # Assigner le téléphone si le modèle le supporte
+        if hasattr(user, 'telephone') and data.get('telephone'):
+            user.telephone = data['telephone']
+
+        user.save()
+
+        return JsonResponse({
+            'success': True,
+            'id': user.id,
+            'message': f'Utilisateur {user.username} créé avec succès'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Données JSON invalides'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@admin_required
+@require_http_methods(["POST"])
+def api_utilisateur_modifier(request, pk):
+    """Modifie un utilisateur existant"""
+    try:
+        user = User.objects.get(pk=pk)
+        data = json.loads(request.body)
+
+        # Mise à jour des champs
+        if 'email' in data:
+            new_email = data['email'].strip()
+            if new_email and User.objects.filter(email=new_email).exclude(pk=pk).exists():
+                return JsonResponse({'success': False, 'error': 'Cette adresse email est déjà utilisée'}, status=400)
+            user.email = new_email
+
+        if 'first_name' in data:
+            user.first_name = data['first_name'].strip()
+
+        if 'last_name' in data:
+            user.last_name = data['last_name'].strip()
+
+        if 'is_active' in data:
+            # Ne pas se désactiver soi-même
+            if user.id == request.user.id and not data['is_active']:
+                return JsonResponse({'success': False, 'error': 'Vous ne pouvez pas vous désactiver vous-même'}, status=400)
+            user.is_active = data['is_active']
+
+        if 'is_staff' in data:
+            user.is_staff = data['is_staff']
+
+        if hasattr(user, 'role') and 'role' in data:
+            user.role = data['role']
+
+        if hasattr(user, 'telephone') and 'telephone' in data:
+            user.telephone = data['telephone']
+
+        user.save()
+        return JsonResponse({'success': True, 'message': f'Utilisateur {user.username} modifié avec succès'})
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Utilisateur non trouvé'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Données JSON invalides'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@admin_required
+@require_http_methods(["POST"])
+def api_utilisateur_toggle_actif(request, pk):
+    """Active/désactive un utilisateur"""
+    try:
+        user = User.objects.get(pk=pk)
+
+        # Ne pas se désactiver soi-même
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'error': 'Vous ne pouvez pas vous désactiver vous-même'}, status=400)
+
+        # Ne pas désactiver un superuser si on n'est pas superuser
+        if user.is_superuser and not request.user.is_superuser:
+            return JsonResponse({'success': False, 'error': 'Seul un superutilisateur peut désactiver un autre superutilisateur'}, status=403)
+
+        user.is_active = not user.is_active
+        user.save()
+
+        status_text = 'activé' if user.is_active else 'désactivé'
+        return JsonResponse({
+            'success': True,
+            'message': f'Utilisateur {user.username} {status_text}',
+            'is_active': user.is_active
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Utilisateur non trouvé'}, status=404)
+
+
+@admin_required
+@require_http_methods(["POST"])
+def api_utilisateur_reset_mdp(request, pk):
+    """Réinitialise le mot de passe d'un utilisateur"""
+    try:
+        user = User.objects.get(pk=pk)
+
+        # Récupérer le nouveau mot de passe ou utiliser un défaut
+        try:
+            data = json.loads(request.body) if request.body else {}
+        except json.JSONDecodeError:
+            data = {}
+
+        nouveau_mdp = data.get('password', 'changeme123')
+
+        # Validation du mot de passe
+        if len(nouveau_mdp) < 8:
+            return JsonResponse({'success': False, 'error': 'Le mot de passe doit contenir au moins 8 caractères'}, status=400)
+
+        user.password = make_password(nouveau_mdp)
+        user.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Mot de passe de {user.username} réinitialisé avec succès'
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Utilisateur non trouvé'}, status=404)
 
 
 @login_required

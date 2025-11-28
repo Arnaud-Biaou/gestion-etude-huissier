@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,10 +21,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-ea+p-1a1cizds1ln#fm_w1s6twc2$b_wa$v)xx+$0)&(0s&8qh"
+# En production, définir la variable d'environnement DJANGO_SECRET_KEY
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-ea+p-1a1cizds1ln#fm_w1s6twc2$b_wa$v)xx+$0)&(0s&8qh'  # Clé de développement uniquement
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# En production, définir DJANGO_DEBUG=False dans les variables d'environnement
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 # PRODUCTION: Définir les hosts autorisés (ex: ['etude-huissier.bj', 'www.etude-huissier.bj'])
 # ALLOWED_HOSTS = ['*']  # NE PAS UTILISER EN PRODUCTION
@@ -150,8 +156,36 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 heures en secondes
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False
-SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Fermer la session à la fermeture du navigateur
+SESSION_SAVE_EVERY_REQUEST = True  # Réinitialise le timer à chaque requête
+
+# =============================================================================
+# PARAMÈTRES DE SÉCURITÉ
+# =============================================================================
+# Ces paramètres sont commentés pour le développement local.
+# ACTIVER EN PRODUCTION en décommentant les lignes appropriées.
+
+# Sécurité des cookies
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True      # Cookie session uniquement via HTTPS
+    SESSION_COOKIE_HTTPONLY = True    # Cookie non accessible via JavaScript
+    CSRF_COOKIE_SECURE = True         # Cookie CSRF uniquement via HTTPS
+    CSRF_COOKIE_HTTPONLY = True       # Cookie CSRF non accessible via JavaScript
+
+# Protection HTTPS (activer uniquement si HTTPS configuré)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True                  # Rediriger HTTP vers HTTPS
+    SECURE_HSTS_SECONDS = 31536000              # 1 an de HSTS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True       # HSTS pour sous-domaines
+    SECURE_HSTS_PRELOAD = True                  # Autoriser le preloading HSTS
+    SECURE_CONTENT_TYPE_NOSNIFF = True          # Empêcher le sniffing MIME
+    SECURE_BROWSER_XSS_FILTER = True            # Activer filtre XSS navigateur
+    SECURE_REFERRER_POLICY = 'same-origin'      # Politique de referrer
+
+# Protection contre le clickjacking (toujours actif)
+X_FRAME_OPTIONS = 'DENY'
+
+# =============================================================================
 
 # Email settings (pour le mot de passe oublié)
 # En développement, les emails sont affichés dans la console

@@ -7,7 +7,11 @@ from .models import (
     Reversement, BasculementAmiableForce, PointGlobalCreancier,
     EnvoiAutomatiquePoint, HistoriqueEnvoiPoint,
     # Mémoires de Cédules
-    AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire
+    AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire,
+    # Modèles de sécurité
+    Role, Permission, RolePermission, PermissionUtilisateur,
+    SessionUtilisateur, JournalAudit, AlerteSecurite,
+    PolitiqueSecurite, AdresseIPAutorisee, AdresseIPBloquee
 )
 
 
@@ -546,3 +550,162 @@ class ActeDestinataireAdmin(admin.ModelAdmin):
             'fields': ('observations',)
         }),
     )
+
+
+# ============================================
+# Administration des modèles de Sécurité
+# ============================================
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ('code', 'nom', 'est_systeme', 'actif', 'date_creation')
+    list_filter = ('est_systeme', 'actif')
+    search_fields = ('code', 'nom', 'description')
+    ordering = ['nom']
+    readonly_fields = ('date_creation', 'date_modification')
+
+
+@admin.register(Permission)
+class PermissionAdmin(admin.ModelAdmin):
+    list_display = ('code', 'nom', 'module', 'date_creation')
+    list_filter = ('module',)
+    search_fields = ('code', 'nom', 'description')
+    ordering = ['module', 'code']
+
+
+@admin.register(RolePermission)
+class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ('role', 'permission')
+    list_filter = ('role', 'permission__module')
+    search_fields = ('role__nom', 'permission__nom')
+
+
+@admin.register(PermissionUtilisateur)
+class PermissionUtilisateurAdmin(admin.ModelAdmin):
+    list_display = ('utilisateur', 'permission', 'autorise', 'date_modification')
+    list_filter = ('autorise', 'permission__module')
+    search_fields = ('utilisateur__username', 'permission__nom')
+    readonly_fields = ('date_modification',)
+
+
+@admin.register(SessionUtilisateur)
+class SessionUtilisateurAdmin(admin.ModelAdmin):
+    list_display = ('utilisateur', 'adresse_ip', 'navigateur', 'active', 'date_creation', 'date_derniere_activite')
+    list_filter = ('active', 'navigateur', 'systeme_os')
+    search_fields = ('utilisateur__username', 'adresse_ip')
+    date_hierarchy = 'date_creation'
+    readonly_fields = ('token', 'date_creation', 'date_derniere_activite')
+
+
+@admin.register(JournalAudit)
+class JournalAuditAdmin(admin.ModelAdmin):
+    list_display = ('date_heure', 'utilisateur_nom', 'action', 'module', 'objet_representation', 'adresse_ip')
+    list_filter = ('action', 'module', 'date_heure')
+    search_fields = ('utilisateur_nom', 'details', 'objet_representation', 'adresse_ip')
+    date_hierarchy = 'date_heure'
+    readonly_fields = (
+        'date_heure', 'utilisateur', 'utilisateur_nom', 'action', 'module',
+        'details', 'donnees_avant', 'donnees_apres', 'adresse_ip', 'user_agent',
+        'objet_type', 'objet_id', 'objet_representation'
+    )
+
+    def has_add_permission(self, request):
+        return False  # Les entrées d'audit ne doivent pas être créées manuellement
+
+    def has_change_permission(self, request, obj=None):
+        return False  # Les entrées d'audit ne doivent pas être modifiées
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Les entrées d'audit ne doivent pas être supprimées
+
+
+@admin.register(AlerteSecurite)
+class AlerteSecuriteAdmin(admin.ModelAdmin):
+    list_display = ('date_heure', 'type_alerte', 'gravite', 'utilisateur_nom', 'traitee', 'adresse_ip')
+    list_filter = ('type_alerte', 'gravite', 'traitee', 'date_heure')
+    search_fields = ('utilisateur_nom', 'description', 'adresse_ip')
+    date_hierarchy = 'date_heure'
+    readonly_fields = ('date_heure', 'utilisateur_concerne', 'utilisateur_nom', 'adresse_ip', 'donnees_supplementaires')
+
+    fieldsets = (
+        ('Alerte', {
+            'fields': ('type_alerte', 'gravite', 'description', 'date_heure')
+        }),
+        ('Utilisateur concerné', {
+            'fields': ('utilisateur_concerne', 'utilisateur_nom', 'adresse_ip')
+        }),
+        ('Traitement', {
+            'fields': ('traitee', 'date_traitement', 'traite_par', 'commentaire_traitement')
+        }),
+        ('Données techniques', {
+            'fields': ('donnees_supplementaires',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(PolitiqueSecurite)
+class PolitiqueSecuriteAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'mdp_longueur_min', 'mode_2fa', 'session_duree_heures', 'maintenance_active')
+    readonly_fields = ('date_modification',)
+
+    fieldsets = (
+        ('Politique de mot de passe', {
+            'fields': (
+                'mdp_longueur_min', 'mdp_exiger_majuscule', 'mdp_exiger_minuscule',
+                'mdp_exiger_chiffre', 'mdp_exiger_special', 'mdp_expiration_jours',
+                'mdp_historique', 'mdp_tentatives_blocage', 'mdp_duree_blocage'
+            )
+        }),
+        ('Sessions', {
+            'fields': (
+                'session_duree_heures', 'session_inactivite_minutes',
+                'session_simultanees', 'session_forcer_deconnexion', 'session_multi_appareils'
+            )
+        }),
+        ('Double authentification', {
+            'fields': ('mode_2fa',)
+        }),
+        ('Restrictions d\'accès', {
+            'fields': (
+                'restriction_ip_active', 'restriction_horaires_active',
+                'horaire_debut', 'horaire_fin', 'jours_autorises'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Journal d\'audit', {
+            'fields': ('audit_conservation_jours', 'audit_archive_auto', 'audit_export_periodique'),
+            'classes': ('collapse',)
+        }),
+        ('Alertes', {
+            'fields': (
+                'alerte_email', 'alerte_echec_connexion', 'alerte_nouvelle_ip',
+                'alerte_hors_horaires', 'alerte_acces_refuse', 'alerte_export_massif',
+                'alerte_modif_securite', 'alerte_utilisateur_cree', 'alerte_mdp_admin'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Maintenance', {
+            'fields': ('maintenance_active', 'maintenance_message', 'maintenance_admin_autorise')
+        }),
+        ('Métadonnées', {
+            'fields': ('date_modification', 'modifie_par'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(AdresseIPAutorisee)
+class AdresseIPAutoriseeAdmin(admin.ModelAdmin):
+    list_display = ('adresse_ip', 'description', 'active', 'date_ajout', 'ajoute_par')
+    list_filter = ('active', 'date_ajout')
+    search_fields = ('adresse_ip', 'description')
+    readonly_fields = ('date_ajout',)
+
+
+@admin.register(AdresseIPBloquee)
+class AdresseIPBloqueeAdmin(admin.ModelAdmin):
+    list_display = ('adresse_ip', 'raison', 'active', 'date_blocage', 'date_expiration', 'bloque_par')
+    list_filter = ('active', 'date_blocage')
+    search_fields = ('adresse_ip', 'raison')
+    readonly_fields = ('date_blocage',)
