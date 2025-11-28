@@ -77,8 +77,8 @@
             </select>
             <select class="form-select" style="width: 150px;" id="statutFilter">
                 <option value="">Tous statuts</option>
-                <option value="brouillon">Brouillon</option>
-                <option value="valide">Validé</option>
+                <option value="en_attente">En attente</option>
+                <option value="en_cours">En cours</option>
                 <option value="effectue">Effectué</option>
                 <option value="annule">Annulé</option>
             </select>
@@ -131,13 +131,13 @@
                         <span class="status-badge actif">
                             <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Effectué
                         </span>
-                        {% elif rev.statut == 'valide' %}
+                        {% elif rev.statut == 'en_cours' %}
                         <span class="status-badge en-attente">
-                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> Validé
+                            <i data-lucide="loader" style="width: 12px; height: 12px;"></i> En cours
                         </span>
-                        {% elif rev.statut == 'brouillon' %}
+                        {% elif rev.statut == 'en_attente' %}
                         <span class="status-badge" style="background: var(--neutral-100); color: var(--neutral-600);">
-                            <i data-lucide="file-edit" style="width: 12px; height: 12px;"></i> Brouillon
+                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> En attente
                         </span>
                         {% elif rev.statut == 'annule' %}
                         <span class="status-badge cloture">
@@ -150,7 +150,7 @@
                             <button class="icon-btn" title="Voir détails" onclick="viewReversement({{ rev.id }})">
                                 <i data-lucide="eye"></i>
                             </button>
-                            {% if rev.statut == 'valide' %}
+                            {% if rev.statut == 'en_attente' or rev.statut == 'en_cours' %}
                             <button class="icon-btn" title="Effectuer le reversement" onclick="effectuerReversement({{ rev.id }})" style="color: #16A34A;">
                                 <i data-lucide="send"></i>
                             </button>
@@ -197,6 +197,23 @@
         {% endif %}
     </div>
     {% endif %}
+</div>
+
+<!-- Modal Détail Reversement -->
+<div id="modalDetailReversement" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="detailTitle">Détail du reversement</h3>
+            <button class="icon-btn" onclick="closeModalDetail()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div style="padding: 20px;" id="detailContent">
+            <div style="text-align: center; padding: 40px; color: var(--neutral-500);">
+                <p>Chargement...</p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal Nouveau Reversement -->
@@ -280,12 +297,11 @@
     let totalEffectue = 0;
     let totalEnAttente = 0;
     let montantTotal = 0;
-    let enRetard = 0;
 
     document.querySelectorAll('tbody tr[data-statut]').forEach(row => {
         const statut = row.dataset.statut;
         if (statut === 'effectue') totalEffectue++;
-        else if (statut === 'valide' || statut === 'brouillon') totalEnAttente++;
+        else if (statut === 'en_attente' || statut === 'en_cours') totalEnAttente++;
     });
 
     {% for rev in reversements %}
@@ -297,7 +313,8 @@
     document.getElementById('totalEffectue').textContent = totalEffectue;
     document.getElementById('totalEnAttente').textContent = totalEnAttente;
     document.getElementById('montantTotal').textContent = new Intl.NumberFormat('fr-FR').format(montantTotal) + ' F';
-    document.getElementById('enRetard').textContent = enRetard;
+    // Montant en retard calculé côté serveur
+    document.getElementById('enRetard').textContent = '{{ nb_en_retard }} ({{ montant_en_retard|floatformat:0 }} F)';
 
     // Appliquer filtres
     function applyFilters() {
@@ -437,24 +454,92 @@
     }
 
     function viewReversement(id) {
-        alert('Détails du reversement #' + id);
+        document.getElementById('modalDetailReversement').style.display = 'flex';
+        document.getElementById('detailContent').innerHTML = '<div style="text-align: center; padding: 40px;"><p>Chargement...</p></div>';
+
+        // Trouver les données du reversement dans le tableau
+        const row = document.querySelector(`tr[data-statut]`);
+        if (row) {
+            // Charger les données depuis l'API reversements liste
+            fetch(`{% url 'gestion:api_reversements_liste' %}?id=${id}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const rev = data.reversements.find(r => r.id === id);
+                        if (rev) {
+                            document.getElementById('detailTitle').textContent = `Reversement ${rev.reference}`;
+                            document.getElementById('detailContent').innerHTML = `
+                                <div class="grid grid-cols-2 gap-4" style="margin-bottom: 20px;">
+                                    <div style="border: 1px solid var(--neutral-200); padding: 16px; border-radius: 8px;">
+                                        <h4 style="font-size: 12px; color: var(--neutral-500); text-transform: uppercase; margin-bottom: 12px;">Créancier</h4>
+                                        <p style="font-weight: 600; margin-bottom: 4px;">${rev.creancier.nom}</p>
+                                    </div>
+                                    <div style="border: 1px solid var(--neutral-200); padding: 16px; border-radius: 8px;">
+                                        <h4 style="font-size: 12px; color: var(--neutral-500); text-transform: uppercase; margin-bottom: 12px;">Informations</h4>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: var(--neutral-600);">Mode:</span>
+                                            <span>${rev.mode_display}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: var(--neutral-600);">Statut:</span>
+                                            <span class="status-badge ${rev.statut === 'effectue' ? 'actif' : 'en-attente'}">${rev.statut_display}</span>
+                                        </div>
+                                        ${rev.date_reversement ? `
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: var(--neutral-600);">Date:</span>
+                                            <span>${new Date(rev.date_reversement).toLocaleDateString('fr-FR')}</span>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                <div style="background: #f0f9ff; border: 2px solid var(--primary); padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+                                    <div style="font-size: 12px; color: var(--neutral-600); margin-bottom: 5px;">Montant</div>
+                                    <div style="font-size: 28px; font-weight: bold; color: #16a34a;">${new Intl.NumberFormat('fr-FR').format(rev.montant)} F</div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 12px; background: var(--neutral-50); border-radius: 8px; margin-bottom: 20px;">
+                                    <span style="color: var(--neutral-600);">Nombre d'encaissements liés:</span>
+                                    <span style="font-weight: 600;">${rev.nb_encaissements}</span>
+                                </div>
+                                <div style="text-align: center;">
+                                    <button class="btn btn-secondary btn-sm" onclick="printBordereau(${id})" style="margin-right: 10px;">
+                                        <i data-lucide="file-text"></i> Bordereau
+                                    </button>
+                                    ${rev.statut !== 'effectue' ? `
+                                    <button class="btn btn-primary btn-sm" onclick="closeModalDetail(); effectuerReversement(${id})">
+                                        <i data-lucide="send"></i> Effectuer
+                                    </button>
+                                    ` : ''}
+                                </div>
+                            `;
+                            lucide.createIcons();
+                        }
+                    }
+                });
+        }
+    }
+
+    function closeModalDetail() {
+        document.getElementById('modalDetailReversement').style.display = 'none';
     }
 
     function printBordereau(id) {
-        window.open(`/gestion/api/reversements/${id}/?format=bordereau`, '_blank');
+        window.open(`{% url 'gestion:reversement_bordereau_pdf' reversement_id=0 %}`.replace('/0/', `/${id}/`), '_blank');
     }
 
     function printReversement(id) {
-        window.open(`/gestion/api/reversements/${id}/?format=pdf`, '_blank');
+        window.open(`{% url 'gestion:reversement_bordereau_pdf' reversement_id=0 %}`.replace('/0/', `/${id}/`), '_blank');
     }
 
     function exportReversements() {
         window.location.href = '{% url "gestion:api_reversements_liste" %}?export=excel';
     }
 
-    // Fermer modal au clic extérieur
+    // Fermer modals au clic extérieur
     document.getElementById('modalReversement').addEventListener('click', function(e) {
         if (e.target === this) closeModalReversement();
+    });
+    document.getElementById('modalDetailReversement').addEventListener('click', function(e) {
+        if (e.target === this) closeModalDetail();
     });
 </script>
 {% endblock %}

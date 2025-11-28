@@ -68,9 +68,10 @@
             </select>
             <select class="form-select" style="width: 150px;" id="statutFilter">
                 <option value="">Tous statuts</option>
-                <option value="brouillon">Brouillon</option>
+                <option value="en_attente">En attente</option>
                 <option value="valide">Validé</option>
                 <option value="annule">Annulé</option>
+                <option value="rembourse">Remboursé</option>
             </select>
             <input type="date" class="form-input" style="width: 150px;" id="dateDebut" placeholder="Date début">
             <input type="date" class="form-input" style="width: 150px;" id="dateFin" placeholder="Date fin">
@@ -129,23 +130,25 @@
                         <span class="status-badge actif">
                             <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Validé
                         </span>
-                        {% elif enc.statut == 'brouillon' %}
+                        {% elif enc.statut == 'en_attente' %}
                         <span class="status-badge en-attente">
-                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> Brouillon
+                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i> En attente
                         </span>
                         {% elif enc.statut == 'annule' %}
                         <span class="status-badge cloture">
                             <i data-lucide="x-circle" style="width: 12px; height: 12px;"></i> Annulé
                         </span>
+                        {% elif enc.statut == 'rembourse' %}
+                        <span class="status-badge" style="background: #FEE2E2; color: #DC2626;">
+                            <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i> Remboursé
+                        </span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if enc.reversement_statut == 'effectue' %}
+                        {% if enc.reversement_statut == 'reverse' %}
                         <span class="status-badge actif">Reversé</span>
-                        {% elif enc.reversement_statut == 'en_cours' %}
-                        <span class="status-badge en-attente">En cours</span>
                         {% else %}
-                        <span class="status-badge" style="background: var(--neutral-100); color: var(--neutral-600);">Non reversé</span>
+                        <span class="status-badge" style="background: var(--neutral-100); color: var(--neutral-600);">En attente</span>
                         {% endif %}
                     </td>
                     <td>
@@ -153,7 +156,7 @@
                             <button class="icon-btn" title="Voir détails" onclick="viewEncaissement({{ enc.id }})">
                                 <i data-lucide="eye"></i>
                             </button>
-                            {% if enc.statut == 'brouillon' %}
+                            {% if enc.statut == 'en_attente' %}
                             <button class="icon-btn" title="Valider" onclick="validerEncaissement({{ enc.id }})" style="color: #16A34A;">
                                 <i data-lucide="check"></i>
                             </button>
@@ -258,7 +261,7 @@
     // Compter les encaissements en attente
     let enAttente = 0;
     {% for enc in encaissements %}
-    {% if enc.statut == 'brouillon' %}enAttente++;{% endif %}
+    {% if enc.statut == 'en_attente' %}enAttente++;{% endif %}
     {% endfor %}
     document.getElementById('enAttenteCount').textContent = enAttente;
 
@@ -363,7 +366,7 @@
     }
 
     function printRecu(id) {
-        window.open(`{% url 'gestion:api_encaissement_detail' encaissement_id=0 %}`.replace('/0/', `/${id}/`) + '?format=pdf', '_blank');
+        window.open(`{% url 'gestion:encaissement_recu_pdf' encaissement_id=0 %}`.replace('/0/', `/${id}/`), '_blank');
     }
 
     function exportEncaissements() {

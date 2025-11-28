@@ -1712,6 +1712,45 @@ def api_creanciers_liste(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@require_GET
+def api_creanciers_export(request):
+    """API pour exporter les créanciers en CSV"""
+    try:
+        creanciers_list = Creancier.objects.filter(actif=True).order_by('nom')
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="creanciers.csv"'
+
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow([
+            'Code', 'Nom', 'Type', 'Téléphone', 'Email', 'Adresse',
+            'Taux Commission (%)', 'Délai Reversement (jours)',
+            'Contact', 'Nb Dossiers', 'Total Créances', 'Total Encaissé', 'Total Reversé'
+        ])
+
+        for c in creanciers_list:
+            writer.writerow([
+                c.code,
+                c.nom,
+                c.get_type_creancier_display(),
+                c.telephone,
+                c.email,
+                c.adresse.replace('\n', ' ') if c.adresse else '',
+                c.taux_commission,
+                c.delai_reversement,
+                c.contact_nom,
+                c.dossiers.count(),
+                c.get_total_creances(),
+                c.get_total_encaisse(),
+                c.get_total_reverse(),
+            ])
+
+        return response
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
 @require_POST
 def api_creancier_creer(request):
     """API pour créer un créancier"""
@@ -1809,6 +1848,32 @@ def api_creancier_detail(request, creancier_id):
         }
 
         return JsonResponse({'success': True, 'creancier': data})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_creancier_desactiver(request, creancier_id):
+    """API pour désactiver un créancier"""
+    try:
+        creancier = get_object_or_404(Creancier, pk=creancier_id)
+
+        # Vérifier s'il y a des dossiers actifs
+        dossiers_actifs = creancier.dossiers.filter(statut__in=['actif', 'urgent']).count()
+        if dossiers_actifs > 0:
+            return JsonResponse({
+                'success': False,
+                'error': f'Ce créancier a encore {dossiers_actifs} dossier(s) actif(s). Veuillez les clôturer d\'abord.'
+            }, status=400)
+
+        creancier.actif = False
+        creancier.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Créancier {creancier.nom} désactivé avec succès'
+        })
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -2157,6 +2222,47 @@ def api_encaissements_historique_dossier(request, dossier_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+def encaissement_recu_pdf(request, encaissement_id):
+    """Vue pour générer le reçu d'encaissement en HTML imprimable"""
+    encaissement = get_object_or_404(
+        Encaissement.objects.select_related('dossier', 'dossier__creancier'),
+        pk=encaissement_id
+    )
+
+    context = {
+        'encaissement': encaissement,
+        'now': timezone.now(),
+    }
+
+    return render(request, 'gestion/recu_encaissement.html', context)
+
+
+def reversement_bordereau_pdf(request, reversement_id):
+    """Vue pour générer le bordereau de reversement en HTML imprimable"""
+    reversement = get_object_or_404(
+        Reversement.objects.select_related('creancier').prefetch_related('encaissements'),
+        pk=reversement_id
+    )
+
+    # Calculer les montants
+    encaissements = list(reversement.encaissements.select_related('dossier').all())
+    montant_brut = sum(enc.montant for enc in encaissements) or reversement.montant
+    taux_commission = reversement.creancier.taux_commission / 100 if reversement.creancier else Decimal('0.10')
+    montant_honoraires = montant_brut * taux_commission
+    montant_net = montant_brut - montant_honoraires
+
+    context = {
+        'reversement': reversement,
+        'encaissements': encaissements,
+        'montant_brut': montant_brut,
+        'montant_honoraires': montant_honoraires,
+        'montant_net': montant_net,
+        'now': timezone.now(),
+    }
+
+    return render(request, 'gestion/bordereau_reversement.html', context)
+
+
 @require_GET
 def api_encaissements_export(request):
     """API pour exporter les encaissements en CSV"""
@@ -2226,7 +2332,7 @@ def reversements(request):
     creancier_id = request.GET.get('creancier')
     statut = request.GET.get('statut')
 
-    reversements_qs = Reversement.objects.select_related('creancier')
+    reversements_qs = Reversement.objects.select_related('creancier').prefetch_related('encaissements')
 
     if creancier_id:
         reversements_qs = reversements_qs.filter(creancier_id=creancier_id)
@@ -2238,8 +2344,38 @@ def reversements(request):
     page = request.GET.get('page', 1)
     reversements_page = paginator.get_page(page)
 
+    # Calculer les montants pour chaque reversement
+    for rev in reversements_page:
+        # Montant brut = somme des montants des encaissements liés
+        rev.montant_brut = sum(enc.montant for enc in rev.encaissements.all()) or rev.montant
+        # Taux de commission du créancier
+        taux_commission = rev.creancier.taux_commission / 100 if rev.creancier else Decimal('0.10')
+        # Honoraires = montant_brut * taux_commission
+        rev.montant_honoraires = rev.montant_brut * taux_commission
+        # Montant net = montant_brut - honoraires
+        rev.montant_net = rev.montant_brut - rev.montant_honoraires
+
+    # Calculer les encaissements en retard de reversement
+    today = timezone.now().date()
+    encaissements_en_retard = Encaissement.objects.filter(
+        statut='valide',
+        reversement_statut='en_attente',
+        dossier__creancier__isnull=False
+    ).select_related('dossier__creancier')
+
+    montant_en_retard = Decimal('0')
+    nb_en_retard = 0
+    for enc in encaissements_en_retard:
+        delai = enc.dossier.creancier.delai_reversement
+        date_limite = enc.date_encaissement + timedelta(days=delai)
+        if today > date_limite:
+            montant_en_retard += enc.montant_a_reverser
+            nb_en_retard += 1
+
     context['reversements'] = reversements_page
     context['creanciers'] = Creancier.objects.filter(actif=True)
+    context['montant_en_retard'] = montant_en_retard
+    context['nb_en_retard'] = nb_en_retard
 
     return render(request, 'gestion/reversements.html', context)
 
