@@ -1,0 +1,709 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">Baux</span>
+{% endblock %}
+
+{% block content %}
+<div class="gerance-page">
+    <!-- Sous-navigation Gerance -->
+    <div class="gerance-subnav">
+        <a href="{% url 'gerance:dashboard' %}" class="gerance-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'gerance:proprietaires' %}" class="gerance-subnav-item">
+            <i data-lucide="users"></i> Proprietaires
+        </a>
+        <a href="{% url 'gerance:biens' %}" class="gerance-subnav-item">
+            <i data-lucide="building-2"></i> Biens
+        </a>
+        <a href="{% url 'gerance:locataires' %}" class="gerance-subnav-item">
+            <i data-lucide="user-check"></i> Locataires
+        </a>
+        <a href="{% url 'gerance:baux' %}" class="gerance-subnav-item active">
+            <i data-lucide="file-signature"></i> Baux
+        </a>
+        <a href="{% url 'gerance:loyers' %}" class="gerance-subnav-item">
+            <i data-lucide="banknote"></i> Loyers
+        </a>
+        <a href="{% url 'gerance:incidents' %}" class="gerance-subnav-item">
+            <i data-lucide="alert-triangle"></i> Incidents
+        </a>
+        <a href="{% url 'gerance:reversements' %}" class="gerance-subnav-item">
+            <i data-lucide="send"></i> Reversements
+        </a>
+    </div>
+
+    <!-- En-tete avec filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="file-signature"></i> Liste des baux
+            </h3>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="exporterBauxPDF()">
+                    <i data-lucide="file-down"></i> Export PDF
+                </button>
+                <button class="btn btn-primary" onclick="openModal('modalBail')">
+                    <i data-lucide="plus"></i> Nouveau bail
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Filtres -->
+            <form method="GET" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="all" {% if statut_filtre == 'all' %}selected{% endif %}>Tous</option>
+                            {% for code, label in statuts %}
+                            <option value="{{ code }}" {% if statut_filtre == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group search-group">
+                        <label>Rechercher</label>
+                        <div class="search-input">
+                            <input type="text" name="q" class="form-input" placeholder="Reference, bien, locataire..." value="{{ request.GET.q }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Liste des baux -->
+            <div class="table-container mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Bien</th>
+                            <th>Locataire</th>
+                            <th>Type</th>
+                            <th>Periode</th>
+                            <th>Loyer</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bail in baux %}
+                        <tr>
+                            <td><strong>{{ bail.reference }}</strong></td>
+                            <td>
+                                <div class="bien-info">
+                                    <div>{{ bail.bien.designation }}</div>
+                                    <small>{{ bail.bien.proprietaire }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="locataire-info">
+                                    <div>{{ bail.locataire }}</div>
+                                    <small>{{ bail.locataire.telephone }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-{{ bail.type_bail }}">
+                                    {{ bail.get_type_bail_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="periode-info">
+                                    <div>{{ bail.date_debut|date:"d/m/Y" }} - {{ bail.date_fin|date:"d/m/Y" }}</div>
+                                    <small>{{ bail.duree_mois }} mois</small>
+                                </div>
+                            </td>
+                            <td>
+                                <strong>{{ bail.loyer_total|floatformat:0 }} XOF</strong>
+                                <br><small>Depot: {{ bail.depot_garantie|floatformat:0 }}</small>
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ bail.statut }}">
+                                    {{ bail.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="{% url 'gerance:bail_detail' bail.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    {% if bail.statut == 'actif' %}
+                                    <button class="btn btn-sm btn-secondary" onclick="renouvelerBail('{{ bail.id }}')" title="Renouveler">
+                                        <i data-lucide="refresh-cw"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" onclick="resilierBail('{{ bail.id }}')" title="Resilier">
+                                        <i data-lucide="x-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-secondary" onclick="imprimerBail('{{ bail.id }}')" title="Imprimer">
+                                        <i data-lucide="printer"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">Aucun bail trouve</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Creation Bail -->
+<div class="modal" id="modalBail">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title">Nouveau bail</h3>
+            <button class="modal-close" onclick="closeModal('modalBail')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formBail">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="bien_id">Bien immobilier *</label>
+                        <select id="bien_id" name="bien_id" class="form-select" required>
+                            <option value="">Selectionner un bien...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="locataire_id">Locataire *</label>
+                        <select id="locataire_id" name="locataire_id" class="form-select" required>
+                            <option value="">Selectionner un locataire...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="type_bail">Type de bail *</label>
+                        <select id="type_bail" name="type_bail" class="form-select" required>
+                            <option value="habitation">Habitation</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="professionnel">Professionnel</option>
+                            <option value="mixte">Mixte</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="duree_mois">Duree (mois) *</label>
+                        <input type="number" id="duree_mois" name="duree_mois" class="form-input" value="12" min="1" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date_debut">Date de debut *</label>
+                        <input type="date" id="date_debut" name="date_debut" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="date_fin">Date de fin *</label>
+                        <input type="date" id="date_fin" name="date_fin" class="form-input" required>
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Conditions financieres</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="loyer_mensuel_bail">Loyer mensuel (XOF) *</label>
+                        <input type="number" id="loyer_mensuel_bail" name="loyer_mensuel" class="form-input" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="charges_mensuelles_bail">Charges mensuelles (XOF)</label>
+                        <input type="number" id="charges_mensuelles_bail" name="charges_mensuelles" class="form-input" value="0" min="0">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="depot_garantie_bail">Depot de garantie (XOF)</label>
+                        <input type="number" id="depot_garantie_bail" name="depot_garantie" class="form-input" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="jour_paiement">Jour de paiement</label>
+                        <input type="number" id="jour_paiement" name="jour_paiement" class="form-input" value="5" min="1" max="28">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="mode_paiement">Mode de paiement</label>
+                    <select id="mode_paiement" name="mode_paiement" class="form-select">
+                        <option value="especes">Especes</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="virement">Virement</option>
+                        <option value="mobile_money">Mobile Money</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes_bail">Notes</label>
+                    <textarea id="notes_bail" name="notes" class="form-input" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalBail')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderBail()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Resiliation -->
+<div class="modal" id="modalResiliation">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Resilier le bail</h3>
+            <button class="modal-close" onclick="closeModal('modalResiliation')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formResiliation">
+                <input type="hidden" id="bail_resiliation_id" name="bail_id">
+                <div class="form-group">
+                    <label for="date_resiliation">Date de resiliation *</label>
+                    <input type="date" id="date_resiliation" name="date_resiliation" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="motif_resiliation">Motif de resiliation *</label>
+                    <textarea id="motif_resiliation" name="motif" class="form-input" rows="3" required></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalResiliation')">Annuler</button>
+            <button class="btn btn-danger" onclick="confirmerResiliation()">
+                <i data-lucide="x-circle"></i> Confirmer la resiliation
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Renouvellement -->
+<div class="modal" id="modalRenouvellement">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Renouveler le bail</h3>
+            <button class="modal-close" onclick="closeModal('modalRenouvellement')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formRenouvellement">
+                <input type="hidden" id="bail_renouvellement_id" name="bail_id">
+                <div class="form-group">
+                    <label for="nouvelle_duree">Nouvelle duree (mois) *</label>
+                    <input type="number" id="nouvelle_duree" name="duree_mois" class="form-input" value="12" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="nouveau_loyer">Nouveau loyer mensuel (XOF)</label>
+                    <input type="number" id="nouveau_loyer" name="loyer_mensuel" class="form-input" min="0">
+                    <small class="form-help">Laissez vide pour conserver le meme loyer</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalRenouvellement')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmerRenouvellement()">
+                <i data-lucide="refresh-cw"></i> Confirmer le renouvellement
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.gerance-page {
+    max-width: 100%;
+}
+
+.gerance-subnav {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--neutral-100);
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+}
+
+.gerance-subnav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    color: var(--neutral-600);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.gerance-subnav-item:hover {
+    background: var(--neutral-200);
+    color: var(--neutral-800);
+}
+
+.gerance-subnav-item.active {
+    background: var(--primary);
+    color: white;
+}
+
+.gerance-subnav-item i {
+    width: 16px;
+    height: 16px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filters-form {
+    margin-bottom: 1rem;
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--neutral-600);
+}
+
+.filter-group.search-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-input .form-input {
+    flex: 1;
+}
+
+.bien-info, .locataire-info, .periode-info {
+    line-height: 1.4;
+}
+
+.bien-info small, .locataire-info small, .periode-info small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-habitation {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-commercial {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge-professionnel {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-mixte {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-actif {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-termine {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.status-resilie {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-suspendu {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.btn-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.75rem;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-lg {
+    max-width: 700px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--neutral-500);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.form-help {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+    margin-top: 0.25rem;
+}
+
+.divider {
+    margin: 1.5rem 0;
+    border: none;
+    border-top: 1px solid var(--neutral-200);
+}
+
+h4 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: var(--neutral-700);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('open');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+    }
+
+    function sauvegarderBail() {
+        const form = document.getElementById('formBail');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gerance:api_creer_bail" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                closeModal('modalBail');
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la sauvegarde');
+            console.error(error);
+        });
+    }
+
+    function resilierBail(id) {
+        document.getElementById('bail_resiliation_id').value = id;
+        openModal('modalResiliation');
+    }
+
+    function confirmerResiliation() {
+        const form = document.getElementById('formResiliation');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gerance:api_resilier_bail" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                closeModal('modalResiliation');
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la resiliation');
+            console.error(error);
+        });
+    }
+
+    function renouvelerBail(id) {
+        document.getElementById('bail_renouvellement_id').value = id;
+        openModal('modalRenouvellement');
+    }
+
+    function confirmerRenouvellement() {
+        const form = document.getElementById('formRenouvellement');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gerance:api_renouveler_bail" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                closeModal('modalRenouvellement');
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors du renouvellement');
+            console.error(error);
+        });
+    }
+
+    function imprimerBail(id) {
+        window.open('{% url "gerance:export_bail_pdf" %}?bail_id=' + id, '_blank');
+    }
+
+    function exporterBauxPDF() {
+        window.open('{% url "gerance:export_baux_pdf" %}', '_blank');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:biens' %}" class="breadcrumb-item">Biens</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">{{ bien.designation }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="detail-page">
+    <div class="page-header">
+        <a href="{% url 'gerance:biens' %}" class="btn-back">
+            <i data-lucide="arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <!-- En-tete bien -->
+    <div class="detail-header-card">
+        <div class="detail-header-main">
+            <div class="detail-avatar bien-avatar">
+                <i data-lucide="{% if bien.type_bien == 'appartement' %}building{% elif bien.type_bien == 'maison' %}home{% else %}map-pin{% endif %}"></i>
+            </div>
+            <div class="detail-header-info">
+                <h1>{{ bien.designation }}</h1>
+                <p class="detail-subtitle">{{ bien.reference }} - {{ bien.get_type_bien_display }}</p>
+                <div class="detail-badges">
+                    <span class="status-badge status-{{ bien.statut }}">{{ bien.get_statut_display }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="detail-header-stats">
+            <div class="detail-stat">
+                <div class="stat-value">{{ bien.loyer_mensuel|floatformat:0 }}</div>
+                <div class="stat-label">Loyer XOF</div>
+            </div>
+            <div class="detail-stat">
+                <div class="stat-value">{{ bien.surface|default:"-" }}</div>
+                <div class="stat-label">m2</div>
+            </div>
+            <div class="detail-stat">
+                <div class="stat-value">{{ bien.nombre_pieces|default:"-" }}</div>
+                <div class="stat-label">Pieces</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2 mt-4">
+        <!-- Informations -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="info"></i> Informations</h3>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item full-width">
+                        <span class="info-label">Adresse</span>
+                        <span class="info-value">{{ bien.adresse }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Ville</span>
+                        <span class="info-value">{{ bien.ville }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Quartier</span>
+                        <span class="info-value">{{ bien.quartier|default:"-" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Proprietaire</span>
+                        <span class="info-value">
+                            <a href="{% url 'gerance:proprietaire_detail' bien.proprietaire.id %}">{{ bien.proprietaire }}</a>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Depot de garantie</span>
+                        <span class="info-value">{{ bien.depot_garantie|floatformat:0 }} XOF</span>
+                    </div>
+                </div>
+
+                <h4 class="mt-4">Equipements</h4>
+                <div class="equipements-grid">
+                    <span class="equipement {% if bien.meuble %}active{% endif %}"><i data-lucide="sofa"></i> Meuble</span>
+                    <span class="equipement {% if bien.parking %}active{% endif %}"><i data-lucide="car"></i> Parking</span>
+                    <span class="equipement {% if bien.garage %}active{% endif %}"><i data-lucide="warehouse"></i> Garage</span>
+                    <span class="equipement {% if bien.jardin %}active{% endif %}"><i data-lucide="trees"></i> Jardin</span>
+                    <span class="equipement {% if bien.climatisation %}active{% endif %}"><i data-lucide="wind"></i> Clim</span>
+                    <span class="equipement {% if bien.gardiennage %}active{% endif %}"><i data-lucide="shield"></i> Gardien</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Baux -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="file-signature"></i> Historique des baux</h3>
+            </div>
+            <div class="card-body">
+                {% if baux %}
+                <div class="list-items">
+                    {% for bail in baux %}
+                    <a href="{% url 'gerance:bail_detail' bail.id %}" class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-title">{{ bail.reference }}</div>
+                            <div class="list-item-subtitle">{{ bail.locataire }} - {{ bail.date_debut|date:"d/m/Y" }} au {{ bail.date_fin|date:"d/m/Y" }}</div>
+                        </div>
+                        <span class="status-badge status-{{ bail.statut }}">{{ bail.get_statut_display }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun bail</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Incidents -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title"><i data-lucide="alert-triangle"></i> Incidents</h3>
+        </div>
+        <div class="card-body">
+            {% if incidents %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Titre</th>
+                        <th>Type</th>
+                        <th>Priorite</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for incident in incidents %}
+                    <tr>
+                        <td>{{ incident.date_signalement|date:"d/m/Y" }}</td>
+                        <td>{{ incident.titre }}</td>
+                        <td>{{ incident.get_type_incident_display }}</td>
+                        <td><span class="priorite-badge priorite-{{ incident.priorite }}">{{ incident.get_priorite_display }}</span></td>
+                        <td><span class="status-badge status-{{ incident.statut }}">{{ incident.get_statut_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted text-center">Aucun incident</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-page { max-width: 100%; }
+.page-header { margin-bottom: 1rem; }
+.btn-back { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--neutral-600); text-decoration: none; }
+.detail-header-card { background: white; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid var(--neutral-200); display: flex; justify-content: space-between; align-items: center; }
+.detail-header-main { display: flex; align-items: center; gap: 1.5rem; }
+.detail-avatar { width: 64px; height: 64px; border-radius: 0.75rem; background: var(--primary-100); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+.detail-avatar i { width: 32px; height: 32px; }
+.detail-header-info h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.detail-subtitle { color: var(--neutral-500); }
+.detail-header-stats { display: flex; gap: 2rem; }
+.detail-stat { text-align: center; }
+.detail-stat .stat-value { font-size: 1.5rem; font-weight: 700; }
+.detail-stat .stat-label { font-size: 0.875rem; color: var(--neutral-500); }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.info-item.full-width { grid-column: 1 / -1; }
+.info-label { font-size: 0.75rem; color: var(--neutral-500); }
+.info-value { font-weight: 500; }
+.equipements-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.equipement { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; background: var(--neutral-100); color: var(--neutral-400); }
+.equipement.active { background: #d1fae5; color: #065f46; }
+.equipement i { width: 14px; height: 14px; }
+.list-items { display: flex; flex-direction: column; gap: 0.5rem; }
+.list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--neutral-50); border-radius: 0.5rem; text-decoration: none; color: inherit; }
+.list-item-title { font-weight: 500; }
+.list-item-subtitle { font-size: 0.75rem; color: var(--neutral-500); }
+.status-badge { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; }
+.status-actif { background: #d1fae5; color: #065f46; }
+.status-libre { background: #d1fae5; color: #065f46; }
+.status-loue { background: #dbeafe; color: #1e40af; }
+.status-resolu { background: #d1fae5; color: #065f46; }
+.status-signale { background: #dbeafe; color: #1e40af; }
+.status-en_cours { background: #fef3c7; color: #92400e; }
+.priorite-badge { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.625rem; font-weight: 600; text-transform: uppercase; }
+.priorite-basse { background: var(--neutral-200); color: var(--neutral-600); }
+.priorite-normale { background: #dbeafe; color: #1e40af; }
+.priorite-haute { background: #fef3c7; color: #92400e; }
+.priorite-urgente { background: #fee2e2; color: #991b1b; }
+h4 { margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 0.875rem; color: var(--neutral-600); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>lucide.createIcons();</script>
+{% endblock %}

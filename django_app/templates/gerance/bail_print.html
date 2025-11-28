@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrat de Bail - {{ bail.reference }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.6; padding: 20mm; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .header h1 { font-size: 20pt; margin-bottom: 5px; }
+        .header h2 { font-size: 12pt; color: #666; font-weight: normal; }
+        .reference { text-align: right; font-size: 10pt; color: #666; margin-bottom: 20px; }
+        h2.title { text-align: center; margin-bottom: 30px; font-size: 16pt; text-transform: uppercase; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-weight: bold; font-size: 12pt; color: #333; margin-bottom: 15px; text-transform: uppercase; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .info-grid { display: grid; grid-template-columns: 180px 1fr; gap: 8px; margin-bottom: 10px; }
+        .info-label { color: #666; }
+        .info-value { font-weight: 500; }
+        .article { margin-bottom: 20px; }
+        .article-title { font-weight: bold; margin-bottom: 10px; }
+        .article-content { text-align: justify; margin-left: 20px; }
+        .montant-highlight { background: #f5f5f5; padding: 15px; border-left: 4px solid #065f46; margin: 20px 0; }
+        .montant-highlight .label { color: #666; font-size: 10pt; }
+        .montant-highlight .value { font-size: 14pt; font-weight: bold; color: #065f46; }
+        .signature-zone { display: flex; justify-content: space-between; margin-top: 60px; page-break-inside: avoid; }
+        .signature-box { width: 45%; text-align: center; }
+        .signature-box .label { border-top: 1px solid #333; padding-top: 10px; margin-top: 80px; font-size: 10pt; }
+        .footer { margin-top: 40px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #ddd; padding-top: 15px; }
+        .page-break { page-break-before: always; }
+        @media print {
+            body { padding: 10mm; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ETUDE BIAOU</h1>
+        <h2>Huissier de Justice</h2>
+    </div>
+
+    <div class="reference">
+        Reference: {{ bail.reference }}<br>
+        Date: {{ bail.date_debut|date:"d/m/Y" }}
+    </div>
+
+    <h2 class="title">Contrat de Bail</h2>
+
+    <!-- Parties -->
+    <div class="section">
+        <div class="section-title">Entre les Parties</div>
+
+        <div class="article">
+            <div class="article-title">LE BAILLEUR:</div>
+            <div class="article-content">
+                <div class="info-grid">
+                    <span class="info-label">Nom:</span>
+                    <span class="info-value">{{ bail.bien.proprietaire }}</span>
+                    <span class="info-label">Adresse:</span>
+                    <span class="info-value">{{ bail.bien.proprietaire.adresse }}, {{ bail.bien.proprietaire.ville }}</span>
+                    <span class="info-label">Telephone:</span>
+                    <span class="info-value">{{ bail.bien.proprietaire.telephone }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="article">
+            <div class="article-title">LE LOCATAIRE:</div>
+            <div class="article-content">
+                <div class="info-grid">
+                    <span class="info-label">Nom:</span>
+                    <span class="info-value">{{ bail.locataire }}</span>
+                    <span class="info-label">Adresse:</span>
+                    <span class="info-value">{{ bail.locataire.adresse }}, {{ bail.locataire.ville }}</span>
+                    <span class="info-label">Telephone:</span>
+                    <span class="info-value">{{ bail.locataire.telephone }}</span>
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ bail.locataire.email|default:"-" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bien loue -->
+    <div class="section">
+        <div class="section-title">Designation du Bien Loue</div>
+        <div class="info-grid">
+            <span class="info-label">Designation:</span>
+            <span class="info-value">{{ bail.bien.designation }}</span>
+            <span class="info-label">Type:</span>
+            <span class="info-value">{{ bail.bien.get_type_bien_display }}</span>
+            <span class="info-label">Adresse:</span>
+            <span class="info-value">{{ bail.bien.adresse }}, {{ bail.bien.ville }}</span>
+            <span class="info-label">Surface:</span>
+            <span class="info-value">{{ bail.bien.surface|default:"-" }} m2</span>
+            <span class="info-label">Description:</span>
+            <span class="info-value">{{ bail.bien.description|default:"-" }}</span>
+        </div>
+    </div>
+
+    <!-- Duree -->
+    <div class="section">
+        <div class="section-title">Duree du Bail</div>
+        <div class="info-grid">
+            <span class="info-label">Date de debut:</span>
+            <span class="info-value">{{ bail.date_debut|date:"d/m/Y" }}</span>
+            <span class="info-label">Date de fin:</span>
+            <span class="info-value">{{ bail.date_fin|date:"d/m/Y" }}</span>
+            <span class="info-label">Duree:</span>
+            <span class="info-value">{{ bail.duree_mois }} mois</span>
+        </div>
+    </div>
+
+    <!-- Conditions financieres -->
+    <div class="section">
+        <div class="section-title">Conditions Financieres</div>
+
+        <div class="montant-highlight">
+            <div class="label">Loyer Mensuel</div>
+            <div class="value">{{ bail.montant_loyer|floatformat:0 }} XOF</div>
+        </div>
+
+        <div class="info-grid">
+            <span class="info-label">Charges mensuelles:</span>
+            <span class="info-value">{{ bail.montant_charges|floatformat:0 }} XOF</span>
+            <span class="info-label">Total mensuel:</span>
+            <span class="info-value">{{ bail.montant_total|floatformat:0 }} XOF</span>
+            <span class="info-label">Depot de garantie:</span>
+            <span class="info-value">{{ bail.depot_garantie|floatformat:0 }} XOF</span>
+            <span class="info-label">Jour de paiement:</span>
+            <span class="info-value">Le {{ bail.jour_paiement }} de chaque mois</span>
+            <span class="info-label">Commission agence:</span>
+            <span class="info-value">{{ bail.commission_agence }}%</span>
+        </div>
+    </div>
+
+    <!-- Clauses -->
+    <div class="section page-break">
+        <div class="section-title">Clauses et Conditions</div>
+
+        <div class="article">
+            <div class="article-title">Article 1 - Objet du Contrat</div>
+            <div class="article-content">
+                Le bailleur loue au locataire le bien immobilier designe ci-dessus, a usage d'habitation,
+                pour la duree et aux conditions stipulees dans le present contrat.
+            </div>
+        </div>
+
+        <div class="article">
+            <div class="article-title">Article 2 - Paiement du Loyer</div>
+            <div class="article-content">
+                Le loyer est payable mensuellement et d'avance, le {{ bail.jour_paiement }} de chaque mois.
+                Tout retard de paiement pourra entrainer l'application de penalites de retard.
+            </div>
+        </div>
+
+        <div class="article">
+            <div class="article-title">Article 3 - Depot de Garantie</div>
+            <div class="article-content">
+                Le locataire verse ce jour au bailleur une somme de {{ bail.depot_garantie|floatformat:0 }} XOF
+                a titre de depot de garantie. Cette somme sera restituee en fin de bail, deduction faite
+                des eventuelles reparations locatives.
+            </div>
+        </div>
+
+        <div class="article">
+            <div class="article-title">Article 4 - Charges et Entretien</div>
+            <div class="article-content">
+                Les charges sont fixees a {{ bail.montant_charges|floatformat:0 }} XOF par mois.
+                Le locataire s'engage a maintenir le bien en bon etat d'entretien et a effectuer
+                les reparations locatives qui lui incombent.
+            </div>
+        </div>
+
+        <div class="article">
+            <div class="article-title">Article 5 - Etat des Lieux</div>
+            <div class="article-content">
+                Un etat des lieux contradictoire sera etabli a l'entree et a la sortie du locataire.
+                Il servira de reference pour l'appreciation des degradations eventuelles.
+            </div>
+        </div>
+
+        <div class="article">
+            <div class="article-title">Article 6 - Resiliation</div>
+            <div class="article-content">
+                Le present bail pourra etre resilie par l'une ou l'autre des parties moyennant un preavis
+                de trois mois, notifie par lettre recommandee avec accuse de reception.
+            </div>
+        </div>
+
+        {% if bail.clauses_particulieres %}
+        <div class="article">
+            <div class="article-title">Article 7 - Clauses Particulieres</div>
+            <div class="article-content">
+                {{ bail.clauses_particulieres }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Signatures -->
+    <div class="signature-zone">
+        <div class="signature-box">
+            <div class="label">Le Bailleur<br>{{ bail.bien.proprietaire }}</div>
+        </div>
+        <div class="signature-box">
+            <div class="label">Le Locataire<br>{{ bail.locataire }}</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Contrat etabli en deux exemplaires originaux, un pour chaque partie.</p>
+        <p>Fait a Cotonou, le {{ bail.date_debut|date:"d/m/Y" }}</p>
+        <p>Etude BIAOU - Huissier de Justice</p>
+    </div>
+
+    <script>window.print();</script>
+</body>
+</html>

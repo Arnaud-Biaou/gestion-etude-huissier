@@ -1,0 +1,664 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">Locataires</span>
+{% endblock %}
+
+{% block content %}
+<div class="gerance-page">
+    <!-- Sous-navigation Gerance -->
+    <div class="gerance-subnav">
+        <a href="{% url 'gerance:dashboard' %}" class="gerance-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'gerance:proprietaires' %}" class="gerance-subnav-item">
+            <i data-lucide="users"></i> Proprietaires
+        </a>
+        <a href="{% url 'gerance:biens' %}" class="gerance-subnav-item">
+            <i data-lucide="building-2"></i> Biens
+        </a>
+        <a href="{% url 'gerance:locataires' %}" class="gerance-subnav-item active">
+            <i data-lucide="user-check"></i> Locataires
+        </a>
+        <a href="{% url 'gerance:baux' %}" class="gerance-subnav-item">
+            <i data-lucide="file-signature"></i> Baux
+        </a>
+        <a href="{% url 'gerance:loyers' %}" class="gerance-subnav-item">
+            <i data-lucide="banknote"></i> Loyers
+        </a>
+        <a href="{% url 'gerance:incidents' %}" class="gerance-subnav-item">
+            <i data-lucide="alert-triangle"></i> Incidents
+        </a>
+        <a href="{% url 'gerance:reversements' %}" class="gerance-subnav-item">
+            <i data-lucide="send"></i> Reversements
+        </a>
+    </div>
+
+    <!-- En-tete avec filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="user-check"></i> Liste des locataires
+            </h3>
+            <button class="btn btn-primary" onclick="openModal('modalLocataire')">
+                <i data-lucide="user-plus"></i> Nouveau locataire
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- Filtres -->
+            <form method="GET" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Type</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="particulier" {% if request.GET.type == 'particulier' %}selected{% endif %}>Particulier</option>
+                            <option value="societe" {% if request.GET.type == 'societe' %}selected{% endif %}>Societe</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Statut</label>
+                        <select name="actif" class="form-select" onchange="this.form.submit()">
+                            <option value="1" {% if request.GET.actif == '1' or not request.GET.actif %}selected{% endif %}>Actifs</option>
+                            <option value="0" {% if request.GET.actif == '0' %}selected{% endif %}>Inactifs</option>
+                            <option value="" {% if request.GET.actif == '' %}selected{% endif %}>Tous</option>
+                        </select>
+                    </div>
+                    <div class="filter-group search-group">
+                        <label>Rechercher</label>
+                        <div class="search-input">
+                            <input type="text" name="q" class="form-input" placeholder="Nom, telephone, email..." value="{{ request.GET.q }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Liste des locataires -->
+            <div class="table-container mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Nom & Prenom</th>
+                            <th>Contact</th>
+                            <th>Profession</th>
+                            <th>Garant</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for locataire in locataires %}
+                        <tr>
+                            <td>
+                                <span class="badge badge-{{ locataire.type_locataire }}">
+                                    {{ locataire.get_type_locataire_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="locataire-cell">
+                                    <div class="locataire-avatar">{{ locataire.nom|slice:":2"|upper }}</div>
+                                    <div>
+                                        <div class="locataire-nom">{{ locataire }}</div>
+                                        {% if locataire.nationalite %}
+                                        <div class="locataire-info">{{ locataire.nationalite }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="contact-info">
+                                    <div><i data-lucide="phone" class="icon-sm"></i> {{ locataire.telephone }}</div>
+                                    {% if locataire.email %}
+                                    <div><i data-lucide="mail" class="icon-sm"></i> {{ locataire.email }}</div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ locataire.profession|default:"-" }}</td>
+                            <td>
+                                {% if locataire.garant_nom %}
+                                <div class="garant-info">
+                                    <div>{{ locataire.garant_nom }}</div>
+                                    {% if locataire.garant_telephone %}
+                                    <small>{{ locataire.garant_telephone }}</small>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if locataire.actif %}
+                                <span class="status-badge status-actif">Actif</span>
+                                {% else %}
+                                <span class="status-badge status-inactif">Inactif</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="{% url 'gerance:locataire_detail' locataire.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-secondary" onclick="modifierLocataire('{{ locataire.id }}')" title="Modifier">
+                                        <i data-lucide="edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="supprimerLocataire('{{ locataire.id }}')" title="Supprimer">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">Aucun locataire trouve</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Creation/Modification Locataire -->
+<div class="modal" id="modalLocataire">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalLocataireTitle">Nouveau locataire</h3>
+            <button class="modal-close" onclick="closeModal('modalLocataire')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formLocataire">
+                <input type="hidden" id="locataireId" name="locataire_id">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="type_locataire">Type de locataire *</label>
+                        <select id="type_locataire" name="type_locataire" class="form-select" required>
+                            <option value="particulier">Particulier</option>
+                            <option value="societe">Societe</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="civilite_loc">Civilite</label>
+                        <select id="civilite_loc" name="civilite" class="form-select">
+                            <option value="">--</option>
+                            <option value="M.">M.</option>
+                            <option value="Mme">Mme</option>
+                            <option value="Mlle">Mlle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nom_loc">Nom / Raison sociale *</label>
+                        <input type="text" id="nom_loc" name="nom" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prenom_loc">Prenom</label>
+                        <input type="text" id="prenom_loc" name="prenom" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date_naissance">Date de naissance</label>
+                        <input type="date" id="date_naissance" name="date_naissance" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="lieu_naissance">Lieu de naissance</label>
+                        <input type="text" id="lieu_naissance" name="lieu_naissance" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nationalite">Nationalite</label>
+                        <input type="text" id="nationalite" name="nationalite" class="form-input" value="Beninoise">
+                    </div>
+                    <div class="form-group">
+                        <label for="profession">Profession</label>
+                        <input type="text" id="profession" name="profession" class="form-input">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Piece d'identite</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="type_piece">Type de piece</label>
+                        <select id="type_piece" name="type_piece" class="form-select">
+                            <option value="">--</option>
+                            <option value="CNI">Carte Nationale d'Identite</option>
+                            <option value="Passeport">Passeport</option>
+                            <option value="Permis">Permis de conduire</option>
+                            <option value="CIP">CIP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="numero_piece">Numero de piece</label>
+                        <input type="text" id="numero_piece" name="numero_piece" class="form-input">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Contact</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="telephone_loc">Telephone *</label>
+                        <input type="tel" id="telephone_loc" name="telephone" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telephone_secondaire">Telephone secondaire</label>
+                        <input type="tel" id="telephone_secondaire" name="telephone_secondaire" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email_loc">Email</label>
+                    <input type="email" id="email_loc" name="email" class="form-input">
+                </div>
+
+                <hr class="divider">
+                <h4>Situation professionnelle</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="employeur">Employeur</label>
+                        <input type="text" id="employeur" name="employeur" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="revenu_mensuel">Revenu mensuel (XOF)</label>
+                        <input type="number" id="revenu_mensuel" name="revenu_mensuel" class="form-input" min="0">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Contact d'urgence</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="contact_urgence_nom">Nom</label>
+                        <input type="text" id="contact_urgence_nom" name="contact_urgence_nom" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact_urgence_telephone">Telephone</label>
+                        <input type="tel" id="contact_urgence_telephone" name="contact_urgence_telephone" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact_urgence_lien">Lien</label>
+                        <input type="text" id="contact_urgence_lien" name="contact_urgence_lien" class="form-input" placeholder="Ex: Pere, Frere, Ami...">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Garant</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="garant_nom">Nom du garant</label>
+                        <input type="text" id="garant_nom" name="garant_nom" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="garant_telephone">Telephone du garant</label>
+                        <input type="tel" id="garant_telephone" name="garant_telephone" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="garant_adresse">Adresse du garant</label>
+                    <textarea id="garant_adresse" name="garant_adresse" class="form-input" rows="2"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes_loc">Notes</label>
+                    <textarea id="notes_loc" name="notes" class="form-input" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalLocataire')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderLocataire()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.gerance-page {
+    max-width: 100%;
+}
+
+.gerance-subnav {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--neutral-100);
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+}
+
+.gerance-subnav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    color: var(--neutral-600);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.gerance-subnav-item:hover {
+    background: var(--neutral-200);
+    color: var(--neutral-800);
+}
+
+.gerance-subnav-item.active {
+    background: var(--primary);
+    color: white;
+}
+
+.gerance-subnav-item i {
+    width: 16px;
+    height: 16px;
+}
+
+.filters-form {
+    margin-bottom: 1rem;
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--neutral-600);
+}
+
+.filter-group.search-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-input .form-input {
+    flex: 1;
+}
+
+.locataire-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.locataire-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--success-100, #d1fae5);
+    color: var(--success, #065f46);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.locataire-nom {
+    font-weight: 500;
+}
+
+.locataire-info {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.contact-info {
+    font-size: 0.875rem;
+}
+
+.contact-info div {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.icon-sm {
+    width: 14px;
+    height: 14px;
+    color: var(--neutral-400);
+}
+
+.garant-info {
+    font-size: 0.875rem;
+}
+
+.garant-info small {
+    color: var(--neutral-500);
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-particulier {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-societe {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-actif {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-inactif {
+    background: var(--neutral-200);
+    color: var(--neutral-600);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.75rem;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--neutral-500);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.divider {
+    margin: 1.5rem 0;
+    border: none;
+    border-top: 1px solid var(--neutral-200);
+}
+
+h4 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: var(--neutral-700);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('open');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+        if (modalId === 'modalLocataire') {
+            document.getElementById('formLocataire').reset();
+            document.getElementById('locataireId').value = '';
+            document.getElementById('modalLocataireTitle').textContent = 'Nouveau locataire';
+        }
+    }
+
+    function sauvegarderLocataire() {
+        const form = document.getElementById('formLocataire');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gerance:api_creer_locataire" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                closeModal('modalLocataire');
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la sauvegarde');
+            console.error(error);
+        });
+    }
+
+    function modifierLocataire(id) {
+        document.getElementById('locataireId').value = id;
+        document.getElementById('modalLocataireTitle').textContent = 'Modifier le locataire';
+        openModal('modalLocataire');
+    }
+
+    function supprimerLocataire(id) {
+        if (confirm('Etes-vous sur de vouloir supprimer ce locataire ?')) {
+            alert('Fonctionnalite a implementer');
+        }
+    }
+</script>
+{% endblock %}

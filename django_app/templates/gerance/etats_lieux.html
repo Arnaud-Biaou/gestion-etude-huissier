@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Etats des Lieux - Gerance Immobiliere{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tete -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Etats des Lieux</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'gerance:dashboard' %}">Gerance</a></li>
+                    <li class="breadcrumb-item active">Etats des Lieux</li>
+                </ol>
+            </nav>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNouvelEtatLieux">
+            <i class="bi bi-plus-lg me-2"></i>Nouvel Etat des Lieux
+        </button>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-primary bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-clipboard-check fs-4 text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Total</h6>
+                            <h4 class="mb-0">{{ etats_lieux.count }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-success bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-box-arrow-in-right fs-4 text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Entrees</h6>
+                            <h4 class="mb-0">{{ entrees_count|default:0 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-warning bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-box-arrow-right fs-4 text-warning"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Sorties</h6>
+                            <h4 class="mb-0">{{ sorties_count|default:0 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Type</label>
+                    <select name="type" class="form-select">
+                        <option value="">Tous les types</option>
+                        <option value="ENTREE" {% if request.GET.type == 'ENTREE' %}selected{% endif %}>Entree</option>
+                        <option value="SORTIE" {% if request.GET.type == 'SORTIE' %}selected{% endif %}>Sortie</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Bail</label>
+                    <select name="bail" class="form-select">
+                        <option value="">Tous les baux</option>
+                        {% for bail in baux %}
+                        <option value="{{ bail.id }}" {% if request.GET.bail == bail.id|stringformat:"s" %}selected{% endif %}>{{ bail.reference }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date debut</label>
+                    <input type="date" name="date_debut" class="form-control" value="{{ request.GET.date_debut }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date fin</label>
+                    <input type="date" name="date_fin" class="form-control" value="{{ request.GET.date_fin }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search me-1"></i> Filtrer
+                    </button>
+                    <a href="{% url 'gerance:etats_lieux' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des etats des lieux -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">Liste des Etats des Lieux</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Bail</th>
+                            <th>Bien</th>
+                            <th>Locataire</th>
+                            <th>Etat General</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for etat in etats_lieux %}
+                        <tr>
+                            <td>{{ etat.date_etat|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if etat.type_etat == 'ENTREE' %}
+                                <span class="badge bg-success">Entree</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">Sortie</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'gerance:bail_detail' etat.bail.id %}">{{ etat.bail.reference }}</a>
+                            </td>
+                            <td>{{ etat.bail.bien.designation }}</td>
+                            <td>{{ etat.bail.locataire }}</td>
+                            <td>
+                                {% if etat.etat_general == 'BON' %}
+                                <span class="badge bg-success">Bon</span>
+                                {% elif etat.etat_general == 'MOYEN' %}
+                                <span class="badge bg-warning text-dark">Moyen</span>
+                                {% else %}
+                                <span class="badge bg-danger">Mauvais</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                        data-bs-toggle="modal" data-bs-target="#modalDetail{{ etat.id }}" title="Details">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-clipboard-x fs-1 d-block mb-3"></i>
+                                    <p class="mb-0">Aucun etat des lieux enregistre</p>
+                                    <button type="button" class="btn btn-sm btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#modalNouvelEtatLieux">
+                                        <i class="bi bi-plus-lg me-1"></i>Creer un etat des lieux
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvel Etat des Lieux -->
+<div class="modal fade" id="modalNouvelEtatLieux" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvel Etat des Lieux</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEtatLieux" method="post" action="{% url 'gerance:api_creer_etat_lieux' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Bail <span class="text-danger">*</span></label>
+                            <select name="bail_id" class="form-select" required>
+                                <option value="">Selectionner un bail</option>
+                                {% for bail in baux_actifs %}
+                                <option value="{{ bail.id }}">{{ bail.reference }} - {{ bail.locataire }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Type <span class="text-danger">*</span></label>
+                            <select name="type_etat" class="form-select" required>
+                                <option value="ENTREE">Entree</option>
+                                <option value="SORTIE">Sortie</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Date <span class="text-danger">*</span></label>
+                            <input type="date" name="date_etat" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Etat General <span class="text-danger">*</span></label>
+                            <select name="etat_general" class="form-select" required>
+                                <option value="BON">Bon</option>
+                                <option value="MOYEN">Moyen</option>
+                                <option value="MAUVAIS">Mauvais</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Observations</label>
+                            <textarea name="observations" class="form-control" rows="4" placeholder="Observations generales sur l'etat du bien..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Releves de Compteurs</label>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text">Eau</span>
+                                        <input type="number" name="compteur_eau" class="form-control" placeholder="m3">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text">Electricite</span>
+                                        <input type="number" name="compteur_electricite" class="form-control" placeholder="kWh">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text">Gaz</span>
+                                        <input type="number" name="compteur_gaz" class="form-control" placeholder="m3">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modals Detail pour chaque etat des lieux -->
+{% for etat in etats_lieux %}
+<div class="modal fade" id="modalDetail{{ etat.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detail Etat des Lieux</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <strong>Date:</strong> {{ etat.date_etat|date:"d/m/Y" }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Type:</strong>
+                        {% if etat.type_etat == 'ENTREE' %}
+                        <span class="badge bg-success">Entree</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Sortie</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Bail:</strong> {{ etat.bail.reference }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Bien:</strong> {{ etat.bail.bien.designation }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Locataire:</strong> {{ etat.bail.locataire }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Etat General:</strong>
+                        {% if etat.etat_general == 'BON' %}
+                        <span class="badge bg-success">Bon</span>
+                        {% elif etat.etat_general == 'MOYEN' %}
+                        <span class="badge bg-warning text-dark">Moyen</span>
+                        {% else %}
+                        <span class="badge bg-danger">Mauvais</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-12">
+                        <strong>Observations:</strong>
+                        <p class="mt-2">{{ etat.observations|default:"Aucune observation" }}</p>
+                    </div>
+                    {% if etat.compteur_eau or etat.compteur_electricite or etat.compteur_gaz %}
+                    <div class="col-12">
+                        <strong>Releves Compteurs:</strong>
+                        <div class="row mt-2">
+                            {% if etat.compteur_eau %}
+                            <div class="col-md-4">
+                                <span class="text-muted">Eau:</span> {{ etat.compteur_eau }} m3
+                            </div>
+                            {% endif %}
+                            {% if etat.compteur_electricite %}
+                            <div class="col-md-4">
+                                <span class="text-muted">Electricite:</span> {{ etat.compteur_electricite }} kWh
+                            </div>
+                            {% endif %}
+                            {% if etat.compteur_gaz %}
+                            <div class="col-md-4">
+                                <span class="text-muted">Gaz:</span> {{ etat.compteur_gaz }} m3
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+document.getElementById('formEtatLieux').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Une erreur est survenue'));
+        }
+    })
+    .catch(error => {
+        alert('Erreur de connexion');
+    });
+});
+</script>
+{% endblock %}

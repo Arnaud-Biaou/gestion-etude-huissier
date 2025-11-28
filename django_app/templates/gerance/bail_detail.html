@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:baux' %}" class="breadcrumb-item">Baux</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">{{ bail.reference }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="detail-page">
+    <div class="page-header">
+        <a href="{% url 'gerance:baux' %}" class="btn-back">
+            <i data-lucide="arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <!-- En-tete bail -->
+    <div class="detail-header-card">
+        <div class="detail-header-main">
+            <div class="detail-avatar bail-avatar">
+                <i data-lucide="file-signature"></i>
+            </div>
+            <div class="detail-header-info">
+                <h1>{{ bail.reference }}</h1>
+                <p class="detail-subtitle">{{ bail.get_type_bail_display }} - {{ bail.bien.designation }}</p>
+                <div class="detail-badges">
+                    <span class="status-badge status-{{ bail.statut }}">{{ bail.get_statut_display }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="detail-header-stats">
+            <div class="detail-stat">
+                <div class="stat-value">{{ bail.loyer_total|floatformat:0 }}</div>
+                <div class="stat-label">Loyer XOF</div>
+            </div>
+            <div class="detail-stat">
+                <div class="stat-value">{{ bail.duree_mois }}</div>
+                <div class="stat-label">Mois</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2 mt-4">
+        <!-- Informations bail -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="info"></i> Informations du bail</h3>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Date debut</span>
+                        <span class="info-value">{{ bail.date_debut|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Date fin</span>
+                        <span class="info-value">{{ bail.date_fin|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Loyer mensuel</span>
+                        <span class="info-value">{{ bail.loyer_mensuel|floatformat:0 }} XOF</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Charges</span>
+                        <span class="info-value">{{ bail.charges_mensuelles|floatformat:0 }} XOF</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Depot de garantie</span>
+                        <span class="info-value">{{ bail.depot_garantie|floatformat:0 }} XOF {% if bail.depot_verse %}(Verse){% endif %}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Jour de paiement</span>
+                        <span class="info-value">Le {{ bail.jour_paiement }} de chaque mois</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parties -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="users"></i> Parties</h3>
+            </div>
+            <div class="card-body">
+                <h4>Bien</h4>
+                <div class="party-info">
+                    <a href="{% url 'gerance:bien_detail' bail.bien.id %}">{{ bail.bien.designation }}</a>
+                    <small>{{ bail.bien.adresse }}, {{ bail.bien.ville }}</small>
+                </div>
+
+                <h4 class="mt-4">Proprietaire</h4>
+                <div class="party-info">
+                    <a href="{% url 'gerance:proprietaire_detail' bail.bien.proprietaire.id %}">{{ bail.bien.proprietaire }}</a>
+                    <small>{{ bail.bien.proprietaire.telephone }}</small>
+                </div>
+
+                <h4 class="mt-4">Locataire</h4>
+                <div class="party-info">
+                    <a href="{% url 'gerance:locataire_detail' bail.locataire.id %}">{{ bail.locataire }}</a>
+                    <small>{{ bail.locataire.telephone }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loyers -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title"><i data-lucide="banknote"></i> Historique des loyers</h3>
+        </div>
+        <div class="card-body">
+            {% if loyers %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Periode</th>
+                        <th>Montant</th>
+                        <th>Paye</th>
+                        <th>Reste</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for loyer in loyers %}
+                    <tr>
+                        <td>{{ loyer.mois }}/{{ loyer.annee }}</td>
+                        <td>{{ loyer.montant_total|floatformat:0 }} XOF</td>
+                        <td>{{ loyer.montant_paye|floatformat:0 }} XOF</td>
+                        <td>{{ loyer.reste_a_payer|floatformat:0 }} XOF</td>
+                        <td><span class="status-badge status-{{ loyer.statut }}">{{ loyer.get_statut_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted text-center">Aucun loyer</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Etats des lieux -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title"><i data-lucide="clipboard-list"></i> Etats des lieux</h3>
+        </div>
+        <div class="card-body">
+            {% if etats_lieux %}
+            <div class="list-items">
+                {% for etat in etats_lieux %}
+                <div class="list-item">
+                    <div class="list-item-icon">
+                        <i data-lucide="{% if etat.type_etat == 'entree' %}log-in{% else %}log-out{% endif %}"></i>
+                    </div>
+                    <div class="list-item-content">
+                        <div class="list-item-title">Etat des lieux {{ etat.get_type_etat_display }}</div>
+                        <div class="list-item-subtitle">{{ etat.date_etat|date:"d/m/Y" }} - {{ etat.get_etat_general_display }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted text-center">Aucun etat des lieux</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-page { max-width: 100%; }
+.page-header { margin-bottom: 1rem; }
+.btn-back { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--neutral-600); text-decoration: none; }
+.detail-header-card { background: white; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid var(--neutral-200); display: flex; justify-content: space-between; align-items: center; }
+.detail-header-main { display: flex; align-items: center; gap: 1.5rem; }
+.detail-avatar { width: 64px; height: 64px; border-radius: 0.75rem; background: #fef3c7; color: #92400e; display: flex; align-items: center; justify-content: center; }
+.detail-avatar i { width: 32px; height: 32px; }
+.detail-header-info h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.detail-subtitle { color: var(--neutral-500); }
+.detail-header-stats { display: flex; gap: 2rem; }
+.detail-stat .stat-value { font-size: 1.5rem; font-weight: 700; }
+.detail-stat .stat-label { font-size: 0.875rem; color: var(--neutral-500); }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.info-label { font-size: 0.75rem; color: var(--neutral-500); }
+.info-value { font-weight: 500; }
+h4 { font-size: 0.875rem; color: var(--neutral-600); margin-bottom: 0.5rem; }
+.party-info { display: flex; flex-direction: column; }
+.party-info a { font-weight: 500; color: var(--primary); text-decoration: none; }
+.party-info small { color: var(--neutral-500); }
+.list-items { display: flex; flex-direction: column; gap: 0.5rem; }
+.list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--neutral-50); border-radius: 0.5rem; }
+.list-item-icon { width: 40px; height: 40px; border-radius: 0.5rem; background: var(--primary-100); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+.list-item-title { font-weight: 500; }
+.list-item-subtitle { font-size: 0.75rem; color: var(--neutral-500); }
+.status-badge { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; }
+.status-actif, .status-paye { background: #d1fae5; color: #065f46; }
+.status-a_payer { background: #dbeafe; color: #1e40af; }
+.status-partiel { background: #fef3c7; color: #92400e; }
+.status-retard, .status-impaye { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>lucide.createIcons();</script>
+{% endblock %}

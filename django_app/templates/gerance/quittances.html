@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quittances - Gerance Immobiliere{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tete -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Quittances de Loyer</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'gerance:dashboard' %}">Gerance</a></li>
+                    <li class="breadcrumb-item active">Quittances</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-success bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-file-earmark-check fs-4 text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Total Quittances</h6>
+                            <h4 class="mb-0">{{ quittances.count }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-primary bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-calendar-month fs-4 text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Ce Mois</h6>
+                            <h4 class="mb-0">{{ quittances_mois_count|default:0 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-info bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-cash-stack fs-4 text-info"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Montant Total</h6>
+                            <h4 class="mb-0">{{ montant_total|floatformat:0|default:0 }} XOF</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-warning bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-printer fs-4 text-warning"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">A Imprimer</h6>
+                            <h4 class="mb-0">{{ a_imprimer_count|default:0 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Locataire</label>
+                    <select name="locataire" class="form-select">
+                        <option value="">Tous les locataires</option>
+                        {% for locataire in locataires %}
+                        <option value="{{ locataire.id }}" {% if request.GET.locataire == locataire.id|stringformat:"s" %}selected{% endif %}>{{ locataire }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Mois</label>
+                    <select name="mois" class="form-select">
+                        <option value="">Tous</option>
+                        {% for m in months %}
+                        <option value="{{ m.value }}" {% if request.GET.mois == m.value|stringformat:"s" %}selected{% endif %}>{{ m.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Annee</label>
+                    <select name="annee" class="form-select">
+                        <option value="">Toutes</option>
+                        {% for a in annees %}
+                        <option value="{{ a }}" {% if request.GET.annee == a|stringformat:"s" %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Recherche</label>
+                    <input type="text" name="q" class="form-control" placeholder="Numero quittance..." value="{{ request.GET.q }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search me-1"></i> Filtrer
+                    </button>
+                    <a href="{% url 'gerance:quittances' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des quittances -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">Liste des Quittances</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Numero</th>
+                            <th>Date Emission</th>
+                            <th>Locataire</th>
+                            <th>Bien</th>
+                            <th>Periode</th>
+                            <th class="text-end">Montant</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quittance in quittances %}
+                        <tr>
+                            <td>
+                                <span class="fw-medium">{{ quittance.numero }}</span>
+                            </td>
+                            <td>{{ quittance.date_emission|date:"d/m/Y" }}</td>
+                            <td>{{ quittance.loyer.bail.locataire }}</td>
+                            <td>
+                                <small class="text-muted">{{ quittance.loyer.bail.bien.designation }}</small>
+                            </td>
+                            <td>
+                                {{ quittance.periode_debut|date:"d/m/Y" }} - {{ quittance.periode_fin|date:"d/m/Y" }}
+                            </td>
+                            <td class="text-end">
+                                <span class="fw-bold text-success">{{ quittance.montant|floatformat:0 }} XOF</span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'gerance:export_quittance_pdf' %}?loyer_id={{ quittance.loyer.id }}"
+                                   class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimer">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-file-earmark-x fs-1 d-block mb-3"></i>
+                                    <p class="mb-0">Aucune quittance trouvee</p>
+                                    <small>Les quittances sont generees automatiquement lors des paiements de loyer</small>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if quittances %}
+        <div class="card-footer bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">{{ quittances.count }} quittance(s) trouvee(s)</small>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
