@@ -60,7 +60,8 @@ class CompteComptable(models.Model):
         ('5', 'Classe 5 - Trésorerie'),
         ('6', 'Classe 6 - Charges'),
         ('7', 'Classe 7 - Produits'),
-        ('8', 'Classe 8 - Comptes spéciaux'),
+        ('8', 'Classe 8 - Autres charges/produits'),
+        ('9', 'Classe 9 - Engagements hors bilan'),
     ]
 
     TYPE_CHOICES = [
@@ -279,6 +280,94 @@ class LigneEcriture(models.Model):
             raise ValidationError("Une ligne ne peut pas avoir à la fois un débit et un crédit")
         if self.debit == 0 and self.credit == 0:
             raise ValidationError("Une ligne doit avoir soit un débit, soit un crédit")
+
+
+class Lettrage(models.Model):
+    """Lettrage des comptes tiers (clients 411, fournisseurs 401)"""
+    code = models.CharField(max_length=10, unique=True, verbose_name="Code lettrage")
+    compte = models.ForeignKey(CompteComptable, on_delete=models.PROTECT,
+                               verbose_name="Compte lettré",
+                               limit_choices_to={'numero__startswith': '4'})
+    lignes = models.ManyToManyField(LigneEcriture, related_name='lettrages',
+                                     verbose_name="Lignes lettrées")
+    date_lettrage = models.DateTimeField(auto_now_add=True, verbose_name="Date de lettrage")
+    lettre_par = models.ForeignKey('gestion.Utilisateur', on_delete=models.SET_NULL,
+                                    null=True, verbose_name="Lettré par")
+    montant = models.DecimalField(max_digits=15, decimal_places=0, default=0,
+                                   verbose_name="Montant lettré")
+    est_partiel = models.BooleanField(default=False, verbose_name="Lettrage partiel")
+    commentaire = models.TextField(blank=True, verbose_name="Commentaire")
+
+    class Meta:
+        verbose_name = "Lettrage"
+        verbose_name_plural = "Lettrages"
+        ordering = ['-date_lettrage']
+
+    def __str__(self):
+        return f"Lettrage {self.code} - {self.compte.numero}"
+
+    def clean(self):
+        # Vérifier que le lettrage est équilibré (sauf si partiel)
+        if not self.est_partiel and self.pk:
+            total_debit = self.lignes.aggregate(total=models.Sum('debit'))['total'] or Decimal('0')
+            total_credit = self.lignes.aggregate(total=models.Sum('credit'))['total'] or Decimal('0')
+            if total_debit != total_credit:
+                raise ValidationError(
+                    f"Le lettrage n'est pas équilibré: Débit={total_debit}, Crédit={total_credit}"
+                )
+
+    @classmethod
+    def generer_code(cls, compte):
+        """Génère un code de lettrage unique pour un compte"""
+        import string
+        # Format: 3 lettres + numéro séquentiel (ex: AAA001)
+        last_lettrage = cls.objects.filter(compte=compte).order_by('-code').first()
+        if last_lettrage:
+            last_code = last_lettrage.code
+            # Extraire les lettres et le numéro
+            letters = last_code[:3]
+            num = int(last_code[3:]) + 1
+            if num > 999:
+                # Passer aux lettres suivantes
+                num = 1
+                # Incrémenter les lettres
+                letter_list = list(letters)
+                for i in range(2, -1, -1):
+                    if letter_list[i] != 'Z':
+                        letter_list[i] = chr(ord(letter_list[i]) + 1)
+                        break
+                    else:
+                        letter_list[i] = 'A'
+                letters = ''.join(letter_list)
+            return f"{letters}{num:03d}"
+        return "AAA001"
+
+    @classmethod
+    def creer_lettrage(cls, compte, lignes, utilisateur=None, commentaire=''):
+        """Crée un lettrage pour un ensemble de lignes d'écriture"""
+        # Vérifier que toutes les lignes appartiennent au même compte
+        for ligne in lignes:
+            if ligne.compte != compte:
+                raise ValidationError(f"La ligne {ligne} n'appartient pas au compte {compte}")
+
+        # Calculer le montant total
+        total_debit = sum(l.debit for l in lignes)
+        total_credit = sum(l.credit for l in lignes)
+        est_partiel = total_debit != total_credit
+        montant = min(total_debit, total_credit)
+
+        # Créer le lettrage
+        code = cls.generer_code(compte)
+        lettrage = cls.objects.create(
+            code=code,
+            compte=compte,
+            montant=montant,
+            est_partiel=est_partiel,
+            lettre_par=utilisateur,
+            commentaire=commentaire
+        )
+        lettrage.lignes.set(lignes)
+        return lettrage
 
 
 class TypeOperation(models.Model):

@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- En-tête -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Lettrage des comptes tiers</h3>
+            <div class="flex" style="gap: 0.5rem;">
+                <a href="?type=clients" class="btn {% if type_compte == 'clients' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i data-lucide="users"></i> Clients (411)
+                </a>
+                <a href="?type=fournisseurs" class="btn {% if type_compte == 'fournisseurs' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i data-lucide="building"></i> Fournisseurs (401)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3" style="gap: 1.5rem;">
+        <!-- Sélection du compte -->
+        <div class="card">
+            <div class="card-header">
+                <h4>Sélectionner un compte</h4>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% for compte in comptes %}
+                <a href="?type={{ type_compte }}&compte={{ compte.id }}"
+                   class="lettrage-compte-item {% if compte_selectionne and compte.id == compte_selectionne.id %}active{% endif %}">
+                    <strong>{{ compte.numero }}</strong>
+                    <span>{{ compte.libelle|truncatechars:25 }}</span>
+                </a>
+                {% empty %}
+                <p class="text-muted text-center">Aucun compte disponible</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Lignes à lettrer -->
+        <div class="card" style="grid-column: span 2;">
+            <div class="card-header">
+                <h4>Lignes non lettrées</h4>
+                {% if compte_selectionne %}
+                <span class="badge badge-info">{{ compte_selectionne.numero }} - {{ compte_selectionne.libelle }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body" style="padding: 0;">
+                {% if compte_selectionne %}
+                <form id="formLettrage">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="selectAll" onchange="toggleAll()">
+                                </th>
+                                <th>Date</th>
+                                <th>N° Pièce</th>
+                                <th>Libellé</th>
+                                <th class="text-right">Débit</th>
+                                <th class="text-right">Crédit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ligne in lignes_non_lettrees %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="lignes[]" value="{{ ligne.id }}"
+                                           class="ligne-checkbox"
+                                           data-debit="{{ ligne.debit }}"
+                                           data-credit="{{ ligne.credit }}"
+                                           onchange="updateTotaux()">
+                                </td>
+                                <td>{{ ligne.ecriture.date|date:"d/m/Y" }}</td>
+                                <td><a href="{% url 'comptabilite:detail_ecriture' ligne.ecriture.id %}">{{ ligne.ecriture.numero }}</a></td>
+                                <td>{{ ligne.libelle|truncatechars:30 }}</td>
+                                <td class="text-right">
+                                    {% if ligne.debit > 0 %}{{ ligne.debit|floatformat:0 }}{% else %}-{% endif %}
+                                </td>
+                                <td class="text-right">
+                                    {% if ligne.credit > 0 %}{{ ligne.credit|floatformat:0 }}{% else %}-{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted" style="padding: 2rem;">
+                                    Aucune ligne non lettrée pour ce compte
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if lignes_non_lettrees %}
+                        <tfoot>
+                            <tr style="background: var(--neutral-100);">
+                                <td colspan="4"><strong>Sélection</strong></td>
+                                <td class="text-right"><strong id="totalDebit">0</strong></td>
+                                <td class="text-right"><strong id="totalCredit">0</strong></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4"><strong>Écart</strong></td>
+                                <td colspan="2" class="text-right"><strong id="ecart">0</strong></td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </form>
+
+                {% if lignes_non_lettrees %}
+                <div style="padding: 1rem; border-top: 1px solid var(--neutral-200);">
+                    <button class="btn btn-primary" onclick="creerLettrage()" id="btnLettrer" disabled>
+                        <i data-lucide="link"></i> Lettrer la sélection
+                    </button>
+                    <span id="messageEquilibre" class="text-muted" style="margin-left: 1rem;"></span>
+                </div>
+                {% endif %}
+                {% else %}
+                <div style="padding: 2rem; text-align: center;">
+                    <i data-lucide="mouse-pointer" style="font-size: 3rem; color: var(--neutral-400);"></i>
+                    <p class="text-muted" style="margin-top: 1rem;">Sélectionnez un compte pour voir les lignes à lettrer</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Lettrages récents -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Lettrages récents</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Compte</th>
+                        <th class="text-right">Montant</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lettrages_recents %}
+                    <tr>
+                        <td><strong>{{ l.code }}</strong></td>
+                        <td>{{ l.compte.numero }} - {{ l.compte.libelle|truncatechars:30 }}</td>
+                        <td class="text-right">{{ l.montant|floatformat:0 }}</td>
+                        <td>
+                            {% if l.est_partiel %}
+                            <span class="badge badge-warning">Partiel</span>
+                            {% else %}
+                            <span class="badge badge-success">Complet</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ l.date_lettrage|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted" style="padding: 1rem;">
+                            Aucun lettrage récent
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleAll() {
+        const checked = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.ligne-checkbox').forEach(cb => {
+            cb.checked = checked;
+        });
+        updateTotaux();
+    }
+
+    function updateTotaux() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+        let nbSelected = 0;
+
+        document.querySelectorAll('.ligne-checkbox:checked').forEach(cb => {
+            totalDebit += parseFloat(cb.dataset.debit) || 0;
+            totalCredit += parseFloat(cb.dataset.credit) || 0;
+            nbSelected++;
+        });
+
+        document.getElementById('totalDebit').textContent = totalDebit.toLocaleString('fr-FR');
+        document.getElementById('totalCredit').textContent = totalCredit.toLocaleString('fr-FR');
+
+        const ecart = Math.abs(totalDebit - totalCredit);
+        document.getElementById('ecart').textContent = ecart.toLocaleString('fr-FR');
+
+        const btnLettrer = document.getElementById('btnLettrer');
+        const msgEquilibre = document.getElementById('messageEquilibre');
+
+        if (nbSelected < 2) {
+            btnLettrer.disabled = true;
+            msgEquilibre.textContent = 'Sélectionnez au moins 2 lignes';
+            msgEquilibre.style.color = 'var(--neutral-500)';
+        } else if (ecart === 0) {
+            btnLettrer.disabled = false;
+            msgEquilibre.textContent = 'Lettrage équilibré';
+            msgEquilibre.style.color = 'var(--success-600)';
+        } else {
+            btnLettrer.disabled = false;
+            msgEquilibre.textContent = 'Lettrage partiel (écart: ' + ecart.toLocaleString('fr-FR') + ')';
+            msgEquilibre.style.color = 'var(--warning-600)';
+        }
+    }
+
+    function creerLettrage() {
+        const lignes = [];
+        document.querySelectorAll('.ligne-checkbox:checked').forEach(cb => {
+            lignes.push(parseInt(cb.value));
+        });
+
+        if (lignes.length < 2) {
+            alert('Sélectionnez au moins 2 lignes');
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_creer_lettrage" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                compte_id: {{ compte_selectionne.id|default:0 }},
+                lignes: lignes
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    .lettrage-compte-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--neutral-200);
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.2s;
+    }
+    .lettrage-compte-item:hover {
+        background: var(--neutral-100);
+    }
+    .lettrage-compte-item.active {
+        background: var(--accent-50);
+        border-left: 3px solid var(--accent-500);
+    }
+</style>
+{% endblock %}

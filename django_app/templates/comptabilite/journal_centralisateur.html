@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- En-tête -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Journal Centralisateur</h3>
+            {% if exercice %}
+            <span class="badge badge-info">{{ exercice.libelle }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <form method="get" class="flex" style="gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Date début</label>
+                    <input type="date" name="date_debut" value="{{ date_debut|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Date fin</label>
+                    <input type="date" name="date_fin" value="{{ date_fin|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="filter"></i> Filtrer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau récapitulatif -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Récapitulatif par journal</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Journal</th>
+                        <th class="text-center">Type</th>
+                        <th class="text-center">Nb écritures</th>
+                        <th class="text-right">Total Débit</th>
+                        <th class="text-right">Total Crédit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in journaux_data %}
+                    <tr>
+                        <td><strong>{{ item.journal.code }}</strong></td>
+                        <td>
+                            <a href="{% url 'comptabilite:journaux' %}?journal={{ item.journal.id }}">
+                                {{ item.journal.libelle }}
+                            </a>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge badge-secondary">{{ item.journal.get_type_journal_display }}</span>
+                        </td>
+                        <td class="text-center">{{ item.nb_ecritures }}</td>
+                        <td class="text-right">{{ item.total_debit|floatformat:0 }}</td>
+                        <td class="text-right">{{ item.total_credit|floatformat:0 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted" style="padding: 2rem;">
+                            Aucune écriture sur la période
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if journaux_data %}
+                <tfoot>
+                    <tr style="background: var(--neutral-100);">
+                        <td colspan="4"><strong>TOTAUX GÉNÉRAUX</strong></td>
+                        <td class="text-right"><strong>{{ total_debit|floatformat:0 }}</strong></td>
+                        <td class="text-right"><strong>{{ total_credit|floatformat:0 }}</strong></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Vérification équilibre -->
+    {% if journaux_data %}
+    {% if total_debit == total_credit %}
+    <div class="alert alert-success">
+        <i data-lucide="check-circle"></i>
+        <div>
+            <strong>Équilibre vérifié</strong>
+            <p style="margin: 0;">Total Débit = Total Crédit = {{ total_debit|floatformat:0 }} FCFA</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-danger">
+        <i data-lucide="alert-circle"></i>
+        <div>
+            <strong>Déséquilibre détecté !</strong>
+            <p style="margin: 0;">Débit: {{ total_debit|floatformat:0 }} / Crédit: {{ total_credit|floatformat:0 }}</p>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Période -->
+    <div class="card">
+        <div class="card-body">
+            <p class="text-muted" style="margin: 0;">
+                Période : {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

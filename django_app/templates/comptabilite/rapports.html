@@ -144,11 +144,30 @@
 {% block extra_js %}
 <script>
     function exporterDonnees(format) {
-        alert('Export au format ' + format.toUpperCase() + ' - Fonctionnalité en développement');
+        let url;
+        switch(format) {
+            case 'excel':
+                url = '{% url "comptabilite:export_balance_excel" %}';
+                break;
+            case 'pdf':
+                url = '{% url "comptabilite:export_balance_pdf" %}';
+                break;
+            case 'csv':
+                url = '{% url "comptabilite:export_csv" %}?type=ecritures';
+                break;
+            case 'backup':
+                url = '{% url "comptabilite:export_csv" %}?type=balance';
+                break;
+            default:
+                alert('Format non supporté');
+                return;
+        }
+        window.location.href = url;
     }
 
     function exportExpertComptable() {
-        alert('Export expert-comptable - Fonctionnalité en développement');
+        // Export CSV compatible avec logiciels comptables
+        window.location.href = '{% url "comptabilite:export_csv" %}?type=ecritures';
     }
 
     lucide.createIcons();

@@ -147,14 +147,58 @@
 {% block extra_js %}
 <script>
     function lancerPreCloture() {
-        alert('Pré-clôture en cours de développement.\n\nCette fonctionnalité générera automatiquement :\n- Les écritures d\'amortissement\n- Le calcul du résultat\n- Les écritures de report à nouveau');
+        if (!confirm('Lancer la pré-clôture ?\n\nCette opération va :\n- Générer les écritures d\'amortissement\n- Préparer les écritures d\'inventaire\n\nVous pourrez les vérifier avant la clôture définitive.')) {
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_pre_cloture" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                // Activer le bouton de clôture définitive
+                document.getElementById('btnCloturer').disabled = false;
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
     }
 
     function cloturerExercice() {
-        if (!confirm('Êtes-vous sûr de vouloir clôturer cet exercice ? Cette action est IRRÉVERSIBLE.')) {
+        if (!confirm('ATTENTION !\n\nÊtes-vous sûr de vouloir clôturer cet exercice ?\n\nCette action est IRRÉVERSIBLE et va :\n- Solder les comptes de charges et produits\n- Déterminer le résultat de l\'exercice\n- Créer un nouvel exercice\n- Générer les écritures de report à nouveau')) {
             return;
         }
-        alert('Clôture en cours de développement.');
+
+        // Double confirmation
+        if (!confirm('DERNIÈRE CONFIRMATION\n\nVoulez-vous vraiment procéder à la clôture définitive ?')) {
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_cloture" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                window.location.href = '{% url "comptabilite:dashboard" %}';
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
     }
 
     lucide.createIcons();

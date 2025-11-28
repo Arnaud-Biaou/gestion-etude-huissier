@@ -80,10 +80,10 @@
                         <td>{{ decl.date_declaration|date:"d/m/Y"|default:"-" }}</td>
                         <td>
                             <div class="flex" style="gap: 0.25rem;">
-                                <button class="btn btn-sm btn-secondary" title="Voir">
+                                <a href="{% url 'comptabilite:detail_declaration_tva' decl.id %}" class="btn btn-sm btn-secondary" title="Voir">
                                     <i data-lucide="eye"></i>
-                                </button>
-                                <button class="btn btn-sm btn-secondary" title="Imprimer">
+                                </a>
+                                <button class="btn btn-sm btn-secondary" onclick="imprimerDeclaration({{ decl.id }})" title="Imprimer">
                                     <i data-lucide="printer"></i>
                                 </button>
                             </div>
@@ -146,7 +146,48 @@
 {% block extra_js %}
 <script>
     function nouvelleDéclaration() {
-        alert('Création de déclaration TVA - Fonctionnalité en développement');
+        // Calculer le mois précédent
+        const today = new Date();
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+
+        const periodeDebut = lastMonth.toISOString().split('T')[0];
+        const periodeFin = lastDayOfLastMonth.toISOString().split('T')[0];
+
+        if (!confirm(`Créer une déclaration TVA pour la période du ${formatDate(periodeDebut)} au ${formatDate(periodeFin)} ?`)) {
+            return;
+        }
+
+        fetch('{% url "comptabilite:api_creer_declaration_tva" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                periode_debut: periodeDebut,
+                periode_fin: periodeFin
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error));
+    }
+
+    function imprimerDeclaration(id) {
+        window.open('{% url "comptabilite:detail_declaration_tva" 0 %}'.replace('0', id) + '?print=1', '_blank');
+    }
+
+    function formatDate(dateStr) {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
     }
 
     lucide.createIcons();

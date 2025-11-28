@@ -168,7 +168,13 @@
             {% if ecriture.facture %}
             <div style="margin-top: 1rem;">
                 <span class="text-muted">Facture liée</span>
-                <p><a href="#">{{ ecriture.facture.numero }}</a></p>
+                <p><a href="{% url 'gestion:detail_facture' ecriture.facture.id %}">{{ ecriture.facture.numero }}</a></p>
+            </div>
+            {% endif %}
+            {% if ecriture.dossier %}
+            <div style="margin-top: 1rem;">
+                <span class="text-muted">Dossier lié</span>
+                <p><a href="{% url 'gestion:detail_dossier' ecriture.dossier.id %}">{{ ecriture.dossier.reference }}</a></p>
             </div>
             {% endif %}
         </div>

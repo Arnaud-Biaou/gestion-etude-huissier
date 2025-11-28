@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Bouton retour -->
+    <div class="page-header">
+        <a href="{% url 'comptabilite:tva' %}" class="btn-back">
+            <i data-lucide="arrow-left"></i> Retour aux déclarations
+        </a>
+    </div>
+
+    <!-- En-tête -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Déclaration TVA - {{ declaration.periode_debut|date:"F Y" }}</h3>
+            {% if declaration.statut == 'payee' %}
+            <span class="badge badge-success badge-lg">Payée</span>
+            {% elif declaration.statut == 'declaree' %}
+            <span class="badge badge-info badge-lg">Déclarée</span>
+            {% elif declaration.statut == 'validee' %}
+            <span class="badge badge-warning badge-lg">Validée</span>
+            {% else %}
+            <span class="badge badge-secondary badge-lg">Brouillon</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-3">
+                <div>
+                    <span class="text-muted">Période</span>
+                    <p><strong>{{ declaration.periode_debut|date:"d/m/Y" }} - {{ declaration.periode_fin|date:"d/m/Y" }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Exercice</span>
+                    <p><strong>{{ declaration.exercice.libelle }}</strong></p>
+                </div>
+                <div>
+                    <span class="text-muted">Date de création</span>
+                    <p><strong>{{ declaration.date_creation|date:"d/m/Y H:i" }}</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Montants -->
+    <div class="grid grid-cols-3">
+        <div class="card stat-card">
+            <div class="stat-icon success">
+                <i data-lucide="arrow-down-circle"></i>
+            </div>
+            <div class="stat-value text-success">{{ declaration.tva_collectee|floatformat:0 }} FCFA</div>
+            <div class="stat-label">TVA Collectée</div>
+            <div class="stat-change">Sur les ventes de la période</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-icon danger">
+                <i data-lucide="arrow-up-circle"></i>
+            </div>
+            <div class="stat-value text-danger">{{ declaration.tva_deductible|floatformat:0 }} FCFA</div>
+            <div class="stat-label">TVA Déductible</div>
+            <div class="stat-change">Sur les achats de la période</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-icon {% if declaration.tva_a_payer > 0 %}warning{% else %}info{% endif %}">
+                <i data-lucide="calculator"></i>
+            </div>
+            <div class="stat-value">
+                {% if declaration.tva_a_payer > 0 %}
+                {{ declaration.tva_a_payer|floatformat:0 }} FCFA
+                {% else %}
+                {{ declaration.credit_tva|floatformat:0 }} FCFA
+                {% endif %}
+            </div>
+            <div class="stat-label">
+                {% if declaration.tva_a_payer > 0 %}TVA à payer{% else %}Crédit de TVA{% endif %}
+            </div>
+            <div class="stat-change">Solde de la déclaration</div>
+        </div>
+    </div>
+
+    <!-- Détail calcul -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Détail du calcul</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td>TVA collectée sur les ventes</td>
+                        <td class="text-right"><strong>{{ declaration.tva_collectee|floatformat:0 }} FCFA</strong></td>
+                    </tr>
+                    <tr>
+                        <td>TVA déductible sur les achats</td>
+                        <td class="text-right"><strong>- {{ declaration.tva_deductible|floatformat:0 }} FCFA</strong></td>
+                    </tr>
+                    <tr style="background: var(--neutral-100);">
+                        <td><strong>{% if declaration.tva_a_payer > 0 %}TVA à payer{% else %}Crédit de TVA{% endif %}</strong></td>
+                        <td class="text-right">
+                            <strong class="{% if declaration.tva_a_payer > 0 %}text-warning{% else %}text-info{% endif %}">
+                                {% if declaration.tva_a_payer > 0 %}
+                                {{ declaration.tva_a_payer|floatformat:0 }} FCFA
+                                {% else %}
+                                {{ declaration.credit_tva|floatformat:0 }} FCFA
+                                {% endif %}
+                            </strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Dates importantes -->
+    {% if declaration.date_declaration or declaration.date_paiement %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Dates</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-2">
+                {% if declaration.date_declaration %}
+                <div>
+                    <span class="text-muted">Date de déclaration</span>
+                    <p><strong>{{ declaration.date_declaration|date:"d/m/Y" }}</strong></p>
+                </div>
+                {% endif %}
+                {% if declaration.date_paiement %}
+                <div>
+                    <span class="text-muted">Date de paiement</span>
+                    <p><strong>{{ declaration.date_paiement|date:"d/m/Y" }}</strong></p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex" style="gap: 1rem; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="window.print()">
+                    <i data-lucide="printer"></i> Imprimer
+                </button>
+                {% if declaration.statut == 'brouillon' %}
+                <button class="btn btn-primary" onclick="validerDeclaration()">
+                    <i data-lucide="check"></i> Valider
+                </button>
+                {% elif declaration.statut == 'validee' %}
+                <button class="btn btn-info" onclick="marquerDeclaree()">
+                    <i data-lucide="send"></i> Marquer comme déclarée
+                </button>
+                {% elif declaration.statut == 'declaree' and declaration.tva_a_payer > 0 %}
+                <button class="btn btn-success" onclick="marquerPayee()">
+                    <i data-lucide="check-circle"></i> Marquer comme payée
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function validerDeclaration() {
+        alert('Validation en cours de développement');
+    }
+
+    function marquerDeclaree() {
+        alert('Mise à jour en cours de développement');
+    }
+
+    function marquerPayee() {
+        alert('Mise à jour en cours de développement');
+    }
+
+    lucide.createIcons();
+</script>
+
+<style>
+    @media print {
+        .btn, .btn-back, .page-header { display: none !important; }
+    }
+</style>
+{% endblock %}
