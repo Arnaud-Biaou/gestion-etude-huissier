@@ -5,21 +5,117 @@
 <!-- Header with tabs and button -->
 <div class="flex justify-between items-center flex-wrap gap-4 mb-4">
     <div class="tabs" style="margin-bottom: 0; border-bottom: none;">
-        {% for tab in tabs %}
-        <a href="?tab={{ tab.id }}" class="tab {% if current_tab == tab.id %}active{% endif %}">
-            {{ tab.label }}
+        <a href="?tab=liste" class="tab {% if current_tab == 'liste' %}active{% endif %}">
+            Liste des factures
         </a>
-        {% endfor %}
+        <a href="{% url 'gestion:memoires' %}" class="tab">
+            Memoires
+        </a>
+        <a href="?tab=mecef" class="tab {% if current_tab == 'mecef' %}active{% endif %}">
+            MECeF
+        </a>
     </div>
     <div class="flex gap-2">
+        {% if current_tab == 'liste' %}
         <button class="btn btn-secondary" onclick="exporterFactures()">
             <i data-lucide="download"></i> Exporter
         </button>
         <button class="btn btn-primary" onclick="ouvrirModalFacture()">
             <i data-lucide="plus"></i> Nouvelle facture
         </button>
+        {% endif %}
     </div>
 </div>
+
+{% if current_tab == 'mecef' %}
+<!-- Contenu MECeF -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title"><i data-lucide="shield-check"></i> Factures Normalisees MECeF</h3>
+        <div class="flex gap-2">
+            <span class="status-badge active">{{ factures_normalisees|length }} normalisee{{ factures_normalisees|length|pluralize }}</span>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>N Facture</th>
+                    <th>Client</th>
+                    <th>Total TTC</th>
+                    <th>N MECeF</th>
+                    <th>NIM</th>
+                    <th>Date normalisation</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for facture in factures %}
+                {% if facture.mecef_numero %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ facture.numero }}</td>
+                    <td>{{ facture.client }}</td>
+                    <td style="font-weight: 600;">{{ facture.total|floatformat:0 }} F</td>
+                    <td><span class="status-badge active">{{ facture.mecef_numero }}</span></td>
+                    <td>{{ facture.nim }}</td>
+                    <td>{{ facture.date_mecef }}</td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Voir" onclick="voirFacture('{{ facture.id }}')">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            <button class="icon-btn" title="Imprimer" onclick="imprimerFacture('{{ facture.id }}')">
+                                <i data-lucide="printer"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        Aucune facture normalisee
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Info MECeF -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i data-lucide="info"></i> A propos du MECeF</h3>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 16px;">
+            Le <strong>MECeF</strong> (Machine Electronique Certifiee de Facturation) est le systeme de normalisation
+            des factures mis en place par la Direction Generale des Impots du Benin.
+        </p>
+        <div class="grid grid-cols-3 gap-4">
+            <div class="stat-card" style="padding: 16px;">
+                <div style="color: var(--primary); font-weight: 600; font-size: 1.2rem;">{{ nb_normalisees|default:0 }}</div>
+                <div style="color: var(--neutral-500); font-size: 0.85rem;">Factures normalisees</div>
+            </div>
+            <div class="stat-card" style="padding: 16px;">
+                <div style="color: var(--warning); font-weight: 600; font-size: 1.2rem;">{{ nb_non_normalisees|default:0 }}</div>
+                <div style="color: var(--neutral-500); font-size: 0.85rem;">En attente de normalisation</div>
+            </div>
+            <div class="stat-card" style="padding: 16px;">
+                <div style="color: var(--success); font-weight: 600; font-size: 1.2rem;">18%</div>
+                <div style="color: var(--neutral-500); font-size: 0.85rem;">Taux TVA applique</div>
+            </div>
+        </div>
+        <div class="alert alert-info mt-4" style="background: var(--primary-light); border: 1px solid var(--primary); border-radius: 8px; padding: 12px;">
+            <strong>Note:</strong> La normalisation MECeF est actuellement en mode simulation.
+            Pour une integration complete avec l'API DGI Benin, contactez votre administrateur.
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Contenu Liste des factures (onglet par defaut) -->
 
 <!-- Factures Card -->
 <div class="card">
@@ -156,6 +252,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block modal %}
@@ -356,16 +453,17 @@
             </div>
 
             <!-- MECeF -->
-            <div id="voirMECeF" style="display: none; margin-top: 30px; padding: 15px; border: 1px solid var(--neutral-200); border-radius: 8px;">
+            <div id="voirMECeF" style="display: none; margin-top: 30px; padding: 15px; border: 1px solid var(--neutral-200); border-radius: 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
                 <div style="display: flex; gap: 20px; align-items: center;">
-                    <div id="voirQRCode" style="width: 100px; height: 100px; background: var(--neutral-100); display: flex; align-items: center; justify-content: center;">
-                        <i data-lucide="qr-code" style="width: 60px; height: 60px; color: var(--neutral-400);"></i>
+                    <div id="voirQRCode" style="width: 120px; height: 120px; background: white; display: flex; align-items: center; justify-content: center; border-radius: 8px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <!-- QR Code genere dynamiquement -->
                     </div>
                     <div style="flex: 1; font-size: 11px;">
-                        <strong style="color: var(--success);">FACTURE NORMALISEE MECeF</strong><br>
+                        <strong style="color: var(--success); font-size: 13px;">FACTURE NORMALISEE MECeF</strong><br><br>
                         <strong>N MECeF:</strong> <span id="voirMECeFNumero"></span><br>
                         <strong>NIM:</strong> <span id="voirNIM"></span><br>
-                        <strong>Date normalisation:</strong> <span id="voirDateMECeF"></span>
+                        <strong>Date normalisation:</strong> <span id="voirDateMECeF"></span><br>
+                        <strong>Montant TTC:</strong> <span id="voirMECeFMontant"></span>
                     </div>
                 </div>
             </div>
@@ -391,6 +489,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- QRCode.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
     lucide.createIcons();
 
@@ -635,6 +735,9 @@
 
         // Statut
         const statutEl = document.getElementById('voirStatut');
+        const qrContainer = document.getElementById('voirQRCode');
+        qrContainer.innerHTML = ''; // Nettoyer le QR code precedent
+
         if (facture.mecef_numero) {
             statutEl.textContent = 'NORMALISEE';
             statutEl.classList.add('normalisee');
@@ -642,7 +745,23 @@
             document.getElementById('voirMECeFNumero').textContent = facture.mecef_numero;
             document.getElementById('voirNIM').textContent = facture.nim || 'N/A';
             document.getElementById('voirDateMECeF').textContent = facture.date_mecef || '-';
+            document.getElementById('voirMECeFMontant').textContent = formatMontant(facture.total);
             document.getElementById('btnNormaliserVue').style.display = 'none';
+
+            // Generer le QR Code MECeF
+            const qrData = `MECeF|NIM:${facture.nim || 'N/A'}|NUM:${facture.mecef_numero}|TTC:${Math.round(facture.total)}|DATE:${facture.date_mecef || '-'}|CLIENT:${facture.client}`;
+            try {
+                new QRCode(qrContainer, {
+                    text: qrData,
+                    width: 100,
+                    height: 100,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch (e) {
+                qrContainer.innerHTML = '<div style="text-align: center; color: var(--neutral-400); font-size: 10px;">QR Code</div>';
+            }
         } else {
             statutEl.textContent = 'NON NORMALISEE';
             statutEl.classList.remove('normalisee');
