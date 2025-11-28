@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'gestion:dossiers' %}" class="breadcrumb-item">Dossiers</a>
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="breadcrumb-item">{{ dossier.reference }}</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Modifier</span>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="btn-back">
+                <i data-lucide="arrow-left"></i> Retour
+            </a>
+            <h3 class="card-title">Modifier le dossier {{ dossier.reference }}</h3>
+        </div>
+        <a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="x"></i> Annuler
+        </a>
+    </div>
+    <div class="card-body">
+        <form method="post" id="modifierDossierForm">
+            {% csrf_token %}
+
+            <!-- Informations générales -->
+            <div class="card mb-4" style="border: 1px solid var(--neutral-200);">
+                <div class="card-header" style="background: var(--neutral-50);">
+                    <h4 class="card-title"><i data-lucide="info" style="width: 16px; height: 16px;"></i> Informations générales</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Référence</label>
+                            <input class="form-input" value="{{ dossier.reference }}" disabled style="background: var(--neutral-100);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" name="statut">
+                                {% for code, label in statuts %}
+                                <option value="{{ code }}" {% if dossier.statut == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Nature</label>
+                            <div class="toggle-group">
+                                <div class="toggle-option {% if not dossier.is_contentieux %}active{% endif %}" id="nonContentieux" onclick="setNature(false)">Non contentieux</div>
+                                <div class="toggle-option {% if dossier.is_contentieux %}active{% endif %}" id="contentieux" onclick="setNature(true)">Contentieux</div>
+                            </div>
+                            <input type="hidden" name="is_contentieux" id="isContentieux" value="{{ dossier.is_contentieux|yesno:'true,false' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Type de dossier</label>
+                            <select class="form-select" name="type_dossier">
+                                <option value="">Sélectionner...</option>
+                                {% for code, label in types_dossier %}
+                                <option value="{{ code }}" {% if dossier.type_dossier == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Affecté à</label>
+                            <select class="form-select" name="affecte_a">
+                                <option value="">Non assigné</option>
+                                {% for c in collaborateurs %}
+                                <option value="{{ c.id }}" {% if dossier.affecte_a and dossier.affecte_a.id == c.id %}selected{% endif %}>{{ c.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Créancier</label>
+                            <select class="form-select" name="creancier">
+                                <option value="">Aucun</option>
+                                {% for cr in creanciers_list %}
+                                <option value="{{ cr.id }}" {% if dossier.creancier and dossier.creancier.id == cr.id %}selected{% endif %}>{{ cr.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" name="description" rows="3">{{ dossier.description }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Montants -->
+            <div class="card mb-4" style="border: 1px solid var(--neutral-200);">
+                <div class="card-header" style="background: var(--neutral-50);">
+                    <h4 class="card-title"><i data-lucide="calculator" style="width: 16px; height: 16px;"></i> Montants</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Montant créance (FCFA)</label>
+                            <input class="form-input" type="text" name="montant_creance" value="{{ dossier.montant_creance|floatformat:0|default:'' }}" placeholder="Ex: 5000000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Montant principal (FCFA)</label>
+                            <input class="form-input" type="text" name="montant_principal" value="{{ dossier.montant_principal|floatformat:0|default:'' }}" placeholder="Ex: 5000000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demandeurs -->
+            <div class="card mb-4" style="border: 1px solid var(--neutral-200);">
+                <div class="card-header" style="background: var(--neutral-50);">
+                    <h4 class="card-title"><i data-lucide="user" style="width: 16px; height: 16px;"></i> Demandeur(s) / Client(s)</h4>
+                </div>
+                <div class="card-body">
+                    <div id="demandeursList">
+                        <!-- Demandeur forms will be added here by JS -->
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addPartie('demandeur')">
+                        <i data-lucide="plus"></i> Ajouter un demandeur
+                    </button>
+                </div>
+            </div>
+
+            <!-- Défendeurs -->
+            <div class="card mb-4" style="border: 1px solid var(--neutral-200);" id="defendeursCard">
+                <div class="card-header" style="background: var(--neutral-50);">
+                    <h4 class="card-title"><i data-lucide="users" style="width: 16px; height: 16px;"></i> Défendeur(s) / Débiteur(s)</h4>
+                </div>
+                <div class="card-body">
+                    <div id="defendeursList">
+                        <!-- Defendeur forms will be added here by JS -->
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addPartie('defendeur')">
+                        <i data-lucide="plus"></i> Ajouter un défendeur
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hidden fields for JSON data -->
+            <input type="hidden" name="demandeurs" id="demandeursJson">
+            <input type="hidden" name="defendeurs" id="defendeursJson">
+
+            <!-- Submit buttons -->
+            <div class="flex justify-end gap-2">
+                <a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="save"></i> Enregistrer les modifications
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // State - initialized with existing data
+    let isContentieux = {{ dossier.is_contentieux|yesno:'true,false' }};
+    let demandeurs = {{ demandeurs_json|safe }} || [{ typePersonne: 'physique' }];
+    let defendeurs = {{ defendeurs_json|safe }} || [{ typePersonne: 'physique' }];
+
+    // Ensure at least one entry
+    if (demandeurs.length === 0) demandeurs = [{ typePersonne: 'physique' }];
+    if (defendeurs.length === 0) defendeurs = [{ typePersonne: 'physique' }];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        renderAllParties('demandeur');
+        renderAllParties('defendeur');
+        updateDefendeursVisibility();
+    });
+
+    function setNature(contentieux) {
+        isContentieux = contentieux;
+        document.getElementById('isContentieux').value = contentieux;
+        document.getElementById('nonContentieux').classList.toggle('active', !contentieux);
+        document.getElementById('contentieux').classList.toggle('active', contentieux);
+        updateDefendeursVisibility();
+    }
+
+    function updateDefendeursVisibility() {
+        document.getElementById('defendeursCard').style.display = isContentieux ? 'block' : 'none';
+    }
+
+    function addPartie(type) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr.push({ typePersonne: 'physique' });
+        renderPartie(type, arr.length - 1);
+    }
+
+    function removePartie(type, index) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        if (arr.length > 1) {
+            arr.splice(index, 1);
+            renderAllParties(type);
+        }
+    }
+
+    function renderAllParties(type) {
+        const container = document.getElementById(type + 'sList');
+        container.innerHTML = '';
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr.forEach((_, i) => renderPartie(type, i));
+    }
+
+    function renderPartie(type, index) {
+        const container = document.getElementById(type + 'sList');
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        const partie = arr[index];
+        const roleLabel = type === 'demandeur' ? 'Demandeur/Client' : 'Défendeur/Débiteur';
+
+        const div = document.createElement('div');
+        div.id = `${type}_${index}`;
+        div.style.cssText = 'border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; background: var(--neutral-50);';
+
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: ${partie.typePersonne === 'physique' ? 'var(--info-light)' : 'var(--accent-light)'}; color: ${partie.typePersonne === 'physique' ? 'white' : 'var(--primary-dark)'};">
+                        ${partie.typePersonne}
+                    </span>
+                    <h4 style="margin-top: 5px; font-size: 14px; font-weight: 600;">${roleLabel} #${index + 1}</h4>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    ${index > 0 || arr.length > 1 ? `<button type="button" class="btn btn-sm" style="background: var(--danger); color: white;" onclick="removePartie('${type}', ${index})"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>` : ''}
+                </div>
+            </div>
+            <div class="toggle-group" style="margin-bottom: 12px;">
+                <div class="toggle-option ${partie.typePersonne === 'physique' ? 'active' : ''}" onclick="setTypePersonne('${type}', ${index}, 'physique')">Personne physique</div>
+                <div class="toggle-option ${partie.typePersonne === 'morale' ? 'active' : ''}" onclick="setTypePersonne('${type}', ${index}, 'morale')">Personne morale</div>
+            </div>
+            <div class="form-grid" id="${type}_${index}_fields">
+                ${partie.typePersonne === 'physique' ? `
+                    <div class="form-group">
+                        <label class="form-label">Nom</label>
+                        <input class="form-input" value="${partie.nom || ''}" onchange="updatePartie('${type}', ${index}, 'nom', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prénoms</label>
+                        <input class="form-input" value="${partie.prenoms || ''}" onchange="updatePartie('${type}', ${index}, 'prenoms', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nationalité</label>
+                        <input class="form-input" value="${partie.nationalite || ''}" onchange="updatePartie('${type}', ${index}, 'nationalite', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Profession</label>
+                        <input class="form-input" value="${partie.profession || ''}" onchange="updatePartie('${type}', ${index}, 'profession', this.value)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Domicile</label>
+                        <input class="form-input" value="${partie.domicile || ''}" onchange="updatePartie('${type}', ${index}, 'domicile', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU</label>
+                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                ` : `
+                    <div class="form-group full-width">
+                        <label class="form-label">Dénomination Sociale</label>
+                        <input class="form-input" value="${partie.denomination || ''}" onchange="updatePartie('${type}', ${index}, 'denomination', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Capital Social (FCFA)</label>
+                        <input class="form-input" type="text" value="${partie.capitalSocial || ''}" onchange="updatePartie('${type}', ${index}, 'capitalSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Forme Juridique</label>
+                        <select class="form-select" onchange="updatePartie('${type}', ${index}, 'formeJuridique', this.value)">
+                            <option value="SARL" ${partie.formeJuridique === 'SARL' ? 'selected' : ''}>SARL</option>
+                            <option value="SA" ${partie.formeJuridique === 'SA' ? 'selected' : ''}>SA</option>
+                            <option value="SAS" ${partie.formeJuridique === 'SAS' ? 'selected' : ''}>SAS</option>
+                            <option value="SNC" ${partie.formeJuridique === 'SNC' ? 'selected' : ''}>SNC</option>
+                            <option value="GIE" ${partie.formeJuridique === 'GIE' ? 'selected' : ''}>GIE</option>
+                            <option value="AUTRE" ${partie.formeJuridique === 'AUTRE' ? 'selected' : ''}>Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Siège Social</label>
+                        <input class="form-input" value="${partie.siegeSocial || ''}" onchange="updatePartie('${type}', ${index}, 'siegeSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Représentant Légal</label>
+                        <input class="form-input" value="${partie.representant || ''}" onchange="updatePartie('${type}', ${index}, 'representant', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU</label>
+                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                    </div>
+                `}
+            </div>
+        `;
+
+        // Check if element already exists, replace it
+        const existing = document.getElementById(`${type}_${index}`);
+        if (existing) {
+            existing.replaceWith(div);
+        } else {
+            container.appendChild(div);
+        }
+
+        lucide.createIcons();
+    }
+
+    function setTypePersonne(type, index, typePersonne) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index].typePersonne = typePersonne;
+        renderPartie(type, index);
+    }
+
+    function updatePartie(type, index, field, value) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index][field] = value;
+    }
+
+    // Form submission
+    document.getElementById('modifierDossierForm').addEventListener('submit', function(e) {
+        // Serialize parties data to JSON
+        document.getElementById('demandeursJson').value = JSON.stringify(demandeurs);
+        document.getElementById('defendeursJson').value = JSON.stringify(isContentieux ? defendeurs : []);
+    });
+</script>
+{% endblock %}

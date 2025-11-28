@@ -86,16 +86,16 @@
                     </td>
                     <td>
                         <div class="flex gap-1">
-                            <button class="icon-btn" title="Voir">
+                            <a href="{% url 'gestion:dossier_detail' dossier.id %}" class="icon-btn" title="Voir">
                                 <i data-lucide="eye"></i>
-                            </button>
-                            <button class="icon-btn" title="Modifier">
+                            </a>
+                            <a href="{% url 'gestion:modifier_dossier' dossier.id %}" class="icon-btn" title="Modifier">
                                 <i data-lucide="edit"></i>
-                            </button>
+                            </a>
                             <button class="icon-btn" title="QR Code">
                                 <i data-lucide="qr-code"></i>
                             </button>
-                            <button class="icon-btn" style="color: var(--danger);" title="Supprimer" onclick="deleteDossier('{{ dossier.reference }}')">
+                            <button class="icon-btn" style="color: var(--danger);" title="Supprimer" onclick="deleteDossier({{ dossier.id }})">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </div>
@@ -118,7 +118,7 @@
 <script>
     lucide.createIcons();
 
-    function deleteDossier(reference) {
+    function deleteDossier(dossierId) {
         const userRole = '{{ current_user.role }}';
         if (userRole !== 'admin') {
             alert("Action non autorisée : Seul l'administrateur peut supprimer un dossier.");
@@ -132,7 +132,7 @@
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: JSON.stringify({
-                    dossier_id: reference,
+                    dossier_id: dossierId,
                     user_role: userRole
                 })
             })
@@ -145,6 +145,30 @@
                 }
             });
         }
+    }
+
+    // Filtres dynamiques
+    document.getElementById('searchInput').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+            applyFilters();
+        }
+    });
+
+    document.getElementById('typeFilter').addEventListener('change', applyFilters);
+    document.getElementById('assignedFilter').addEventListener('change', applyFilters);
+
+    function applyFilters() {
+        const search = document.getElementById('searchInput').value;
+        const type = document.getElementById('typeFilter').value;
+        const assigned = document.getElementById('assignedFilter').value;
+        const currentTab = '{{ current_tab }}';
+
+        let url = '?tab=' + currentTab;
+        if (search) url += '&search=' + encodeURIComponent(search);
+        if (type !== 'all') url += '&type=' + type;
+        if (assigned !== 'all') url += '&assigned=' + assigned;
+
+        window.location.href = url;
     }
 </script>
 {% endblock %}
