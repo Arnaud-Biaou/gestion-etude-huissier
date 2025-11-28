@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quittance de loyer - {{ quittance.numero }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12pt; line-height: 1.5; padding: 20mm; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .header h1 { font-size: 24pt; margin-bottom: 5px; }
+        .header h2 { font-size: 14pt; color: #666; font-weight: normal; }
+        .quittance-numero { text-align: right; font-size: 11pt; color: #666; margin-bottom: 20px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-weight: bold; font-size: 11pt; color: #333; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .info-grid { display: grid; grid-template-columns: 150px 1fr; gap: 8px; }
+        .info-label { color: #666; }
+        .info-value { font-weight: 500; }
+        .montant-box { background: #f5f5f5; border: 1px solid #ddd; padding: 20px; text-align: center; margin: 30px 0; }
+        .montant-box .label { color: #666; font-size: 11pt; margin-bottom: 5px; }
+        .montant-box .montant { font-size: 24pt; font-weight: bold; color: #065f46; }
+        .footer { margin-top: 50px; text-align: center; font-size: 10pt; color: #999; border-top: 1px solid #ddd; padding-top: 20px; }
+        .signature-zone { display: flex; justify-content: space-between; margin-top: 60px; }
+        .signature-box { width: 45%; text-align: center; }
+        .signature-box .label { border-top: 1px solid #333; padding-top: 10px; margin-top: 60px; }
+        @media print { body { padding: 10mm; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ETUDE BIAOU</h1>
+        <h2>Huissier de Justice</h2>
+    </div>
+
+    <div class="quittance-numero">
+        {% if quittance %}
+        Quittance N {{ quittance.numero }}<br>
+        Date d'emission: {{ quittance.date_emission|date:"d/m/Y" }}
+        {% else %}
+        Recu de paiement<br>
+        Date: {% now "d/m/Y" %}
+        {% endif %}
+    </div>
+
+    <h2 style="text-align: center; margin-bottom: 30px; font-size: 18pt;">QUITTANCE DE LOYER</h2>
+
+    <div class="section">
+        <div class="section-title">Bailleur</div>
+        <div class="info-grid">
+            <span class="info-label">Nom:</span>
+            <span class="info-value">{{ loyer.bail.bien.proprietaire }}</span>
+            <span class="info-label">Adresse:</span>
+            <span class="info-value">{{ loyer.bail.bien.proprietaire.adresse }}, {{ loyer.bail.bien.proprietaire.ville }}</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Locataire</div>
+        <div class="info-grid">
+            <span class="info-label">Nom:</span>
+            <span class="info-value">{{ loyer.bail.locataire }}</span>
+            <span class="info-label">Telephone:</span>
+            <span class="info-value">{{ loyer.bail.locataire.telephone }}</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Bien loue</div>
+        <div class="info-grid">
+            <span class="info-label">Designation:</span>
+            <span class="info-value">{{ loyer.bail.bien.designation }}</span>
+            <span class="info-label">Adresse:</span>
+            <span class="info-value">{{ loyer.bail.bien.adresse }}, {{ loyer.bail.bien.ville }}</span>
+            <span class="info-label">Reference bail:</span>
+            <span class="info-value">{{ loyer.bail.reference }}</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Periode</div>
+        <div class="info-grid">
+            <span class="info-label">Mois:</span>
+            <span class="info-value">{{ loyer.mois }}/{{ loyer.annee }}</span>
+            {% if quittance %}
+            <span class="info-label">Du:</span>
+            <span class="info-value">{{ quittance.periode_debut|date:"d/m/Y" }} au {{ quittance.periode_fin|date:"d/m/Y" }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="montant-box">
+        <div class="label">Montant acquitte</div>
+        <div class="montant">{{ loyer.montant_paye|floatformat:0 }} XOF</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Detail</div>
+        <div class="info-grid">
+            <span class="info-label">Loyer:</span>
+            <span class="info-value">{{ loyer.montant_loyer|floatformat:0 }} XOF</span>
+            <span class="info-label">Charges:</span>
+            <span class="info-value">{{ loyer.montant_charges|floatformat:0 }} XOF</span>
+            <span class="info-label">Total:</span>
+            <span class="info-value">{{ loyer.montant_total|floatformat:0 }} XOF</span>
+        </div>
+    </div>
+
+    <div class="signature-zone">
+        <div class="signature-box">
+            <div class="label">Le Bailleur</div>
+        </div>
+        <div class="signature-box">
+            <div class="label">Pour l'Etude BIAOU</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Ce document atteste du paiement du loyer pour la periode indiquee.</p>
+        <p>Etude BIAOU - Huissier de Justice</p>
+    </div>
+
+    <script>window.print();</script>
+</body>
+</html>

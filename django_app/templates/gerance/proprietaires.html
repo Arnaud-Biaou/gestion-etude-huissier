@@ -1,0 +1,592 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">Proprietaires</span>
+{% endblock %}
+
+{% block content %}
+<div class="gerance-page">
+    <!-- Sous-navigation Gerance -->
+    <div class="gerance-subnav">
+        <a href="{% url 'gerance:dashboard' %}" class="gerance-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'gerance:proprietaires' %}" class="gerance-subnav-item active">
+            <i data-lucide="users"></i> Proprietaires
+        </a>
+        <a href="{% url 'gerance:biens' %}" class="gerance-subnav-item">
+            <i data-lucide="building-2"></i> Biens
+        </a>
+        <a href="{% url 'gerance:locataires' %}" class="gerance-subnav-item">
+            <i data-lucide="user-check"></i> Locataires
+        </a>
+        <a href="{% url 'gerance:baux' %}" class="gerance-subnav-item">
+            <i data-lucide="file-signature"></i> Baux
+        </a>
+        <a href="{% url 'gerance:loyers' %}" class="gerance-subnav-item">
+            <i data-lucide="banknote"></i> Loyers
+        </a>
+        <a href="{% url 'gerance:incidents' %}" class="gerance-subnav-item">
+            <i data-lucide="alert-triangle"></i> Incidents
+        </a>
+        <a href="{% url 'gerance:reversements' %}" class="gerance-subnav-item">
+            <i data-lucide="send"></i> Reversements
+        </a>
+    </div>
+
+    <!-- En-tete avec filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="users"></i> Liste des proprietaires
+            </h3>
+            <button class="btn btn-primary" onclick="openModal('modalProprietaire')">
+                <i data-lucide="user-plus"></i> Nouveau proprietaire
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- Filtres -->
+            <form method="GET" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Type</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            <option value="particulier" {% if request.GET.type == 'particulier' %}selected{% endif %}>Particulier</option>
+                            <option value="societe" {% if request.GET.type == 'societe' %}selected{% endif %}>Societe</option>
+                            <option value="sci" {% if request.GET.type == 'sci' %}selected{% endif %}>SCI</option>
+                            <option value="association" {% if request.GET.type == 'association' %}selected{% endif %}>Association</option>
+                        </select>
+                    </div>
+                    <div class="filter-group search-group">
+                        <label>Rechercher</label>
+                        <div class="search-input">
+                            <input type="text" name="q" class="form-input" placeholder="Nom, telephone, email..." value="{{ request.GET.q }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Liste des proprietaires -->
+            <div class="table-container mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Nom / Raison sociale</th>
+                            <th>Contact</th>
+                            <th>Nb Biens</th>
+                            <th>Taux honoraires</th>
+                            <th>Mode reversement</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for proprietaire in proprietaires %}
+                        <tr>
+                            <td>
+                                <span class="badge badge-{{ proprietaire.type_proprietaire }}">
+                                    {{ proprietaire.get_type_proprietaire_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="proprietaire-cell">
+                                    <div class="proprietaire-avatar">{{ proprietaire.nom|slice:":2"|upper }}</div>
+                                    <div>
+                                        <div class="proprietaire-nom">{{ proprietaire }}</div>
+                                        <div class="proprietaire-ville">{{ proprietaire.ville }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="contact-info">
+                                    <div><i data-lucide="phone" class="icon-sm"></i> {{ proprietaire.telephone }}</div>
+                                    {% if proprietaire.email %}
+                                    <div><i data-lucide="mail" class="icon-sm"></i> {{ proprietaire.email }}</div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td><strong>{{ proprietaire.nb_biens }}</strong></td>
+                            <td>{{ proprietaire.taux_honoraires }}%</td>
+                            <td>{{ proprietaire.get_mode_reversement_display }}</td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="{% url 'gerance:proprietaire_detail' proprietaire.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-secondary" onclick="modifierProprietaire('{{ proprietaire.id }}')" title="Modifier">
+                                        <i data-lucide="edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="supprimerProprietaire('{{ proprietaire.id }}')" title="Supprimer">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">Aucun proprietaire trouve</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Creation/Modification Proprietaire -->
+<div class="modal" id="modalProprietaire">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalProprietaireTitle">Nouveau proprietaire</h3>
+            <button class="modal-close" onclick="closeModal('modalProprietaire')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formProprietaire">
+                <input type="hidden" id="proprietaireId" name="proprietaire_id">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="type_proprietaire">Type de proprietaire *</label>
+                        <select id="type_proprietaire" name="type_proprietaire" class="form-select" required>
+                            <option value="particulier">Particulier</option>
+                            <option value="societe">Societe</option>
+                            <option value="sci">SCI</option>
+                            <option value="association">Association</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="civilite">Civilite</label>
+                        <select id="civilite" name="civilite" class="form-select">
+                            <option value="">--</option>
+                            <option value="M.">M.</option>
+                            <option value="Mme">Mme</option>
+                            <option value="Mlle">Mlle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nom">Nom / Raison sociale *</label>
+                        <input type="text" id="nom" name="nom" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prenom">Prenom</label>
+                        <input type="text" id="prenom" name="prenom" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="adresse">Adresse *</label>
+                    <textarea id="adresse" name="adresse" class="form-input" rows="2" required></textarea>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="ville">Ville *</label>
+                        <input type="text" id="ville" name="ville" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="code_postal">Code postal</label>
+                        <input type="text" id="code_postal" name="code_postal" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="telephone">Telephone *</label>
+                        <input type="tel" id="telephone" name="telephone" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" class="form-input">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Informations legales</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="numero_ifu">N IFU</label>
+                        <input type="text" id="numero_ifu" name="numero_ifu" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="numero_rccm">N RCCM</label>
+                        <input type="text" id="numero_rccm" name="numero_rccm" class="form-input">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Coordonnees bancaires</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="banque">Banque</label>
+                        <input type="text" id="banque" name="banque" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="numero_compte">N Compte</label>
+                        <input type="text" id="numero_compte" name="numero_compte" class="form-input">
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Parametres de gestion</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="taux_honoraires">Taux honoraires (%)</label>
+                        <input type="number" id="taux_honoraires" name="taux_honoraires" class="form-input" value="10" step="0.01" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="mode_reversement">Mode de reversement</label>
+                        <select id="mode_reversement" name="mode_reversement" class="form-select">
+                            <option value="mensuel">Mensuel</option>
+                            <option value="trimestriel">Trimestriel</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="jour_reversement">Jour de reversement</label>
+                        <input type="number" id="jour_reversement" name="jour_reversement" class="form-input" value="5" min="1" max="28">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" class="form-input" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalProprietaire')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderProprietaire()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.gerance-page {
+    max-width: 100%;
+}
+
+.gerance-subnav {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--neutral-100);
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+}
+
+.gerance-subnav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    color: var(--neutral-600);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.gerance-subnav-item:hover {
+    background: var(--neutral-200);
+    color: var(--neutral-800);
+}
+
+.gerance-subnav-item.active {
+    background: var(--primary);
+    color: white;
+}
+
+.gerance-subnav-item i {
+    width: 16px;
+    height: 16px;
+}
+
+.filters-form {
+    margin-bottom: 1rem;
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--neutral-600);
+}
+
+.filter-group.search-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-input .form-input {
+    flex: 1;
+}
+
+.proprietaire-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.proprietaire-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-100);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.proprietaire-nom {
+    font-weight: 500;
+}
+
+.proprietaire-ville {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.contact-info {
+    font-size: 0.875rem;
+}
+
+.contact-info div {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.icon-sm {
+    width: 14px;
+    height: 14px;
+    color: var(--neutral-400);
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-particulier {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-societe {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge-sci {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-association {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.75rem;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--neutral-500);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.divider {
+    margin: 1.5rem 0;
+    border: none;
+    border-top: 1px solid var(--neutral-200);
+}
+
+h4 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: var(--neutral-700);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('open');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+        if (modalId === 'modalProprietaire') {
+            document.getElementById('formProprietaire').reset();
+            document.getElementById('proprietaireId').value = '';
+            document.getElementById('modalProprietaireTitle').textContent = 'Nouveau proprietaire';
+        }
+    }
+
+    function sauvegarderProprietaire() {
+        const form = document.getElementById('formProprietaire');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gerance:api_creer_proprietaire" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                closeModal('modalProprietaire');
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la sauvegarde');
+            console.error(error);
+        });
+    }
+
+    function modifierProprietaire(id) {
+        // Charger les donnees et ouvrir le modal en mode edition
+        document.getElementById('proprietaireId').value = id;
+        document.getElementById('modalProprietaireTitle').textContent = 'Modifier le proprietaire';
+        openModal('modalProprietaire');
+    }
+
+    function supprimerProprietaire(id) {
+        if (confirm('Etes-vous sur de vouloir supprimer ce proprietaire ?')) {
+            // Appel API de suppression
+            alert('Fonctionnalite a implementer');
+        }
+    }
+</script>
+{% endblock %}

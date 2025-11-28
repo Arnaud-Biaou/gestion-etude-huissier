@@ -1,0 +1,644 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">Biens immobiliers</span>
+{% endblock %}
+
+{% block content %}
+<div class="gerance-page">
+    <!-- Sous-navigation Gerance -->
+    <div class="gerance-subnav">
+        <a href="{% url 'gerance:dashboard' %}" class="gerance-subnav-item">
+            <i data-lucide="layout-dashboard"></i> Tableau de bord
+        </a>
+        <a href="{% url 'gerance:proprietaires' %}" class="gerance-subnav-item">
+            <i data-lucide="users"></i> Proprietaires
+        </a>
+        <a href="{% url 'gerance:biens' %}" class="gerance-subnav-item active">
+            <i data-lucide="building-2"></i> Biens
+        </a>
+        <a href="{% url 'gerance:locataires' %}" class="gerance-subnav-item">
+            <i data-lucide="user-check"></i> Locataires
+        </a>
+        <a href="{% url 'gerance:baux' %}" class="gerance-subnav-item">
+            <i data-lucide="file-signature"></i> Baux
+        </a>
+        <a href="{% url 'gerance:loyers' %}" class="gerance-subnav-item">
+            <i data-lucide="banknote"></i> Loyers
+        </a>
+        <a href="{% url 'gerance:incidents' %}" class="gerance-subnav-item">
+            <i data-lucide="alert-triangle"></i> Incidents
+        </a>
+        <a href="{% url 'gerance:reversements' %}" class="gerance-subnav-item">
+            <i data-lucide="send"></i> Reversements
+        </a>
+    </div>
+
+    <!-- En-tete avec filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i data-lucide="building-2"></i> Liste des biens immobiliers
+            </h3>
+            <button class="btn btn-primary" onclick="openModal('modalBien')">
+                <i data-lucide="plus"></i> Nouveau bien
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- Filtres -->
+            <form method="GET" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Statut</label>
+                        <select name="statut" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for code, label in statuts %}
+                            <option value="{{ code }}" {% if request.GET.statut == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Type de bien</label>
+                        <select name="type" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for code, label in types_bien %}
+                            <option value="{{ code }}" {% if request.GET.type == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Proprietaire</label>
+                        <select name="proprietaire" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous</option>
+                            {% for prop in proprietaires %}
+                            <option value="{{ prop.id }}" {% if request.GET.proprietaire == prop.id|stringformat:"s" %}selected{% endif %}>{{ prop }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group search-group">
+                        <label>Rechercher</label>
+                        <div class="search-input">
+                            <input type="text" name="q" class="form-input" placeholder="Reference, designation, adresse..." value="{{ request.GET.q }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Liste des biens -->
+            <div class="table-container mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Designation</th>
+                            <th>Type</th>
+                            <th>Proprietaire</th>
+                            <th>Loyer</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bien in biens %}
+                        <tr>
+                            <td><strong>{{ bien.reference }}</strong></td>
+                            <td>
+                                <div class="bien-cell">
+                                    <div class="bien-icon {{ bien.statut }}">
+                                        <i data-lucide="{% if bien.type_bien == 'appartement' %}building{% elif bien.type_bien == 'maison' %}home{% elif bien.type_bien == 'bureau' %}briefcase{% elif bien.type_bien == 'commerce' %}store{% else %}map-pin{% endif %}"></i>
+                                    </div>
+                                    <div>
+                                        <div class="bien-designation">{{ bien.designation }}</div>
+                                        <div class="bien-adresse">{{ bien.ville }}{% if bien.surface %} - {{ bien.surface }} m2{% endif %}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ bien.get_type_bien_display }}</td>
+                            <td>{{ bien.proprietaire }}</td>
+                            <td>
+                                <strong>{{ bien.loyer_mensuel|floatformat:0 }} XOF</strong>
+                                {% if bien.charges_mensuelles > 0 %}
+                                <br><small>+ {{ bien.charges_mensuelles|floatformat:0 }} charges</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ bien.statut }}">
+                                    {{ bien.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="{% url 'gerance:bien_detail' bien.id %}" class="btn btn-sm btn-secondary" title="Voir">
+                                        <i data-lucide="eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-secondary" onclick="modifierBien('{{ bien.id }}')" title="Modifier">
+                                        <i data-lucide="edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="supprimerBien('{{ bien.id }}')" title="Supprimer">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">Aucun bien trouve</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Creation/Modification Bien -->
+<div class="modal" id="modalBien">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalBienTitle">Nouveau bien immobilier</h3>
+            <button class="modal-close" onclick="closeModal('modalBien')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formBien">
+                <input type="hidden" id="bienId" name="bien_id">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="proprietaire_id">Proprietaire *</label>
+                        <select id="proprietaire_id" name="proprietaire_id" class="form-select" required>
+                            <option value="">Selectionner...</option>
+                            {% for prop in proprietaires %}
+                            <option value="{{ prop.id }}">{{ prop }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reference">Reference *</label>
+                        <input type="text" id="reference" name="reference" class="form-input" required placeholder="Ex: BIEN-2025-001">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="designation">Designation *</label>
+                    <input type="text" id="designation" name="designation" class="form-input" required placeholder="Ex: Appartement 3 pieces Cadjehoun">
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="type_bien">Type de bien *</label>
+                        <select id="type_bien" name="type_bien" class="form-select" required>
+                            {% for code, label in types_bien %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="statut_bien">Statut</label>
+                        <select id="statut_bien" name="statut" class="form-select">
+                            {% for code, label in statuts %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="adresse_bien">Adresse *</label>
+                    <textarea id="adresse_bien" name="adresse" class="form-input" rows="2" required></textarea>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="quartier">Quartier</label>
+                        <input type="text" id="quartier" name="quartier" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="ville_bien">Ville *</label>
+                        <input type="text" id="ville_bien" name="ville" class="form-input" required>
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Caracteristiques</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="surface">Surface (m2)</label>
+                        <input type="number" id="surface" name="surface" class="form-input" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="nombre_pieces">Nombre de pieces</label>
+                        <input type="number" id="nombre_pieces" name="nombre_pieces" class="form-input" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="etage">Etage</label>
+                        <input type="text" id="etage" name="etage" class="form-input" placeholder="Ex: RDC, 1er, 2eme...">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Equipements</label>
+                    <div class="checkbox-grid">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="meuble" value="true"> Meuble
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="parking" value="true"> Parking
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="garage" value="true"> Garage
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="jardin" value="true"> Jardin
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="climatisation" value="true"> Climatisation
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="gardiennage" value="true"> Gardiennage
+                        </label>
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h4>Conditions financieres</h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="loyer_mensuel">Loyer mensuel (XOF) *</label>
+                        <input type="number" id="loyer_mensuel" name="loyer_mensuel" class="form-input" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="charges_mensuelles">Charges mensuelles (XOF)</label>
+                        <input type="number" id="charges_mensuelles" name="charges_mensuelles" class="form-input" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="depot_garantie">Depot de garantie (XOF)</label>
+                        <input type="number" id="depot_garantie" name="depot_garantie" class="form-input" value="0" min="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" class="form-input" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalBien')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderBien()">
+                <i data-lucide="save"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.gerance-page {
+    max-width: 100%;
+}
+
+.gerance-subnav {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--neutral-100);
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+}
+
+.gerance-subnav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    color: var(--neutral-600);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.gerance-subnav-item:hover {
+    background: var(--neutral-200);
+    color: var(--neutral-800);
+}
+
+.gerance-subnav-item.active {
+    background: var(--primary);
+    color: white;
+}
+
+.gerance-subnav-item i {
+    width: 16px;
+    height: 16px;
+}
+
+.filters-form {
+    margin-bottom: 1rem;
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--neutral-600);
+}
+
+.filter-group.search-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-input .form-input {
+    flex: 1;
+}
+
+.bien-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.bien-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bien-icon.libre {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.bien-icon.loue {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.bien-icon.reserve {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.bien-icon.travaux {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.bien-icon.vente {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.bien-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.bien-designation {
+    font-weight: 500;
+}
+
+.bien-adresse {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-libre {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-loue {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-reserve {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-travaux {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-vente {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.75rem;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--neutral-500);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.divider {
+    margin: 1.5rem 0;
+    border: none;
+    border-top: 1px solid var(--neutral-200);
+}
+
+h4 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: var(--neutral-700);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('open');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('open');
+        if (modalId === 'modalBien') {
+            document.getElementById('formBien').reset();
+            document.getElementById('bienId').value = '';
+            document.getElementById('modalBienTitle').textContent = 'Nouveau bien immobilier';
+        }
+    }
+
+    function sauvegarderBien() {
+        const form = document.getElementById('formBien');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('{% url "gerance:api_creer_bien" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                closeModal('modalBien');
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la sauvegarde');
+            console.error(error);
+        });
+    }
+
+    function modifierBien(id) {
+        document.getElementById('bienId').value = id;
+        document.getElementById('modalBienTitle').textContent = 'Modifier le bien';
+        openModal('modalBien');
+    }
+
+    function supprimerBien(id) {
+        if (confirm('Etes-vous sur de vouloir supprimer ce bien ?')) {
+            alert('Fonctionnalite a implementer');
+        }
+    }
+</script>
+{% endblock %}

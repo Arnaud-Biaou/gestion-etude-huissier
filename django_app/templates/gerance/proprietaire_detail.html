@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Etude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:dashboard' %}" class="breadcrumb-item">Gerance</a>
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gerance:proprietaires' %}" class="breadcrumb-item">Proprietaires</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">{{ proprietaire }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="detail-page">
+    <div class="page-header">
+        <a href="{% url 'gerance:proprietaires' %}" class="btn-back">
+            <i data-lucide="arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <!-- En-tete proprietaire -->
+    <div class="detail-header-card">
+        <div class="detail-header-main">
+            <div class="detail-avatar">{{ proprietaire.nom|slice:":2"|upper }}</div>
+            <div class="detail-header-info">
+                <h1>{{ proprietaire }}</h1>
+                <p class="detail-subtitle">{{ proprietaire.get_type_proprietaire_display }}</p>
+                <div class="detail-badges">
+                    {% if proprietaire.actif %}
+                    <span class="status-badge status-actif">Actif</span>
+                    {% else %}
+                    <span class="status-badge status-inactif">Inactif</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="detail-header-stats">
+            <div class="detail-stat">
+                <div class="stat-value">{{ biens.count }}</div>
+                <div class="stat-label">Biens</div>
+            </div>
+            <div class="detail-stat">
+                <div class="stat-value">{{ proprietaire.taux_honoraires }}%</div>
+                <div class="stat-label">Honoraires</div>
+            </div>
+            <div class="detail-stat">
+                <div class="stat-value">{{ proprietaire.get_mode_reversement_display }}</div>
+                <div class="stat-label">Reversement</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2 mt-4">
+        <!-- Informations -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="user"></i> Informations</h3>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Adresse</span>
+                        <span class="info-value">{{ proprietaire.adresse }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Ville</span>
+                        <span class="info-value">{{ proprietaire.ville }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Telephone</span>
+                        <span class="info-value">{{ proprietaire.telephone }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Email</span>
+                        <span class="info-value">{{ proprietaire.email|default:"-" }}</span>
+                    </div>
+                    {% if proprietaire.numero_ifu %}
+                    <div class="info-item">
+                        <span class="info-label">N IFU</span>
+                        <span class="info-value">{{ proprietaire.numero_ifu }}</span>
+                    </div>
+                    {% endif %}
+                    {% if proprietaire.banque %}
+                    <div class="info-item">
+                        <span class="info-label">Banque</span>
+                        <span class="info-value">{{ proprietaire.banque }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Biens -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i data-lucide="building-2"></i> Biens en gerance</h3>
+            </div>
+            <div class="card-body">
+                {% if biens %}
+                <div class="list-items">
+                    {% for bien in biens %}
+                    <a href="{% url 'gerance:bien_detail' bien.id %}" class="list-item">
+                        <div class="list-item-icon">
+                            <i data-lucide="home"></i>
+                        </div>
+                        <div class="list-item-content">
+                            <div class="list-item-title">{{ bien.designation }}</div>
+                            <div class="list-item-subtitle">{{ bien.ville }} - {{ bien.loyer_mensuel|floatformat:0 }} XOF</div>
+                        </div>
+                        <span class="status-badge status-{{ bien.statut }}">{{ bien.get_statut_display }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Aucun bien</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Reversements -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title"><i data-lucide="send"></i> Historique des reversements</h3>
+        </div>
+        <div class="card-body">
+            {% if reversements %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Periode</th>
+                        <th>Total loyers</th>
+                        <th>Honoraires</th>
+                        <th>Net reverse</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rev in reversements %}
+                    <tr>
+                        <td>{{ rev.mois }}/{{ rev.annee }}</td>
+                        <td>{{ rev.total_loyers|floatformat:0 }} XOF</td>
+                        <td>{{ rev.honoraires|floatformat:0 }} XOF</td>
+                        <td><strong>{{ rev.montant_reverse|floatformat:0 }} XOF</strong></td>
+                        <td><span class="status-badge status-{{ rev.statut }}">{{ rev.get_statut_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted text-center">Aucun reversement</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-page { max-width: 100%; }
+.page-header { margin-bottom: 1rem; }
+.btn-back { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--neutral-600); text-decoration: none; }
+.btn-back:hover { color: var(--primary); }
+.detail-header-card { background: white; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid var(--neutral-200); display: flex; justify-content: space-between; align-items: center; }
+.detail-header-main { display: flex; align-items: center; gap: 1.5rem; }
+.detail-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--primary-100); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 600; }
+.detail-header-info h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.detail-subtitle { color: var(--neutral-500); }
+.detail-badges { margin-top: 0.5rem; }
+.detail-header-stats { display: flex; gap: 2rem; }
+.detail-stat { text-align: center; }
+.detail-stat .stat-value { font-size: 1.5rem; font-weight: 700; }
+.detail-stat .stat-label { font-size: 0.875rem; color: var(--neutral-500); }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.info-item { display: flex; flex-direction: column; }
+.info-label { font-size: 0.75rem; color: var(--neutral-500); margin-bottom: 0.25rem; }
+.info-value { font-weight: 500; }
+.list-items { display: flex; flex-direction: column; gap: 0.5rem; }
+.list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--neutral-50); border-radius: 0.5rem; text-decoration: none; color: inherit; transition: background 0.2s; }
+.list-item:hover { background: var(--neutral-100); }
+.list-item-icon { width: 40px; height: 40px; border-radius: 0.5rem; background: var(--primary-100); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+.list-item-content { flex: 1; }
+.list-item-title { font-weight: 500; }
+.list-item-subtitle { font-size: 0.75rem; color: var(--neutral-500); }
+.status-badge { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; }
+.status-actif, .status-effectue { background: #d1fae5; color: #065f46; }
+.status-inactif, .status-en_attente { background: var(--neutral-200); color: var(--neutral-600); }
+.status-libre { background: #d1fae5; color: #065f46; }
+.status-loue { background: #dbeafe; color: #1e40af; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>lucide.createIcons();</script>
+{% endblock %}

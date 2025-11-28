@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Baux</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .header h1 { font-size: 18pt; margin-bottom: 5px; }
+        .header h2 { font-size: 11pt; color: #666; font-weight: normal; }
+        .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 9pt; color: #666; }
+        h2.title { text-align: center; margin-bottom: 20px; font-size: 14pt; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px 6px; text-align: left; }
+        th { background-color: #f5f5f5; font-weight: bold; font-size: 9pt; text-transform: uppercase; }
+        td { font-size: 9pt; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-secondary { background: #e5e7eb; color: #374151; }
+        .summary { background: #f8f9fa; padding: 15px; margin-top: 20px; border-radius: 4px; }
+        .summary-title { font-weight: bold; margin-bottom: 10px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .summary-item { text-align: center; }
+        .summary-value { font-size: 16pt; font-weight: bold; color: #333; }
+        .summary-label { font-size: 8pt; color: #666; text-transform: uppercase; }
+        .footer { margin-top: 30px; text-align: center; font-size: 8pt; color: #999; border-top: 1px solid #ddd; padding-top: 15px; }
+        @media print {
+            body { padding: 10mm; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ETUDE BIAOU</h1>
+        <h2>Huissier de Justice</h2>
+    </div>
+
+    <div class="meta">
+        <span>Date d'edition: {% now "d/m/Y H:i" %}</span>
+        <span>Total: {{ baux|length }} bail(s)</span>
+    </div>
+
+    <h2 class="title">Liste des Baux</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Bien</th>
+                <th>Proprietaire</th>
+                <th>Locataire</th>
+                <th class="text-center">Debut</th>
+                <th class="text-center">Fin</th>
+                <th class="text-right">Loyer</th>
+                <th class="text-center">Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bail in baux %}
+            <tr>
+                <td><strong>{{ bail.reference }}</strong></td>
+                <td>{{ bail.bien.designation|truncatechars:30 }}</td>
+                <td>{{ bail.bien.proprietaire|truncatechars:25 }}</td>
+                <td>{{ bail.locataire|truncatechars:25 }}</td>
+                <td class="text-center">{{ bail.date_debut|date:"d/m/Y" }}</td>
+                <td class="text-center">{{ bail.date_fin|date:"d/m/Y" }}</td>
+                <td class="text-right">{{ bail.montant_loyer|floatformat:0 }} XOF</td>
+                <td class="text-center">
+                    {% if bail.statut == 'ACTIF' %}
+                    <span class="badge badge-success">Actif</span>
+                    {% elif bail.statut == 'EXPIRE' %}
+                    <span class="badge badge-warning">Expire</span>
+                    {% elif bail.statut == 'RESILIE' %}
+                    <span class="badge badge-danger">Resilie</span>
+                    {% else %}
+                    <span class="badge badge-secondary">{{ bail.statut }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center">Aucun bail trouve</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Resume -->
+    <div class="summary">
+        <div class="summary-title">Resume</div>
+        <div class="summary-grid">
+            <div class="summary-item">
+                <div class="summary-value">{{ total_baux|default:0 }}</div>
+                <div class="summary-label">Total Baux</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-value">{{ baux_actifs|default:0 }}</div>
+                <div class="summary-label">Actifs</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-value">{{ baux_expires|default:0 }}</div>
+                <div class="summary-label">Expires</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-value">{{ total_loyers|floatformat:0|default:0 }} XOF</div>
+                <div class="summary-label">Total Loyers Mensuels</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Document genere automatiquement - Etude BIAOU - Huissier de Justice</p>
+    </div>
+
+    <script>window.print();</script>
+</body>
+</html>
