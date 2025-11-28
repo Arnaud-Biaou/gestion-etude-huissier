@@ -14,6 +14,7 @@ urlpatterns = [
     # API Configuration générale
     path('api/config/', views.api_get_config, name='api_get_config'),
     path('api/config/sauvegarder/', views.api_sauvegarder_config, name='api_sauvegarder_config'),
+    path('api/config/upload-image/', views.api_upload_image, name='api_upload_image'),
 
     # API Sites/Agences
     path('api/sites/', views.api_sites_list, name='api_sites_list'),

@@ -77,6 +77,13 @@ class ConfigurationEtude(models.Model):
         blank=True,
         verbose_name="Numéro IFU"
     )
+    numero_rccm = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="Numéro RCCM",
+        help_text="Numéro du Registre du Commerce et du Crédit Mobilier"
+    )
     numero_agrement = models.CharField(
         max_length=50,
         blank=True,
@@ -88,12 +95,19 @@ class ConfigurationEtude(models.Model):
         verbose_name="Date d'installation"
     )
 
-    # Logo et couleurs
+    # Logo, signature et couleurs
     logo = models.ImageField(
         upload_to='etude/logos/',
         null=True,
         blank=True,
         verbose_name="Logo de l'étude"
+    )
+    signature_huissier = models.ImageField(
+        upload_to='etude/signatures/',
+        null=True,
+        blank=True,
+        verbose_name="Signature de l'huissier",
+        help_text="Image de la signature numérisée (PNG transparent recommandé)"
     )
     couleur_principale = models.CharField(
         max_length=7,
