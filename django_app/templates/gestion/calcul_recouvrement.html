@@ -790,6 +790,36 @@
         const calcul = historique.find(h => h.id === id);
         if (calcul && calcul.resultats) {
             resultats = calcul.resultats;
+            donneesCalcul = calcul.donnees || {};
+
+            // Restaurer les donnees du formulaire si disponibles
+            if (calcul.donnees) {
+                const d = calcul.donnees;
+                if (d.montant_principal) document.getElementById('montantPrincipal').value = d.montant_principal;
+                if (d.date_creance) document.getElementById('dateCreance').value = d.date_creance;
+                if (d.date_saisie) document.getElementById('dateSaisie').value = d.date_saisie;
+                if (d.type_taux) document.getElementById('typeTaux').value = d.type_taux;
+                if (d.type_calcul) document.getElementById('typeCalcul').value = d.type_calcul;
+                if (d.appliquer_majoration !== undefined) {
+                    document.getElementById('appliquerMajoration').checked = d.appliquer_majoration;
+                    toggleMajoration();
+                }
+                if (d.date_decision) document.getElementById('dateDecisionJustice').value = d.date_decision;
+                if (d.calculer_emoluments !== undefined) {
+                    document.getElementById('calculerEmoluments').checked = d.calculer_emoluments;
+                    toggleEmoluments();
+                }
+                if (d.type_titre) document.getElementById('typeTitre').value = d.type_titre;
+                if (d.frais_justice) document.getElementById('fraisJustice').value = d.frais_justice;
+                if (d.actes && Array.isArray(d.actes)) {
+                    actes = d.actes;
+                    renderActes();
+                }
+                // Passer au mode correspondant
+                setMode(resultats.mode === 'emoluments' ? 'emoluments' : 'complet');
+                if (d.base) document.getElementById('baseEmoluments').value = d.base;
+            }
+
             displayResults(resultats);
             toggleHistorique();
         }
