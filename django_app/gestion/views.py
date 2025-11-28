@@ -471,6 +471,8 @@ def facturation(request):
     total_ht = 0
     total_ttc = 0
     nb_attente = 0
+    nb_normalisees = 0
+    nb_non_normalisees = 0
 
     for f in factures_qs:
         lignes = [{'description': l.description, 'quantite': l.quantite, 'prix_unitaire': float(l.prix_unitaire)} for l in f.lignes.all()]
@@ -499,86 +501,19 @@ def facturation(request):
         total_ttc += float(f.montant_ttc)
         if f.statut == 'attente':
             nb_attente += 1
-
-    # Si pas de factures en base, utiliser des donnees de demo
-    if not factures_list:
-        factures_list = [
-            {
-                'id': 1,
-                'numero': 'FAC-2025-001',
-                'client': 'SODECO SA',
-                'ifu': '3201900001234',
-                'montant_ht': 150000,
-                'tva': 27000,
-                'total': 177000,
-                'date': '15/11/2025',
-                'date_emission': '2025-11-15',
-                'date_echeance': '2025-12-15',
-                'statut': 'payee',
-                'mecef_numero': 'MECeF-2025-00001',
-                'mecef_qr': '',
-                'nim': '1234567890',
-                'date_mecef': '15/11/2025',
-                'dossier': None,
-                'observations': '',
-                'lignes': [
-                    {'description': 'Commandement de payer', 'quantite': 1, 'prix_unitaire': 150000}
-                ]
-            },
-            {
-                'id': 2,
-                'numero': 'FAC-2025-002',
-                'client': 'SOGEMA Sarl',
-                'ifu': '',
-                'montant_ht': 85000,
-                'tva': 15300,
-                'total': 100300,
-                'date': '18/11/2025',
-                'date_emission': '2025-11-18',
-                'date_echeance': '2025-12-18',
-                'statut': 'attente',
-                'mecef_numero': '',
-                'mecef_qr': '',
-                'nim': '',
-                'date_mecef': '',
-                'dossier': None,
-                'observations': '',
-                'lignes': [
-                    {'description': 'Signification de titre executoire', 'quantite': 1, 'prix_unitaire': 85000}
-                ]
-            },
-            {
-                'id': 3,
-                'numero': 'FAC-2025-003',
-                'client': 'Banque Atlantique',
-                'ifu': '3201900005678',
-                'montant_ht': 250000,
-                'tva': 45000,
-                'total': 295000,
-                'date': '20/11/2025',
-                'date_emission': '2025-11-20',
-                'date_echeance': '2025-12-20',
-                'statut': 'attente',
-                'mecef_numero': '',
-                'mecef_qr': '',
-                'nim': '',
-                'date_mecef': '',
-                'dossier': None,
-                'observations': '',
-                'lignes': [
-                    {'description': 'PV de Saisie-Vente', 'quantite': 1, 'prix_unitaire': 250000}
-                ]
-            },
-        ]
-        total_ht = 485000
-        total_ttc = 572300
-        nb_attente = 2
+        # Compteur MECeF
+        if f.mecef_numero:
+            nb_normalisees += 1
+        else:
+            nb_non_normalisees += 1
 
     context['factures'] = factures_list
     context['factures_json'] = json.dumps(factures_list)
     context['total_ht'] = total_ht
     context['total_ttc'] = total_ttc
     context['nb_attente'] = nb_attente
+    context['nb_normalisees'] = nb_normalisees
+    context['nb_non_normalisees'] = nb_non_normalisees
 
     # Dossiers pour le select
     context['dossiers'] = Dossier.objects.all().values('id', 'reference')[:100]
@@ -3001,6 +2936,7 @@ def memoires(request):
                     'intitule': affaire.intitule_affaire,
                     'nature_infraction': affaire.nature_infraction,
                     'date_audience': affaire.date_audience.strftime('%d/%m/%Y') if affaire.date_audience else '',
+                    'date_audience_raw': affaire.date_audience.strftime('%Y-%m-%d') if affaire.date_audience else '',
                     'montant_total_actes': affaire.montant_total_actes,
                     'montant_total_transport': affaire.montant_total_transport,
                     'montant_total_mission': affaire.montant_total_mission,

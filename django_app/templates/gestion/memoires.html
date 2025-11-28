@@ -581,6 +581,38 @@
         }
     };
 
+    // Donnees des affaires et destinataires pour modification
+    window.affairesData = [
+        {% for affaire in affaires_list %}
+        {
+            id: {{ affaire.id }},
+            numero_parquet: "{{ affaire.numero_parquet|escapejs }}",
+            intitule: "{{ affaire.intitule|escapejs }}",
+            nature_infraction: "{{ affaire.nature_infraction|default:''|escapejs }}",
+            date_audience: "{{ affaire.date_audience|default:'' }}",
+            date_audience_raw: "{{ affaire.date_audience_raw|default:'' }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    window.destinatairesData = [
+        {% for affaire in affaires_list %}
+        {% for dest in affaire.destinataires %}
+        {
+            id: {{ dest.id }},
+            affaire_id: {{ affaire.id }},
+            titre: "{{ dest.titre|default:''|escapejs }}",
+            nom: "{{ dest.nom|default:''|escapejs }}",
+            prenoms: "{{ dest.prenoms|default:''|escapejs }}",
+            qualite_code: "{{ dest.qualite_code|default:''|escapejs }}",
+            adresse: "{{ dest.adresse|default:''|escapejs }}",
+            localite: "{{ dest.localite|default:''|escapejs }}",
+            distance_km: {{ dest.distance_km|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
     // Modal helpers
     function openModal(id) {
         document.getElementById(id).style.display = 'flex';
@@ -627,14 +659,43 @@
         openModal('modalAffaire');
     }
 
-    function editAffaire(affaireId) {
-        // TODO: Load affaire data
-        alert('Modification affaire ' + affaireId);
+    async function editAffaire(affaireId) {
+        // Charger les donnees de l'affaire depuis le DOM (stockees dans data attributes)
+        const affaireCard = document.getElementById('affaire-' + affaireId);
+        if (!affaireCard) {
+            alert('Affaire non trouvee');
+            return;
+        }
+
+        // Recuperer les donnees depuis les elements affaires_list passes en contexte
+        const affaireData = window.affairesData ? window.affairesData.find(a => a.id == affaireId) : null;
+
+        if (affaireData) {
+            document.getElementById('affaire_id').value = affaireId;
+            document.getElementById('affaire_memoire_id').value = '{{ memoire_id }}';
+            document.getElementById('numero_parquet').value = affaireData.numero_parquet || '';
+            document.getElementById('intitule_affaire').value = affaireData.intitule || '';
+            document.getElementById('nature_infraction').value = affaireData.nature_infraction || '';
+            document.getElementById('date_audience').value = affaireData.date_audience_raw || '';
+            document.getElementById('modalAffaireTitle').textContent = 'Modifier l\'affaire';
+            openModal('modalAffaire');
+        } else {
+            // Fallback: extraire du DOM
+            const numeroEl = affaireCard.querySelector('h4');
+            const intituleEl = affaireCard.querySelector('h4 + p');
+            document.getElementById('affaire_id').value = affaireId;
+            document.getElementById('affaire_memoire_id').value = '{{ memoire_id }}';
+            document.getElementById('numero_parquet').value = numeroEl ? numeroEl.textContent.trim() : '';
+            document.getElementById('intitule_affaire').value = intituleEl ? intituleEl.textContent.trim() : '';
+            document.getElementById('modalAffaireTitle').textContent = 'Modifier l\'affaire';
+            openModal('modalAffaire');
+        }
     }
 
     document.getElementById('formAffaire')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         const memoireId = document.getElementById('affaire_memoire_id').value;
+        const affaireId = document.getElementById('affaire_id').value;
         const data = {
             numero_parquet: document.getElementById('numero_parquet').value,
             intitule_affaire: document.getElementById('intitule_affaire').value,
@@ -643,8 +704,19 @@
         };
 
         try {
-            const response = await fetch(`/api/memoires/${memoireId}/affaires/creer/`, {
-                method: 'POST',
+            let url, method;
+            if (affaireId) {
+                // Modification
+                url = '{% url "gestion:api_affaire_modifier" affaire_id=0 %}'.replace('0', affaireId);
+                method = 'POST';
+            } else {
+                // Creation
+                url = '{% url "gestion:api_affaire_creer" memoire_id=0 %}'.replace('0', memoireId);
+                method = 'POST';
+            }
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify(data)
             });
@@ -662,7 +734,7 @@
     async function deleteAffaire(affaireId, numero) {
         if (!confirm(`Supprimer l'affaire ${numero} et tous ses destinataires ?`)) return;
         try {
-            const response = await fetch(`/api/affaires/${affaireId}/supprimer/`, {
+            const response = await fetch('{% url "gestion:api_affaire_supprimer" affaire_id=0 %}'.replace('0', affaireId), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify({})
@@ -688,8 +760,26 @@
         openModal('modalDestinataire');
     }
 
-    function editDestinataire(destId) {
-        alert('Modification destinataire ' + destId);
+    async function editDestinataire(destId) {
+        // Recuperer les donnees du destinataire depuis window.destinatairesData
+        const destData = window.destinatairesData ? window.destinatairesData.find(d => d.id == destId) : null;
+
+        if (destData) {
+            document.getElementById('destinataire_id').value = destId;
+            document.getElementById('dest_affaire_id').value = destData.affaire_id || '';
+            document.getElementById('dest_titre').value = destData.titre || '';
+            document.getElementById('dest_nom').value = destData.nom || '';
+            document.getElementById('dest_prenoms').value = destData.prenoms || '';
+            document.getElementById('dest_qualite').value = destData.qualite_code || '';
+            document.getElementById('dest_adresse').value = destData.adresse || '';
+            document.getElementById('dest_localite').value = destData.localite || '';
+            document.getElementById('dest_distance').value = destData.distance_km || 0;
+            document.getElementById('modalDestinataireTitle').textContent = 'Modifier le destinataire';
+            calculerFrais();
+            openModal('modalDestinataire');
+        } else {
+            alert('Destinataire non trouve. Veuillez recharger la page.');
+        }
     }
 
     function calculerFrais() {
@@ -721,6 +811,7 @@
     document.getElementById('formDestinataire')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         const affaireId = document.getElementById('dest_affaire_id').value;
+        const destinataireId = document.getElementById('destinataire_id').value;
         const data = {
             titre: document.getElementById('dest_titre').value,
             nom: document.getElementById('dest_nom').value,
@@ -732,7 +823,16 @@
         };
 
         try {
-            const response = await fetch(`/api/affaires/${affaireId}/destinataires/creer/`, {
+            let url;
+            if (destinataireId) {
+                // Modification
+                url = '{% url "gestion:api_destinataire_modifier" destinataire_id=0 %}'.replace('0', destinataireId);
+            } else {
+                // Creation
+                url = '{% url "gestion:api_destinataire_creer" affaire_id=0 %}'.replace('0', affaireId);
+            }
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify(data)
@@ -751,7 +851,7 @@
     async function deleteDestinataire(destId, nom) {
         if (!confirm(`Supprimer le destinataire "${nom}" et tous ses actes ?`)) return;
         try {
-            const response = await fetch(`/api/destinataires/${destId}/supprimer/`, {
+            const response = await fetch('{% url "gestion:api_destinataire_supprimer" destinataire_id=0 %}'.replace('0', destId), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify({})
@@ -805,7 +905,8 @@
         };
 
         try {
-            const response = await fetch(`/api/destinataires/${destinataireId}/actes/creer/`, {
+            const url = '{% url "gestion:api_acte_creer" destinataire_id=0 %}'.replace('0', destinataireId);
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify(data)
@@ -824,7 +925,7 @@
     async function deleteActe(acteId) {
         if (!confirm('Supprimer cet acte ?')) return;
         try {
-            const response = await fetch(`/api/actes/${acteId}/supprimer/`, {
+            const response = await fetch('{% url "gestion:api_acte_supprimer" acte_id=0 %}'.replace('0', acteId), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify({})
@@ -901,7 +1002,7 @@
 
     async function verifierMemoire(memoireId) {
         try {
-            const response = await fetch(`/api/memoires/${memoireId}/verifier/`, {
+            const response = await fetch('{% url "gestion:api_memoire_verifier" memoire_id=0 %}'.replace('0', memoireId), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify({})
@@ -928,7 +1029,7 @@
     async function certifierMemoire(memoireId) {
         if (!confirm('Certifier ce memoire ? Cette action est irreversible.')) return;
         try {
-            const response = await fetch(`/api/memoires/${memoireId}/certifier/`, {
+            const response = await fetch('{% url "gestion:api_memoire_certifier" memoire_id=0 %}'.replace('0', memoireId), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
                 body: JSON.stringify({})
