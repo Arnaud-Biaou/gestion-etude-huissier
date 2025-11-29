@@ -227,10 +227,18 @@
                         <button class="btn btn-secondary btn-sm" onclick="saveCalcul()">
                             <i data-lucide="save"></i> Sauvegarder
                         </button>
-                        <button class="btn btn-accent btn-sm" onclick="copyText()">
-                            <i data-lucide="copy"></i> Copier
-                        </button>
-                        <button class="btn btn-primary btn-sm" onclick="imprimerDecompte()">
+                        <div class="btn-group">
+                            <button class="btn btn-primary btn-sm" onclick="exporterPDF()" title="Exporter en PDF">
+                                <i data-lucide="file-text"></i> PDF
+                            </button>
+                            <button class="btn btn-success btn-sm" onclick="exporterExcel()" title="Exporter en Excel">
+                                <i data-lucide="file-spreadsheet"></i> Excel
+                            </button>
+                            <button class="btn btn-accent btn-sm" onclick="copyText()" title="Copier le texte formate">
+                                <i data-lucide="clipboard-copy"></i> Copier
+                            </button>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="imprimerDecompte()">
                             <i data-lucide="printer"></i> Imprimer
                         </button>
                     </div>
@@ -936,6 +944,243 @@
             </html>
         `);
         printWindow.document.close();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // FONCTIONS D'EXPORT
+    // ═══════════════════════════════════════════════════════════════
+
+    function exporterPDF() {
+        if (!resultats) {
+            alert('Aucun calcul a exporter');
+            return;
+        }
+
+        // Preparer les donnees pour le PDF
+        const exportData = {
+            ...resultats,
+            actes_detail: actes  // Ajouter le detail des actes
+        };
+
+        fetch('{% url "gestion:api_exporter_decompte_pdf" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(exportData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.error || 'Erreur export PDF'); });
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Creer un lien de telechargement
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `decompte_creance_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            alert('Erreur lors de l\'export PDF: ' + error.message);
+        });
+    }
+
+    function exporterExcel() {
+        if (!resultats) {
+            alert('Aucun calcul a exporter');
+            return;
+        }
+
+        // Preparer les donnees pour Excel
+        const exportData = {
+            ...resultats,
+            donnees_calcul: donneesCalcul,
+            actes_detail: actes
+        };
+
+        fetch('{% url "gestion:api_exporter_decompte_excel" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(exportData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.error || 'Erreur export Excel'); });
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Creer un lien de telechargement
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `decompte_creance_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            alert('Erreur lors de l\'export Excel: ' + error.message);
+        });
+    }
+
+    // Amelioration de la fonction copyText pour copier un texte formate pour actes
+    function copyText() {
+        if (!resultats) {
+            alert('Aucun calcul a copier');
+            return;
+        }
+
+        const text = generateTextForActe(resultats);
+        navigator.clipboard.writeText(text).then(() => {
+            // Feedback visuel
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="check"></i> Copie !';
+            btn.classList.add('btn-success');
+            lucide.createIcons();
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('btn-success');
+                lucide.createIcons();
+            }, 2000);
+        }).catch(err => {
+            alert('Erreur lors de la copie: ' + err.message);
+        });
+    }
+
+    // Generer un texte formate pour coller dans un acte juridique
+    function generateTextForActe(res) {
+        if (res.mode === 'emoluments') {
+            return generateText(res);  // Utiliser la fonction existante
+        }
+
+        let text = `DÉCOMPTE DE CRÉANCE\n`;
+        text += `conformément aux règles OHADA (Articles 92, 153, 184)\n`;
+        text += `════════════════════════════════════════════════════\n\n`;
+
+        text += `I. EN PRINCIPAL\n`;
+        text += `   La somme de ${formatMontant(res.principal)} à titre de principal\n\n`;
+
+        text += `II. INTÉRÊTS ÉCHUS\n`;
+        text += `    Du ${res.date_debut} au ${res.date_fin}\n`;
+        if (res.interets_echus.periodes && res.interets_echus.periodes.length > 0) {
+            res.interets_echus.periodes.forEach(p => {
+                let tauxInfo = `${p.taux.toFixed(4)}%`;
+                if (p.majore) tauxInfo += ' (majoré +50%)';
+                text += `    - Année ${p.annee}: ${p.jours} jours au taux de ${tauxInfo}\n`;
+                text += `      soit la somme de ${formatMontant(p.interet)}\n`;
+            });
+        }
+        text += `    SOUS-TOTAL INTÉRÊTS ÉCHUS: ${formatMontant(res.interets_echus.total)}\n\n`;
+
+        if (res.majoration && res.date_limite_majoration) {
+            text += `    *** MAJORATION (Loi 2024-10, Art. 3) ***\n`;
+            text += `    Taux majoré de 50% applicable après le ${res.date_limite_majoration}\n\n`;
+        }
+
+        text += `III. INTÉRÊTS À ÉCHOIR\n`;
+        text += `     La somme de ${formatMontant(res.interets_echoir.total)} pour un mois\n`;
+        text += `     (conformément à l'OHADA pour saisie-attribution)\n\n`;
+
+        if (res.frais_justice > 0) {
+            text += `IV. FRAIS DE JUSTICE\n`;
+            text += `    La somme de ${formatMontant(res.frais_justice)}\n\n`;
+        }
+
+        if (res.emoluments) {
+            text += `V. ÉMOLUMENTS PROPORTIONNELS\n`;
+            text += `   Base de calcul: ${formatMontant(res.base_emoluments)}\n`;
+            text += `   Type: ${res.emoluments.type_titre === 'avec' ? 'Avec titre exécutoire' : 'Sans titre exécutoire'}\n`;
+            text += `   (Décret 2017-066 - Barème de recouvrement)\n`;
+            text += `   Émoluments: ${formatMontant(res.emoluments.total)}\n\n`;
+        }
+
+        if (res.actes > 0) {
+            text += `VI. COÛTS DES ACTES DE PROCÉDURE\n`;
+            actes.forEach(a => {
+                text += `    - ${a.libelle}: ${formatMontant(a.montant)}\n`;
+            });
+            text += `    TOTAL ACTES: ${formatMontant(res.actes)}\n\n`;
+        }
+
+        text += `════════════════════════════════════════════════════\n`;
+        text += `SOIT AU TOTAL LA SOMME DE: ${formatMontant(res.total)}\n`;
+        text += `(${nombreEnLettres(res.total)} francs CFA)\n`;
+        text += `════════════════════════════════════════════════════\n`;
+
+        return text;
+    }
+
+    // Convertir un nombre en lettres (simplifie)
+    function nombreEnLettres(n) {
+        n = Math.round(n);
+        if (n === 0) return 'zéro';
+
+        const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+                       'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept',
+                       'dix-huit', 'dix-neuf'];
+        const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante',
+                      'quatre-vingt', 'quatre-vingt'];
+
+        function convertLessThan1000(num) {
+            if (num === 0) return '';
+            if (num < 20) return units[num];
+            if (num < 100) {
+                const t = Math.floor(num / 10);
+                const u = num % 10;
+                if (t === 7 || t === 9) {
+                    return tens[t] + '-' + units[10 + u];
+                }
+                if (u === 1 && t !== 8) {
+                    return tens[t] + ' et un';
+                }
+                return tens[t] + (u > 0 ? '-' + units[u] : (t === 8 ? 's' : ''));
+            }
+            const h = Math.floor(num / 100);
+            const rest = num % 100;
+            let result = h === 1 ? 'cent' : units[h] + ' cent';
+            if (rest === 0 && h > 1) result += 's';
+            else if (rest > 0) result += ' ' + convertLessThan1000(rest);
+            return result;
+        }
+
+        if (n >= 1000000000) {
+            const milliards = Math.floor(n / 1000000000);
+            const reste = n % 1000000000;
+            let result = (milliards === 1 ? 'un milliard' : convertLessThan1000(milliards) + ' milliards');
+            if (reste > 0) result += ' ' + nombreEnLettres(reste);
+            return result;
+        }
+
+        if (n >= 1000000) {
+            const millions = Math.floor(n / 1000000);
+            const reste = n % 1000000;
+            let result = (millions === 1 ? 'un million' : convertLessThan1000(millions) + ' millions');
+            if (reste > 0) result += ' ' + nombreEnLettres(reste);
+            return result;
+        }
+
+        if (n >= 1000) {
+            const milliers = Math.floor(n / 1000);
+            const reste = n % 1000;
+            let result = milliers === 1 ? 'mille' : convertLessThan1000(milliers) + ' mille';
+            if (reste > 0) result += ' ' + convertLessThan1000(reste);
+            return result;
+        }
+
+        return convertLessThan1000(n);
     }
 </script>
 {% endblock %}

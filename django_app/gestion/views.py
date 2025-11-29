@@ -1782,6 +1782,308 @@ def api_calculer_emoluments(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+# ═══════════════════════════════════════════════════════════════════
+# APIs EXPORT DÉCOMPTE (PDF et Excel)
+# ═══════════════════════════════════════════════════════════════════
+
+@require_POST
+def api_exporter_decompte_pdf(request):
+    """API pour exporter le décompte en PDF"""
+    try:
+        from recouvrement.services.pdf_decompte import generer_pdf_decompte
+
+        data = json.loads(request.body)
+
+        # Générer le PDF
+        pdf_buffer = generer_pdf_decompte(data)
+
+        # Créer la réponse HTTP avec le PDF
+        response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="decompte_creance_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+
+        return response
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_exporter_decompte_excel(request):
+    """API pour exporter le décompte en Excel"""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+        from openpyxl.utils import get_column_letter
+        from io import BytesIO
+
+        data = json.loads(request.body)
+
+        # Créer le workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Décompte de Créance"
+
+        # Styles
+        titre_font = Font(name='Arial', size=14, bold=True, color='1a365d')
+        section_font = Font(name='Arial', size=11, bold=True)
+        normal_font = Font(name='Arial', size=10)
+        montant_font = Font(name='Arial', size=10, bold=True)
+        total_font = Font(name='Arial', size=12, bold=True, color='1a365d')
+
+        header_fill = PatternFill(start_color='e2e8f0', end_color='e2e8f0', fill_type='solid')
+        total_fill = PatternFill(start_color='c6a962', end_color='c6a962', fill_type='solid')
+
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # Configuration des colonnes
+        ws.column_dimensions['A'].width = 35
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 15
+
+        row = 1
+
+        # Titre
+        ws.merge_cells(f'A{row}:D{row}')
+        ws[f'A{row}'] = "DÉCOMPTE DE CRÉANCE OHADA"
+        ws[f'A{row}'].font = titre_font
+        ws[f'A{row}'].alignment = Alignment(horizontal='center')
+        row += 1
+
+        ws.merge_cells(f'A{row}:D{row}')
+        ws[f'A{row}'] = f"Établi le {timezone.now().strftime('%d/%m/%Y à %H:%M')}"
+        ws[f'A{row}'].alignment = Alignment(horizontal='center')
+        row += 2
+
+        # Mode émoluments seuls
+        if data.get('mode') == 'emoluments':
+            ws[f'A{row}'] = "TYPE DE CALCUL"
+            ws[f'B{row}'] = "Émoluments seuls"
+            ws[f'A{row}'].font = section_font
+            row += 2
+
+            ws[f'A{row}'] = "Base de calcul"
+            ws[f'B{row}'] = f"{data.get('base', 0):,.0f} FCFA".replace(',', ' ')
+            row += 1
+
+            emol = data.get('emoluments', {})
+            type_titre = emol.get('type_titre', 'sans')
+            ws[f'A{row}'] = "Type de barème"
+            ws[f'B{row}'] = "Avec titre exécutoire" if type_titre == 'avec' else "Sans titre exécutoire"
+            row += 2
+
+            # Détail des émoluments
+            if emol.get('details'):
+                ws[f'A{row}'] = "Tranche"
+                ws[f'B{row}'] = "Taux"
+                ws[f'C{row}'] = "Base"
+                ws[f'D{row}'] = "Émolument"
+                for col in ['A', 'B', 'C', 'D']:
+                    ws[f'{col}{row}'].font = section_font
+                    ws[f'{col}{row}'].fill = header_fill
+                    ws[f'{col}{row}'].border = thin_border
+                row += 1
+
+                for d in emol['details']:
+                    ws[f'A{row}'] = d.get('tranche', '-')
+                    ws[f'B{row}'] = f"{d.get('taux', 0)}%"
+                    ws[f'C{row}'] = f"{d.get('base', 0):,.0f}".replace(',', ' ')
+                    ws[f'D{row}'] = f"{d.get('emolument', 0):,.0f}".replace(',', ' ')
+                    for col in ['A', 'B', 'C', 'D']:
+                        ws[f'{col}{row}'].border = thin_border
+                    row += 1
+
+            row += 1
+            ws[f'A{row}'] = "TOTAL ÉMOLUMENTS"
+            ws[f'B{row}'] = f"{data.get('total', 0):,.0f} FCFA".replace(',', ' ')
+            ws[f'A{row}'].font = total_font
+            ws[f'B{row}'].font = total_font
+            ws[f'A{row}'].fill = total_fill
+            ws[f'B{row}'].fill = total_fill
+
+        else:
+            # Mode complet
+            # I. Principal
+            ws[f'A{row}'] = "I. PRINCIPAL"
+            ws[f'A{row}'].font = section_font
+            row += 1
+            ws[f'A{row}'] = "Montant principal"
+            ws[f'B{row}'] = f"{data.get('principal', 0):,.0f} FCFA".replace(',', ' ')
+            ws[f'B{row}'].font = montant_font
+            row += 2
+
+            # II. Intérêts échus
+            ws[f'A{row}'] = "II. INTÉRÊTS ÉCHUS"
+            ws[f'A{row}'].font = section_font
+            row += 1
+            ws[f'A{row}'] = f"Période: du {data.get('date_debut', '-')} au {data.get('date_fin', '-')}"
+            row += 1
+            ws[f'A{row}'] = f"Type de calcul: {data.get('type_calcul', 'simple')}"
+            row += 1
+            ws[f'A{row}'] = f"Type de taux: {data.get('type_taux', 'legal')}"
+            row += 2
+
+            # Détail par période
+            interets_echus = data.get('interets_echus', {})
+            periodes = interets_echus.get('periodes', [])
+            if periodes:
+                ws[f'A{row}'] = "Année"
+                ws[f'B{row}'] = "Jours"
+                ws[f'C{row}'] = "Taux"
+                ws[f'D{row}'] = "Intérêts"
+                for col in ['A', 'B', 'C', 'D']:
+                    ws[f'{col}{row}'].font = section_font
+                    ws[f'{col}{row}'].fill = header_fill
+                    ws[f'{col}{row}'].border = thin_border
+                row += 1
+
+                for p in periodes:
+                    ws[f'A{row}'] = str(p.get('annee', '-'))
+                    ws[f'B{row}'] = str(p.get('jours', 0))
+                    taux_val = p.get('taux', 0)
+                    if p.get('majore'):
+                        ws[f'C{row}'] = f"{p.get('taux_applique', taux_val):.4f}% (maj.)"
+                    else:
+                        ws[f'C{row}'] = f"{taux_val:.4f}%"
+                    ws[f'D{row}'] = f"{p.get('interet', 0):,.0f}".replace(',', ' ')
+                    for col in ['A', 'B', 'C', 'D']:
+                        ws[f'{col}{row}'].border = thin_border
+                    row += 1
+
+            ws[f'A{row}'] = "Sous-total intérêts échus"
+            ws[f'B{row}'] = f"{interets_echus.get('total', 0):,.0f} FCFA".replace(',', ' ')
+            ws[f'A{row}'].font = montant_font
+            ws[f'B{row}'].font = montant_font
+            row += 2
+
+            # III. Intérêts à échoir
+            ws[f'A{row}'] = "III. INTÉRÊTS À ÉCHOIR (30 jours)"
+            ws[f'A{row}'].font = section_font
+            row += 1
+            interets_echoir = data.get('interets_echoir', {})
+            ws[f'A{row}'] = "Montant"
+            ws[f'B{row}'] = f"{interets_echoir.get('total', 0):,.0f} FCFA".replace(',', ' ')
+            ws[f'B{row}'].font = montant_font
+            row += 2
+
+            # IV. Frais de justice
+            frais_justice = data.get('frais_justice', 0)
+            if frais_justice > 0:
+                ws[f'A{row}'] = "IV. FRAIS DE JUSTICE"
+                ws[f'A{row}'].font = section_font
+                row += 1
+                ws[f'A{row}'] = "Montant"
+                ws[f'B{row}'] = f"{frais_justice:,.0f} FCFA".replace(',', ' ')
+                ws[f'B{row}'].font = montant_font
+                row += 2
+
+            # V. Émoluments
+            emoluments = data.get('emoluments')
+            if emoluments:
+                ws[f'A{row}'] = "V. ÉMOLUMENTS PROPORTIONNELS"
+                ws[f'A{row}'].font = section_font
+                row += 1
+                ws[f'A{row}'] = "Base de calcul"
+                ws[f'B{row}'] = f"{data.get('base_emoluments', 0):,.0f} FCFA".replace(',', ' ')
+                row += 1
+                ws[f'A{row}'] = "Type de barème"
+                type_titre = emoluments.get('type_titre', 'sans')
+                ws[f'B{row}'] = "Avec titre" if type_titre == 'avec' else "Sans titre"
+                row += 1
+                ws[f'A{row}'] = "Émoluments"
+                ws[f'B{row}'] = f"{emoluments.get('total', 0):,.0f} FCFA".replace(',', ' ')
+                ws[f'B{row}'].font = montant_font
+                row += 2
+
+            # VI. Actes
+            actes = data.get('actes', 0)
+            actes_detail = data.get('actes_detail', [])
+            total_actes = actes if isinstance(actes, (int, float)) else 0
+            if total_actes > 0 or actes_detail:
+                ws[f'A{row}'] = "VI. ACTES DE PROCÉDURE"
+                ws[f'A{row}'].font = section_font
+                row += 1
+                if actes_detail:
+                    for acte in actes_detail:
+                        ws[f'A{row}'] = f"  - {acte.get('libelle', 'Acte')}"
+                        ws[f'B{row}'] = f"{acte.get('montant', 0):,.0f} FCFA".replace(',', ' ')
+                        row += 1
+                    total_actes = sum(a.get('montant', 0) for a in actes_detail)
+                ws[f'A{row}'] = "Total actes"
+                ws[f'B{row}'] = f"{total_actes:,.0f} FCFA".replace(',', ' ')
+                ws[f'B{row}'].font = montant_font
+                row += 2
+
+            # TOTAL GÉNÉRAL
+            ws.merge_cells(f'A{row}:D{row}')
+            ws[f'A{row}'] = ""
+            row += 1
+            ws[f'A{row}'] = "TOTAL GÉNÉRAL"
+            ws[f'B{row}'] = f"{data.get('total', 0):,.0f} FCFA".replace(',', ' ')
+            ws[f'A{row}'].font = total_font
+            ws[f'B{row}'].font = total_font
+            ws[f'A{row}'].fill = total_fill
+            ws[f'B{row}'].fill = total_fill
+
+        # Créer une deuxième feuille avec les données brutes
+        ws_raw = wb.create_sheet(title="Données brutes")
+        ws_raw.column_dimensions['A'].width = 30
+        ws_raw.column_dimensions['B'].width = 20
+
+        raw_row = 1
+        ws_raw[f'A{raw_row}'] = "Paramètre"
+        ws_raw[f'B{raw_row}'] = "Valeur"
+        ws_raw[f'A{raw_row}'].font = section_font
+        ws_raw[f'B{raw_row}'].font = section_font
+        raw_row += 1
+
+        # Ajouter toutes les données brutes
+        raw_data = [
+            ('Mode', data.get('mode', '')),
+            ('Principal', data.get('principal', 0)),
+            ('Date début', data.get('date_debut', '')),
+            ('Date fin', data.get('date_fin', '')),
+            ('Type taux', data.get('type_taux', '')),
+            ('Type calcul', data.get('type_calcul', '')),
+            ('Majoration', 'Oui' if data.get('majoration') else 'Non'),
+            ('Date limite majoration', data.get('date_limite_majoration', '')),
+            ('Intérêts échus', data.get('interets_echus', {}).get('total', 0)),
+            ('Intérêts à échoir', data.get('interets_echoir', {}).get('total', 0)),
+            ('Frais de justice', data.get('frais_justice', 0)),
+            ('Base émoluments', data.get('base_emoluments', 0)),
+            ('Émoluments', data.get('emoluments', {}).get('total', 0) if data.get('emoluments') else 0),
+            ('Actes', data.get('actes', 0)),
+            ('TOTAL', data.get('total', 0)),
+        ]
+
+        for label, value in raw_data:
+            ws_raw[f'A{raw_row}'] = label
+            ws_raw[f'B{raw_row}'] = value
+            raw_row += 1
+
+        # Sauvegarder le workbook dans un buffer
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        # Créer la réponse HTTP avec le fichier Excel
+        response = HttpResponse(
+            buffer.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="decompte_creance_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+
+        return response
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
 @login_required
 @require_POST
 def api_sauvegarder_calcul(request):

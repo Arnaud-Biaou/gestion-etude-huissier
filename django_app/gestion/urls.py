@@ -46,6 +46,8 @@ urlpatterns = [
     path('api/sauvegarder-calcul/', views.api_sauvegarder_calcul, name='api_sauvegarder_calcul'),
     path('api/supprimer-calcul/', views.api_supprimer_calcul, name='api_supprimer_calcul'),
     path('api/charger-historique/', views.api_charger_historique, name='api_charger_historique'),
+    path('api/exporter-decompte-pdf/', views.api_exporter_decompte_pdf, name='api_exporter_decompte_pdf'),
+    path('api/exporter-decompte-excel/', views.api_exporter_decompte_excel, name='api_exporter_decompte_excel'),
 
     # API endpoints - Créanciers
     path('api/creanciers/', views.api_creanciers_liste, name='api_creanciers_liste'),
