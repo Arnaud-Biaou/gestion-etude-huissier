@@ -61,11 +61,17 @@ class Partie(models.Model):
         ('morale', 'Personne morale'),
     ]
     FORME_JURIDIQUE_CHOICES = [
-        ('SARL', 'SARL'),
-        ('SA', 'SA'),
-        ('SAS', 'SAS'),
-        ('SNC', 'SNC'),
-        ('GIE', 'GIE'),
+        ('SARL', 'SARL - Société à Responsabilité Limitée'),
+        ('SARLU', 'SARLU - SARL Unipersonnelle'),
+        ('SA', 'SA - Société Anonyme'),
+        ('SAS', 'SAS - Société par Actions Simplifiée'),
+        ('SASU', 'SASU - SAS Unipersonnelle'),
+        ('SNC', 'SNC - Société en Nom Collectif'),
+        ('SCS', 'SCS - Société en Commandite Simple'),
+        ('GIE', 'GIE - Groupement d\'Intérêt Économique'),
+        ('ASSOCIATION', 'Association'),
+        ('ONG', 'ONG'),
+        ('ETABLISSEMENT_PUBLIC', 'Établissement public'),
         ('AUTRE', 'Autre'),
     ]
 
@@ -79,15 +85,43 @@ class Partie(models.Model):
     domicile = models.TextField(blank=True)
 
     # Personne morale
-    denomination = models.CharField(max_length=200, blank=True)
-    capital_social = models.DecimalField(max_digits=15, decimal_places=0, null=True, blank=True)
-    forme_juridique = models.CharField(max_length=10, choices=FORME_JURIDIQUE_CHOICES, blank=True)
-    siege_social = models.TextField(blank=True)
-    representant = models.CharField(max_length=150, blank=True)
+    denomination = models.CharField(max_length=200, blank=True, verbose_name='Dénomination sociale')
+    capital_social = models.DecimalField(
+        max_digits=15, decimal_places=0, null=True, blank=True,
+        verbose_name='Capital social (FCFA)'
+    )
+    forme_juridique = models.CharField(
+        max_length=20, choices=FORME_JURIDIQUE_CHOICES, blank=True,
+        verbose_name='Forme juridique'
+    )
+    rccm = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='N° RCCM',
+        help_text='Ex: RB/COT/21 B 12345'
+    )
+    siege_social = models.TextField(
+        blank=True,
+        verbose_name='Siège social',
+        help_text='Adresse complète du siège'
+    )
+    representant = models.CharField(
+        max_length=150, blank=True,
+        verbose_name='Représentant légal',
+        help_text='Nom complet du gérant/directeur'
+    )
+    qualite_representant = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Qualité du représentant',
+        help_text='Ex: Gérant, Directeur Général, PDG'
+    )
 
     # Commun
     telephone = models.CharField(max_length=20, blank=True)
-    ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU')
+    ifu = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='N° IFU',
+        help_text='Identifiant Fiscal Unique'
+    )
 
     class Meta:
         verbose_name = 'Partie'
@@ -102,6 +136,35 @@ class Partie(models.Model):
         if self.type_personne == 'morale':
             return self.denomination
         return f"{self.nom} {self.prenoms}".strip()
+
+    def get_identification_complete(self):
+        """Retourne l'identification complète pour les actes juridiques"""
+        if self.type_personne == 'morale':
+            lignes = [f"{self.denomination}"]
+            if self.forme_juridique:
+                lignes[0] = f"{self.denomination}, {self.get_forme_juridique_display()}"
+            if self.capital_social:
+                lignes.append(f"au capital de {self.capital_social:,.0f} FCFA".replace(',', ' '))
+            if self.rccm:
+                lignes.append(f"immatriculée au RCCM sous le n° {self.rccm}")
+            if self.ifu:
+                lignes.append(f"IFU: {self.ifu}")
+            if self.siege_social:
+                lignes.append(f"dont le siège social est sis à {self.siege_social}")
+            if self.representant:
+                qualite = f", {self.qualite_representant}" if self.qualite_representant else ""
+                lignes.append(f"représentée par {self.representant}{qualite}")
+            return ', '.join(lignes)
+        else:
+            # Personne physique
+            lignes = [f"{self.nom} {self.prenoms}".strip()]
+            if self.nationalite:
+                lignes.append(f"de nationalité {self.nationalite}")
+            if self.profession:
+                lignes.append(self.profession)
+            if self.domicile:
+                lignes.append(f"demeurant à {self.domicile}")
+            return ', '.join(lignes)
 
 
 class Dossier(models.Model):
@@ -546,8 +609,55 @@ class Creancier(models.Model):
     site_web = models.URLField(blank=True)
 
     # Informations fiscales et légales
-    ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU')
-    rccm = models.CharField(max_length=50, blank=True, verbose_name='RCCM')
+    ifu = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='N° IFU',
+        help_text='Identifiant Fiscal Unique'
+    )
+    rccm = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='N° RCCM',
+        help_text='Ex: RB/COT/21 B 12345'
+    )
+
+    # Informations personnes morales
+    FORME_JURIDIQUE_CHOICES = [
+        ('SARL', 'SARL - Société à Responsabilité Limitée'),
+        ('SARLU', 'SARLU - SARL Unipersonnelle'),
+        ('SA', 'SA - Société Anonyme'),
+        ('SAS', 'SAS - Société par Actions Simplifiée'),
+        ('SASU', 'SASU - SAS Unipersonnelle'),
+        ('SNC', 'SNC - Société en Nom Collectif'),
+        ('SCS', 'SCS - Société en Commandite Simple'),
+        ('GIE', 'GIE - Groupement d\'Intérêt Économique'),
+        ('ASSOCIATION', 'Association'),
+        ('ONG', 'ONG'),
+        ('ETABLISSEMENT_PUBLIC', 'Établissement public'),
+        ('AUTRE', 'Autre'),
+    ]
+    forme_juridique = models.CharField(
+        max_length=20, choices=FORME_JURIDIQUE_CHOICES, blank=True,
+        verbose_name='Forme juridique'
+    )
+    capital_social = models.DecimalField(
+        max_digits=15, decimal_places=0, null=True, blank=True,
+        verbose_name='Capital social (FCFA)'
+    )
+    siege_social = models.TextField(
+        blank=True,
+        verbose_name='Siège social',
+        help_text='Adresse complète du siège social'
+    )
+    representant_legal = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Représentant légal',
+        help_text='Nom complet du gérant/directeur'
+    )
+    qualite_representant = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Qualité du représentant',
+        help_text='Ex: Gérant, Directeur Général, PDG'
+    )
 
     # Contact référent
     contact_nom = models.CharField(max_length=100, blank=True, verbose_name='Nom du contact')

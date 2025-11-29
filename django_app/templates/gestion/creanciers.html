@@ -209,6 +209,64 @@
                     <label class="form-label">Nom / Raison sociale *</label>
                     <input type="text" class="form-input" id="nom" name="nom" required>
                 </div>
+
+                <!-- Section Informations légales (Personnes morales) -->
+                <div style="grid-column: span 2; border-top: 1px solid var(--neutral-200); padding-top: 16px; margin-top: 8px;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--primary);">
+                        <i data-lucide="building-2" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 6px;"></i>
+                        Informations société
+                    </h4>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Forme juridique</label>
+                    <select class="form-select" id="forme_juridique" name="forme_juridique">
+                        <option value="">-- Sélectionner --</option>
+                        <option value="SARL">SARL - Société à Responsabilité Limitée</option>
+                        <option value="SARLU">SARLU - SARL Unipersonnelle</option>
+                        <option value="SA">SA - Société Anonyme</option>
+                        <option value="SAS">SAS - Société par Actions Simplifiée</option>
+                        <option value="SASU">SASU - SAS Unipersonnelle</option>
+                        <option value="SNC">SNC - Société en Nom Collectif</option>
+                        <option value="SCS">SCS - Société en Commandite Simple</option>
+                        <option value="GIE">GIE - Groupement d'Intérêt Économique</option>
+                        <option value="ASSOCIATION">Association</option>
+                        <option value="ONG">ONG</option>
+                        <option value="ETABLISSEMENT_PUBLIC">Établissement public</option>
+                        <option value="AUTRE">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Capital social (FCFA)</label>
+                    <input type="number" class="form-input" id="capital_social" name="capital_social" placeholder="Ex: 10000000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">N° RCCM</label>
+                    <input type="text" class="form-input" id="rccm" name="rccm" placeholder="Ex: RB/COT/21 B 12345">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">N° IFU</label>
+                    <input type="text" class="form-input" id="ifu" name="ifu" placeholder="Identifiant Fiscal Unique">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Siège social</label>
+                    <textarea class="form-input" id="siege_social" name="siege_social" rows="2" placeholder="Adresse complète du siège social"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Représentant légal</label>
+                    <input type="text" class="form-input" id="representant_legal" name="representant_legal" placeholder="Nom complet">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Qualité du représentant</label>
+                    <input type="text" class="form-input" id="qualite_representant" name="qualite_representant" placeholder="Ex: Gérant, Directeur Général">
+                </div>
+
+                <!-- Section Coordonnées -->
+                <div style="grid-column: span 2; border-top: 1px solid var(--neutral-200); padding-top: 16px; margin-top: 8px;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--primary);">
+                        <i data-lucide="contact" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 6px;"></i>
+                        Coordonnées
+                    </h4>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Email</label>
                     <input type="email" class="form-input" id="email" name="email">
@@ -220,6 +278,14 @@
                 <div class="form-group" style="grid-column: span 2;">
                     <label class="form-label">Adresse</label>
                     <textarea class="form-input" id="adresse" name="adresse" rows="2"></textarea>
+                </div>
+
+                <!-- Section Paramètres -->
+                <div style="grid-column: span 2; border-top: 1px solid var(--neutral-200); padding-top: 16px; margin-top: 8px;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--primary);">
+                        <i data-lucide="settings" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 6px;"></i>
+                        Paramètres
+                    </h4>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Taux de commission (%)</label>
@@ -355,14 +421,25 @@
                     document.getElementById('code').value = c.code;
                     document.getElementById('nom').value = c.nom;
                     document.getElementById('type_creancier').value = c.type_creancier;
+                    // Informations société
+                    document.getElementById('forme_juridique').value = c.forme_juridique || '';
+                    document.getElementById('capital_social').value = c.capital_social || '';
+                    document.getElementById('rccm').value = c.rccm || '';
+                    document.getElementById('ifu').value = c.ifu || '';
+                    document.getElementById('siege_social').value = c.siege_social || '';
+                    document.getElementById('representant_legal').value = c.representant_legal || '';
+                    document.getElementById('qualite_representant').value = c.qualite_representant || '';
+                    // Coordonnées
                     document.getElementById('email').value = c.email || '';
                     document.getElementById('telephone').value = c.telephone || '';
                     document.getElementById('adresse').value = c.adresse || '';
+                    // Paramètres
                     document.getElementById('taux_commission').value = c.taux_commission || 10;
                     document.getElementById('delai_reversement').value = c.delai_reversement || 15;
                     document.getElementById('contact_nom').value = c.contact_nom || '';
                     document.getElementById('contact_telephone').value = c.contact_telephone || '';
                     document.getElementById('modalCreancier').style.display = 'flex';
+                    lucide.createIcons();
                 }
             });
     }

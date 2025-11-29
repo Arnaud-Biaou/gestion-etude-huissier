@@ -37,9 +37,27 @@ class CollaborateurAdmin(admin.ModelAdmin):
 
 @admin.register(Partie)
 class PartieAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'type_personne', 'telephone', 'ifu')
-    list_filter = ('type_personne',)
-    search_fields = ('nom', 'prenoms', 'denomination')
+    list_display = ('__str__', 'type_personne', 'forme_juridique', 'telephone', 'ifu', 'rccm')
+    list_filter = ('type_personne', 'forme_juridique')
+    search_fields = ('nom', 'prenoms', 'denomination', 'rccm', 'ifu')
+
+    fieldsets = (
+        ('Type de personne', {
+            'fields': ('type_personne',)
+        }),
+        ('Personne physique', {
+            'fields': ('nom', 'prenoms', 'nationalite', 'profession', 'domicile'),
+            'classes': ('collapse',)
+        }),
+        ('Personne morale', {
+            'fields': ('denomination', 'forme_juridique', 'capital_social', 'rccm',
+                       'siege_social', 'representant', 'qualite_representant'),
+            'classes': ('collapse',)
+        }),
+        ('Informations communes', {
+            'fields': ('telephone', 'ifu')
+        }),
+    )
 
 
 @admin.register(Dossier)
@@ -158,20 +176,22 @@ class PortefeuilleCreancierInline(admin.StackedInline):
 
 @admin.register(Creancier)
 class CreancierAdmin(admin.ModelAdmin):
-    list_display = ('code', 'nom', 'type_creancier', 'telephone', 'email', 'taux_commission', 'actif')
-    list_filter = ('type_creancier', 'actif')
-    search_fields = ('code', 'nom', 'ifu', 'email')
+    list_display = ('code', 'nom', 'type_creancier', 'forme_juridique', 'telephone', 'email', 'taux_commission', 'actif')
+    list_filter = ('type_creancier', 'forme_juridique', 'actif')
+    search_fields = ('code', 'nom', 'ifu', 'rccm', 'email')
     inlines = [PortefeuilleCreancierInline]
 
     fieldsets = (
         ('Informations générales', {
             'fields': ('code', 'nom', 'type_creancier', 'actif')
         }),
+        ('Informations société (personnes morales)', {
+            'fields': ('forme_juridique', 'capital_social', 'rccm', 'ifu',
+                       'siege_social', 'representant_legal', 'qualite_representant'),
+            'classes': ('collapse',)
+        }),
         ('Coordonnées', {
             'fields': ('adresse', 'telephone', 'email', 'site_web')
-        }),
-        ('Informations légales', {
-            'fields': ('ifu', 'rccm')
         }),
         ('Contact référent', {
             'fields': ('contact_nom', 'contact_fonction', 'contact_telephone', 'contact_email'),
