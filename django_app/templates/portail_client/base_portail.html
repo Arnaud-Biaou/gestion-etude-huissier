@@ -572,7 +572,7 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <a href="{% url 'landing_page' %}" class="sidebar-logo">
+                <a href="{% url 'portail_client:landing_page' %}" class="sidebar-logo">
                     <div class="logo-icon">MAB</div>
                     <div>
                         <div class="logo-text">Espace Client</div>
@@ -584,24 +584,24 @@
             <nav class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">Navigation</div>
-                    <a href="{% url 'portail_tableau_bord' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+                    <a href="{% url 'portail_client:portail_tableau_bord' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
                         <i data-lucide="layout-dashboard"></i>
                         Tableau de bord
                     </a>
-                    <a href="{% url 'portail_mes_dossiers' %}" class="nav-item {% if active_page == 'dossiers' %}active{% endif %}">
+                    <a href="{% url 'portail_client:portail_mes_dossiers' %}" class="nav-item {% if active_page == 'dossiers' %}active{% endif %}">
                         <i data-lucide="folder-open"></i>
                         Mes dossiers
                     </a>
-                    <a href="{% url 'portail_mes_documents' %}" class="nav-item {% if active_page == 'documents' %}active{% endif %}">
+                    <a href="{% url 'portail_client:portail_mes_documents' %}" class="nav-item {% if active_page == 'documents' %}active{% endif %}">
                         <i data-lucide="file-text"></i>
                         Mes documents
                     </a>
-                    <a href="{% url 'portail_mes_messages' %}" class="nav-item {% if active_page == 'messages' %}active{% endif %}">
+                    <a href="{% url 'portail_client:portail_mes_messages' %}" class="nav-item {% if active_page == 'messages' %}active{% endif %}">
                         <i data-lucide="message-circle"></i>
                         Messagerie
                         {% if messages_non_lus %}<span class="badge">{{ messages_non_lus }}</span>{% endif %}
                     </a>
-                    <a href="{% url 'portail_notifications' %}" class="nav-item {% if active_page == 'notifications' %}active{% endif %}">
+                    <a href="{% url 'portail_client:portail_notifications' %}" class="nav-item {% if active_page == 'notifications' %}active{% endif %}">
                         <i data-lucide="bell"></i>
                         Notifications
                         {% if notifications_count %}<span class="badge">{{ notifications_count }}</span>{% endif %}
@@ -610,7 +610,7 @@
 
                 <div class="nav-section">
                     <div class="nav-section-title">Compte</div>
-                    <a href="{% url 'portail_mon_profil' %}" class="nav-item {% if active_page == 'profil' %}active{% endif %}">
+                    <a href="{% url 'portail_client:portail_mon_profil' %}" class="nav-item {% if active_page == 'profil' %}active{% endif %}">
                         <i data-lucide="user"></i>
                         Mon profil
                     </a>
@@ -625,7 +625,7 @@
                         <div class="user-code">{{ client.code_client }}</div>
                     </div>
                 </div>
-                <a href="{% url 'portail_deconnexion' %}" class="logout-btn">
+                <a href="{% url 'portail_client:portail_deconnexion' %}" class="logout-btn">
                     <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
                     Déconnexion
                 </a>
@@ -640,11 +640,11 @@
                 </button>
                 <h1 class="page-title">{% block page_title %}Tableau de bord{% endblock %}</h1>
                 <div class="topbar-actions">
-                    <a href="{% url 'portail_notifications' %}" class="icon-btn" title="Notifications">
+                    <a href="{% url 'portail_client:portail_notifications' %}" class="icon-btn" title="Notifications">
                         <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
                         {% if notifications_count %}<span class="notification-dot"></span>{% endif %}
                     </a>
-                    <a href="{% url 'portail_mon_profil' %}" class="icon-btn" title="Mon profil">
+                    <a href="{% url 'portail_client:portail_mon_profil' %}" class="icon-btn" title="Mon profil">
                         <i data-lucide="user" style="width: 20px; height: 20px;"></i>
                     </a>
                 </div>

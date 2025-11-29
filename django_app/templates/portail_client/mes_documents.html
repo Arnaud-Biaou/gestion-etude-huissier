@@ -155,11 +155,11 @@
     <div class="card-body">
         <!-- Filters -->
         <div class="filter-bar">
-            <a href="{% url 'portail_mes_documents' %}" class="filter-btn {% if not type_filter %}active{% endif %}">Tous</a>
-            <a href="{% url 'portail_mes_documents' %}?type=acte" class="filter-btn {% if type_filter == 'acte' %}active{% endif %}">Actes</a>
-            <a href="{% url 'portail_mes_documents' %}?type=facture" class="filter-btn {% if type_filter == 'facture' %}active{% endif %}">Factures</a>
-            <a href="{% url 'portail_mes_documents' %}?type=decompte" class="filter-btn {% if type_filter == 'decompte' %}active{% endif %}">Décomptes</a>
-            <a href="{% url 'portail_mes_documents' %}?type=courrier" class="filter-btn {% if type_filter == 'courrier' %}active{% endif %}">Courriers</a>
+            <a href="{% url 'portail_client:portail_mes_documents' %}" class="filter-btn {% if not type_filter %}active{% endif %}">Tous</a>
+            <a href="{% url 'portail_client:portail_mes_documents' %}?type=acte" class="filter-btn {% if type_filter == 'acte' %}active{% endif %}">Actes</a>
+            <a href="{% url 'portail_client:portail_mes_documents' %}?type=facture" class="filter-btn {% if type_filter == 'facture' %}active{% endif %}">Factures</a>
+            <a href="{% url 'portail_client:portail_mes_documents' %}?type=decompte" class="filter-btn {% if type_filter == 'decompte' %}active{% endif %}">Décomptes</a>
+            <a href="{% url 'portail_client:portail_mes_documents' %}?type=courrier" class="filter-btn {% if type_filter == 'courrier' %}active{% endif %}">Courriers</a>
         </div>
 
         {% if documents %}
@@ -217,7 +217,7 @@
                         <i data-lucide="check-circle" style="width: 16px; height: 16px; display: inline; vertical-align: middle;"></i>
                         Disponible
                     </span>
-                    <a href="{% url 'portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
+                    <a href="{% url 'portail_client:portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
                         <i data-lucide="download" style="width: 16px; height: 16px;"></i>
                         Télécharger
                     </a>

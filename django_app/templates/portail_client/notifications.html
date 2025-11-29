@@ -153,7 +153,7 @@
                 </a>
                 {% endif %}
                 {% if not notif.lu %}
-                <form method="post" action="{% url 'portail_marquer_notification_lue' notif.id %}" style="display: inline;">
+                <form method="post" action="{% url 'portail_client:portail_marquer_notification_lue' notif.id %}" style="display: inline;">
                     {% csrf_token %}
                     <button type="submit" class="mark-read-btn" title="Marquer comme lu">
                         <i data-lucide="check" style="width: 16px; height: 16px;"></i>

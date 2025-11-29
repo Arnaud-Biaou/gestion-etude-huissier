@@ -864,7 +864,7 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
-        <a href="{% url 'landing_page' %}" class="logo">
+        <a href="{% url 'portail_client:landing_page' %}" class="logo">
             <div class="logo-icon">MAB</div>
             <div>
                 <div class="logo-text">{% if config %}{{ config.nom_etude }}{% else %}Étude BIAOU{% endif %}</div>
@@ -876,7 +876,7 @@
             <li><a href="#espace-client">Espace Client</a></li>
             <li><a href="#contact">Contact</a></li>
         </ul>
-        <a href="{% url 'portail_connexion' %}" class="btn btn-primary">
+        <a href="{% url 'portail_client:portail_connexion' %}" class="btn btn-primary">
             <i data-lucide="lock" style="width: 18px; height: 18px;"></i>
             Mon Espace
         </a>
@@ -911,7 +911,7 @@
             <p class="subtitle">{{ config.juridiction|default:"près le Tribunal de Première Instance et la Cour d'Appel de Parakou" }}</p>
             <p class="tagline"><span>Excellence</span> • <span>Rigueur</span> • <span>Proximité</span></p>
             <div class="cta-buttons">
-                <a href="{% url 'portail_connexion' %}" class="btn btn-primary">
+                <a href="{% url 'portail_client:portail_connexion' %}" class="btn btn-primary">
                     <i data-lucide="lock" style="width: 18px; height: 18px;"></i>
                     Accéder à mon espace
                 </a>
@@ -1043,7 +1043,7 @@
             </div>
         </div>
         <div class="cta-center" data-aos="fade-up">
-            <a href="{% url 'portail_connexion' %}" class="btn btn-primary">
+            <a href="{% url 'portail_client:portail_connexion' %}" class="btn btn-primary">
                 <i data-lucide="log-in" style="width: 20px; height: 20px;"></i>
                 Accéder à mon espace client
             </a>
@@ -1099,7 +1099,7 @@
             </div>
             <div class="contact-form" data-aos="fade-left">
                 <h3>Envoyez-nous un message</h3>
-                <form method="post" action="{% url 'portail_contact' %}">
+                <form method="post" action="{% url 'portail_client:portail_contact' %}">
                     {% csrf_token %}
                     <div class="form-group">
                         <label>Nom complet <span class="required">*</span></label>
@@ -1149,7 +1149,7 @@
                 <h4>Liens rapides</h4>
                 <a href="#espace-client">Espace client</a>
                 <a href="#contact">Contact</a>
-                <a href="{% url 'portail_connexion' %}">Connexion</a>
+                <a href="{% url 'portail_client:portail_connexion' %}">Connexion</a>
             </div>
             <div class="footer-section">
                 <h4>Légal</h4>

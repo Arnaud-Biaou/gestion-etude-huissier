@@ -5,6 +5,8 @@ URLs pour le Portail Client
 from django.urls import path
 from . import views
 
+app_name = 'portail_client'
+
 urlpatterns = [
     # Pages publiques
     path('', views.landing_page, name='landing_page'),
