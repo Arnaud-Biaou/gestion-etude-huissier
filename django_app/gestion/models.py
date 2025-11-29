@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 import json
@@ -365,6 +365,7 @@ class Dossier(models.Model):
             return (self.get_total_encaisse() / total_du) * 100
         return 0
 
+    @transaction.atomic
     def basculer_vers_force(self, utilisateur, motif, titre_info=None, frais_supplementaires=None):
         """Bascule le dossier de la phase amiable vers la phase forcée"""
         from django.db.models import Sum
