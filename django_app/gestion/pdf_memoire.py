@@ -1,7 +1,8 @@
 """
 Génération PDF complète des mémoires de cédules
-- Page 1 (portrait) : En-tête + Réquisition + Exécutoire
-- Page 2+ (paysage) : Tableau des coûts
+- Page 1 (portrait) : En-tête + RÉQUISITION + Signatures/Visas
+- Page 2 (portrait) : EXÉCUTOIRE + Signatures/Visas
+- Page 3+ (paysage) : Tableau des coûts + Certification + Signature huissier
 """
 
 from reportlab.lib.pagesizes import A4, landscape
@@ -15,6 +16,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT, TA_JUSTIFY
 from io import BytesIO
 from decimal import Decimal
+from datetime import datetime
 
 
 def nombre_en_lettres(nombre):
@@ -67,12 +69,13 @@ def nombre_en_lettres(nombre):
 def generer_pdf_memoire_complet(memoire):
     """
     Génère le PDF complet du mémoire :
-    - Page 1 (portrait) : En-tête + Réquisition + Exécutoire
-    - Page 2+ (paysage) : Tableau des coûts
+    - Page 1 (portrait) : En-tête + RÉQUISITION + Signatures/Visas
+    - Page 2 (portrait) : EXÉCUTOIRE + Signatures/Visas
+    - Page 3+ (paysage) : Tableau des coûts + Certification + Signature huissier
     """
     buffer = BytesIO()
 
-    # Récupérer les infos
+    # Récupérer les infos de juridiction
     juridiction = memoire.juridiction
     if not juridiction:
         # Fallback si pas de juridiction définie
@@ -92,11 +95,13 @@ def generer_pdf_memoire_complet(memoire):
         }
         juridiction_nom = memoire.autorite_requerante.nom if memoire.autorite_requerante else 'Non défini'
         juridiction_ville = memoire.autorite_requerante.ville if memoire.autorite_requerante else 'Parakou'
+        type_juridiction = 'tpi'
     else:
         autorite_req = juridiction.get_autorite_requisition()
         autorite_exec = juridiction.get_autorite_executoire()
         juridiction_nom = juridiction.nom
         juridiction_ville = juridiction.ville
+        type_juridiction = juridiction.type_juridiction
 
     # Montant en lettres
     montant_lettres = nombre_en_lettres(memoire.montant_total)
@@ -106,13 +111,15 @@ def generer_pdf_memoire_complet(memoire):
     try:
         from parametres.models import ConfigurationEtude
         config = ConfigurationEtude.get_instance()
-        huissier_nom = config.nom_etude or "Maître [NOM]"
-        juridiction_competence = config.juridiction or "Tribunal de Première Instance de Parakou et la Cour d'Appel de Parakou"
-    except:
-        huissier_nom = memoire.huissier.nom if memoire.huissier else "Maître [NOM]"
-        juridiction_competence = "Tribunal de Première Instance de Parakou et la Cour d'Appel de Parakou"
+        huissier_nom = config.nom_etude or "Martial Arnaud BIAOU"
+        juridiction_competence = config.juridiction or "Tribunal de Première Instance de Première Classe et la Cour d'Appel de Parakou"
+        ville_huissier = config.adresse_ville if config.adresse_ville else 'Parakou'
+    except Exception:
+        huissier_nom = "Martial Arnaud BIAOU"
+        juridiction_competence = "Tribunal de Première Instance de Première Classe et la Cour d'Appel de Parakou"
+        ville_huissier = 'Parakou'
 
-    huissier_titre = f"{huissier_nom}, Huissier de Justice près le {juridiction_competence}"
+    huissier_titre = f"Huissier de Justice près le {juridiction_competence}"
 
     # Mois en toutes lettres
     mois_noms = [
@@ -144,24 +151,31 @@ def generer_pdf_memoire_complet(memoire):
     style_normal = ParagraphStyle(
         'NormalCustom',
         parent=styles['Normal'],
-        fontSize=10,
-        spaceAfter=6,
+        fontSize=11,
+        spaceAfter=8,
         alignment=TA_JUSTIFY,
         leading=14
     )
 
-    style_signature = ParagraphStyle(
-        'Signature',
+    style_signature_droite = ParagraphStyle(
+        'SignatureDroite',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=11,
         alignment=TA_RIGHT
     )
 
-    style_visa = ParagraphStyle(
-        'Visa',
+    style_signature_gauche = ParagraphStyle(
+        'SignatureGauche',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=11,
         alignment=TA_LEFT
+    )
+
+    style_centre = ParagraphStyle(
+        'Centre',
+        parent=styles['Normal'],
+        fontSize=11,
+        alignment=TA_CENTER
     )
 
     style_section = ParagraphStyle(
@@ -175,128 +189,188 @@ def generer_pdf_memoire_complet(memoire):
         fontName='Helvetica-Bold'
     )
 
-    # Document portrait pour page 1
+    # Document portrait pour pages 1 et 2
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
         leftMargin=2*cm,
         rightMargin=2*cm,
-        topMargin=1.5*cm,
-        bottomMargin=1.5*cm
+        topMargin=2*cm,
+        bottomMargin=2*cm
     )
 
     elements = []
 
-    # === PAGE 1 : EN-TÊTE + RÉQUISITION + EXÉCUTOIRE ===
+    # ============================================================
+    # PAGE 1 : EN-TÊTE + RÉQUISITION
+    # ============================================================
 
     # En-tête
-    elements.append(Paragraph(f"<b>MÉMOIRE N° {memoire.numero}</b>", style_titre))
+    elements.append(Paragraph(f"<b>Mémoire N° {memoire.numero}</b>", style_titre))
     elements.append(Paragraph(f"du mois de {mois_nom} {memoire.annee}", style_sous_titre))
     elements.append(Spacer(1, 15))
 
-    elements.append(Paragraph("<b>ÉTAT DES INDEMNITÉS DUES À</b>", style_sous_titre))
-    elements.append(Paragraph(huissier_titre, style_normal))
-    elements.append(Spacer(1, 15))
-
-    elements.append(Paragraph(f"<b>Autorité requérante :</b> {juridiction_nom}", style_normal))
+    elements.append(Paragraph("<b>ÉTAT DES INDEMNITÉS DUES À</b>", style_centre))
+    elements.append(Paragraph(f"<b>Maître {huissier_nom}</b>", style_centre))
+    elements.append(Paragraph(huissier_titre, style_centre))
     elements.append(Spacer(1, 20))
 
-    # Encadré références légales
-    ref_legales = """
-    <b>Références :</b><br/>
-    - Décret N° 2012-143 du 07 juin 2012 portant réglementation des frais de justice criminelle,
-      correctionnelle et de police (Articles 81 et suivants)<br/>
-    - Décret N° 2012-435 du 19 novembre 2012 modifiant l'article 43<br/>
-    - Décret N° 2007-155 du 03 avril 2007 relatif aux frais de mission
-    """
-    elements.append(Paragraph(ref_legales, style_normal))
-    elements.append(Spacer(1, 25))
+    elements.append(Paragraph(f"<b>Autorité requérante :</b> {juridiction_nom}", style_normal))
+    elements.append(Spacer(1, 30))
 
-    # === RÉQUISITION ===
-    elements.append(Paragraph("<b><u>RÉQUISITION</u></b>", style_section))
-    elements.append(Spacer(1, 10))
-
-    texte_requisition = f"""
-    Nous ................................................................................., {autorite_req['titre']} près la {juridiction_nom} ;<br/><br/>
-    Vu le présent mémoire, les pièces jointes ;<br/><br/>
-    Vu le décret N° 2012-143 du 07 juin 2012 portant réglementation des frais de justice criminelle,
-    correctionnelle et de police en ses articles 81 et suivants ;<br/><br/>
-    Requérons qu'il soit délivré exécutoire par Monsieur le {autorite_exec['titre']} ;<br/><br/>
-    Sur la caisse du Trésor public, chapitre des frais de justice, pour paiement de la somme de
-    <b>FCFA {montant_lettres} ({montant_chiffres})</b>.
-    """
-    elements.append(Paragraph(texte_requisition, style_normal))
+    # RÉQUISITION
+    elements.append(Paragraph("<b><u>RÉQUISITION</u></b>", style_titre))
     elements.append(Spacer(1, 15))
 
-    # Signatures réquisition
-    date_lieu = f"{juridiction_ville}, le .......................... {memoire.annee}"
-    elements.append(Paragraph(date_lieu, style_signature))
+    # Texte de la réquisition
+    texte_requisition = f"Nous ……………………………………………………………………………………………., {autorite_req['titre']} près la {juridiction_nom} ;"
+    elements.append(Paragraph(texte_requisition, style_normal))
     elements.append(Spacer(1, 10))
 
+    elements.append(Paragraph("Vu le présent mémoire, les pièces jointes ;", style_normal))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(
+        "Vu le décret N° 2012-143 du 07 juin 2012 portant réglementation des frais de justice criminelle, "
+        "correctionnelle et de police en ses articles 81 et suivants ;",
+        style_normal
+    ))
+    elements.append(Spacer(1, 10))
+
+    # Requérons selon le type de juridiction
+    if type_juridiction == 'tpi':
+        titre_exec = f"Monsieur le Président du {juridiction_nom}"
+    elif type_juridiction == 'cour_appel':
+        titre_exec = f"Monsieur le Président de la {juridiction_nom}"
+    else:  # cour_speciale
+        titre_exec = f"Monsieur le Président de la {juridiction.nom_court if juridiction else juridiction_nom}"
+
+    elements.append(Paragraph(f"Requérons qu'il soit délivré exécutoire par {titre_exec} ;", style_normal))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(
+        f"Sur la caisse du Trésor public, chapitre des frais de justice, pour paiement de la somme de "
+        f"<b>FCFA {montant_lettres.upper()} ({montant_chiffres})</b>.",
+        style_normal
+    ))
+    elements.append(Spacer(1, 40))
+
+    # Date et lieu - aligné à droite
+    elements.append(Paragraph(f"{juridiction_ville}, le ……..……………………………….. {memoire.annee}", style_signature_droite))
+    elements.append(Spacer(1, 20))
+
+    # Signatures réquisition selon type de juridiction
     if autorite_req.get('avec_visa', False):
-        # TPI : Visa à gauche, Signature à droite
+        # TPI : Visa Procureur Général à gauche, Signature Procureur République à droite
         data_sig = [
             [
-                Paragraph(f"<b>Vu :</b><br/>Le {autorite_req.get('visa_titre', 'Procureur Général')}", style_visa),
-                Paragraph(f"<b>Le {autorite_req['titre']}</b>", style_signature)
+                Paragraph("<b>Vu :</b>", style_signature_gauche),
+                Paragraph(f"<b>Le {autorite_req['titre']}</b>", style_signature_droite)
             ],
+            [
+                Paragraph(f"Le {autorite_req.get('visa_titre', 'Procureur Général')}", style_signature_gauche),
+                ""
+            ],
+            ["", ""],
             ["", ""],
             ["", ""],
         ]
         table_sig = Table(data_sig, colWidths=[8*cm, 8*cm])
-        table_sig.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ]))
+        table_sig.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
         elements.append(table_sig)
     else:
         # Cour d'Appel ou Spéciale : Signature seule à droite
-        elements.append(Paragraph(f"<b>Le {autorite_req['titre']}</b>", style_signature))
-        elements.append(Spacer(1, 30))
+        elements.append(Paragraph(f"<b>Le {autorite_req['titre']}</b>", style_signature_droite))
+        elements.append(Spacer(1, 60))
 
-    elements.append(Spacer(1, 25))
+    # Saut de page
+    elements.append(PageBreak())
 
-    # === EXÉCUTOIRE ===
-    elements.append(Paragraph("<b><u>EXÉCUTOIRE</u></b>", style_section))
-    elements.append(Spacer(1, 10))
+    # ============================================================
+    # PAGE 2 : EXÉCUTOIRE
+    # ============================================================
 
-    texte_executoire = f"""
-    Nous ................................................................................., {autorite_exec['titre']} ;<br/><br/>
-    Vu la réquisition ci-dessus, les pièces jointes et le texte ci-dessus visé ;<br/><br/>
-    Avons arrêté et rendu exécutoire le mémoire ci-contre pour la somme de
-    <b>FCFA {montant_lettres} ({montant_chiffres})</b>.<br/><br/>
-    Montant de la taxe que nous avons fait par application des articles susvisés ;<br/><br/>
-    Et attendu qu'il n'y a pas de partie civile en cause, ordonnons que ladite somme soit payée à
-    {huissier_titre}, par les soins de l'Administration.
-    """
+    elements.append(Paragraph("<b><u>EXÉCUTOIRE</u></b>", style_titre))
+    elements.append(Spacer(1, 20))
+
+    # Texte de l'exécutoire
+    if type_juridiction == 'tpi':
+        titre_nous = f"Président du {juridiction_nom}"
+    elif type_juridiction == 'cour_appel':
+        titre_nous = f"Président de la {juridiction_nom}"
+    else:  # cour_speciale
+        titre_nous = f"Président de la {juridiction.nom_court if juridiction else juridiction_nom}"
+
+    texte_executoire = f"Nous ………………………………………………………………………………………………………., {titre_nous} ;"
     elements.append(Paragraph(texte_executoire, style_normal))
-    elements.append(Spacer(1, 15))
-
-    # Signatures exécutoire
-    elements.append(Paragraph(date_lieu, style_signature))
     elements.append(Spacer(1, 10))
 
+    elements.append(Paragraph("Vu la réquisition ci-dessus, les pièces jointes et le texte ci-dessus visé ;", style_normal))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(
+        f"Avons arrêté et rendu exécutoire le mémoire ci-contre pour la somme de "
+        f"<b>FCFA {montant_lettres.upper()} ({montant_chiffres})</b>.",
+        style_normal
+    ))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph("Montant de la taxe que nous avons fait par application des articles susvisés ;", style_normal))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(
+        f"Et attendu qu'il n'y a pas de partie civile en cause, ordonnons que ladite somme soit payée à "
+        f"Maître {huissier_nom}, {huissier_titre}, par les soins de l'Administration.",
+        style_normal
+    ))
+    elements.append(Spacer(1, 40))
+
+    # Date et lieu - aligné à droite
+    elements.append(Paragraph(f"{juridiction_ville}, le ……………………………………….. {memoire.annee}", style_signature_droite))
+    elements.append(Spacer(1, 20))
+
+    # Signatures exécutoire selon type de juridiction
     if autorite_exec.get('avec_visa', False):
-        titre_exec_court = autorite_exec['titre'].split(' du ')[0] if ' du ' in autorite_exec['titre'] else autorite_exec['titre']
+        # TPI : Visa Président Cour d'Appel à gauche, Signature Président TPI à droite
         data_sig = [
             [
-                Paragraph(f"<b>Vu :</b><br/>Le {autorite_exec.get('visa_titre', 'Président de la Cour')}", style_visa),
-                Paragraph(f"<b>Le {titre_exec_court}</b>", style_signature)
+                Paragraph("<b>Vu :</b>", style_signature_gauche),
+                Paragraph("<b>Le Président</b>", style_signature_droite)
             ],
+            [
+                Paragraph(f"Le {autorite_exec.get('visa_titre', 'Président de la Cour')}", style_signature_gauche),
+                ""
+            ],
+            ["", ""],
             ["", ""],
             ["", ""],
         ]
         table_sig = Table(data_sig, colWidths=[8*cm, 8*cm])
-        table_sig.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ]))
+        table_sig.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
         elements.append(table_sig)
     else:
-        elements.append(Paragraph("<b>Le Président</b>", style_signature))
+        # Cour d'Appel ou Spéciale : Signature seule à droite
+        elements.append(Paragraph("<b>Le Président</b>", style_signature_droite))
+        elements.append(Spacer(1, 60))
 
-    # Saut de page vers le tableau (sera en paysage dans une version future)
+    # Saut de page vers le tableau
     elements.append(PageBreak())
 
-    # === PAGE 2+ : TABLEAU DES COÛTS ===
+    # ============================================================
+    # PAGE 3+ : TABLEAU DES COÛTS
+    # ============================================================
+
+    # Encadré références légales
+    ref_legales = """
+    <b>Références légales :</b><br/>
+    • Décret N° 2012-143 du 07 juin 2012 - Frais de justice criminelle, correctionnelle et de police (Art. 81 et suivants)<br/>
+    • Décret N° 2012-435 du 19 novembre 2012 - Modification article 43<br/>
+    • Décret N° 2007-155 du 03 avril 2007 - Frais de mission à l'intérieur du territoire (Groupe II)
+    """
+    elements.append(Paragraph(ref_legales, style_normal))
+    elements.append(Spacer(1, 20))
+
+    # Titre du tableau
     elements.append(Paragraph(f"<b>DÉTAIL DES ACTES - MÉMOIRE N° {memoire.numero}</b>", style_titre))
     elements.append(Paragraph(f"{mois_nom} {memoire.annee} - {juridiction_nom}", style_sous_titre))
     elements.append(Spacer(1, 15))
@@ -387,18 +461,38 @@ def generer_pdf_memoire_complet(memoire):
         style_normal
     ))
 
-    # Certification
-    elements.append(Spacer(1, 30))
-    elements.append(Paragraph("Certifié sincère et véritable", style_signature))
-    elements.append(Spacer(1, 5))
-    date_cert = memoire.date_certification.strftime('%d/%m/%Y') if memoire.date_certification else '.....................'
-    elements.append(Paragraph(
-        f"Fait à {memoire.lieu_certification}, le {date_cert}",
-        style_signature
-    ))
+    # ============================================================
+    # FIN DU MÉMOIRE - CERTIFICATION ET SIGNATURE HUISSIER
+    # ============================================================
+
+    elements.append(Spacer(1, 40))
+
+    # Texte de certification
+    texte_certification = f"Je soussigné certifie véritable le présent mémoire pour la somme de <b>FRANCS CFA {montant_lettres.upper()} ({montant_chiffres})</b>"
+    elements.append(Paragraph(texte_certification, style_normal))
     elements.append(Spacer(1, 20))
-    elements.append(Paragraph(huissier_nom, style_signature))
-    elements.append(Paragraph("Huissier de Justice", style_signature))
+
+    # Date et lieu - aligné à droite
+    if memoire.date_certification:
+        date_certification = memoire.date_certification.strftime('%d %B %Y')
+    else:
+        date_certification = datetime.now().strftime('%d %B %Y')
+
+    # Traduire le mois en français
+    mois_fr = {
+        'January': 'janvier', 'February': 'février', 'March': 'mars',
+        'April': 'avril', 'May': 'mai', 'June': 'juin',
+        'July': 'juillet', 'August': 'août', 'September': 'septembre',
+        'October': 'octobre', 'November': 'novembre', 'December': 'décembre'
+    }
+    for en, fr in mois_fr.items():
+        date_certification = date_certification.replace(en, fr)
+
+    elements.append(Paragraph(f"{ville_huissier}, le {date_certification}", style_signature_droite))
+    elements.append(Spacer(1, 50))  # Espace pour signature manuscrite
+
+    # Nom de l'huissier - aligné à droite
+    elements.append(Paragraph(f"<b>Me {huissier_nom}</b>", style_signature_droite))
 
     # Build PDF
     doc.build(elements)
