@@ -178,6 +178,17 @@ class ConfigurationEtude(models.Model):
         default=1,
         verbose_name="Numéro de départ nouvelle année"
     )
+    dossier_numero_cabinet = models.PositiveIntegerField(
+        default=175,
+        verbose_name="Numéro de cabinet",
+        help_text="Préfixe numérique pour les références de dossiers (ex: 175)"
+    )
+    dossier_initiales_huissier = models.CharField(
+        max_length=10,
+        default="MAB",
+        verbose_name="Initiales de l'huissier",
+        help_text="Suffixe pour les références de dossiers (ex: MAB)"
+    )
 
     # ===== SECTION 2.2: PARAMÈTRES FACTURATION =====
     facture_prefixe = models.CharField(
