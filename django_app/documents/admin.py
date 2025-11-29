@@ -214,3 +214,42 @@ class ConfigurationDocumentsAdmin(admin.ModelAdmin):
 class NumeroActeAdmin(admin.ModelAdmin):
     list_display = ['annee', 'dernier_numero']
     ordering = ['-annee']
+
+
+# =============================================================================
+# VERSION DOCUMENT (STANDALONE)
+# =============================================================================
+
+@admin.register(VersionDocument)
+class VersionDocumentAdmin(admin.ModelAdmin):
+    list_display = ['document', 'numero_version', 'taille_affichee', 'auteur', 'date']
+    list_filter = ['date']
+    search_fields = ['document__nom', 'auteur__username', 'commentaire']
+    raw_id_fields = ['document', 'auteur']
+    readonly_fields = ['id', 'numero_version', 'taille', 'hash_md5', 'date']
+    date_hierarchy = 'date'
+
+    def taille_affichee(self, obj):
+        if obj.taille:
+            if obj.taille < 1024:
+                return f"{obj.taille} o"
+            elif obj.taille < 1024 * 1024:
+                return f"{obj.taille / 1024:.1f} Ko"
+            else:
+                return f"{obj.taille / (1024 * 1024):.1f} Mo"
+        return "-"
+    taille_affichee.short_description = "Taille"
+
+
+# =============================================================================
+# ACCÈS PARTAGE (STANDALONE)
+# =============================================================================
+
+@admin.register(AccesPartage)
+class AccesPartageAdmin(admin.ModelAdmin):
+    list_display = ['partage', 'date_acces', 'ip_acces', 'action']
+    list_filter = ['action', 'date_acces']
+    search_fields = ['partage__token', 'ip_acces', 'user_agent']
+    raw_id_fields = ['partage']
+    readonly_fields = ['id', 'date_acces']
+    date_hierarchy = 'date_acces'
