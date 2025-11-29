@@ -484,6 +484,28 @@ class Facture(models.Model):
         ('annulee', 'Annulee'),
     ]
 
+    # ═══════════════════════════════════════════════════════════════
+    # TYPE DE FACTURE (Standard, Avoir, Corrective)
+    # ═══════════════════════════════════════════════════════════════
+
+    TYPE_FACTURE_CHOICES = [
+        ('standard', 'Facture standard'),
+        ('avoir', 'Facture d\'avoir (annulation)'),
+        ('corrective', 'Facture corrective'),
+    ]
+
+    # ═══════════════════════════════════════════════════════════════
+    # STATUT MECeF ÉTENDU
+    # ═══════════════════════════════════════════════════════════════
+
+    STATUT_MECEF_CHOICES = [
+        ('non_normalise', 'Non normalisé'),
+        ('en_attente', 'En attente de normalisation'),
+        ('normalise', 'Normalisé'),
+        ('erreur', 'Erreur de normalisation'),
+        ('annule', 'Annulé par avoir'),
+    ]
+
     numero = models.CharField(max_length=20, unique=True)
     dossier = models.ForeignKey(
         Dossier, on_delete=models.SET_NULL, null=True, blank=True, related_name='factures'
@@ -504,6 +526,53 @@ class Facture(models.Model):
     mecef_numero = models.CharField(max_length=50, blank=True, verbose_name='Numero MECeF')
     nim = models.CharField(max_length=20, blank=True, verbose_name='NIM')
     date_mecef = models.DateTimeField(null=True, blank=True, verbose_name='Date normalisation MECeF')
+
+    # ═══════════════════════════════════════════════════════════════
+    # CHAMPS AVOIR ET FACTURES CORRECTIVES
+    # ═══════════════════════════════════════════════════════════════
+
+    type_facture = models.CharField(
+        max_length=20,
+        choices=TYPE_FACTURE_CHOICES,
+        default='standard',
+        verbose_name="Type de facture"
+    )
+
+    # Lien avec facture originale (pour avoir et corrective)
+    facture_origine = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures_liees',
+        verbose_name="Facture d'origine",
+        help_text="Facture originale annulée (pour avoir) ou corrigée (pour corrective)"
+    )
+
+    # Motif de l'avoir ou de la correction
+    motif_avoir_correction = models.TextField(
+        blank=True,
+        verbose_name="Motif de l'avoir/correction",
+        help_text="Raison de l'annulation ou de la correction"
+    )
+
+    # Statut MECeF étendu
+    statut_mecef = models.CharField(
+        max_length=20,
+        choices=STATUT_MECEF_CHOICES,
+        default='non_normalise',
+        verbose_name="Statut MECeF"
+    )
+
+    # Avoir lié (pour une facture standard annulée)
+    avoir_lie = models.OneToOneField(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='facture_annulee',
+        verbose_name="Avoir d'annulation"
+    )
 
     date_creation = models.DateTimeField(auto_now_add=True)
 
@@ -527,6 +596,82 @@ class Facture(models.Model):
         now = timezone.now()
         count = cls.objects.filter(date_emission__year=now.year).count() + 1
         return f"FAC-{now.year}-{str(count).zfill(3)}"
+
+    # ═══════════════════════════════════════════════════════════════
+    # MÉTHODES AVOIR ET FACTURES CORRECTIVES
+    # ═══════════════════════════════════════════════════════════════
+
+    def peut_creer_avoir(self):
+        """Vérifie si on peut créer un avoir pour cette facture"""
+        return (
+            self.type_facture == 'standard' and
+            self.statut_mecef == 'normalise' and
+            not self.avoir_lie
+        )
+
+    def creer_avoir(self, motif, user=None):
+        """Crée une facture d'avoir pour annuler cette facture"""
+        if not self.peut_creer_avoir():
+            raise ValueError("Impossible de créer un avoir pour cette facture")
+
+        avoir = Facture.objects.create(
+            numero=f"AVO-{self.numero}",
+            type_facture='avoir',
+            facture_origine=self,
+            client=self.client,
+            ifu=self.ifu,
+            dossier=self.dossier,
+            montant_ht=-self.montant_ht,  # Montant négatif
+            taux_tva=self.taux_tva,
+            montant_tva=-self.montant_tva,
+            montant_ttc=-self.montant_ttc,
+            motif_avoir_correction=motif,
+            observations=f"AVOIR sur facture {self.numero}",
+            date_emission=timezone.now().date(),
+        )
+
+        # Lier l'avoir à la facture originale
+        self.avoir_lie = avoir
+        self.statut_mecef = 'annule'
+        self.save()
+
+        return avoir
+
+    def creer_facture_corrective(self, nouvelles_donnees, motif, user=None):
+        """Crée une facture corrective après avoir créé un avoir"""
+        if not self.avoir_lie:
+            raise ValueError("Créez d'abord un avoir avant la facture corrective")
+
+        # Générer un nouveau numéro pour la facture corrective
+        numero_corrective = f"COR-{self.numero}"
+
+        corrective = Facture.objects.create(
+            numero=numero_corrective,
+            type_facture='corrective',
+            facture_origine=self,
+            client=self.client,
+            ifu=self.ifu,
+            dossier=self.dossier,
+            motif_avoir_correction=motif,
+            observations=f"CORRECTIVE de facture {self.numero}",
+            date_emission=timezone.now().date(),
+            taux_tva=self.taux_tva,
+            **nouvelles_donnees
+        )
+
+        return corrective
+
+    def est_avoir(self):
+        """Vérifie si cette facture est un avoir"""
+        return self.type_facture == 'avoir'
+
+    def est_corrective(self):
+        """Vérifie si cette facture est une corrective"""
+        return self.type_facture == 'corrective'
+
+    def est_annulee(self):
+        """Vérifie si cette facture a été annulée par un avoir"""
+        return self.statut_mecef == 'annule' or self.avoir_lie is not None
 
 
 class LigneFacture(models.Model):
