@@ -84,6 +84,33 @@ class Partie(models.Model):
     profession = models.CharField(max_length=100, blank=True)
     domicile = models.TextField(blank=True)
 
+    # ═══════════════════════════════════════════════════════════════
+    # PERSONNE PHYSIQUE - Activité commerciale (si applicable)
+    # ═══════════════════════════════════════════════════════════════
+    est_commercant = models.BooleanField(
+        default=False,
+        verbose_name="Est commerçant/entrepreneur individuel"
+    )
+    nom_commercial = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Nom commercial",
+        help_text="Ex: KOFFI DISTRIBUTION"
+    )
+    enseigne = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Enseigne",
+        help_text="Ex: SUPERMARCHÉ DU CENTRE"
+    )
+    activite_commerciale = models.CharField(
+        max_length=300,
+        blank=True,
+        verbose_name="Activité commerciale",
+        help_text="Ex: Commerce général, Import-Export"
+    )
+    # Note: rccm et ifu peuvent aussi servir pour les personnes physiques commerçantes
+
     # Personne morale
     denomination = models.CharField(max_length=200, blank=True, verbose_name='Dénomination sociale')
     capital_social = models.DecimalField(
@@ -158,12 +185,27 @@ class Partie(models.Model):
         else:
             # Personne physique
             lignes = [f"{self.nom} {self.prenoms}".strip()]
+
+            # Si commerçant avec nom commercial ou enseigne
+            if self.est_commercant or self.nom_commercial or self.enseigne:
+                if self.nom_commercial:
+                    lignes.append(f"exerçant sous le nom commercial \"{self.nom_commercial}\"")
+                if self.enseigne:
+                    lignes.append(f"exploitant l'enseigne \"{self.enseigne}\"")
+                if self.activite_commerciale:
+                    lignes.append(self.activite_commerciale)
+                if self.rccm:
+                    lignes.append(f"immatriculé(e) au RCCM sous le n° {self.rccm}")
+                if self.ifu:
+                    lignes.append(f"IFU: {self.ifu}")
+            elif self.profession:
+                lignes.append(self.profession)
+
             if self.nationalite:
                 lignes.append(f"de nationalité {self.nationalite}")
-            if self.profession:
-                lignes.append(self.profession)
             if self.domicile:
                 lignes.append(f"demeurant à {self.domicile}")
+
             return ', '.join(lignes)
 
 

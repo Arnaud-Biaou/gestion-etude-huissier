@@ -198,8 +198,31 @@
                         <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: {% if partie.type_personne == 'physique' %}var(--info-light){% else %}var(--accent-light){% endif %}; color: {% if partie.type_personne == 'physique' %}white{% else %}var(--primary-dark){% endif %};">
                             {{ partie.type_personne|title }}
                         </span>
+                        {% if partie.est_commercant or partie.nom_commercial or partie.enseigne %}
+                        <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: var(--success-light); color: var(--success-dark);">
+                            Commerçant
+                        </span>
+                        {% endif %}
                     </div>
                     <p style="font-weight: 600; margin-bottom: 4px;">{{ partie.get_nom_complet }}</p>
+                    {% if partie.nom_commercial %}
+                    <p style="font-size: 13px; color: var(--neutral-700); margin-bottom: 4px;">
+                        <i data-lucide="store" style="width: 12px; height: 12px; display: inline;"></i>
+                        Nom commercial : <strong>{{ partie.nom_commercial }}</strong>
+                    </p>
+                    {% endif %}
+                    {% if partie.enseigne %}
+                    <p style="font-size: 13px; color: var(--neutral-700); margin-bottom: 4px;">
+                        <i data-lucide="building-2" style="width: 12px; height: 12px; display: inline;"></i>
+                        Enseigne : <strong>{{ partie.enseigne }}</strong>
+                    </p>
+                    {% endif %}
+                    {% if partie.activite_commerciale %}
+                    <p style="font-size: 13px; color: var(--neutral-600); margin-bottom: 4px;">
+                        <i data-lucide="briefcase" style="width: 12px; height: 12px; display: inline;"></i>
+                        {{ partie.activite_commerciale }}
+                    </p>
+                    {% endif %}
                     {% if partie.domicile or partie.siege_social %}
                     <p style="font-size: 13px; color: var(--neutral-600);">
                         <i data-lucide="map-pin" style="width: 12px; height: 12px; display: inline;"></i>
@@ -231,8 +254,31 @@
                         <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: {% if partie.type_personne == 'physique' %}var(--warning-light){% else %}var(--danger-light){% endif %}; color: var(--primary-dark);">
                             {{ partie.type_personne|title }}
                         </span>
+                        {% if partie.est_commercant or partie.nom_commercial or partie.enseigne %}
+                        <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: var(--success-light); color: var(--success-dark);">
+                            Commerçant
+                        </span>
+                        {% endif %}
                     </div>
                     <p style="font-weight: 600; margin-bottom: 4px;">{{ partie.get_nom_complet }}</p>
+                    {% if partie.nom_commercial %}
+                    <p style="font-size: 13px; color: var(--neutral-700); margin-bottom: 4px;">
+                        <i data-lucide="store" style="width: 12px; height: 12px; display: inline;"></i>
+                        Nom commercial : <strong>{{ partie.nom_commercial }}</strong>
+                    </p>
+                    {% endif %}
+                    {% if partie.enseigne %}
+                    <p style="font-size: 13px; color: var(--neutral-700); margin-bottom: 4px;">
+                        <i data-lucide="building-2" style="width: 12px; height: 12px; display: inline;"></i>
+                        Enseigne : <strong>{{ partie.enseigne }}</strong>
+                    </p>
+                    {% endif %}
+                    {% if partie.activite_commerciale %}
+                    <p style="font-size: 13px; color: var(--neutral-600); margin-bottom: 4px;">
+                        <i data-lucide="briefcase" style="width: 12px; height: 12px; display: inline;"></i>
+                        {{ partie.activite_commerciale }}
+                    </p>
+                    {% endif %}
                     {% if partie.domicile or partie.siege_social %}
                     <p style="font-size: 13px; color: var(--neutral-600);">
                         <i data-lucide="map-pin" style="width: 12px; height: 12px; display: inline;"></i>
