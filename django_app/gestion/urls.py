@@ -149,4 +149,11 @@ urlpatterns = [
     # Admin suggestions parties
     path('admin/suggestions-parties/', views.admin_suggestions_parties, name='admin_suggestions_parties'),
     path('admin/appliquer-suggestion/<int:partie_id>/', views.admin_appliquer_suggestion, name='admin_appliquer_suggestion'),
+
+    # Import de données
+    path('import/', views.import_donnees_accueil, name='import_accueil'),
+    path('import/nouvelle/', views.import_donnees_nouvelle_session, name='import_nouvelle_session'),
+    path('import/<int:session_id>/analyser/', views.import_donnees_analyser, name='import_analyser'),
+    path('import/<int:session_id>/valider/', views.import_donnees_valider, name='import_valider'),
+    path('import/<int:session_id>/executer/', views.import_donnees_executer, name='import_executer'),
 ]
