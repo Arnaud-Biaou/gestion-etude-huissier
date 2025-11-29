@@ -247,9 +247,9 @@ class VersionDocumentAdmin(admin.ModelAdmin):
 
 @admin.register(AccesPartage)
 class AccesPartageAdmin(admin.ModelAdmin):
-    list_display = ['partage', 'date_acces', 'ip_acces', 'action']
+    list_display = ['partage', 'date_acces', 'ip', 'action']
     list_filter = ['action', 'date_acces']
-    search_fields = ['partage__token', 'ip_acces', 'user_agent']
+    search_fields = ['partage__token', 'ip', 'user_agent']
     raw_id_fields = ['partage']
     readonly_fields = ['id', 'date_acces']
     date_hierarchy = 'date_acces'
