@@ -258,12 +258,21 @@ def nouveau_dossier(request):
                     if dem.get('nom') or dem.get('denomination'):
                         partie = Partie.objects.create(
                             type_personne=dem.get('typePersonne', 'physique'),
+                            # Personne physique
                             nom=dem.get('nom', ''),
                             prenoms=dem.get('prenoms', ''),
-                            denomination=dem.get('denomination', ''),
                             nationalite=dem.get('nationalite', ''),
+                            profession=dem.get('profession', ''),
                             domicile=dem.get('domicile', ''),
+                            # Personne morale
+                            denomination=dem.get('denomination', ''),
+                            forme_juridique=dem.get('formeJuridique', ''),
+                            capital_social=Decimal(str(dem.get('capitalSocial'))) if dem.get('capitalSocial') else None,
+                            rccm=dem.get('rccm', ''),
                             siege_social=dem.get('siegeSocial', ''),
+                            representant=dem.get('representant', ''),
+                            qualite_representant=dem.get('qualiteRepresentant', ''),
+                            # Commun
                             telephone=dem.get('telephone', ''),
                             ifu=dem.get('ifu', ''),
                         )
@@ -277,12 +286,21 @@ def nouveau_dossier(request):
                     if def_.get('nom') or def_.get('denomination'):
                         partie = Partie.objects.create(
                             type_personne=def_.get('typePersonne', 'physique'),
+                            # Personne physique
                             nom=def_.get('nom', ''),
                             prenoms=def_.get('prenoms', ''),
-                            denomination=def_.get('denomination', ''),
                             nationalite=def_.get('nationalite', ''),
+                            profession=def_.get('profession', ''),
                             domicile=def_.get('domicile', ''),
+                            # Personne morale
+                            denomination=def_.get('denomination', ''),
+                            forme_juridique=def_.get('formeJuridique', ''),
+                            capital_social=Decimal(str(def_.get('capitalSocial'))) if def_.get('capitalSocial') else None,
+                            rccm=def_.get('rccm', ''),
                             siege_social=def_.get('siegeSocial', ''),
+                            representant=def_.get('representant', ''),
+                            qualite_representant=def_.get('qualiteRepresentant', ''),
+                            # Commun
                             telephone=def_.get('telephone', ''),
                             ifu=def_.get('ifu', ''),
                         )
@@ -2314,43 +2332,71 @@ def api_creanciers_export(request):
 
 @require_POST
 def api_creancier_creer(request):
-    """API pour créer un créancier"""
+    """API pour créer ou modifier un créancier"""
     try:
         data = json.loads(request.body)
 
-        creancier = Creancier(
-            code=data.get('code') or Creancier.generer_code(),
-            nom=data.get('nom'),
-            type_creancier=data.get('type_creancier', 'entreprise'),
-            adresse=data.get('adresse', ''),
-            telephone=data.get('telephone', ''),
-            email=data.get('email', ''),
-            ifu=data.get('ifu', ''),
-            rccm=data.get('rccm', ''),
-            contact_nom=data.get('contact_nom', ''),
-            contact_fonction=data.get('contact_fonction', ''),
-            contact_telephone=data.get('contact_telephone', ''),
-            contact_email=data.get('contact_email', ''),
-            banque_nom=data.get('banque_nom', ''),
-            banque_iban=data.get('banque_iban', ''),
-            banque_rib=data.get('banque_rib', ''),
-            taux_commission=Decimal(str(data.get('taux_commission', 10))),
-            delai_reversement=data.get('delai_reversement', 15),
-            notes=data.get('notes', ''),
-        )
+        creancier_id = data.get('creancier_id')
+
+        if creancier_id:
+            # Mode modification
+            creancier = get_object_or_404(Creancier, pk=creancier_id)
+            message = f'Créancier {data.get("nom", creancier.nom)} modifié avec succès'
+        else:
+            # Mode création
+            creancier = Creancier()
+            creancier.code = data.get('code') or Creancier.generer_code()
+            message = f'Créancier {data.get("nom")} créé avec succès'
+
+        # Informations générales
+        creancier.nom = data.get('nom', creancier.nom if creancier_id else '')
+        creancier.type_creancier = data.get('type_creancier', 'entreprise')
+
+        # Informations légales (personnes morales)
+        creancier.forme_juridique = data.get('forme_juridique', '')
+        creancier.capital_social = Decimal(str(data.get('capital_social'))) if data.get('capital_social') else None
+        creancier.rccm = data.get('rccm', '')
+        creancier.ifu = data.get('ifu', '')
+        creancier.siege_social = data.get('siege_social', '')
+        creancier.representant_legal = data.get('representant_legal', '')
+        creancier.qualite_representant = data.get('qualite_representant', '')
+
+        # Coordonnées
+        creancier.adresse = data.get('adresse', '')
+        creancier.telephone = data.get('telephone', '')
+        creancier.email = data.get('email', '')
+
+        # Contact référent
+        creancier.contact_nom = data.get('contact_nom', '')
+        creancier.contact_fonction = data.get('contact_fonction', '')
+        creancier.contact_telephone = data.get('contact_telephone', '')
+        creancier.contact_email = data.get('contact_email', '')
+
+        # Paramètres
+        creancier.taux_commission = Decimal(str(data.get('taux_commission', 10)))
+        creancier.delai_reversement = data.get('delai_reversement', 15)
+
+        # Coordonnées bancaires
+        creancier.banque_nom = data.get('banque_nom', '')
+        creancier.banque_iban = data.get('banque_iban', '')
+        creancier.banque_rib = data.get('banque_rib', '')
+
+        creancier.notes = data.get('notes', '')
+
         creancier.save()
 
-        # Créer le portefeuille associé
-        PortefeuilleCreancier.objects.create(
-            creancier=creancier,
-            date_debut_relation=timezone.now().date()
-        )
+        # Créer le portefeuille associé si nouveau créancier
+        if not creancier_id:
+            PortefeuilleCreancier.objects.create(
+                creancier=creancier,
+                date_debut_relation=timezone.now().date()
+            )
 
         return JsonResponse({
             'success': True,
             'creancier_id': creancier.id,
             'code': creancier.code,
-            'message': f'Créancier {creancier.nom} créé avec succès'
+            'message': message
         })
 
     except Exception as e:
@@ -2382,18 +2428,28 @@ def api_creancier_detail(request, creancier_id):
             'code': creancier.code,
             'nom': creancier.nom,
             'type_creancier': creancier.type_creancier,
+            # Informations légales (personnes morales)
+            'forme_juridique': creancier.forme_juridique,
+            'capital_social': float(creancier.capital_social) if creancier.capital_social else None,
+            'rccm': creancier.rccm,
+            'ifu': creancier.ifu,
+            'siege_social': creancier.siege_social,
+            'representant_legal': creancier.representant_legal,
+            'qualite_representant': creancier.qualite_representant,
+            # Coordonnées
             'adresse': creancier.adresse,
             'telephone': creancier.telephone,
             'email': creancier.email,
-            'ifu': creancier.ifu,
-            'rccm': creancier.rccm,
+            # Contact référent
             'contact_nom': creancier.contact_nom,
             'contact_fonction': creancier.contact_fonction,
             'contact_telephone': creancier.contact_telephone,
             'contact_email': creancier.contact_email,
+            # Coordonnées bancaires
             'banque_nom': creancier.banque_nom,
             'banque_iban': creancier.banque_iban,
             'banque_rib': creancier.banque_rib,
+            # Paramètres
             'taux_commission': float(creancier.taux_commission),
             'delai_reversement': creancier.delai_reversement,
             'notes': creancier.notes,

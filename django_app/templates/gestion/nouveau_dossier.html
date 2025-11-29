@@ -520,28 +520,50 @@
                         <input class="form-input" value="${partie.denomination || ''}" onchange="updatePartie('${type}', ${index}, 'denomination', this.value)">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Capital Social <span style="color:red;">*</span></label>
-                        <input class="form-input" type="number" placeholder="FCFA" value="${partie.capitalSocial || ''}" onchange="updatePartie('${type}', ${index}, 'capitalSocial', this.value)">
+                        <label class="form-label">Forme Juridique <span style="color:red;">*</span></label>
+                        <select class="form-select" onchange="updatePartie('${type}', ${index}, 'formeJuridique', this.value)">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="SARL" ${partie.formeJuridique === 'SARL' ? 'selected' : ''}>SARL - Société à Responsabilité Limitée</option>
+                            <option value="SARLU" ${partie.formeJuridique === 'SARLU' ? 'selected' : ''}>SARLU - SARL Unipersonnelle</option>
+                            <option value="SA" ${partie.formeJuridique === 'SA' ? 'selected' : ''}>SA - Société Anonyme</option>
+                            <option value="SAS" ${partie.formeJuridique === 'SAS' ? 'selected' : ''}>SAS - Société par Actions Simplifiée</option>
+                            <option value="SASU" ${partie.formeJuridique === 'SASU' ? 'selected' : ''}>SASU - SAS Unipersonnelle</option>
+                            <option value="SNC" ${partie.formeJuridique === 'SNC' ? 'selected' : ''}>SNC - Société en Nom Collectif</option>
+                            <option value="SCS" ${partie.formeJuridique === 'SCS' ? 'selected' : ''}>SCS - Société en Commandite Simple</option>
+                            <option value="GIE" ${partie.formeJuridique === 'GIE' ? 'selected' : ''}>GIE - Groupement d'Intérêt Économique</option>
+                            <option value="ASSOCIATION" ${partie.formeJuridique === 'ASSOCIATION' ? 'selected' : ''}>Association</option>
+                            <option value="ONG" ${partie.formeJuridique === 'ONG' ? 'selected' : ''}>ONG</option>
+                            <option value="ETABLISSEMENT_PUBLIC" ${partie.formeJuridique === 'ETABLISSEMENT_PUBLIC' ? 'selected' : ''}>Établissement public</option>
+                            <option value="AUTRE" ${partie.formeJuridique === 'AUTRE' ? 'selected' : ''}>Autre</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Forme Juridique</label>
-                        <select class="form-select" onchange="updatePartie('${type}', ${index}, 'formeJuridique', this.value)">
-                            <option ${partie.formeJuridique === 'SARL' ? 'selected' : ''}>SARL</option>
-                            <option ${partie.formeJuridique === 'SA' ? 'selected' : ''}>SA</option>
-                            <option ${partie.formeJuridique === 'SAS' ? 'selected' : ''}>SAS</option>
-                        </select>
+                        <label class="form-label">Capital Social (FCFA)</label>
+                        <input class="form-input" type="number" placeholder="Ex: 10000000" value="${partie.capitalSocial || ''}" onchange="updatePartie('${type}', ${index}, 'capitalSocial', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">N° RCCM <span style="color:red;">*</span></label>
+                        <input class="form-input" placeholder="Ex: RB/COT/21 B 12345" value="${partie.rccm || ''}" onchange="updatePartie('${type}', ${index}, 'rccm', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">N° IFU</label>
+                        <input class="form-input" placeholder="Identifiant Fiscal Unique" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
                     </div>
                     <div class="form-group full-width">
                         <label class="form-label">Siège Social <span style="color:red;">*</span></label>
-                        <input class="form-input" value="${partie.siegeSocial || ''}" onchange="updatePartie('${type}', ${index}, 'siegeSocial', this.value)">
+                        <textarea class="form-input" rows="2" placeholder="Adresse complète du siège social" onchange="updatePartie('${type}', ${index}, 'siegeSocial', this.value)">${partie.siegeSocial || ''}</textarea>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Représentant Légal</label>
-                        <input class="form-input" value="${partie.representant || ''}" onchange="updatePartie('${type}', ${index}, 'representant', this.value)">
+                        <label class="form-label">Représentant Légal <span style="color:red;">*</span></label>
+                        <input class="form-input" placeholder="Nom complet" value="${partie.representant || ''}" onchange="updatePartie('${type}', ${index}, 'representant', this.value)">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">IFU <span style="color:red;">*</span></label>
-                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                        <label class="form-label">Qualité du Représentant</label>
+                        <input class="form-input" placeholder="Ex: Gérant, Directeur Général, PDG" value="${partie.qualiteRepresentant || ''}" onchange="updatePartie('${type}', ${index}, 'qualiteRepresentant', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
                     </div>
                 `}
             </div>
