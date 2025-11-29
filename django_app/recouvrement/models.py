@@ -54,6 +54,17 @@ class DossierRecouvrement(models.Model):
         verbose_name="Débiteur"
     )
 
+    # LIEN VERS LE DOSSIER JURIDIQUE PRINCIPAL
+    dossier_principal = models.ForeignKey(
+        'gestion.Dossier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='dossiers_recouvrement',
+        verbose_name="Dossier juridique principal",
+        help_text="Dossier principal de l'étude lié à ce recouvrement"
+    )
+
     # Type et statut
     type_recouvrement = models.CharField(
         max_length=20,
