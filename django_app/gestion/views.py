@@ -5869,3 +5869,80 @@ def api_calendrier_saisie_detail(request, pk):
             'success': False,
             'error': str(e)
         }, status=400)
+
+
+# =============================================================================
+# RECHERCHE GLOBALE
+# =============================================================================
+
+@login_required
+def recherche_globale(request):
+    """Recherche globale multi-modules"""
+    query = request.GET.get('q', '').strip()
+    resultats = {
+        'dossiers': [],
+        'factures': [],
+        'parties': [],
+        'encaissements': [],
+        'biens': [],
+    }
+
+    if query and len(query) >= 2:
+        # Recherche dans les dossiers
+        resultats['dossiers'] = Dossier.objects.filter(
+            Q(reference__icontains=query) |
+            Q(intitule__icontains=query) |
+            Q(observations__icontains=query)
+        )[:10]
+
+        # Recherche dans les parties
+        try:
+            resultats['parties'] = Partie.objects.filter(
+                Q(nom__icontains=query) |
+                Q(prenom__icontains=query) |
+                Q(raison_sociale__icontains=query) |
+                Q(email__icontains=query)
+            )[:10]
+        except Exception:
+            pass
+
+        # Recherche dans les factures
+        try:
+            resultats['factures'] = Facture.objects.filter(
+                Q(numero__icontains=query) |
+                Q(objet__icontains=query)
+            )[:10]
+        except Exception:
+            pass
+
+        # Recherche dans les encaissements
+        try:
+            resultats['encaissements'] = Encaissement.objects.filter(
+                Q(reference__icontains=query) |
+                Q(observations__icontains=query)
+            )[:10]
+        except Exception:
+            pass
+
+        # Recherche dans les biens immobiliers
+        try:
+            from gerance.models import BienImmobilier
+            resultats['biens'] = BienImmobilier.objects.filter(
+                Q(reference__icontains=query) |
+                Q(adresse__icontains=query) |
+                Q(designation__icontains=query)
+            )[:10]
+        except Exception:
+            pass
+
+    total = sum(len(v) for v in resultats.values())
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': 'Recherche globale',
+        'query': query,
+        'resultats': resultats,
+        'total': total,
+    })
+
+    return render(request, 'gestion/recherche_globale.html', context)

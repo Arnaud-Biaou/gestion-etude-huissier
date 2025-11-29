@@ -6,6 +6,7 @@ app_name = 'gestion'
 urlpatterns = [
     # Pages principales
     path('', views.dashboard, name='dashboard'),
+    path('recherche/', views.recherche_globale, name='recherche_globale'),
     path('dossiers/', views.dossiers, name='dossiers'),
     path('dossiers/nouveau/', views.nouveau_dossier, name='nouveau_dossier'),
     path('dossiers/<int:pk>/', views.dossier_detail, name='dossier_detail'),

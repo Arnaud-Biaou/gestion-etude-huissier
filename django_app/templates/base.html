@@ -101,10 +101,10 @@
                     <i data-lucide="menu"></i>
                 </button>
                 <h1 class="page-title">{{ page_title }}</h1>
-                <div class="search-bar">
+                <form action="{% url 'gestion:recherche_globale' %}" method="get" class="search-bar">
                     <i data-lucide="search"></i>
-                    <input type="text" placeholder="Rechercher...">
-                </div>
+                    <input type="text" name="q" placeholder="Rechercher..." value="{{ request.GET.q }}">
+                </form>
                 <div class="topbar-actions">
                     <button class="icon-btn">
                         <i data-lucide="bell"></i>
