@@ -220,7 +220,7 @@ class PointGlobalCreancier(models.Model):
     creancier = models.ForeignKey(
         'gestion.Creancier',
         on_delete=models.CASCADE,
-        related_name='points_globaux',
+        related_name='points_globaux_recouvrement',
         verbose_name="Créancier"
     )
     date_generation = models.DateTimeField(auto_now_add=True)
