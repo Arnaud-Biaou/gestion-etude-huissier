@@ -53,6 +53,31 @@
                     {% endfor %}
                 </div>
 
+                <!-- Rapports -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Rapports</div>
+                    <a href="{% url 'gestion:point_factures_dossier' %}" class="nav-item {% if active_module == 'point_factures_dossier' %}active{% endif %}">
+                        <i data-lucide="folder"></i>
+                        Factures par dossier
+                    </a>
+                    <a href="{% url 'gestion:point_factures_client' %}" class="nav-item {% if active_module == 'point_factures_client' %}active{% endif %}">
+                        <i data-lucide="users"></i>
+                        Factures par client
+                    </a>
+                    <a href="{% url 'gestion:point_factures_avocat' %}" class="nav-item {% if active_module == 'point_factures_avocat' %}active{% endif %}">
+                        <i data-lucide="scale"></i>
+                        Factures par avocat
+                    </a>
+                    <a href="{% url 'gestion:point_notes_frais' %}" class="nav-item {% if active_module == 'point_notes_frais' %}active{% endif %}">
+                        <i data-lucide="receipt"></i>
+                        Notes de frais
+                    </a>
+                    <a href="{% url 'gestion:liste_points_globaux' %}" class="nav-item {% if active_module == 'points_globaux' %}active{% endif %}">
+                        <i data-lucide="pie-chart"></i>
+                        Points globaux créanciers
+                    </a>
+                </div>
+
                 <!-- Gestion -->
                 <div class="nav-section">
                     <div class="nav-section-title">Gestion</div>
