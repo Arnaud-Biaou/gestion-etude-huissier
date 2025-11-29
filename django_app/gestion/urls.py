@@ -122,4 +122,15 @@ urlpatterns = [
 
     # API endpoints - Tableau de bord avancé
     path('api/dashboard/', views.api_dashboard_data, name='api_dashboard_data'),
+
+    # Calendriers Saisie Immobilière
+    path('calendriers-saisie-immo/', views.calendriers_saisie_immo, name='calendriers_saisie_immo'),
+    path('calendriers-saisie-immo/<int:pk>/', views.calendrier_saisie_detail, name='calendrier_saisie_detail'),
+    path('api/calendrier-saisie/creer/', views.api_creer_calendrier_saisie, name='api_creer_calendrier_saisie'),
+    path('api/calendrier-saisie/calculer/', views.api_calculer_dates_saisie, name='api_calculer_dates_saisie'),
+    path('api/calendrier-saisie/<int:pk>/', views.api_calendrier_saisie_detail, name='api_calendrier_saisie_detail'),
+    path('api/calendrier-saisie/<int:pk>/pdf/', views.api_telecharger_calendrier_pdf, name='api_telecharger_calendrier_pdf'),
+    path('api/calendrier-saisie/<int:pk>/pdf-detail/', views.api_telecharger_calendrier_pdf_detail, name='api_telecharger_calendrier_pdf_detail'),
+    path('api/calendrier-saisie/<int:pk>/modifier/', views.api_modifier_calendrier_saisie, name='api_modifier_calendrier_saisie'),
+    path('api/calendrier-saisie/<int:pk>/supprimer/', views.api_supprimer_calendrier_saisie, name='api_supprimer_calendrier_saisie'),
 ]

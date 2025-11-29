@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:calendriers_saisie_immo' %}" class="breadcrumb-item">Calendriers Saisie Immo</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item active">{{ calendrier.reference }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-start flex-wrap gap-4">
+        <div>
+            <h2 class="text-xl font-bold" style="color: var(--primary);">
+                Calendrier {{ calendrier.reference }}
+            </h2>
+            <p style="color: var(--neutral-500); font-size: 14px;">
+                {{ calendrier.juridiction }}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'gestion:api_telecharger_calendrier_pdf' calendrier.pk %}"
+               class="btn btn-primary" target="_blank">
+                <i data-lucide="file-text"></i> Télécharger PDF
+            </a>
+            <a href="{% url 'gestion:api_telecharger_calendrier_pdf_detail' calendrier.pk %}"
+               class="btn btn-secondary" target="_blank">
+                <i data-lucide="file-check"></i> PDF Détaillé
+            </a>
+            <a href="{% url 'gestion:calendriers_saisie_immo' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertes -->
+    {% if alertes %}
+    <div class="space-y-2">
+        {% for alerte in alertes %}
+        <div class="alert alert-{{ alerte.type }}">
+            <i data-lucide="{% if alerte.type == 'danger' %}alert-triangle{% elif alerte.type == 'warning' %}alert-circle{% else %}info{% endif %}"></i>
+            <div>
+                <strong>{{ alerte.etape }}</strong><br/>
+                {{ alerte.message }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Informations générales -->
+    <div class="grid grid-cols-2 gap-6">
+        <!-- Parties -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Parties</h3>
+            </div>
+            <div class="card-body">
+                <div class="space-y-4">
+                    <div>
+                        <label style="font-weight: 600; color: var(--neutral-600); font-size: 12px; text-transform: uppercase;">
+                            Créancier poursuivant
+                        </label>
+                        <p style="margin-top: 4px;">{{ calendrier.creancier }}</p>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: var(--neutral-600); font-size: 12px; text-transform: uppercase;">
+                            Débiteur(s) saisi(s)
+                        </label>
+                        <ul style="margin-top: 4px; padding-left: 20px;">
+                            {% for deb in calendrier.debiteurs.splitlines %}
+                            {% if deb.strip %}
+                            <li>{{ deb }}</li>
+                            {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Immeuble -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Immeuble</h3>
+            </div>
+            <div class="card-body">
+                <div class="space-y-4">
+                    <div>
+                        <label style="font-weight: 600; color: var(--neutral-600); font-size: 12px; text-transform: uppercase;">
+                            Désignation
+                        </label>
+                        <p style="margin-top: 4px;">{{ calendrier.designation_immeuble|default:"-" }}</p>
+                    </div>
+                    {% if calendrier.titre_foncier %}
+                    <div>
+                        <label style="font-weight: 600; color: var(--neutral-600); font-size: 12px; text-transform: uppercase;">
+                            N° Titre foncier
+                        </label>
+                        <p style="margin-top: 4px; font-weight: 500;">{{ calendrier.titre_foncier }}</p>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <label style="font-weight: 600; color: var(--neutral-600); font-size: 12px; text-transform: uppercase;">
+                            Statut
+                        </label>
+                        <p style="margin-top: 4px;">
+                            <span class="status-badge {% if calendrier.statut == 'en_cours' %}active{% elif calendrier.statut == 'termine' %}closed{% else %}inactive{% endif %}">
+                                {{ calendrier.get_statut_display }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des étapes -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Calendrier des étapes</h3>
+            <span style="font-size: 12px; color: var(--neutral-500);">
+                Délais calculés en jours francs (OHADA Art. 1-13 à 1-15)
+            </span>
+        </div>
+        <div class="card-body" style="overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">N°</th>
+                        <th>Nature de l'acte</th>
+                        <th>Article</th>
+                        <th>Délai requis</th>
+                        <th>Date proposée</th>
+                        <th>Date butoir</th>
+                        <th>Sanction</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for etape in etapes %}
+                    <tr>
+                        <td style="text-align: center; font-weight: 600;">{{ etape.numero }}</td>
+                        <td>
+                            {{ etape.nature }}
+                            {% if etape.details %}
+                            <ul style="font-size: 12px; color: var(--neutral-600); margin-top: 4px; padding-left: 16px;">
+                                {% for detail in etape.details %}
+                                <li>{{ detail }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 12px;">{{ etape.article|default:"-" }}</td>
+                        <td style="font-size: 13px;">{{ etape.delai_requis }}</td>
+                        <td>
+                            {% if etape.date_proposee %}
+                                {% if etape.date_proposee.0 %}
+                                    <span style="font-size: 12px;">Du</span> {{ etape.date_proposee.0|date:"d/m/Y" }}<br/>
+                                    <span style="font-size: 12px;">au</span> {{ etape.date_proposee.1|date:"d/m/Y" }}
+                                {% else %}
+                                    {{ etape.date_proposee|date:"d/m/Y" }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td style="font-weight: 500;">
+                            {% if etape.note %}
+                                {{ etape.note }}
+                            {% elif etape.date_butoir %}
+                                {% if etape.date_butoir.0 %}
+                                    <span style="font-size: 12px;">Min:</span> {{ etape.date_butoir.0|date:"d/m/Y" }}<br/>
+                                    <span style="font-size: 12px;">Max:</span> {{ etape.date_butoir.1|date:"d/m/Y" }}
+                                {% else %}
+                                    {{ etape.date_butoir|date:"d/m/Y" }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if etape.sanction %}
+                            <span style="color: var(--danger); font-weight: 500;">{{ etape.sanction }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Observations -->
+    {% if calendrier.observations %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Observations</h3>
+        </div>
+        <div class="card-body">
+            <p style="white-space: pre-line;">{{ calendrier.observations }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Légende -->
+    <div class="card" style="background: var(--neutral-50);">
+        <div class="card-body" style="font-size: 12px; color: var(--neutral-600);">
+            <strong>RÉFÉRENCES LÉGALES :</strong><br/>
+            <p style="margin-top: 4px;">
+                Acte uniforme OHADA portant organisation des procédures simplifiées de recouvrement et des voies d'exécution
+                (révision du 17 octobre 2023) - Articles 246 à 335
+            </p>
+            <p style="margin-top: 8px;">
+                <strong>Computation des délais :</strong> Articles 1-13 à 1-15
+                (jours francs, prorogation si expiration un jour non ouvrable)
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
