@@ -85,3 +85,43 @@ def supprimer_mouvement_encaissement(sender, instance, **kwargs):
             instance.mouvement_tresorerie.delete()
         except:
             pass
+
+
+@receiver(post_save, sender='gestion.Reversement')
+def creer_mouvement_reversement(sender, instance, created, **kwargs):
+    """Crée un mouvement de trésorerie (sortie) pour chaque reversement"""
+    from tresorerie.models import MouvementTresorerie
+
+    if not instance.compte_tresorerie or instance.mouvement_tresorerie:
+        return
+
+    try:
+        dossier = getattr(instance, 'dossier', None)
+        creancier = getattr(instance, 'creancier', None)
+        libelle = f"Reversement"
+        if creancier:
+            libelle += f" à {creancier}"
+
+        mouvement = MouvementTresorerie.objects.create(
+            compte=instance.compte_tresorerie,
+            type_mouvement='sortie',
+            montant=instance.montant,
+            date_mouvement=getattr(instance, 'date_reversement', timezone.now().date()),
+            libelle=libelle,
+            dossier=dossier,
+            reference_externe=f"REV-{instance.pk}",
+        )
+
+        sender.objects.filter(pk=instance.pk).update(mouvement_tresorerie=mouvement)
+    except Exception as e:
+        logger.error(f"Erreur signal reversement: {e}")
+
+
+@receiver(post_delete, sender='gestion.Reversement')
+def supprimer_mouvement_reversement(sender, instance, **kwargs):
+    """Supprime le mouvement de trésorerie associé lors de la suppression d'un reversement"""
+    if instance.mouvement_tresorerie:
+        try:
+            instance.mouvement_tresorerie.delete()
+        except:
+            pass
