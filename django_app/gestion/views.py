@@ -6492,3 +6492,248 @@ def admin_appliquer_suggestion(request, partie_id):
         'nouveau_nom': partie.raison_sociale,
         'nouvelle_forme': partie.forme_juridique,
     })
+
+
+# ═══════════════════════════════════════════════════════════════
+# IMPORT DE DONNÉES DEPUIS ANCIENNE APPLICATION
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
+def import_donnees_accueil(request):
+    """Page d'accueil de l'import - Liste des sessions"""
+    from gestion.models_import import SessionImport
+
+    sessions = SessionImport.objects.all().order_by('-created_at')[:20]
+
+    return render(request, 'gestion/import/accueil.html', {
+        'sessions': sessions,
+    })
+
+
+@login_required
+def import_donnees_nouvelle_session(request):
+    """Créer une nouvelle session d'import et uploader un fichier"""
+    from gestion.models_import import SessionImport
+
+    if request.method == 'POST':
+        nom = request.POST.get('nom', '').strip()
+        source_type = request.POST.get('source_type', 'csv')
+        fichier = request.FILES.get('fichier')
+
+        if not nom:
+            nom = f"Import du {timezone.now().strftime('%d/%m/%Y %H:%M')}"
+
+        if not fichier:
+            messages.error(request, "Veuillez sélectionner un fichier à importer.")
+            return redirect('gestion:import_nouvelle_session')
+
+        # Créer la session
+        session = SessionImport.objects.create(
+            nom=nom,
+            source_type=source_type,
+            fichier_source=fichier,
+            cree_par=request.user,
+            statut='en_cours'
+        )
+
+        messages.success(request, f"Session d'import créée : {session.nom}")
+        return redirect('gestion:import_analyser', session_id=session.pk)
+
+    return render(request, 'gestion/import/nouvelle_session.html')
+
+
+@login_required
+def import_donnees_analyser(request, session_id):
+    """Analyser le fichier uploadé et afficher les résultats"""
+    from gestion.models_import import SessionImport, DossierImportTemp
+    from gestion.services.import_donnees import ServiceImport
+
+    session = get_object_or_404(SessionImport, pk=session_id)
+
+    # Si l'analyse n'a pas encore été faite
+    if session.statut == 'en_cours' and session.fichier_source:
+        try:
+            # Lire le fichier
+            contenu = session.fichier_source.read().decode('utf-8-sig')
+
+            # Lancer l'import dans les tables temporaires
+            service = ServiceImport(session)
+            rapport = service.importer_csv(contenu)
+
+            # Analyser les doublons
+            service.analyser_doublons()
+
+            session.refresh_from_db()
+            messages.success(request, f"Analyse terminée : {session.dossiers_trouves} dossiers trouvés")
+        except Exception as e:
+            session.statut = 'erreur'
+            session.save()
+            messages.error(request, f"Erreur lors de l'analyse : {str(e)}")
+
+    # Récupérer les dossiers temporaires
+    dossiers_temp = session.dossiers_temp.all().order_by('annee_creation', 'mois_creation')
+
+    # Statistiques
+    stats = {
+        'total': dossiers_temp.count(),
+        'en_attente': dossiers_temp.filter(statut='en_attente').count(),
+        'valides': dossiers_temp.filter(statut='valide').count(),
+        'doublons': dossiers_temp.filter(statut='doublon').count(),
+        'erreurs': dossiers_temp.filter(statut='erreur').count(),
+        'importes': dossiers_temp.filter(statut='importe').count(),
+        'avec_demandeur_existant': dossiers_temp.exclude(demandeur_existant_id__isnull=True).count(),
+        'avec_defendeur_existant': dossiers_temp.exclude(defendeur_existant_id__isnull=True).count(),
+    }
+
+    # Grouper par année
+    par_annee = {}
+    for d in dossiers_temp:
+        annee = d.annee_creation or 'Inconnue'
+        if annee not in par_annee:
+            par_annee[annee] = 0
+        par_annee[annee] += 1
+
+    return render(request, 'gestion/import/analyser.html', {
+        'session': session,
+        'dossiers_temp': dossiers_temp[:100],  # Limiter l'affichage
+        'stats': stats,
+        'par_annee': dict(sorted(par_annee.items())),
+        'rapport': session.get_rapport(),
+    })
+
+
+@login_required
+def import_donnees_valider(request, session_id):
+    """Valider les dossiers sélectionnés pour import"""
+    from gestion.models_import import SessionImport, DossierImportTemp
+
+    session = get_object_or_404(SessionImport, pk=session_id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        dossiers_ids = request.POST.getlist('dossiers_ids')
+
+        if action == 'valider':
+            # Marquer comme validés
+            DossierImportTemp.objects.filter(
+                session=session,
+                pk__in=dossiers_ids
+            ).update(statut='valide')
+            messages.success(request, f"{len(dossiers_ids)} dossier(s) validé(s)")
+
+        elif action == 'ignorer':
+            # Marquer comme ignorés
+            DossierImportTemp.objects.filter(
+                session=session,
+                pk__in=dossiers_ids
+            ).update(statut='ignore')
+            messages.info(request, f"{len(dossiers_ids)} dossier(s) ignoré(s)")
+
+        elif action == 'valider_tous':
+            # Valider tous les dossiers en attente
+            count = DossierImportTemp.objects.filter(
+                session=session,
+                statut='en_attente'
+            ).update(statut='valide')
+            messages.success(request, f"{count} dossier(s) validé(s)")
+
+    return redirect('gestion:import_analyser', session_id=session.pk)
+
+
+@login_required
+def import_donnees_executer(request, session_id):
+    """
+    Exécuter l'import définitif des dossiers validés.
+    CETTE ÉTAPE crée les vrais Dossiers et Parties.
+    """
+    from gestion.models_import import SessionImport, DossierImportTemp
+    from gestion.models import Dossier, Partie
+    from django.db import transaction
+
+    session = get_object_or_404(SessionImport, pk=session_id)
+
+    if request.method != 'POST':
+        # Afficher la confirmation
+        dossiers_a_importer = session.dossiers_temp.filter(statut='valide')
+        return render(request, 'gestion/import/confirmer_import.html', {
+            'session': session,
+            'dossiers_a_importer': dossiers_a_importer,
+            'count': dossiers_a_importer.count(),
+        })
+
+    # Exécuter l'import
+    dossiers_valides = session.dossiers_temp.filter(statut='valide')
+
+    importes = 0
+    erreurs = 0
+
+    for dossier_temp in dossiers_valides:
+        try:
+            with transaction.atomic():
+                # Créer ou récupérer le demandeur
+                if dossier_temp.demandeur_existant_id:
+                    demandeur = Partie.objects.get(pk=dossier_temp.demandeur_existant_id)
+                else:
+                    demandeur = Partie.objects.create(
+                        est_personne_morale=dossier_temp.demandeur_est_personne_morale,
+                        nom=dossier_temp.demandeur_nom,
+                        prenom=dossier_temp.demandeur_prenom,
+                        raison_sociale=dossier_temp.demandeur_raison_sociale,
+                        adresse=dossier_temp.demandeur_adresse,
+                        telephone=dossier_temp.demandeur_telephone,
+                        email=dossier_temp.demandeur_email,
+                    )
+
+                # Créer ou récupérer le défendeur
+                if dossier_temp.defendeur_existant_id:
+                    defendeur = Partie.objects.get(pk=dossier_temp.defendeur_existant_id)
+                else:
+                    defendeur = Partie.objects.create(
+                        est_personne_morale=dossier_temp.defendeur_est_personne_morale,
+                        nom=dossier_temp.defendeur_nom,
+                        prenom=dossier_temp.defendeur_prenom,
+                        raison_sociale=dossier_temp.defendeur_raison_sociale,
+                        adresse=dossier_temp.defendeur_adresse,
+                        telephone=dossier_temp.defendeur_telephone,
+                        email=dossier_temp.defendeur_email,
+                    )
+
+                # Créer le dossier
+                dossier = Dossier.objects.create(
+                    reference=dossier_temp.reference_originale[:50],  # Garder la référence originale
+                    intitule=dossier_temp.intitule_genere,
+                    date_ouverture=dossier_temp.date_ouverture_parsee or timezone.now().date(),
+                    montant_principal=dossier_temp.montant_principal or 0,
+                    montant_interets=dossier_temp.montant_interets or 0,
+                    montant_frais=dossier_temp.montant_frais or 0,
+                    statut='ouvert',
+                    cree_par=request.user,
+                    observations=f"Importé depuis ancienne base - Réf originale: {dossier_temp.reference_originale}"
+                )
+
+                # Lier les parties
+                dossier.demandeurs.add(demandeur)
+                dossier.defendeurs.add(defendeur)
+
+                # Marquer comme importé
+                dossier_temp.statut = 'importe'
+                dossier_temp.dossier_cree_id = dossier.pk
+                dossier_temp.save()
+
+                importes += 1
+
+        except Exception as e:
+            dossier_temp.statut = 'erreur'
+            dossier_temp.message_validation = str(e)
+            dossier_temp.save()
+            erreurs += 1
+
+    # Mettre à jour la session
+    if erreurs == 0:
+        session.statut = 'importe'
+    else:
+        session.statut = 'erreur' if importes == 0 else 'importe'
+    session.save()
+
+    messages.success(request, f"Import terminé : {importes} dossier(s) importé(s), {erreurs} erreur(s)")
+    return redirect('gestion:import_analyser', session_id=session.pk)
