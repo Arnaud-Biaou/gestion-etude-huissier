@@ -51,6 +51,10 @@
                         </a>
                         {% endif %}
                     {% endfor %}
+                    <a href="{% url 'recouvrement:dashboard_recouvrement' %}" class="nav-item {% if active_module == 'recouvrement' %}active{% endif %}">
+                        <i data-lucide="hand-coins"></i>
+                        Recouvrement
+                    </a>
                 </div>
 
                 <!-- Rapports -->
