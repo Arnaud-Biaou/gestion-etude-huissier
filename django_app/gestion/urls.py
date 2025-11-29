@@ -134,4 +134,10 @@ urlpatterns = [
     path('api/calendrier-saisie/<int:pk>/pdf-detail/', views.api_telecharger_calendrier_pdf_detail, name='api_telecharger_calendrier_pdf_detail'),
     path('api/calendrier-saisie/<int:pk>/modifier/', views.api_modifier_calendrier_saisie, name='api_modifier_calendrier_saisie'),
     path('api/calendrier-saisie/<int:pk>/supprimer/', views.api_supprimer_calendrier_saisie, name='api_supprimer_calendrier_saisie'),
+
+    # Rapports - Point des factures et notes de frais
+    path('rapports/factures/dossier/', views.point_factures_par_dossier, name='point_factures_dossier'),
+    path('rapports/factures/client/', views.point_factures_par_client, name='point_factures_client'),
+    path('rapports/factures/avocat/', views.point_factures_par_avocat, name='point_factures_avocat'),
+    path('rapports/notes-frais/', views.point_notes_frais, name='point_notes_frais'),
 ]

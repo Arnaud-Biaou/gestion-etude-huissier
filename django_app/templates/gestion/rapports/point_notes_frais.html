@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'gestion:facturation' %}" class="breadcrumb-link">Facturation</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Point des notes de frais</span>
+{% endblock %}
+
+{% block content %}
+<!-- Header with navigation tabs -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div class="tabs" style="margin-bottom: 0; border-bottom: none;">
+        <a href="{% url 'gestion:point_factures_dossier' %}" class="tab">Par dossier</a>
+        <a href="{% url 'gestion:point_factures_client' %}" class="tab">Par client</a>
+        <a href="{% url 'gestion:point_factures_avocat' %}" class="tab">Par collaborateur</a>
+        <a href="{% url 'gestion:point_notes_frais' %}" class="tab active">Notes de frais</a>
+    </div>
+    <div class="flex gap-2">
+        <button class="btn btn-secondary" onclick="window.print()">
+            <i data-lucide="printer"></i> Imprimer
+        </button>
+        <button class="btn btn-primary" onclick="exporterRapport()">
+            <i data-lucide="download"></i> Exporter
+        </button>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title"><i data-lucide="filter"></i> Filtres</h3>
+    </div>
+    <div class="card-body">
+        <form method="get" class="flex gap-4 flex-wrap items-end">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Date debut</label>
+                <input type="date" name="date_debut" class="form-input" value="{{ date_debut|default:'' }}" style="width: 160px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Date fin</label>
+                <input type="date" name="date_fin" class="form-input" value="{{ date_fin|default:'' }}" style="width: 160px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Dossier</label>
+                <select name="dossier" class="form-select" style="width: 200px;">
+                    <option value="">Tous les dossiers</option>
+                    {% for dossier in dossiers %}
+                    <option value="{{ dossier.id }}" {% if dossier_filtre == dossier.id|stringformat:"s" %}selected{% endif %}>{{ dossier.reference }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="search"></i> Filtrer
+            </button>
+            <a href="{% url 'gestion:point_notes_frais' %}" class="btn btn-secondary">
+                <i data-lucide="x"></i> Reinitialiser
+            </a>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiques -->
+<div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="stat-card">
+        <div class="stat-value">{{ nb_types }}</div>
+        <div class="stat-label">Types de frais</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ nb_lignes }}</div>
+        <div class="stat-label">Lignes de frais</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ total_general|floatformat:0 }} F</div>
+        <div class="stat-label">Total</div>
+    </div>
+</div>
+
+<!-- Liste des frais par type -->
+{% for type_frais, data in frais_par_type.items %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i data-lucide="receipt"></i>
+            {{ data.type }}
+        </h3>
+        <div class="flex gap-2">
+            <span class="status-badge info">{{ data.lignes|length }} ligne{{ data.lignes|length|pluralize }}</span>
+            <span class="status-badge success">{{ data.total_ht|floatformat:0 }} F</span>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Facture</th>
+                    <th>Dossier</th>
+                    <th>Client</th>
+                    <th>Date</th>
+                    <th>Quantite</th>
+                    <th>Prix unitaire</th>
+                    <th>Montant HT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in data.lignes %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ ligne.facture.numero }}</td>
+                    <td>
+                        {% if ligne.facture.dossier %}
+                        <a href="{% url 'gestion:dossier_detail' ligne.facture.dossier.id %}">{{ ligne.facture.dossier.reference }}</a>
+                        {% else %}
+                        <span style="color: var(--neutral-400);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ ligne.facture.client }}</td>
+                    <td>{{ ligne.facture.date_emission|date:"d/m/Y" }}</td>
+                    <td>{{ ligne.quantite|default:1 }}</td>
+                    <td>{{ ligne.prix_unitaire|floatformat:0|default:"-" }} F</td>
+                    <td style="font-weight: 600;">{{ ligne.montant_ht|floatformat:0 }} F</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: var(--neutral-100); font-weight: 600;">
+                    <td colspan="4">Total {{ data.type|truncatechars:40 }}</td>
+                    <td>{{ data.quantite_totale }}</td>
+                    <td>-</td>
+                    <td>{{ data.total_ht|floatformat:0 }} F</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% empty %}
+<div class="card">
+    <div class="card-body text-center" style="padding: 60px;">
+        <i data-lucide="receipt" style="width: 48px; height: 48px; color: var(--neutral-400); margin-bottom: 16px;"></i>
+        <h3 style="margin-bottom: 8px;">Aucune note de frais trouvee</h3>
+        <p style="color: var(--neutral-500);">Les lignes de factures apparaitront ici une fois des factures creees.</p>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Total general -->
+{% if frais_par_type %}
+<div class="card">
+    <div class="card-header" style="background: var(--primary); color: white;">
+        <h3 class="card-title" style="color: white;">
+            <i data-lucide="calculator"></i> Total General des Frais
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="grid grid-cols-2 gap-4 text-center">
+            <div>
+                <div style="font-size: 1.5rem; font-weight: 700;">{{ nb_lignes }}</div>
+                <div style="color: var(--neutral-500);">Lignes de frais</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ total_general|floatformat:0 }} F</div>
+                <div style="color: var(--neutral-500);">Montant Total HT</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphique de repartition -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i data-lucide="pie-chart"></i> Repartition par type de frais</h3>
+    </div>
+    <div class="card-body">
+        <div class="space-y-3">
+            {% for type_frais, data in frais_par_type.items %}
+            {% widthratio data.total_ht total_general 100 as percentage %}
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span>{{ data.type|truncatechars:40 }}</span>
+                    <span style="font-weight: 600;">{{ data.total_ht|floatformat:0 }} F ({{ percentage }}%)</span>
+                </div>
+                <div style="background: var(--neutral-200); border-radius: 4px; height: 8px; overflow: hidden;">
+                    <div style="background: var(--primary); height: 100%; width: {{ percentage }}%;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exporterRapport() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'excel');
+    window.location.href = window.location.pathname + '?' + params.toString();
+}
+
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+}
+</script>
+{% endblock %}
