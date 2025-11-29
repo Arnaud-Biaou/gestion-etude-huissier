@@ -95,9 +95,9 @@ class LocaliteAdmin(admin.ModelAdmin):
 
 @admin.register(TauxLegal)
 class TauxLegalAdmin(admin.ModelAdmin):
-    list_display = ['annee', 'semestre', 'taux', 'date_debut', 'date_fin', 'source']
-    list_filter = ['annee', 'semestre']
-    ordering = ['-annee', '-semestre']
+    list_display = ['annee', 'taux', 'date_publication', 'reference_arrete']
+    list_filter = ['annee']
+    ordering = ['-annee']
 
 
 @admin.register(JourFerie)
