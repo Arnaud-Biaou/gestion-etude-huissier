@@ -265,6 +265,15 @@ class Bail(models.Model):
     statut = models.CharField(max_length=20, choices=STATUTS, default='actif')
     motif_fin = models.TextField(blank=True, null=True, verbose_name='Motif fin de bail')
 
+    # Lien vers les dossiers contentieux (impayés, expulsions, etc.)
+    dossiers_contentieux = models.ManyToManyField(
+        'gestion.Dossier',
+        blank=True,
+        related_name='baux_gerance',
+        verbose_name='Dossiers contentieux',
+        help_text='Dossiers contentieux liés à ce bail (impayés, procédures d\'expulsion, etc.)'
+    )
+
     notes = models.TextField(blank=True, null=True)
 
     cree_le = models.DateTimeField(auto_now_add=True)
