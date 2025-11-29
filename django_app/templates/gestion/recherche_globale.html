@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Recherche globale</span>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3><i data-lucide="search"></i> Recherche globale</h3>
+    </div>
+    <div class="card-body">
+        <form method="get" action="{% url 'gestion:recherche_globale' %}" class="flex gap-4 mb-4">
+            <div class="search-bar" style="flex: 1; max-width: 500px;">
+                <i data-lucide="search"></i>
+                <input type="text" name="q" value="{{ query }}" placeholder="Rechercher dans tous les modules..." autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="search"></i> Rechercher
+            </button>
+        </form>
+
+        {% if query %}
+        <div class="alert alert-info mb-4">
+            <i data-lucide="info"></i>
+            <strong>{{ total }}</strong> résultat(s) trouvé(s) pour "<strong>{{ query }}</strong>"
+        </div>
+        {% elif query == '' %}
+        <div class="alert alert-warning">
+            <i data-lucide="alert-triangle"></i>
+            Entrez au moins 2 caractères pour lancer la recherche.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if query and total > 0 %}
+
+<!-- Dossiers -->
+{% if resultats.dossiers %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h3><i data-lucide="folder"></i> Dossiers ({{ resultats.dossiers|length }})</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Intitulé</th>
+                    <th>Type</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dossier in resultats.dossiers %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ dossier.reference }}</td>
+                    <td>{{ dossier.intitule|default:"-" }}</td>
+                    <td>{{ dossier.type|default:"-" }}</td>
+                    <td>
+                        <span class="status-badge {{ dossier.statut|default:'actif' }}">
+                            {{ dossier.statut|default:"Actif"|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="btn btn-sm btn-secondary">
+                            <i data-lucide="eye"></i> Voir
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Parties -->
+{% if resultats.parties %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h3><i data-lucide="users"></i> Parties ({{ resultats.parties|length }})</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nom / Raison sociale</th>
+                    <th>Prénom</th>
+                    <th>Email</th>
+                    <th>Téléphone</th>
+                    <th>Qualité</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for partie in resultats.parties %}
+                <tr>
+                    <td style="font-weight: 600;">
+                        {% if partie.raison_sociale %}
+                            {{ partie.raison_sociale }}
+                        {% else %}
+                            {{ partie.nom|default:"-" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ partie.prenom|default:"-" }}</td>
+                    <td>{{ partie.email|default:"-" }}</td>
+                    <td>{{ partie.telephone|default:"-" }}</td>
+                    <td>
+                        <span class="status-badge">{{ partie.qualite|default:"-" }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Factures -->
+{% if resultats.factures %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h3><i data-lucide="file-text"></i> Factures ({{ resultats.factures|length }})</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Numéro</th>
+                    <th>Objet</th>
+                    <th>Date</th>
+                    <th>Montant</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for facture in resultats.factures %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ facture.numero }}</td>
+                    <td>{{ facture.objet|default:"-" }}</td>
+                    <td>{{ facture.date_facture|date:"d/m/Y"|default:"-" }}</td>
+                    <td>{{ facture.montant_total|default:"0" }} F</td>
+                    <td>
+                        <span class="status-badge {{ facture.statut|default:'brouillon' }}">
+                            {{ facture.statut|default:"Brouillon"|title }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Encaissements -->
+{% if resultats.encaissements %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h3><i data-lucide="banknote"></i> Encaissements ({{ resultats.encaissements|length }})</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Dossier</th>
+                    <th>Date</th>
+                    <th>Montant</th>
+                    <th>Mode</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for encaissement in resultats.encaissements %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ encaissement.reference }}</td>
+                    <td>
+                        {% if encaissement.dossier %}
+                            <a href="{% url 'gestion:dossier_detail' encaissement.dossier.pk %}">
+                                {{ encaissement.dossier.reference }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ encaissement.date_encaissement|date:"d/m/Y"|default:"-" }}</td>
+                    <td>{{ encaissement.montant|default:"0" }} F</td>
+                    <td>{{ encaissement.mode_paiement|default:"-" }}</td>
+                    <td>
+                        <span class="status-badge {{ encaissement.statut|default:'en_attente' }}">
+                            {{ encaissement.statut|default:"En attente"|title }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Biens immobiliers -->
+{% if resultats.biens %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h3><i data-lucide="building"></i> Biens immobiliers ({{ resultats.biens|length }})</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Désignation</th>
+                    <th>Adresse</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bien in resultats.biens %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ bien.reference }}</td>
+                    <td>{{ bien.designation|default:"-" }}</td>
+                    <td>{{ bien.adresse|default:"-" }}</td>
+                    <td>{{ bien.type_bien|default:"-" }}</td>
+                    <td>
+                        <a href="{% url 'gerance:bien_detail' bien.pk %}" class="btn btn-sm btn-secondary">
+                            <i data-lucide="eye"></i> Voir
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% elif query and total == 0 %}
+<div class="card mt-4">
+    <div class="card-body text-center" style="padding: 3rem;">
+        <i data-lucide="search-x" style="width: 64px; height: 64px; color: var(--gray-400); margin-bottom: 1rem;"></i>
+        <h3 style="color: var(--gray-600);">Aucun résultat trouvé</h3>
+        <p style="color: var(--gray-500);">Essayez avec d'autres termes de recherche.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
