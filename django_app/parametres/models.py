@@ -1031,56 +1031,59 @@ class Localite(models.Model):
 
 
 class TauxLegal(models.Model):
-    """Table des taux légaux UEMOA"""
-    SEMESTRES = [
-        ('S1', 'Premier semestre'),
-        ('S2', 'Second semestre'),
-    ]
-
-    annee = models.PositiveIntegerField(verbose_name="Année")
-    semestre = models.CharField(
-        max_length=2,
-        choices=SEMESTRES,
-        verbose_name="Semestre"
-    )
+    """Taux d'intérêt légal UEMOA par année"""
+    annee = models.PositiveIntegerField(unique=True, verbose_name="Année")
     taux = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        verbose_name="Taux (%)"
+        max_digits=6,
+        decimal_places=4,
+        verbose_name="Taux annuel (%)"
     )
-    date_debut = models.DateField(verbose_name="Date début")
-    date_fin = models.DateField(verbose_name="Date fin")
-    source = models.CharField(max_length=200, blank=True, verbose_name="Source")
+    date_publication = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date publication JO"
+    )
+    reference_arrete = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Référence arrêté"
+    )
 
     class Meta:
-        verbose_name = "Taux légal"
-        verbose_name_plural = "Taux légaux"
-        ordering = ['-annee', '-semestre']
-        unique_together = ['annee', 'semestre']
+        ordering = ['-annee']
+        verbose_name = "Taux d'intérêt légal"
+        verbose_name_plural = "Taux d'intérêt légaux"
 
     def __str__(self):
-        return f"{self.annee} {self.get_semestre_display()} - {self.taux}%"
+        return f"{self.annee} : {self.taux}%"
+
+    @classmethod
+    def get_taux_annee(cls, annee):
+        """Retourne le taux pour une année donnée"""
+        try:
+            return cls.objects.get(annee=annee).taux
+        except cls.DoesNotExist:
+            # Retourner le dernier taux connu
+            dernier = cls.objects.order_by('-annee').first()
+            return dernier.taux if dernier else Decimal('5.5')
 
     @classmethod
     def get_taux_actuel(cls):
-        """Récupère le taux légal actuellement en vigueur"""
+        """Récupère le taux légal de l'année en cours"""
         from django.utils import timezone
-        today = timezone.now().date()
+        annee_actuelle = timezone.now().year
         try:
-            return cls.objects.get(date_debut__lte=today, date_fin__gte=today)
+            return cls.objects.get(annee=annee_actuelle)
         except cls.DoesNotExist:
-            return None
+            return cls.objects.order_by('-annee').first()
 
     def to_dict(self):
         return {
             'id': self.id,
             'annee': self.annee,
-            'semestre': self.semestre,
-            'semestre_display': self.get_semestre_display(),
             'taux': str(self.taux),
-            'date_debut': self.date_debut.isoformat(),
-            'date_fin': self.date_fin.isoformat(),
-            'source': self.source,
+            'date_publication': self.date_publication.isoformat() if self.date_publication else None,
+            'reference_arrete': self.reference_arrete,
         }
 
 

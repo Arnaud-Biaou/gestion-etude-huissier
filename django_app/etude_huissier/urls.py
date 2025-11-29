@@ -29,6 +29,7 @@ urlpatterns = [
     path("parametres/", include("parametres.urls")),
     path("tresorerie/", include("tresorerie.urls")),
     path("gerance/", include("gerance.urls")),
+    path("recouvrement/", include("recouvrement.urls")),
     path("", include("gestion.urls")),
 ]
 
