@@ -11,27 +11,36 @@ from decimal import Decimal
 import datetime
 
 
-# =============================================================================
-# CONSTANTES LÉGALES BÉNIN
-# =============================================================================
+# ══════════════════════════════════════════════════════════════════════════════
+# CONSTANTES OBSOLÈTES - UTILISER ConfigurationEtude À LA PLACE
+# ══════════════════════════════════════════════════════════════════════════════
+# Ces constantes sont conservées pour référence et rétrocompatibilité mais ne
+# sont plus utilisées dans les calculs. Les valeurs sont maintenant configurables
+# dans le module Paramètres via ConfigurationEtude et TrancheIPTS.
+#
+# Pour récupérer les paramètres actuels, utiliser :
+#   from parametres.models import ConfigurationEtude, TrancheIPTS
+#   config = ConfigurationEtude.get_solo()
+#   bareme = TrancheIPTS.get_bareme_actif()
+# ══════════════════════════════════════════════════════════════════════════════
 
-# SMIG (Salaire Minimum Interprofessionnel Garanti) - 2024
+# SMIG (→ config.rh_smig)
 SMIG_BENIN = Decimal('52000')
 
-# Plafond mensuel CNSS
+# Plafond CNSS (→ config.rh_plafond_cnss)
 PLAFOND_CNSS = Decimal('600000')
 
-# Taux de cotisations CNSS
-TAUX_CNSS_SALARIAL_VIEILLESSE = Decimal('3.6')  # Part salariale vieillesse
-TAUX_CNSS_PATRONAL_VIEILLESSE = Decimal('6.4')  # Part patronale vieillesse
-TAUX_CNSS_PATRONAL_PRESTATIONS_FAMILIALES = Decimal('6.4')  # Part patronale PF
+# Taux CNSS (→ config.rh_cnss_salarial_vieillesse, etc.)
+TAUX_CNSS_SALARIAL_VIEILLESSE = Decimal('3.6')
+TAUX_CNSS_PATRONAL_VIEILLESSE = Decimal('6.4')
+TAUX_CNSS_PATRONAL_PRESTATIONS_FAMILIALES = Decimal('6.4')
 TAUX_CNSS_PATRONAL_RISQUES_PROFESSIONNELS_MIN = Decimal('1.0')
 TAUX_CNSS_PATRONAL_RISQUES_PROFESSIONNELS_MAX = Decimal('4.0')
 
-# VPS (Versement Patronal sur Salaires)
+# VPS (→ config.rh_taux_vps)
 TAUX_VPS = Decimal('4.0')
 
-# Barème IPTS 2024 (Impôt Progressif sur Traitements et Salaires)
+# Barème IPTS (→ TrancheIPTS.get_bareme_actif())
 BAREME_IPTS = [
     (0, 50000, Decimal('0')),
     (50001, 130000, Decimal('10')),
@@ -45,8 +54,8 @@ BAREME_IPTS = [
     (3780001, float('inf'), Decimal('40')),
 ]
 
-# Congés selon Code du travail béninois
-JOURS_CONGES_ANNUELS_BASE = 24  # 2 jours par mois
+# Congés (→ config.rh_conges_annuels)
+JOURS_CONGES_ANNUELS_BASE = 24
 JOURS_SUPPLEMENTAIRES_5_ANS = 1
 JOURS_SUPPLEMENTAIRES_10_ANS = 2
 JOURS_SUPPLEMENTAIRES_15_ANS = 3
@@ -716,8 +725,36 @@ class BulletinPaie(models.Model):
         """Génère une référence unique pour le bulletin"""
         return f"BP{periode.annee}{periode.mois:02d}{employe.matricule}"
 
+    @staticmethod
+    def get_parametres_rh():
+        """Retourne les paramètres RH actuels pour affichage"""
+        from parametres.models import ConfigurationEtude
+        config = ConfigurationEtude.get_solo()
+        return {
+            'smig': config.rh_smig,
+            'plafond_cnss': config.rh_plafond_cnss,
+            'taux_cnss_salarial': config.rh_cnss_salarial_vieillesse,
+            'taux_cnss_patronal_vieillesse': config.rh_cnss_patronal_vieillesse,
+            'taux_cnss_patronal_pf': config.rh_cnss_patronal_pf,
+            'taux_cnss_patronal_at': config.rh_taux_risques_professionnels,
+            'taux_vps': config.rh_taux_vps,
+        }
+
     def calculer(self):
-        """Calcule tous les éléments du bulletin"""
+        """Calcule tous les éléments du bulletin en utilisant les paramètres configurables"""
+        from decimal import ROUND_HALF_UP
+        from parametres.models import ConfigurationEtude, TrancheIPTS
+
+        # Récupérer les paramètres configurables
+        config = ConfigurationEtude.get_solo()
+
+        plafond_cnss = config.rh_plafond_cnss or Decimal('600000')
+        taux_cnss_salarial = config.rh_cnss_salarial_vieillesse or Decimal('3.6')
+        taux_cnss_patronal_vieillesse = config.rh_cnss_patronal_vieillesse or Decimal('6.4')
+        taux_cnss_patronal_pf = config.rh_cnss_patronal_pf or Decimal('6.4')
+        taux_cnss_patronal_at = config.rh_taux_risques_professionnels or Decimal('2.0')
+        taux_vps = config.rh_taux_vps or Decimal('4.0')
+
         # Salaire de base proratisé
         jours_ouvrables = 26
         salaire_journalier = self.salaire_base / jours_ouvrables
@@ -748,25 +785,26 @@ class BulletinPaie(models.Model):
         self.total_gains = salaire_prorata + prime_anciennete + heures_sup_montant + total_lignes_gains
         self.salaire_brut = self.total_gains
 
-        # Base cotisable (plafonnée à 600 000 FCFA)
-        self.base_cotisable = min(self.salaire_brut, PLAFOND_CNSS)
+        # Base cotisable (plafonnée selon paramètres)
+        self.base_cotisable = min(self.salaire_brut, plafond_cnss)
 
-        # Cotisations CNSS
-        self.cnss_salariale = self.base_cotisable * TAUX_CNSS_SALARIAL_VIEILLESSE / 100
+        # Cotisations salariales CNSS (vieillesse uniquement)
+        self.cnss_salariale = (self.base_cotisable * taux_cnss_salarial / 100).quantize(Decimal('1'), ROUND_HALF_UP)
 
-        taux_patronal = (TAUX_CNSS_PATRONAL_VIEILLESSE +
-                         TAUX_CNSS_PATRONAL_PRESTATIONS_FAMILIALES +
-                         TAUX_CNSS_PATRONAL_RISQUES_PROFESSIONNELS_MIN)
-        self.cnss_patronale = self.base_cotisable * taux_patronal / 100
+        # Cotisations patronales CNSS (vieillesse + PF + AT/RP)
+        cnss_patronale_vieillesse = (self.base_cotisable * taux_cnss_patronal_vieillesse / 100).quantize(Decimal('1'), ROUND_HALF_UP)
+        cnss_patronale_pf = (self.base_cotisable * taux_cnss_patronal_pf / 100).quantize(Decimal('1'), ROUND_HALF_UP)
+        cnss_patronale_at = (self.base_cotisable * taux_cnss_patronal_at / 100).quantize(Decimal('1'), ROUND_HALF_UP)
+        self.cnss_patronale = cnss_patronale_vieillesse + cnss_patronale_pf + cnss_patronale_at
+
+        # VPS (Versement Patronal sur Salaire)
+        self.vps = (self.salaire_brut * taux_vps / 100).quantize(Decimal('1'), ROUND_HALF_UP)
 
         # Base imposable (après déduction CNSS salariale)
         self.base_imposable = self.salaire_brut - self.cnss_salariale
 
-        # Calcul IPTS
+        # IPTS (utiliser le barème configurable)
         self.ipts = self._calculer_ipts(self.base_imposable, self.employe.nombre_enfants)
-
-        # VPS (charge patronale)
-        self.vps = self.salaire_brut * TAUX_VPS / 100
 
         # Total retenues depuis les lignes
         total_lignes_retenues = sum(
@@ -782,27 +820,21 @@ class BulletinPaie(models.Model):
         self.save()
 
     def _calculer_ipts(self, base_imposable, nb_enfants):
-        """Calcule l'IPTS selon le barème béninois avec abattements"""
-        # Abattement pour charges de famille
+        """Calcule l'IPTS selon le barème configurable avec abattements pour enfants"""
+        from decimal import ROUND_HALF_UP
+        from parametres.models import TrancheIPTS
+
+        # Abattement pour charges de famille (5% par enfant, max 25%)
         abattement = Decimal('0')
         if nb_enfants > 0:
-            abattement = min(nb_enfants * Decimal('0.05'), Decimal('0.25'))  # 5% par enfant, max 25%
+            abattement = min(nb_enfants * Decimal('0.05'), Decimal('0.25'))
 
         base_apres_abattement = base_imposable * (1 - abattement)
 
-        impot = Decimal('0')
-        reste = base_apres_abattement
+        # Utiliser le barème IPTS configurable
+        impot = TrancheIPTS.calculer_ipts(base_apres_abattement)
 
-        for tranche_min, tranche_max, taux in BAREME_IPTS:
-            if reste <= 0:
-                break
-
-            largeur_tranche = min(reste, Decimal(tranche_max) - Decimal(tranche_min))
-            if largeur_tranche > 0:
-                impot += largeur_tranche * taux / 100
-                reste -= largeur_tranche
-
-        return impot
+        return impot.quantize(Decimal('1'), ROUND_HALF_UP) if impot else Decimal('0')
 
     def _calculer_cumuls(self):
         """Calcule les cumuls annuels"""
