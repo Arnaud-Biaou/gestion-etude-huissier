@@ -315,6 +315,13 @@ class Dossier(models.Model):
         verbose_name = 'Dossier'
         verbose_name_plural = 'Dossiers'
         ordering = ['-date_creation']
+        indexes = [
+            models.Index(fields=['statut'], name='gestion_dos_statut_idx'),
+            models.Index(fields=['type_dossier'], name='gestion_dos_type_idx'),
+            models.Index(fields=['phase'], name='gestion_dos_phase_idx'),
+            models.Index(fields=['date_ouverture'], name='gestion_dos_date_ouv_idx'),
+            models.Index(fields=['date_creation'], name='gestion_dos_date_cre_idx'),
+        ]
 
     def __str__(self):
         return f"{self.reference} - {self.get_intitule()}"
