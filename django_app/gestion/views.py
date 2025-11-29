@@ -2860,9 +2860,9 @@ def api_creancier_detail(request, creancier_id):
     try:
         creancier = get_object_or_404(Creancier, pk=creancier_id)
 
-        # Dossiers du créancier
+        # Dossiers du créancier (avec prefetch pour éviter N+1 sur get_intitule)
         dossiers = []
-        for dossier in creancier.dossiers.all()[:20]:
+        for dossier in creancier.dossiers.prefetch_related('demandeurs', 'defendeurs')[:20]:
             dossiers.append({
                 'id': dossier.id,
                 'reference': dossier.reference,
@@ -3011,6 +3011,9 @@ def api_encaissements_liste(request):
 
         encaissements_qs = Encaissement.objects.select_related(
             'dossier', 'dossier__creancier', 'cree_par', 'valide_par'
+        ).prefetch_related(
+            'dossier__demandeurs',
+            'dossier__defendeurs'
         )
 
         if dossier_id:
