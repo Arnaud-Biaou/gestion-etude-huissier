@@ -1,0 +1,278 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Dossier {{ dossier.reference }}{% endblock %}
+{% block page_title %}Dossier {{ dossier.reference }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dossier-header {
+        background: linear-gradient(135deg, var(--bleu-marine), var(--bleu-marine-clair));
+        border-radius: 16px;
+        padding: 2rem;
+        color: var(--blanc);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .dossier-header-info h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .dossier-header-info .type-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        padding: 0.35rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+    }
+
+    .dossier-status {
+        text-align: right;
+    }
+
+    .dossier-status .status-label {
+        font-size: 0.8rem;
+        opacity: 0.8;
+        margin-bottom: 0.35rem;
+    }
+
+    .dossier-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .info-item .label {
+        font-size: 0.8rem;
+        color: var(--gris);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-item .value {
+        font-weight: 500;
+        color: var(--bleu-marine);
+        font-size: 1.05rem;
+    }
+
+    .info-item .value.amount {
+        color: var(--or);
+        font-size: 1.2rem;
+    }
+
+    .documents-mini-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .document-mini-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: var(--gris-clair);
+        border-radius: 10px;
+        transition: var(--transition);
+    }
+
+    .document-mini-item:hover {
+        background: #edf2f7;
+    }
+
+    .document-mini-item .doc-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--blanc);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--bleu-marine);
+    }
+
+    .document-mini-item .doc-info {
+        flex: 1;
+    }
+
+    .document-mini-item .doc-title {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--bleu-marine);
+    }
+
+    .document-mini-item .doc-meta {
+        font-size: 0.75rem;
+        color: var(--gris);
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--gris);
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+        transition: color 0.3s;
+    }
+
+    .back-link:hover {
+        color: var(--bleu-marine);
+    }
+
+    @media (max-width: 1024px) {
+        .dossier-content {
+            grid-template-columns: 1fr;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'portail_mes_dossiers' %}" class="back-link">
+    <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
+    Retour à mes dossiers
+</a>
+
+<!-- Dossier Header -->
+<div class="dossier-header">
+    <div class="dossier-header-info">
+        <h2>{{ dossier.reference }}</h2>
+        <span class="type-badge">{{ dossier.get_type_dossier_display|default:"Dossier" }}</span>
+    </div>
+    <div class="dossier-status">
+        <div class="status-label">Statut</div>
+        <span class="status-badge {{ dossier.statut }}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+            {{ dossier.get_statut_display }}
+        </span>
+    </div>
+</div>
+
+<div class="dossier-content">
+    <!-- Main Info -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="info" style="width: 20px; height: 20px;"></i>
+                Informations du dossier
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Référence</span>
+                    <span class="value">{{ dossier.reference }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Type de dossier</span>
+                    <span class="value">{{ dossier.get_type_dossier_display|default:"Non défini" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Date d'ouverture</span>
+                    <span class="value">{{ dossier.date_ouverture|date:"d/m/Y" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Phase</span>
+                    <span class="value">{{ dossier.get_phase_display }}</span>
+                </div>
+                {% if dossier.montant_creance %}
+                <div class="info-item">
+                    <span class="label">Montant de la créance</span>
+                    <span class="value amount">{{ dossier.montant_creance|floatformat:0 }} FCFA</span>
+                </div>
+                {% endif %}
+                {% if dossier.date_creance %}
+                <div class="info-item">
+                    <span class="label">Date de la créance</span>
+                    <span class="value">{{ dossier.date_creance|date:"d/m/Y" }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if dossier.description %}
+            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+                <div class="info-item">
+                    <span class="label">Description</span>
+                    <span class="value" style="font-size: 0.95rem; line-height: 1.6;">{{ dossier.description }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Documents Related -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="file-text" style="width: 20px; height: 20px;"></i>
+                Documents liés
+            </h3>
+        </div>
+        <div class="card-body">
+            {% if documents %}
+            <div class="documents-mini-grid">
+                {% for doc in documents %}
+                <div class="document-mini-item">
+                    <div class="doc-icon">
+                        <i data-lucide="file" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-title">{{ doc.titre|truncatewords:4 }}</div>
+                        <div class="doc-meta">{{ doc.get_type_document_display }} - {{ doc.date_mise_disposition|date:"d/m/Y" }}</div>
+                    </div>
+                    {% if not doc.paiement_requis or doc.est_paye %}
+                    <a href="{% url 'portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
+                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                    </a>
+                    {% else %}
+                    <span class="btn btn-sm btn-secondary" style="opacity: 0.5;" title="Paiement requis">
+                        <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
+                    </span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding: 2rem;">
+                <i data-lucide="file-x" style="width: 40px; height: 40px;"></i>
+                <h4>Aucun document</h4>
+                <p style="font-size: 0.85rem;">Pas de documents pour ce dossier.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Contact CTA -->
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-body" style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h4 style="font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 0.25rem;">Une question sur ce dossier ?</h4>
+            <p style="color: var(--gris); font-size: 0.9rem;">Contactez-nous via la messagerie pour toute demande.</p>
+        </div>
+        <a href="{% url 'portail_mes_messages' %}" class="btn btn-primary">
+            <i data-lucide="message-circle" style="width: 18px; height: 18px;"></i>
+            Envoyer un message
+        </a>
+    </div>
+</div>
+{% endblock %}

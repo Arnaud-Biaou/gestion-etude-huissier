@@ -1,0 +1,177 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notifications-list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .notification-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        transition: var(--transition);
+    }
+
+    .notification-item:hover {
+        background: var(--gris-clair);
+    }
+
+    .notification-item.unread {
+        background: rgba(26, 54, 93, 0.03);
+    }
+
+    .notification-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .notification-icon.nouveau_document {
+        background: rgba(56, 161, 105, 0.1);
+        color: var(--vert);
+    }
+
+    .notification-icon.mise_a_jour_dossier {
+        background: rgba(26, 54, 93, 0.1);
+        color: var(--bleu-marine);
+    }
+
+    .notification-icon.paiement_recu {
+        background: rgba(212, 175, 55, 0.15);
+        color: var(--or);
+    }
+
+    .notification-icon.message {
+        background: rgba(49, 130, 206, 0.1);
+        color: #3182ce;
+    }
+
+    .notification-icon.rappel {
+        background: rgba(229, 62, 62, 0.1);
+        color: var(--rouge);
+    }
+
+    .notification-content {
+        flex: 1;
+    }
+
+    .notification-title {
+        font-weight: 600;
+        color: var(--bleu-marine);
+        margin-bottom: 0.25rem;
+    }
+
+    .notification-message {
+        font-size: 0.9rem;
+        color: var(--gris);
+        margin-bottom: 0.5rem;
+    }
+
+    .notification-time {
+        font-size: 0.8rem;
+        color: #a0aec0;
+    }
+
+    .notification-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .mark-read-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        color: var(--gris);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+
+    .mark-read-btn:hover {
+        background: var(--gris-clair);
+        color: var(--bleu-marine);
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+            Toutes les notifications
+        </h3>
+    </div>
+    {% if notifications %}
+    <div class="notifications-list">
+        {% for notif in notifications %}
+        <div class="notification-item {% if not notif.lu %}unread{% endif %}">
+            <div class="notification-icon {{ notif.type_notification }}">
+                {% if notif.type_notification == 'nouveau_document' %}
+                <i data-lucide="file-plus" style="width: 24px; height: 24px;"></i>
+                {% elif notif.type_notification == 'mise_a_jour_dossier' %}
+                <i data-lucide="folder-sync" style="width: 24px; height: 24px;"></i>
+                {% elif notif.type_notification == 'paiement_recu' %}
+                <i data-lucide="check-circle" style="width: 24px; height: 24px;"></i>
+                {% elif notif.type_notification == 'message' %}
+                <i data-lucide="message-circle" style="width: 24px; height: 24px;"></i>
+                {% else %}
+                <i data-lucide="bell" style="width: 24px; height: 24px;"></i>
+                {% endif %}
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">{{ notif.titre }}</div>
+                <div class="notification-message">{{ notif.message }}</div>
+                <div class="notification-time">{{ notif.created_at|timesince }}</div>
+            </div>
+            <div class="notification-actions">
+                {% if notif.lien %}
+                <a href="{{ notif.lien }}" class="btn btn-sm btn-secondary">
+                    <i data-lucide="external-link" style="width: 14px; height: 14px;"></i>
+                    Voir
+                </a>
+                {% endif %}
+                {% if not notif.lu %}
+                <form method="post" action="{% url 'portail_marquer_notification_lue' notif.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="mark-read-btn" title="Marquer comme lu">
+                        <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-body">
+        <div class="empty-state">
+            <i data-lucide="bell-off" style="width: 64px; height: 64px;"></i>
+            <h4>Aucune notification</h4>
+            <p>Vous n'avez pas de notifications pour le moment.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

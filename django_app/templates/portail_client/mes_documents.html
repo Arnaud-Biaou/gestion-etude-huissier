@@ -1,0 +1,238 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Mes documents{% endblock %}
+{% block page_title %}Mes documents{% endblock %}
+
+{% block extra_css %}
+<style>
+    .documents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .document-card {
+        background: var(--blanc);
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .document-card:hover {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        border-color: var(--or);
+    }
+
+    .document-card-header {
+        padding: 1.5rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .document-icon {
+        width: 55px;
+        height: 55px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .document-icon.acte {
+        background: rgba(26, 54, 93, 0.1);
+        color: var(--bleu-marine);
+    }
+
+    .document-icon.facture {
+        background: rgba(212, 175, 55, 0.15);
+        color: var(--or);
+    }
+
+    .document-icon.decompte {
+        background: rgba(56, 161, 105, 0.1);
+        color: var(--vert);
+    }
+
+    .document-icon.courrier {
+        background: rgba(49, 130, 206, 0.1);
+        color: #3182ce;
+    }
+
+    .document-icon.autre {
+        background: var(--gris-clair);
+        color: var(--gris);
+    }
+
+    .document-info h4 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--bleu-marine);
+        margin-bottom: 0.35rem;
+    }
+
+    .document-info .type-badge {
+        font-size: 0.75rem;
+        color: var(--gris);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .document-card-body {
+        padding: 0 1.5rem 1.5rem;
+    }
+
+    .document-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--gris);
+    }
+
+    .document-meta span {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .document-card-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .payment-required {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--rouge);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        border: 2px solid #e2e8f0;
+        background: var(--blanc);
+        color: var(--gris);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .filter-btn:hover,
+    .filter-btn.active {
+        border-color: var(--bleu-marine);
+        background: var(--bleu-marine);
+        color: var(--blanc);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i data-lucide="file-text" style="width: 20px; height: 20px;"></i>
+            Mes documents
+        </h3>
+    </div>
+    <div class="card-body">
+        <!-- Filters -->
+        <div class="filter-bar">
+            <a href="{% url 'portail_mes_documents' %}" class="filter-btn {% if not type_filter %}active{% endif %}">Tous</a>
+            <a href="{% url 'portail_mes_documents' %}?type=acte" class="filter-btn {% if type_filter == 'acte' %}active{% endif %}">Actes</a>
+            <a href="{% url 'portail_mes_documents' %}?type=facture" class="filter-btn {% if type_filter == 'facture' %}active{% endif %}">Factures</a>
+            <a href="{% url 'portail_mes_documents' %}?type=decompte" class="filter-btn {% if type_filter == 'decompte' %}active{% endif %}">Décomptes</a>
+            <a href="{% url 'portail_mes_documents' %}?type=courrier" class="filter-btn {% if type_filter == 'courrier' %}active{% endif %}">Courriers</a>
+        </div>
+
+        {% if documents %}
+        <div class="documents-grid">
+            {% for doc in documents %}
+            <div class="document-card">
+                <div class="document-card-header">
+                    <div class="document-icon {{ doc.type_document }}">
+                        {% if doc.type_document == 'acte' %}
+                        <i data-lucide="file-signature" style="width: 26px; height: 26px;"></i>
+                        {% elif doc.type_document == 'facture' %}
+                        <i data-lucide="receipt" style="width: 26px; height: 26px;"></i>
+                        {% elif doc.type_document == 'decompte' %}
+                        <i data-lucide="calculator" style="width: 26px; height: 26px;"></i>
+                        {% elif doc.type_document == 'courrier' %}
+                        <i data-lucide="mail" style="width: 26px; height: 26px;"></i>
+                        {% else %}
+                        <i data-lucide="file" style="width: 26px; height: 26px;"></i>
+                        {% endif %}
+                    </div>
+                    <div class="document-info">
+                        <h4>{{ doc.titre|truncatewords:6 }}</h4>
+                        <span class="type-badge">{{ doc.get_type_document_display }}</span>
+                    </div>
+                </div>
+                <div class="document-card-body">
+                    <div class="document-meta">
+                        <span>
+                            <i data-lucide="calendar" style="width: 16px; height: 16px;"></i>
+                            {{ doc.date_mise_disposition|date:"d/m/Y" }}
+                        </span>
+                        <span>
+                            <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+                            {{ doc.nombre_telechargements }} téléchargement(s)
+                        </span>
+                        {% if doc.dossier %}
+                        <span>
+                            <i data-lucide="folder" style="width: 16px; height: 16px;"></i>
+                            {{ doc.dossier.reference }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="document-card-footer">
+                    {% if doc.paiement_requis and not doc.est_paye %}
+                    <span class="payment-required">
+                        <i data-lucide="alert-circle" style="width: 16px; height: 16px;"></i>
+                        {{ doc.montant_requis|floatformat:0 }} FCFA requis
+                    </span>
+                    <button class="btn btn-sm btn-gold" disabled title="Paiement requis">
+                        <i data-lucide="lock" style="width: 16px; height: 16px;"></i>
+                    </button>
+                    {% else %}
+                    <span style="font-size: 0.85rem; color: var(--vert);">
+                        <i data-lucide="check-circle" style="width: 16px; height: 16px; display: inline; vertical-align: middle;"></i>
+                        Disponible
+                    </span>
+                    <a href="{% url 'portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
+                        <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+                        Télécharger
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i data-lucide="file-x" style="width: 64px; height: 64px;"></i>
+            <h4>Aucun document</h4>
+            <p>{% if type_filter %}Aucun document de ce type disponible.{% else %}Vous n'avez pas encore de documents disponibles.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
