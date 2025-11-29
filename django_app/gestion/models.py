@@ -230,6 +230,14 @@ class Dossier(models.Model):
         ('force', 'Phase forcée (exécution)'),
     ]
 
+    # Transitions de statut permises
+    TRANSITIONS_PERMISES = {
+        'actif': ['urgent', 'archive', 'cloture'],
+        'urgent': ['actif', 'archive', 'cloture'],
+        'archive': ['actif', 'urgent', 'cloture'],
+        'cloture': [],  # État terminal - pas de sortie
+    }
+
     reference = models.CharField(max_length=20, unique=True)
     is_contentieux = models.BooleanField(default=False, verbose_name='Contentieux')
     type_dossier = models.CharField(max_length=20, choices=TYPE_DOSSIER_CHOICES, blank=True)
@@ -357,6 +365,38 @@ class Dossier(models.Model):
     def get_solde_restant(self):
         """Retourne le solde restant dû"""
         return self.get_montant_total_du() - self.get_total_encaisse()
+
+    def changer_statut(self, nouveau_statut, motif=''):
+        """
+        Change le statut avec validation des transitions.
+
+        Args:
+            nouveau_statut: Nouveau statut (actif, urgent, archive, cloture)
+            motif: Motif de clôture (obligatoire si nouveau_statut='cloture')
+
+        Raises:
+            ValueError: Si la transition n'est pas permise ou données invalides
+        """
+        # Pas de changement
+        if nouveau_statut == self.statut:
+            return
+
+        # Vérifier la transition est permise
+        transitions_possibles = self.TRANSITIONS_PERMISES.get(self.statut, [])
+        if nouveau_statut not in transitions_possibles:
+            raise ValueError(
+                f"Transition interdite: {self.statut} → {nouveau_statut}. "
+                f"Transitions permises: {', '.join(transitions_possibles) or 'aucune'}"
+            )
+
+        # Actions spéciales pour clôture
+        if nouveau_statut == 'cloture':
+            if not motif or not motif.strip():
+                raise ValueError("Un motif est requis pour clôturer un dossier")
+
+        # Mettre à jour
+        self.statut = nouveau_statut
+        self.save(update_fields=['statut', 'date_modification'])
 
     def get_taux_recouvrement(self):
         """Retourne le taux de recouvrement"""
