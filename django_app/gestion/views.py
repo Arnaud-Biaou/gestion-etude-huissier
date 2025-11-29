@@ -56,7 +56,9 @@ from .models import (
     Reversement, BasculementAmiableForce, PointGlobalCreancier,
     EnvoiAutomatiquePoint, HistoriqueEnvoiPoint,
     # Mémoires de Cédules
-    AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire
+    AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire,
+    # Calendrier Saisie Immobilière
+    CalendrierSaisieImmo,
 )
 
 
@@ -114,28 +116,425 @@ def get_default_context(request):
 
 @login_required
 def dashboard(request):
-    """Vue du tableau de bord"""
+    """
+    Tableau de bord principal de l'étude d'huissier
+    Affiche les statistiques clés, alertes et accès rapides
+    """
+    from django.db.models import Sum, Count, Q, F, Avg
+    from django.db.models.functions import TruncMonth
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+
     context = get_default_context(request)
     context['active_module'] = 'dashboard'
     context['page_title'] = 'Tableau de bord'
 
-    # Statistiques depuis la base de donnees
-    nb_dossiers = Dossier.objects.filter(statut='actif').count()
-    nb_urgents = Dossier.objects.filter(statut='urgent').count()
+    today = timezone.now().date()
+    now = timezone.now()
+    debut_mois = today.replace(day=1)
+    debut_annee = today.replace(month=1, day=1)
+    il_y_a_30_jours = today - timedelta(days=30)
+    il_y_a_60_jours = today - timedelta(days=60)
 
-    # Calcul du CA mensuel
-    debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    ca_mensuel = Facture.objects.filter(
-        date_emission__gte=debut_mois,
-        statut='payee'
-    ).aggregate(total=Sum('montant_ttc'))['total'] or 0
+    # ═══════════════════════════════════════════════════════════════
+    # STATISTIQUES DOSSIERS
+    # ═══════════════════════════════════════════════════════════════
 
-    context['stats'] = {
-        'dossiers_actifs': nb_dossiers or 127,
-        'ca_mensuel': f"{ca_mensuel/1000000:.1f} M" if ca_mensuel >= 1000000 else f"{ca_mensuel:,.0f}",
-        'actes_signifies': 89,
-        'urgents': nb_urgents or 14,
-    }
+    # Compter les dossiers par statut
+    dossiers_stats = Dossier.objects.aggregate(
+        total=Count('id'),
+        actifs=Count('id', filter=Q(statut__in=['actif', 'en_cours', 'ouvert'])),
+        clotures=Count('id', filter=Q(statut__in=['cloture', 'termine', 'ferme', 'archive'])),
+        urgents=Count('id', filter=Q(statut='urgent')),
+    )
+
+    # Dossiers par type de procédure
+    dossiers_par_type = list(Dossier.objects.exclude(
+        type_dossier__isnull=True
+    ).exclude(
+        type_dossier=''
+    ).values('type_dossier').annotate(
+        count=Count('id')
+    ).order_by('-count')[:6])
+
+    # Dossiers par phase (amiable/forcé)
+    dossiers_par_phase = Dossier.objects.filter(
+        statut__in=['actif', 'urgent', 'en_cours']
+    ).aggregate(
+        amiables=Count('id', filter=Q(phase='amiable')),
+        forces=Count('id', filter=Q(phase='force')),
+    )
+
+    # Dossiers ouverts ce mois
+    dossiers_mois = Dossier.objects.filter(
+        date_creation__date__gte=debut_mois
+    ).count()
+
+    # Dossiers clôturés ce mois
+    dossiers_clotures_mois = Dossier.objects.filter(
+        statut__in=['cloture', 'termine', 'archive'],
+        date_modification__date__gte=debut_mois
+    ).count()
+
+    # Derniers dossiers créés
+    derniers_dossiers = Dossier.objects.select_related(
+        'affecte_a', 'creancier'
+    ).prefetch_related(
+        'demandeurs', 'defendeurs'
+    ).order_by('-date_creation')[:5]
+
+    # Dossiers sans activité depuis 30 jours
+    dossiers_dormants = Dossier.objects.filter(
+        statut__in=['actif', 'urgent', 'en_cours'],
+        date_modification__date__lt=il_y_a_30_jours
+    ).count()
+
+    # ═══════════════════════════════════════════════════════════════
+    # STATISTIQUES RECOUVREMENT (Encaissements / Reversements)
+    # ═══════════════════════════════════════════════════════════════
+
+    # Montant total des créances en cours
+    total_creances = Dossier.objects.filter(
+        statut__in=['actif', 'urgent', 'en_cours']
+    ).aggregate(
+        total=Sum('montant_creance')
+    )['total'] or Decimal('0')
+
+    # Encaissements
+    encaissements_jour = Encaissement.objects.filter(
+        date_encaissement=today,
+        statut='valide'
+    ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+    encaissements_mois = Encaissement.objects.filter(
+        date_encaissement__gte=debut_mois,
+        statut='valide'
+    ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+    encaissements_annee = Encaissement.objects.filter(
+        date_encaissement__gte=debut_annee,
+        statut='valide'
+    ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+    # Derniers encaissements
+    derniers_encaissements = Encaissement.objects.filter(
+        statut='valide'
+    ).select_related('dossier').order_by('-date_encaissement')[:5]
+
+    # Reversements en attente
+    reversements_attente = Reversement.objects.filter(
+        statut='en_attente'
+    ).aggregate(
+        count=Count('id'),
+        montant=Sum('montant')
+    )
+
+    # Reversements effectués ce mois
+    reversements_mois = Reversement.objects.filter(
+        date_reversement__gte=debut_mois,
+        statut='effectue'
+    ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+    # Taux de recouvrement global
+    total_encaisse_global = Encaissement.objects.filter(
+        statut='valide'
+    ).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+
+    taux_recouvrement = Decimal('0')
+    if total_creances > 0:
+        # Créances totales = créances en cours + encaissements déjà effectués
+        creances_totales = total_creances + total_encaisse_global
+        if creances_totales > 0:
+            taux_recouvrement = (total_encaisse_global / creances_totales * 100)
+
+    # Évolution encaissements (6 derniers mois)
+    six_mois_avant = today - timedelta(days=180)
+    evolution_encaissements = Encaissement.objects.filter(
+        date_encaissement__gte=six_mois_avant,
+        statut='valide'
+    ).annotate(
+        mois=TruncMonth('date_encaissement')
+    ).values('mois').annotate(
+        total=Sum('montant')
+    ).order_by('mois')
+
+    # ═══════════════════════════════════════════════════════════════
+    # STATISTIQUES FACTURATION
+    # ═══════════════════════════════════════════════════════════════
+
+    factures_stats = Facture.objects.aggregate(
+        emises_mois=Count('id', filter=Q(date_emission__gte=debut_mois)),
+        ca_mois=Sum('montant_ttc', filter=Q(date_emission__gte=debut_mois, statut='payee')),
+        ca_annee=Sum('montant_ttc', filter=Q(date_emission__gte=debut_annee, statut='payee')),
+        impayees=Count('id', filter=Q(statut__in=['attente', 'emise'])),
+        montant_impaye=Sum('montant_ttc', filter=Q(statut__in=['attente', 'emise'])),
+    )
+
+    # Factures MECeF en attente de normalisation
+    factures_mecef_attente = Facture.objects.filter(
+        Q(statut_mecef__isnull=True) | Q(statut_mecef='') | Q(statut_mecef='en_attente')
+    ).exclude(statut='annulee').count()
+
+    # ═══════════════════════════════════════════════════════════════
+    # AGENDA / TÂCHES (si module disponible)
+    # ═══════════════════════════════════════════════════════════════
+
+    rdv_jour = []
+    taches_retard = 0
+    taches_urgentes = 0
+    prochaines_echeances = []
+
+    try:
+        from agenda.models import RendezVous, Tache, Priorite, StatutTache
+
+        # RDV du jour
+        rdv_jour = RendezVous.objects.filter(
+            date_debut__date=today
+        ).order_by('date_debut')[:5]
+
+        # Tâches en retard
+        taches_retard = Tache.objects.filter(
+            date_echeance__lt=today,
+            statut__in=['a_faire', 'en_cours', 'en_attente']
+        ).count()
+
+        # Tâches urgentes
+        taches_urgentes = Tache.objects.filter(
+            priorite='haute',
+            statut__in=['a_faire', 'en_cours']
+        ).count()
+
+        # Prochaines échéances (7 jours)
+        sept_jours = today + timedelta(days=7)
+        prochaines_echeances = Tache.objects.filter(
+            date_echeance__range=[today, sept_jours],
+            statut__in=['a_faire', 'en_cours', 'en_attente']
+        ).select_related('dossier').order_by('date_echeance')[:5]
+
+    except ImportError:
+        pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # TRÉSORERIE (si module disponible)
+    # ═══════════════════════════════════════════════════════════════
+
+    solde_total = Decimal('0')
+    comptes_alerte = 0
+    derniers_mouvements = []
+
+    try:
+        from tresorerie.models import CompteBancaire, MouvementTresorerie
+
+        # Solde total des comptes
+        solde_total = CompteBancaire.objects.filter(
+            statut='actif'
+        ).aggregate(total=Sum('solde_actuel'))['total'] or Decimal('0')
+
+        # Comptes avec solde bas (alerte)
+        comptes_alerte = CompteBancaire.objects.filter(
+            statut='actif',
+            solde_actuel__lt=F('seuil_alerte')
+        ).count()
+
+        # Derniers mouvements
+        derniers_mouvements = MouvementTresorerie.objects.select_related(
+            'compte'
+        ).order_by('-date_mouvement')[:5]
+
+    except ImportError:
+        pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # CALENDRIERS SAISIE IMMOBILIÈRE - ALERTES DÉLAIS
+    # ═══════════════════════════════════════════════════════════════
+
+    alertes_saisie_immo = []
+    try:
+        calendriers = CalendrierSaisieImmo.objects.filter(statut='en_cours')
+        for cal in calendriers[:5]:  # Limiter à 5 calendriers
+            if hasattr(cal, 'get_alertes'):
+                alertes = cal.get_alertes()
+                for alerte in alertes:
+                    if alerte.get('niveau') in ['danger', 'warning']:
+                        alertes_saisie_immo.append({
+                            'reference': cal.reference,
+                            'etape': alerte.get('etape'),
+                            'niveau': alerte.get('niveau'),
+                            'message': alerte.get('message'),
+                        })
+    except Exception:
+        pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # MÉMOIRES ET CÉDULES
+    # ═══════════════════════════════════════════════════════════════
+
+    memoires_stats = {'en_attente': 0, 'montant_attente': Decimal('0')}
+    try:
+        memoires_stats = Memoire.objects.aggregate(
+            en_attente=Count('id', filter=Q(statut__in=['soumis', 'certifie', 'vise', 'taxe', 'en_paiement'])),
+            montant_attente=Sum('montant_total', filter=Q(statut__in=['soumis', 'certifie', 'vise', 'taxe', 'en_paiement'])),
+        )
+    except Exception:
+        pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # TOP CRÉANCIERS
+    # ═══════════════════════════════════════════════════════════════
+
+    top_creanciers = []
+    try:
+        top_creanciers = Creancier.objects.annotate(
+            nb_dossiers=Count('dossiers', filter=Q(dossiers__statut__in=['actif', 'urgent'])),
+            montant_confie=Sum('dossiers__montant_creance', filter=Q(dossiers__statut__in=['actif', 'urgent']))
+        ).filter(nb_dossiers__gt=0).order_by('-montant_confie')[:5]
+    except Exception:
+        pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # DONNÉES POUR GRAPHIQUES (JSON pour Chart.js)
+    # ═══════════════════════════════════════════════════════════════
+
+    # Évolution encaissements - Formatage pour Chart.js
+    graph_encaissements_labels = []
+    graph_encaissements_data = []
+    for item in evolution_encaissements:
+        if item['mois']:
+            graph_encaissements_labels.append(item['mois'].strftime('%b %Y'))
+            graph_encaissements_data.append(float(item['total'] or 0))
+
+    # Répartition dossiers par type - Formatage pour Chart.js
+    graph_types_labels = []
+    graph_types_data = []
+    type_dossier_display = dict(Dossier.TYPE_DOSSIER_CHOICES)
+    for item in dossiers_par_type:
+        if item['type_dossier']:
+            label = type_dossier_display.get(item['type_dossier'], item['type_dossier'])
+            graph_types_labels.append(label)
+            graph_types_data.append(item['count'])
+
+    # ═══════════════════════════════════════════════════════════════
+    # ALERTES CONSOLIDÉES
+    # ═══════════════════════════════════════════════════════════════
+
+    alertes = []
+
+    if taches_retard > 0:
+        alertes.append({
+            'type': 'danger',
+            'icone': 'alert-triangle',
+            'message': f"{taches_retard} tâche(s) en retard",
+            'lien': '/agenda/'
+        })
+
+    if reversements_attente.get('count', 0) > 0:
+        montant = reversements_attente.get('montant') or 0
+        alertes.append({
+            'type': 'warning',
+            'icone': 'repeat',
+            'message': f"{reversements_attente['count']} reversement(s) en attente ({montant:,.0f} F)",
+            'lien': '/gestion/reversements/'
+        })
+
+    if dossiers_dormants > 0:
+        alertes.append({
+            'type': 'info',
+            'icone': 'folder',
+            'message': f"{dossiers_dormants} dossier(s) sans activité depuis 30 jours",
+            'lien': '/gestion/dossiers/'
+        })
+
+    if comptes_alerte > 0:
+        alertes.append({
+            'type': 'warning',
+            'icone': 'piggy-bank',
+            'message': f"{comptes_alerte} compte(s) avec solde bas",
+            'lien': '/tresorerie/'
+        })
+
+    if factures_mecef_attente > 0:
+        alertes.append({
+            'type': 'warning',
+            'icone': 'file-text',
+            'message': f"{factures_mecef_attente} facture(s) MECeF à normaliser",
+            'lien': '/gestion/facturation/'
+        })
+
+    for alerte in alertes_saisie_immo[:3]:  # Max 3 alertes saisie immo
+        alertes.append({
+            'type': alerte['niveau'],
+            'icone': 'calendar',
+            'message': f"Saisie {alerte['reference']}: {alerte['message']}",
+            'lien': '/gestion/calendriers-saisie-immo/'
+        })
+
+    # ═══════════════════════════════════════════════════════════════
+    # CONTEXTE FINAL
+    # ═══════════════════════════════════════════════════════════════
+
+    context.update({
+        # Dossiers
+        'dossiers_actifs': dossiers_stats.get('actifs', 0),
+        'dossiers_total': dossiers_stats.get('total', 0),
+        'dossiers_clotures': dossiers_stats.get('clotures', 0),
+        'dossiers_urgents': dossiers_stats.get('urgents', 0),
+        'dossiers_mois': dossiers_mois,
+        'dossiers_clotures_mois': dossiers_clotures_mois,
+        'dossiers_dormants': dossiers_dormants,
+        'dossiers_par_type': dossiers_par_type,
+        'dossiers_amiables': dossiers_par_phase.get('amiables', 0),
+        'dossiers_forces': dossiers_par_phase.get('forces', 0),
+        'derniers_dossiers': derniers_dossiers,
+
+        # Recouvrement
+        'total_creances': total_creances,
+        'encaissements_jour': encaissements_jour,
+        'encaissements_mois': encaissements_mois,
+        'encaissements_annee': encaissements_annee,
+        'derniers_encaissements': derniers_encaissements,
+        'taux_recouvrement': round(taux_recouvrement, 1),
+        'reversements_attente_count': reversements_attente.get('count', 0),
+        'reversements_attente_montant': reversements_attente.get('montant') or Decimal('0'),
+        'reversements_mois': reversements_mois,
+
+        # Facturation
+        'factures_emises_mois': factures_stats.get('emises_mois', 0),
+        'ca_mois': factures_stats.get('ca_mois') or Decimal('0'),
+        'ca_annee': factures_stats.get('ca_annee') or Decimal('0'),
+        'factures_impayees': factures_stats.get('impayees', 0),
+        'montant_impaye': factures_stats.get('montant_impaye') or Decimal('0'),
+        'factures_mecef_attente': factures_mecef_attente,
+
+        # Agenda
+        'rdv_jour': rdv_jour,
+        'taches_retard': taches_retard,
+        'taches_urgentes': taches_urgentes,
+        'prochaines_echeances': prochaines_echeances,
+
+        # Trésorerie
+        'solde_total': solde_total,
+        'comptes_alerte': comptes_alerte,
+        'derniers_mouvements': derniers_mouvements,
+
+        # Mémoires
+        'memoires_en_attente': memoires_stats.get('en_attente', 0),
+        'memoires_montant_attente': memoires_stats.get('montant_attente') or Decimal('0'),
+
+        # Créanciers
+        'top_creanciers': top_creanciers,
+
+        # Graphiques (JSON pour Chart.js)
+        'graph_encaissements_labels': json.dumps(graph_encaissements_labels),
+        'graph_encaissements_data': json.dumps(graph_encaissements_data),
+        'graph_types_labels': json.dumps(graph_types_labels),
+        'graph_types_data': json.dumps(graph_types_data),
+
+        # Alertes
+        'alertes': alertes,
+
+        # Méta
+        'today': today,
+    })
 
     return render(request, 'gestion/dashboard.html', context)
 

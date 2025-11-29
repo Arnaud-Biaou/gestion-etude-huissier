@@ -1,67 +1,1124 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tableau de bord - Étude BIAOU{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ═══════════════════════════════════════════════════════════════ */
+/* DASHBOARD STYLES                                                   */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.dashboard-container {
+    padding: 1.5rem;
+    max-width: 100%;
+}
+
+.dashboard-header {
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--neutral-800);
+    margin: 0;
+}
+
+.dashboard-header p {
+    color: var(--neutral-500);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Stat Card */
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.stat-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-card-icon i {
+    width: 24px;
+    height: 24px;
+}
+
+.stat-card-icon.primary { background: var(--primary-50); color: var(--primary); }
+.stat-card-icon.success { background: #dcfce7; color: #16a34a; }
+.stat-card-icon.warning { background: #fef3c7; color: #d97706; }
+.stat-card-icon.danger { background: #fee2e2; color: #dc2626; }
+.stat-card-icon.info { background: #dbeafe; color: #2563eb; }
+.stat-card-icon.accent { background: #f3e8ff; color: #9333ea; }
+
+.stat-card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--neutral-800);
+}
+
+.stat-card-value.success { color: #16a34a; }
+.stat-card-value.danger { color: #dc2626; }
+.stat-card-value.warning { color: #d97706; }
+
+.stat-card-label {
+    font-size: 0.875rem;
+    color: var(--neutral-500);
+    margin-top: 0.25rem;
+}
+
+.stat-card-footer {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--neutral-100);
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.stat-card-footer .positive { color: #16a34a; }
+.stat-card-footer .negative { color: #dc2626; }
+
+/* Progress Bar */
+.progress-bar {
+    height: 6px;
+    background: var(--neutral-200);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #3b82f6);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+/* Alertes Section */
+.alertes-section {
+    margin-bottom: 1.5rem;
+}
+
+.alertes-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.alertes-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--neutral-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.alertes-header h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.alertes-header h3 i {
+    color: #f59e0b;
+}
+
+.alertes-badge {
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.625rem;
+    border-radius: 50px;
+}
+
+.alertes-body {
+    padding: 0.75rem 1rem;
+}
+
+.alerte-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    text-decoration: none;
+    transition: filter 0.2s;
+}
+
+.alerte-item:last-child {
+    margin-bottom: 0;
+}
+
+.alerte-item:hover {
+    filter: brightness(0.97);
+}
+
+.alerte-item.danger { background: #fee2e2; color: #dc2626; }
+.alerte-item.warning { background: #fef3c7; color: #d97706; }
+.alerte-item.info { background: #dbeafe; color: #2563eb; }
+
+.alerte-item-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.6);
+    flex-shrink: 0;
+}
+
+.alerte-item-icon i {
+    width: 16px;
+    height: 16px;
+}
+
+.alerte-item-message {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.alerte-item-arrow {
+    opacity: 0.5;
+}
+
+.alerte-item-arrow i {
+    width: 16px;
+    height: 16px;
+}
+
+/* Actions Rapides */
+.quick-actions-section {
+    margin-bottom: 1.5rem;
+}
+
+.quick-actions-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+    margin-bottom: 0.75rem;
+}
+
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 1200px) {
+    .quick-actions-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .quick-actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0.75rem;
+    border-radius: 10px;
+    background: white;
+    border: 2px dashed var(--neutral-200);
+    text-decoration: none;
+    color: var(--neutral-600);
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.quick-action-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.quick-action-btn .icon {
+    font-size: 1.25rem;
+    margin-bottom: 0.375rem;
+}
+
+.quick-action-btn .icon i {
+    width: 24px;
+    height: 24px;
+}
+
+.quick-action-btn .label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+/* Content Grid */
+.content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Section Card */
+.section-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.section-card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--neutral-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-card-header h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-card-header h3 i {
+    width: 18px;
+    height: 18px;
+}
+
+.section-card-body {
+    padding: 1rem 1.25rem;
+}
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    height: 250px;
+}
+
+/* Dossier Item */
+.dossier-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.dossier-item:last-child {
+    border-bottom: none;
+}
+
+.dossier-item-left {
+    flex: 1;
+}
+
+.dossier-item-ref {
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.dossier-item-ref:hover {
+    text-decoration: underline;
+}
+
+.dossier-item-parties {
+    font-size: 0.8125rem;
+    color: var(--neutral-500);
+    margin-top: 0.125rem;
+}
+
+.dossier-item-right {
+    text-align: right;
+}
+
+.dossier-item-date {
+    font-size: 0.75rem;
+    color: var(--neutral-400);
+    margin-top: 0.25rem;
+}
+
+/* Badge Phase */
+.badge-phase {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 50px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-amiable { background: #dbeafe; color: #1e40af; }
+.badge-force { background: #fee2e2; color: #dc2626; }
+
+/* Encaissement Item */
+.encaissement-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.encaissement-item:last-child {
+    border-bottom: none;
+}
+
+.encaissement-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #dcfce7;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.encaissement-icon i {
+    width: 18px;
+    height: 18px;
+}
+
+.encaissement-details {
+    flex: 1;
+}
+
+.encaissement-payeur {
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.encaissement-dossier {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+.encaissement-montant {
+    font-weight: 600;
+    color: #16a34a;
+    font-size: 0.875rem;
+}
+
+/* RDV Item */
+.rdv-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.rdv-item:last-child {
+    border-bottom: none;
+}
+
+.rdv-heure {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #9333ea;
+    width: 50px;
+}
+
+.rdv-details {
+    flex: 1;
+}
+
+.rdv-titre {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.rdv-lieu {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+/* Tache Item */
+.tache-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.tache-item:last-child {
+    border-bottom: none;
+}
+
+.tache-date {
+    width: 45px;
+    text-align: center;
+    background: #fef3c7;
+    padding: 0.375rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.tache-date .jour {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #d97706;
+    line-height: 1;
+}
+
+.tache-date .mois {
+    font-size: 0.625rem;
+    color: #d97706;
+    text-transform: uppercase;
+}
+
+.tache-details {
+    flex: 1;
+}
+
+.tache-titre {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.tache-dossier {
+    font-size: 0.75rem;
+    color: var(--neutral-500);
+}
+
+/* Stats Indicateurs */
+.stats-indicateurs {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--neutral-100);
+}
+
+.indicateur-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8125rem;
+    padding: 0.375rem 0;
+}
+
+.indicateur-row .label {
+    color: var(--neutral-500);
+}
+
+.indicateur-row .value {
+    font-weight: 600;
+}
+
+.indicateur-row .value.danger { color: #dc2626; }
+.indicateur-row .value.warning { color: #d97706; }
+.indicateur-row .value.success { color: #16a34a; }
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--neutral-400);
+}
+
+.empty-state i {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Link Button */
+.link-btn {
+    font-size: 0.8125rem;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.link-btn:hover {
+    text-decoration: underline;
+}
+
+/* Créancier Item */
+.creancier-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.creancier-item:last-child {
+    border-bottom: none;
+}
+
+.creancier-nom {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.creancier-stats {
+    text-align: right;
+}
+
+.creancier-montant {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+}
+
+.creancier-dossiers {
+    font-size: 0.6875rem;
+    color: var(--neutral-500);
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Stats Cards -->
-<div class="grid grid-cols-4 gap-4 mb-6">
-    <div class="card stat-card">
-        <div class="stat-content">
-            <div class="stat-icon info">
-                <i data-lucide="folder-open"></i>
-            </div>
-            <div>
-                <div class="stat-label">Dossiers actifs</div>
-                <div class="stat-value">{{ stats.dossiers_actifs }}</div>
-            </div>
-        </div>
+<div class="dashboard-container">
+    <!-- En-tête -->
+    <div class="dashboard-header">
+        <h1>Tableau de bord</h1>
+        <p>Bonjour {{ current_user.nom|default:"Utilisateur" }}, voici l'état de votre étude au {{ today|date:"l d F Y" }}</p>
     </div>
-    <div class="card stat-card">
-        <div class="stat-content">
-            <div class="stat-icon accent">
-                <i data-lucide="dollar-sign"></i>
-            </div>
-            <div>
-                <div class="stat-label">CA Mensuel</div>
-                <div class="stat-value">{{ stats.ca_mensuel }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="card stat-card">
-        <div class="stat-content">
-            <div class="stat-icon success">
-                <i data-lucide="check-circle"></i>
-            </div>
-            <div>
-                <div class="stat-label">Actes signifiés</div>
-                <div class="stat-value">{{ stats.actes_signifies }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="card stat-card">
-        <div class="stat-content">
-            <div class="stat-icon danger">
-                <i data-lucide="alert-circle"></i>
-            </div>
-            <div>
-                <div class="stat-label">Urgents</div>
-                <div class="stat-value danger">{{ stats.urgents }}</div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Welcome Card -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">Bienvenue, {{ current_user.nom }}</h3>
+    <!-- Alertes -->
+    {% if alertes %}
+    <div class="alertes-section">
+        <div class="alertes-card">
+            <div class="alertes-header">
+                <h3><i data-lucide="bell"></i> Alertes et rappels</h3>
+                <span class="alertes-badge">{{ alertes|length }}</span>
+            </div>
+            <div class="alertes-body">
+                {% for alerte in alertes %}
+                <a href="{{ alerte.lien }}" class="alerte-item {{ alerte.type }}">
+                    <div class="alerte-item-icon">
+                        <i data-lucide="{{ alerte.icone }}"></i>
+                    </div>
+                    <span class="alerte-item-message">{{ alerte.message }}</span>
+                    <span class="alerte-item-arrow"><i data-lucide="chevron-right"></i></span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
     </div>
-    <div class="card-body" style="text-align: center; padding: 40px;">
-        <p style="color: var(--neutral-500);">Sélectionnez un module dans le menu pour commencer.</p>
+    {% endif %}
+
+    <!-- Statistiques principales - Ligne 1 -->
+    <div class="stats-grid">
+        <!-- Dossiers actifs -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value">{{ dossiers_actifs }}</div>
+                    <div class="stat-card-label">Dossiers actifs</div>
+                </div>
+                <div class="stat-card-icon primary">
+                    <i data-lucide="folder-open"></i>
+                </div>
+            </div>
+            <div class="stat-card-footer">
+                <span class="positive">+{{ dossiers_mois }}</span> ce mois
+                {% if dossiers_urgents > 0 %}
+                | <span class="negative">{{ dossiers_urgents }} urgent(s)</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Encaissements du mois -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value success">{{ encaissements_mois|floatformat:0|default:"0" }}</div>
+                    <div class="stat-card-label">Encaissements (mois)</div>
+                </div>
+                <div class="stat-card-icon success">
+                    <i data-lucide="coins"></i>
+                </div>
+            </div>
+            <div class="stat-card-footer">
+                Aujourd'hui: <span class="positive">{{ encaissements_jour|floatformat:0|default:"0" }} F</span>
+            </div>
+        </div>
+
+        <!-- Taux de recouvrement -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value">{{ taux_recouvrement|default:"0" }}%</div>
+                    <div class="stat-card-label">Taux de recouvrement</div>
+                </div>
+                <div class="stat-card-icon info">
+                    <i data-lucide="percent"></i>
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div class="fill" style="width: {{ taux_recouvrement|default:0 }}%"></div>
+            </div>
+        </div>
+
+        <!-- Solde trésorerie -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value">{{ solde_total|floatformat:0|default:"0" }}</div>
+                    <div class="stat-card-label">Solde trésorerie</div>
+                </div>
+                <div class="stat-card-icon warning">
+                    <i data-lucide="wallet"></i>
+                </div>
+            </div>
+            {% if comptes_alerte > 0 %}
+            <div class="stat-card-footer">
+                <span class="negative"><i data-lucide="alert-triangle" style="width:12px;height:12px;vertical-align:middle;"></i> {{ comptes_alerte }} compte(s) en alerte</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistiques - Ligne 2 -->
+    <div class="stats-grid">
+        <!-- Recouvrement amiable -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value">{{ dossiers_amiables|default:"0" }}</div>
+                    <div class="stat-card-label">Phase amiable</div>
+                </div>
+                <div class="stat-card-icon info">
+                    <i data-lucide="handshake"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recouvrement forcé -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value danger">{{ dossiers_forces|default:"0" }}</div>
+                    <div class="stat-card-label">Phase forcée</div>
+                </div>
+                <div class="stat-card-icon danger">
+                    <i data-lucide="gavel"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reversements en attente -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value warning">{{ reversements_attente_count|default:"0" }}</div>
+                    <div class="stat-card-label">Reversements en attente</div>
+                </div>
+                <div class="stat-card-icon warning">
+                    <i data-lucide="repeat"></i>
+                </div>
+            </div>
+            {% if reversements_attente_montant %}
+            <div class="stat-card-footer">
+                {{ reversements_attente_montant|floatformat:0 }} FCFA
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Factures impayées -->
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div>
+                    <div class="stat-card-value {% if factures_impayees > 0 %}danger{% endif %}">{{ factures_impayees|default:"0" }}</div>
+                    <div class="stat-card-label">Factures impayées</div>
+                </div>
+                <div class="stat-card-icon accent">
+                    <i data-lucide="file-text"></i>
+                </div>
+            </div>
+            {% if montant_impaye %}
+            <div class="stat-card-footer">
+                {{ montant_impaye|floatformat:0 }} FCFA
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="quick-actions-section">
+        <h2 class="quick-actions-title">Actions rapides</h2>
+        <div class="quick-actions-grid">
+            <a href="{% url 'gestion:nouveau_dossier' %}" class="quick-action-btn">
+                <div class="icon"><i data-lucide="folder-plus"></i></div>
+                <div class="label">Nouveau dossier</div>
+            </a>
+            <a href="{% url 'gestion:facturation' %}" class="quick-action-btn">
+                <div class="icon"><i data-lucide="file-plus"></i></div>
+                <div class="label">Nouvelle facture</div>
+            </a>
+            <a href="{% url 'gestion:encaissements' %}" class="quick-action-btn">
+                <div class="icon"><i data-lucide="banknote"></i></div>
+                <div class="label">Encaissement</div>
+            </a>
+            <a href="{% url 'gestion:reversements' %}" class="quick-action-btn">
+                <div class="icon"><i data-lucide="repeat"></i></div>
+                <div class="label">Reversement</div>
+            </a>
+            <a href="{% url 'gestion:creanciers' %}" class="quick-action-btn">
+                <div class="icon"><i data-lucide="building-2"></i></div>
+                <div class="label">Créanciers</div>
+            </a>
+            <a href="{% url 'gestion:memoires' %}" class="quick-action-btn">
+                <div class="icon"><i data-lucide="file-signature"></i></div>
+                <div class="label">Mémoires</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="content-grid">
+        <!-- Colonne gauche -->
+        <div>
+            <!-- Graphique évolution encaissements -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="trending-up" style="color:#16a34a;"></i> Évolution des encaissements</h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="chart-container">
+                        <canvas id="chartEncaissements"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Derniers dossiers -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="folder" style="color:var(--primary);"></i> Derniers dossiers</h3>
+                    <a href="{% url 'gestion:dossiers' %}" class="link-btn">Voir tout</a>
+                </div>
+                <div class="section-card-body">
+                    {% if derniers_dossiers %}
+                        {% for dossier in derniers_dossiers %}
+                        <div class="dossier-item">
+                            <div class="dossier-item-left">
+                                <a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="dossier-item-ref">{{ dossier.reference }}</a>
+                                <div class="dossier-item-parties">
+                                    {% if dossier.demandeurs.first %}{{ dossier.demandeurs.first }}{% endif %}
+                                    {% if dossier.is_contentieux %} c/ {% endif %}
+                                    {% if dossier.defendeurs.first %}{{ dossier.defendeurs.first }}{% endif %}
+                                </div>
+                            </div>
+                            <div class="dossier-item-right">
+                                <span class="badge-phase {% if dossier.phase == 'amiable' %}badge-amiable{% else %}badge-force{% endif %}">
+                                    {{ dossier.get_phase_display|default:dossier.phase }}
+                                </span>
+                                <div class="dossier-item-date">{{ dossier.date_creation|date:"d/m/Y" }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i data-lucide="folder-open"></i>
+                            <p>Aucun dossier récent</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Derniers encaissements -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="coins" style="color:#16a34a;"></i> Derniers encaissements</h3>
+                    <a href="{% url 'gestion:encaissements' %}" class="link-btn">Voir tout</a>
+                </div>
+                <div class="section-card-body">
+                    {% if derniers_encaissements %}
+                        {% for enc in derniers_encaissements %}
+                        <div class="encaissement-item">
+                            <div class="encaissement-icon">
+                                <i data-lucide="arrow-down-left"></i>
+                            </div>
+                            <div class="encaissement-details">
+                                <div class="encaissement-payeur">{{ enc.payeur_nom }}</div>
+                                <div class="encaissement-dossier">{{ enc.dossier.reference }} - {{ enc.date_encaissement|date:"d/m/Y" }}</div>
+                            </div>
+                            <div class="encaissement-montant">+{{ enc.montant|floatformat:0 }} F</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i data-lucide="coins"></i>
+                            <p>Aucun encaissement récent</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonne droite -->
+        <div>
+            <!-- Répartition par type -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="pie-chart" style="color:#9333ea;"></i> Répartition par type</h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="chart-container" style="height:200px;">
+                        <canvas id="chartTypes"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agenda du jour -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="calendar" style="color:#9333ea;"></i> Agenda du jour</h3>
+                    <a href="/agenda/" class="link-btn">Voir tout</a>
+                </div>
+                <div class="section-card-body">
+                    {% if rdv_jour %}
+                        {% for rdv in rdv_jour %}
+                        <div class="rdv-item">
+                            <div class="rdv-heure">{{ rdv.date_debut|time:"H:i" }}</div>
+                            <div class="rdv-details">
+                                <div class="rdv-titre">{{ rdv.titre }}</div>
+                                {% if rdv.lieu %}
+                                <div class="rdv-lieu">{{ rdv.lieu }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i data-lucide="calendar"></i>
+                            <p>Aucun RDV aujourd'hui</p>
+                        </div>
+                    {% endif %}
+
+                    <!-- Indicateurs tâches -->
+                    <div class="stats-indicateurs">
+                        <div class="indicateur-row">
+                            <span class="label">Tâches en retard</span>
+                            <span class="value {% if taches_retard > 0 %}danger{% else %}success{% endif %}">{{ taches_retard }}</span>
+                        </div>
+                        <div class="indicateur-row">
+                            <span class="label">Tâches urgentes</span>
+                            <span class="value {% if taches_urgentes > 0 %}warning{% else %}success{% endif %}">{{ taches_urgentes }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prochaines échéances -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="clock" style="color:#d97706;"></i> Prochaines échéances</h3>
+                </div>
+                <div class="section-card-body">
+                    {% if prochaines_echeances %}
+                        {% for tache in prochaines_echeances %}
+                        <div class="tache-item">
+                            <div class="tache-date">
+                                <div class="jour">{{ tache.date_echeance|date:"d" }}</div>
+                                <div class="mois">{{ tache.date_echeance|date:"M" }}</div>
+                            </div>
+                            <div class="tache-details">
+                                <div class="tache-titre">{{ tache.titre }}</div>
+                                {% if tache.dossier %}
+                                <div class="tache-dossier">{{ tache.dossier.reference }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i data-lucide="check-circle"></i>
+                            <p>Aucune échéance proche</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Top créanciers -->
+            {% if top_creanciers %}
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i data-lucide="building-2" style="color:var(--primary);"></i> Top créanciers</h3>
+                    <a href="{% url 'gestion:creanciers' %}" class="link-btn">Voir tout</a>
+                </div>
+                <div class="section-card-body">
+                    {% for creancier in top_creanciers %}
+                    <div class="creancier-item">
+                        <div class="creancier-nom">{{ creancier.nom }}</div>
+                        <div class="creancier-stats">
+                            <div class="creancier-montant">{{ creancier.montant_confie|floatformat:0|default:"0" }} F</div>
+                            <div class="creancier-dossiers">{{ creancier.nb_dossiers }} dossier(s)</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    lucide.createIcons();
+// Réinitialiser les icônes Lucide
+lucide.createIcons();
+
+// Graphique évolution des encaissements
+const ctxEncaissements = document.getElementById('chartEncaissements');
+if (ctxEncaissements) {
+    const encaissementsLabels = {{ graph_encaissements_labels|safe }};
+    const encaissementsData = {{ graph_encaissements_data|safe }};
+
+    if (encaissementsLabels.length > 0) {
+        new Chart(ctxEncaissements, {
+            type: 'line',
+            data: {
+                labels: encaissementsLabels,
+                datasets: [{
+                    label: 'Encaissements',
+                    data: encaissementsData,
+                    borderColor: '#16a34a',
+                    backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#16a34a',
+                    pointRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return new Intl.NumberFormat('fr-FR').format(context.raw) + ' FCFA';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        ctxEncaissements.parentElement.innerHTML = '<div class="empty-state"><p>Pas encore de données</p></div>';
+    }
+}
+
+// Graphique répartition par type
+const ctxTypes = document.getElementById('chartTypes');
+if (ctxTypes) {
+    const typesLabels = {{ graph_types_labels|safe }};
+    const typesData = {{ graph_types_data|safe }};
+
+    if (typesLabels.length > 0) {
+        new Chart(ctxTypes, {
+            type: 'doughnut',
+            data: {
+                labels: typesLabels,
+                datasets: [{
+                    data: typesData,
+                    backgroundColor: [
+                        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
+                    ],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                    }
+                },
+                cutout: '65%',
+            }
+        });
+    } else {
+        ctxTypes.parentElement.innerHTML = '<div class="empty-state"><p>Pas encore de données</p></div>';
+    }
+}
 </script>
 {% endblock %}
