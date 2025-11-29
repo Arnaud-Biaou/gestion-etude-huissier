@@ -1,0 +1,180 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Mes dossiers{% endblock %}
+{% block page_title %}Mes dossiers{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dossiers-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .dossier-card {
+        background: var(--blanc);
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .dossier-card:hover {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        border-color: var(--or);
+    }
+
+    .dossier-card-header {
+        padding: 1.25rem 1.5rem;
+        background: var(--gris-clair);
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .dossier-ref {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .dossier-ref i {
+        color: var(--bleu-marine);
+    }
+
+    .dossier-ref strong {
+        font-size: 1.1rem;
+        color: var(--bleu-marine);
+    }
+
+    .dossier-card-body {
+        padding: 1.5rem;
+    }
+
+    .dossier-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .dossier-info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .dossier-info-item .label {
+        font-size: 0.8rem;
+        color: var(--gris);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .dossier-info-item .value {
+        font-weight: 500;
+        color: var(--bleu-marine);
+    }
+
+    .dossier-card-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-bar select {
+        padding: 0.6rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 0.9rem;
+        background: var(--blanc);
+        color: var(--bleu-marine);
+        cursor: pointer;
+    }
+
+    .filter-bar select:focus {
+        outline: none;
+        border-color: var(--bleu-marine);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i data-lucide="folder-open" style="width: 20px; height: 20px;"></i>
+            Tous mes dossiers
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if dossiers %}
+        <div class="dossiers-list">
+            {% for dossier in dossiers %}
+            <div class="dossier-card">
+                <div class="dossier-card-header">
+                    <div class="dossier-ref">
+                        <i data-lucide="folder" style="width: 24px; height: 24px;"></i>
+                        <strong>{{ dossier.reference }}</strong>
+                    </div>
+                    <span class="status-badge {{ dossier.statut }}">{{ dossier.get_statut_display }}</span>
+                </div>
+                <div class="dossier-card-body">
+                    <div class="dossier-info-grid">
+                        <div class="dossier-info-item">
+                            <span class="label">Type de dossier</span>
+                            <span class="value">{{ dossier.get_type_dossier_display|default:"Non défini" }}</span>
+                        </div>
+                        <div class="dossier-info-item">
+                            <span class="label">Date d'ouverture</span>
+                            <span class="value">{{ dossier.date_ouverture|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="dossier-info-item">
+                            <span class="label">Phase</span>
+                            <span class="value">{{ dossier.get_phase_display }}</span>
+                        </div>
+                        {% if dossier.montant_creance %}
+                        <div class="dossier-info-item">
+                            <span class="label">Montant créance</span>
+                            <span class="value">{{ dossier.montant_creance|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if dossier.description %}
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+                        <div class="dossier-info-item">
+                            <span class="label">Description</span>
+                            <span class="value">{{ dossier.description|truncatewords:30 }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="dossier-card-footer">
+                    <a href="{% url 'portail_dossier_detail' dossier.id %}" class="btn btn-primary btn-sm">
+                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                        Voir les détails
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i data-lucide="folder-x" style="width: 64px; height: 64px;"></i>
+            <h4>Aucun dossier</h4>
+            <p>Vous n'avez pas encore de dossiers associés à votre compte.<br>Contactez l'étude pour plus d'informations.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,227 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Mon profil{% endblock %}
+{% block page_title %}Mon profil{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+        background: linear-gradient(135deg, var(--bleu-marine), var(--bleu-marine-clair));
+        border-radius: 16px;
+        color: var(--blanc);
+        margin-bottom: 1.5rem;
+    }
+
+    .profile-avatar {
+        width: 90px;
+        height: 90px;
+        background: linear-gradient(135deg, var(--or), var(--or-clair));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--bleu-marine);
+        flex-shrink: 0;
+    }
+
+    .profile-info h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .profile-info .client-code {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        margin-bottom: 0.5rem;
+    }
+
+    .profile-info .client-type {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+
+    .info-row {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        width: 150px;
+        font-weight: 500;
+        color: var(--gris);
+        font-size: 0.9rem;
+    }
+
+    .info-value {
+        flex: 1;
+        color: var(--bleu-marine);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--bleu-marine);
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        transition: var(--transition);
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--bleu-marine);
+    }
+
+    .password-requirements {
+        font-size: 0.8rem;
+        color: var(--gris);
+        margin-top: 0.5rem;
+    }
+
+    @media (max-width: 1024px) {
+        .profile-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Profile Header -->
+<div class="profile-header">
+    <div class="profile-avatar">{{ client.nom_complet|slice:":2"|upper }}</div>
+    <div class="profile-info">
+        <h2>{{ client.nom_complet }}</h2>
+        <div class="client-code">{{ client.code_client }}</div>
+        <span class="client-type">{{ client.get_type_client_display }}</span>
+    </div>
+</div>
+
+<div class="profile-grid">
+    <!-- Account Information -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="user" style="width: 20px; height: 20px;"></i>
+                Informations du compte
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="info-row">
+                <span class="info-label">Code client</span>
+                <span class="info-value">{{ client.code_client }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">{{ client.email }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Téléphone</span>
+                <span class="info-value">{{ client.telephone|default:"Non renseigné" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Type</span>
+                <span class="info-value">{{ client.get_type_client_display }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Membre depuis</span>
+                <span class="info-value">{{ client.created_at|date:"d/m/Y" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Dernière connexion</span>
+                <span class="info-value">{% if client.date_derniere_connexion %}{{ client.date_derniere_connexion|date:"d/m/Y à H:i" }}{% else %}Première connexion{% endif %}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Profile -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="edit-3" style="width: 20px; height: 20px;"></i>
+                Modifier mes coordonnées
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_profile">
+                <div class="form-group">
+                    <label for="telephone">Téléphone</label>
+                    <input type="tel" id="telephone" name="telephone" value="{{ client.telephone }}" placeholder="+229 XX XX XX XX">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="save" style="width: 18px; height: 18px;"></i>
+                    Enregistrer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password -->
+    <div class="card" style="grid-column: 1 / -1;">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="lock" style="width: 20px; height: 20px;"></i>
+                Changer mon mot de passe
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="post" style="max-width: 500px;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="change_password">
+                <div class="form-group">
+                    <label for="ancien_mot_de_passe">Mot de passe actuel</label>
+                    <input type="password" id="ancien_mot_de_passe" name="ancien_mot_de_passe" required>
+                </div>
+                <div class="form-group">
+                    <label for="nouveau_mot_de_passe">Nouveau mot de passe</label>
+                    <input type="password" id="nouveau_mot_de_passe" name="nouveau_mot_de_passe" required minlength="8">
+                    <p class="password-requirements">Au moins 8 caractères</p>
+                </div>
+                <div class="form-group">
+                    <label for="confirmer_mot_de_passe">Confirmer le nouveau mot de passe</label>
+                    <input type="password" id="confirmer_mot_de_passe" name="confirmer_mot_de_passe" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="key" style="width: 18px; height: 18px;"></i>
+                    Changer le mot de passe
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

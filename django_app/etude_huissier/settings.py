@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "tresorerie",
     "gerance",
     "recouvrement",
+    "portail_client",
 ]
 
 MIDDLEWARE = [

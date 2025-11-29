@@ -1,0 +1,397 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Tableau de bord{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block extra_css %}
+<style>
+    .welcome-banner {
+        background: linear-gradient(135deg, var(--bleu-marine), var(--bleu-marine-clair));
+        border-radius: 20px;
+        padding: 2rem;
+        color: var(--blanc);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .welcome-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+
+    .welcome-banner h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        position: relative;
+    }
+
+    .welcome-banner p {
+        opacity: 0.9;
+        position: relative;
+    }
+
+    .welcome-banner .client-code {
+        display: inline-block;
+        background: rgba(255,255,255,0.15);
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        margin-top: 0.75rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--blanc);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: var(--transition);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+
+    .stat-card .stat-icon {
+        width: 55px;
+        height: 55px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stat-card .stat-icon.blue {
+        background: rgba(26, 54, 93, 0.1);
+        color: var(--bleu-marine);
+    }
+
+    .stat-card .stat-icon.gold {
+        background: rgba(212, 175, 55, 0.15);
+        color: var(--or);
+    }
+
+    .stat-card .stat-icon.green {
+        background: rgba(56, 161, 105, 0.1);
+        color: var(--vert);
+    }
+
+    .stat-card .stat-icon.red {
+        background: rgba(229, 62, 62, 0.1);
+        color: var(--rouge);
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--bleu-marine);
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.85rem;
+        color: var(--gris);
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+
+    .recent-list {
+        list-style: none;
+    }
+
+    .recent-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .recent-item:last-child {
+        border-bottom: none;
+    }
+
+    .recent-item .item-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--gris-clair);
+        color: var(--bleu-marine);
+    }
+
+    .recent-item .item-info {
+        flex: 1;
+    }
+
+    .recent-item .item-title {
+        font-weight: 500;
+        color: var(--bleu-marine);
+        margin-bottom: 0.15rem;
+    }
+
+    .recent-item .item-meta {
+        font-size: 0.8rem;
+        color: var(--gris);
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .quick-action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1.5rem;
+        background: var(--gris-clair);
+        border-radius: 14px;
+        transition: var(--transition);
+        text-align: center;
+    }
+
+    .quick-action-btn:hover {
+        background: #edf2f7;
+        transform: translateY(-2px);
+    }
+
+    .quick-action-btn i {
+        color: var(--bleu-marine);
+    }
+
+    .quick-action-btn span {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--bleu-marine);
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Welcome Banner -->
+<div class="welcome-banner">
+    <h2>Bienvenue, {{ client.nom_complet }}</h2>
+    <p>Retrouvez ici l'ensemble de vos dossiers et documents</p>
+    <span class="client-code">Code client : {{ client.code_client }}</span>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i data-lucide="folder" style="width: 26px; height: 26px;"></i>
+        </div>
+        <div>
+            <div class="stat-value">{{ dossiers|length }}</div>
+            <div class="stat-label">Dossiers en cours</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon gold">
+            <i data-lucide="file-text" style="width: 26px; height: 26px;"></i>
+        </div>
+        <div>
+            <div class="stat-value">{{ documents|length }}</div>
+            <div class="stat-label">Documents disponibles</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i data-lucide="message-circle" style="width: 26px; height: 26px;"></i>
+        </div>
+        <div>
+            <div class="stat-value">{{ messages_non_lus }}</div>
+            <div class="stat-label">Messages non lus</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red">
+            <i data-lucide="bell" style="width: 26px; height: 26px;"></i>
+        </div>
+        <div>
+            <div class="stat-value">{{ notifications_count }}</div>
+            <div class="stat-label">Notifications</div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Grid -->
+<div class="dashboard-grid">
+    <!-- Recent Dossiers -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="folder-open" style="width: 20px; height: 20px;"></i>
+                Dossiers récents
+            </h3>
+            <a href="{% url 'portail_mes_dossiers' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+        </div>
+        <div class="card-body">
+            {% if dossiers %}
+            <ul class="recent-list">
+                {% for dossier in dossiers %}
+                <li class="recent-item">
+                    <div class="item-icon">
+                        <i data-lucide="folder" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="item-info">
+                        <div class="item-title">{{ dossier.reference }}</div>
+                        <div class="item-meta">{{ dossier.get_type_dossier_display|default:"Dossier" }} - {{ dossier.date_ouverture|date:"d/m/Y" }}</div>
+                    </div>
+                    <span class="status-badge {{ dossier.statut }}">{{ dossier.get_statut_display }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="folder-x" style="width: 48px; height: 48px;"></i>
+                <h4>Aucun dossier</h4>
+                <p>Vous n'avez pas encore de dossiers associés</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Documents -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="file-text" style="width: 20px; height: 20px;"></i>
+                Documents récents
+            </h3>
+            <a href="{% url 'portail_mes_documents' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+        </div>
+        <div class="card-body">
+            {% if documents %}
+            <ul class="recent-list">
+                {% for doc in documents %}
+                <li class="recent-item">
+                    <div class="item-icon">
+                        <i data-lucide="file" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="item-info">
+                        <div class="item-title">{{ doc.titre|truncatewords:5 }}</div>
+                        <div class="item-meta">{{ doc.get_type_document_display }} - {{ doc.date_mise_disposition|date:"d/m/Y" }}</div>
+                    </div>
+                    <a href="{% url 'portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
+                        <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="file-x" style="width: 48px; height: 48px;"></i>
+                <h4>Aucun document</h4>
+                <p>Vous n'avez pas encore de documents disponibles</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+                Notifications
+            </h3>
+            <a href="{% url 'portail_notifications' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+        </div>
+        <div class="card-body">
+            {% if notifications %}
+            <ul class="recent-list">
+                {% for notif in notifications %}
+                <li class="recent-item">
+                    <div class="item-icon" style="background: rgba(229, 62, 62, 0.1); color: var(--rouge);">
+                        <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="item-info">
+                        <div class="item-title">{{ notif.titre }}</div>
+                        <div class="item-meta">{{ notif.created_at|timesince }} </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="bell-off" style="width: 48px; height: 48px;"></i>
+                <h4>Aucune notification</h4>
+                <p>Vous êtes à jour !</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="zap" style="width: 20px; height: 20px;"></i>
+                Actions rapides
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="quick-actions">
+                <a href="{% url 'portail_mes_messages' %}" class="quick-action-btn">
+                    <i data-lucide="message-square-plus" style="width: 32px; height: 32px;"></i>
+                    <span>Envoyer un message</span>
+                </a>
+                <a href="{% url 'portail_mes_documents' %}" class="quick-action-btn">
+                    <i data-lucide="download" style="width: 32px; height: 32px;"></i>
+                    <span>Télécharger un document</span>
+                </a>
+                <a href="{% url 'portail_mes_dossiers' %}" class="quick-action-btn">
+                    <i data-lucide="search" style="width: 32px; height: 32px;"></i>
+                    <span>Consulter mes dossiers</span>
+                </a>
+                <a href="{% url 'portail_mon_profil' %}" class="quick-action-btn">
+                    <i data-lucide="settings" style="width: 32px; height: 32px;"></i>
+                    <span>Paramètres du compte</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

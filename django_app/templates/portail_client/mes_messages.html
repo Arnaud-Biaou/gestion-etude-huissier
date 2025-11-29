@@ -1,0 +1,210 @@
+{% extends 'portail_client/base_portail.html' %}
+
+{% block title %}Messagerie{% endblock %}
+{% block page_title %}Messagerie{% endblock %}
+
+{% block extra_css %}
+<style>
+    .messaging-container {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        gap: 1.5rem;
+    }
+
+    .messages-list-card {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .message-item {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .message-item:hover {
+        background: var(--gris-clair);
+    }
+
+    .message-item.unread {
+        background: rgba(26, 54, 93, 0.03);
+        border-left: 3px solid var(--bleu-marine);
+    }
+
+    .message-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .message-direction {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--gris);
+    }
+
+    .message-direction.outgoing {
+        color: var(--bleu-marine);
+    }
+
+    .message-direction.incoming {
+        color: var(--vert);
+    }
+
+    .message-date {
+        font-size: 0.75rem;
+        color: var(--gris);
+    }
+
+    .message-subject {
+        font-weight: 600;
+        color: var(--bleu-marine);
+        margin-bottom: 0.35rem;
+    }
+
+    .message-preview {
+        font-size: 0.85rem;
+        color: var(--gris);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* New Message Form */
+    .new-message-card {
+        position: sticky;
+        top: 90px;
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--bleu-marine);
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        transition: var(--transition);
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--bleu-marine);
+    }
+
+    .form-group textarea {
+        min-height: 150px;
+        resize: vertical;
+    }
+
+    @media (max-width: 1024px) {
+        .messaging-container {
+            grid-template-columns: 1fr;
+        }
+
+        .new-message-card {
+            position: static;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="messaging-container">
+    <!-- Messages List -->
+    <div class="card messages-list-card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="inbox" style="width: 20px; height: 20px;"></i>
+                Mes échanges
+            </h3>
+        </div>
+        {% if conversations %}
+        <div class="messages-list">
+            {% for msg in conversations %}
+            <div class="message-item {% if not msg.lu and not msg.est_de_client %}unread{% endif %}">
+                <div class="message-header">
+                    <span class="message-direction {% if msg.est_de_client %}outgoing{% else %}incoming{% endif %}">
+                        {% if msg.est_de_client %}
+                        <i data-lucide="arrow-up-right" style="width: 14px; height: 14px;"></i>
+                        Envoyé
+                        {% else %}
+                        <i data-lucide="arrow-down-left" style="width: 14px; height: 14px;"></i>
+                        Reçu de l'étude
+                        {% endif %}
+                    </span>
+                    <span class="message-date">{{ msg.created_at|date:"d/m/Y H:i" }}</span>
+                </div>
+                <div class="message-subject">{{ msg.sujet }}</div>
+                <div class="message-preview">{{ msg.contenu|truncatewords:15 }}</div>
+                {% if msg.dossier %}
+                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--or);">
+                    <i data-lucide="folder" style="width: 12px; height: 12px; display: inline; vertical-align: middle;"></i>
+                    {{ msg.dossier.reference }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card-body">
+            <div class="empty-state">
+                <i data-lucide="message-square-x" style="width: 64px; height: 64px;"></i>
+                <h4>Aucun message</h4>
+                <p>Vous n'avez pas encore de messages.<br>Utilisez le formulaire pour nous contacter.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- New Message Form -->
+    <div class="card new-message-card">
+        <div class="card-header">
+            <h3>
+                <i data-lucide="edit-3" style="width: 20px; height: 20px;"></i>
+                Nouveau message
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'portail_envoyer_message' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="sujet">Sujet *</label>
+                    <input type="text" id="sujet" name="sujet" required placeholder="Objet de votre message">
+                </div>
+                <div class="form-group">
+                    <label for="contenu">Message *</label>
+                    <textarea id="contenu" name="contenu" required placeholder="Rédigez votre message..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="piece_jointe">Pièce jointe (optionnel)</label>
+                    <input type="file" id="piece_jointe" name="piece_jointe">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                    Envoyer le message
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

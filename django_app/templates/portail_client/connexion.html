@@ -1,0 +1,542 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Espace Client</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bleu-marine: #1a365d;
+            --bleu-marine-clair: #2c5282;
+            --bleu-marine-fonce: #0f2744;
+            --or: #d4af37;
+            --or-clair: #e9c46a;
+            --blanc: #ffffff;
+            --gris-clair: #f7fafc;
+            --gris: #718096;
+            --rouge: #e53e3e;
+            --vert: #38a169;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            background: linear-gradient(135deg, var(--bleu-marine) 0%, var(--bleu-marine-fonce) 100%);
+        }
+
+        h1, h2 {
+            font-family: 'Playfair Display', Georgia, serif;
+        }
+
+        .login-container {
+            display: flex;
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        /* Left Panel - Branding */
+        .branding-panel {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(26, 54, 93, 0.98), rgba(15, 39, 68, 0.95)),
+                        url('https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80') center/cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem;
+            color: var(--blanc);
+            text-align: center;
+            position: relative;
+        }
+
+        .branding-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 70%, rgba(212, 175, 55, 0.1) 0%, transparent 50%);
+        }
+
+        .branding-content {
+            position: relative;
+            z-index: 1;
+            max-width: 500px;
+        }
+
+        .logo-container {
+            margin-bottom: 2rem;
+        }
+
+        .logo-icon {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, var(--or), var(--or-clair));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 2rem;
+            color: var(--bleu-marine);
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 15px 40px rgba(212, 175, 55, 0.3);
+        }
+
+        .branding-content h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .branding-content .subtitle {
+            color: var(--or);
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .features-list {
+            text-align: left;
+            margin-top: 3rem;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+        }
+
+        .feature-item i {
+            color: var(--or);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .feature-item span {
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* Right Panel - Login Form */
+        .login-panel {
+            flex: 1;
+            background: var(--blanc);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem;
+        }
+
+        .login-form-container {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--gris);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: var(--bleu-marine);
+        }
+
+        .login-header {
+            margin-bottom: 2rem;
+        }
+
+        .login-header h2 {
+            font-size: 2rem;
+            color: var(--bleu-marine);
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: var(--gris);
+        }
+
+        /* Messages */
+        .messages {
+            margin-bottom: 1.5rem;
+        }
+
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .alert-error {
+            background: #fff5f5;
+            color: #c53030;
+            border: 1px solid #feb2b2;
+        }
+
+        .alert-success {
+            background: #f0fff4;
+            color: #276749;
+            border: 1px solid #9ae6b4;
+        }
+
+        .alert-warning {
+            background: #fffaf0;
+            color: #c05621;
+            border: 1px solid #fbd38d;
+        }
+
+        /* Form */
+        .login-form {
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--bleu-marine);
+            font-size: 0.95rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gris);
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 0.9rem 1rem 0.9rem 3rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: var(--blanc);
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: var(--bleu-marine);
+            box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+        }
+
+        .input-wrapper input::placeholder {
+            color: #a0aec0;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--gris);
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: color 0.3s;
+        }
+
+        .password-toggle:hover {
+            color: var(--bleu-marine);
+        }
+
+        .form-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--gris);
+        }
+
+        .remember-me input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--bleu-marine);
+        }
+
+        .forgot-password {
+            color: var(--or);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .forgot-password:hover {
+            color: var(--bleu-marine);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--bleu-marine), var(--bleu-marine-clair));
+            color: var(--blanc);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(26, 54, 93, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            color: var(--gris);
+            font-size: 0.85rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .contact-info {
+            text-align: center;
+            background: var(--gris-clair);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        .contact-info p {
+            color: var(--gris);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .contact-info a {
+            color: var(--bleu-marine);
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .contact-info a:hover {
+            color: var(--or);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .branding-panel {
+                display: none;
+            }
+
+            .login-panel {
+                flex: 1;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-panel {
+                padding: 2rem 1.5rem;
+            }
+
+            .login-header h2 {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Left Panel - Branding -->
+        <div class="branding-panel">
+            <div class="branding-content">
+                <div class="logo-container">
+                    <div class="logo-icon">MAB</div>
+                    <h1>Espace Client</h1>
+                    <p class="subtitle">Étude de Maître BIAOU</p>
+                </div>
+
+                <div class="features-list">
+                    <div class="feature-item">
+                        <i data-lucide="folder-open" style="width: 22px; height: 22px;"></i>
+                        <span>Consultez l'état d'avancement de vos dossiers en temps réel</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-lucide="download" style="width: 22px; height: 22px;"></i>
+                        <span>Téléchargez vos actes et documents officiels</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-lucide="message-circle" style="width: 22px; height: 22px;"></i>
+                        <span>Communiquez directement avec l'étude</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-lucide="shield-check" style="width: 22px; height: 22px;"></i>
+                        <span>Accès sécurisé et données protégées</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Login Form -->
+        <div class="login-panel">
+            <div class="login-form-container">
+                <a href="{% url 'landing_page' %}" class="back-link">
+                    <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
+                    Retour à l'accueil
+                </a>
+
+                <div class="login-header">
+                    <h2>Connexion</h2>
+                    <p>Accédez à votre espace client sécurisé</p>
+                </div>
+
+                {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {% if message.tags == 'error' %}
+                        <i data-lucide="x-circle" style="width: 20px; height: 20px;"></i>
+                        {% elif message.tags == 'success' %}
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                        {% else %}
+                        <i data-lucide="alert-circle" style="width: 20px; height: 20px;"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <form class="login-form" method="post">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="email">Adresse email</label>
+                        <div class="input-wrapper">
+                            <i data-lucide="mail" style="width: 20px; height: 20px;"></i>
+                            <input type="email" id="email" name="email" required placeholder="votre@email.com" autocomplete="email">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mot_de_passe">Mot de passe</label>
+                        <div class="input-wrapper">
+                            <i data-lucide="lock" style="width: 20px; height: 20px;"></i>
+                            <input type="password" id="mot_de_passe" name="mot_de_passe" required placeholder="Votre mot de passe" autocomplete="current-password">
+                            <button type="button" class="password-toggle" onclick="togglePassword()">
+                                <i data-lucide="eye" id="eye-icon" style="width: 20px; height: 20px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-footer">
+                        <label class="remember-me">
+                            <input type="checkbox" name="remember">
+                            Se souvenir de moi
+                        </label>
+                        <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="log-in" style="width: 20px; height: 20px;"></i>
+                        Se connecter
+                    </button>
+                </form>
+
+                <div class="divider">Besoin d'aide ?</div>
+
+                <div class="contact-info">
+                    <p>Vous n'avez pas encore de compte client ?</p>
+                    <p>Contactez l'étude pour obtenir vos identifiants :</p>
+                    <a href="tel:+22900000000">
+                        <i data-lucide="phone" style="width: 16px; height: 16px; display: inline; vertical-align: middle;"></i>
+                        +229 XX XX XX XX
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Toggle password visibility
+        function togglePassword() {
+            const input = document.getElementById('mot_de_passe');
+            const icon = document.getElementById('eye-icon');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>

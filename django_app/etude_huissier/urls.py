@@ -30,6 +30,10 @@ urlpatterns = [
     path("tresorerie/", include("tresorerie.urls")),
     path("gerance/", include("gerance.urls")),
     path("recouvrement/", include("recouvrement.urls")),
+
+    # Portail Client (accès public et espace client sécurisé)
+    path("portail/", include("portail_client.urls")),
+
     path("", include("gestion.urls")),
 ]
 
