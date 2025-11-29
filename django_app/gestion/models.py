@@ -3802,3 +3802,7 @@ class PermissionsGranulaires(models.Model):
             },
         }
         return modules
+
+
+# Import des modèles d'import (pour les inclure dans les migrations)
+from gestion.models_import import SessionImport, DossierImportTemp
