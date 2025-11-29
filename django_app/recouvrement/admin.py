@@ -3,7 +3,14 @@ Admin du module Recouvrement de Créances
 """
 
 from django.contrib import admin
-from .models import DossierRecouvrement, PointGlobalCreancier, EnvoiAutomatiquePoint
+from .models import (
+    DossierRecouvrement,
+    PointGlobalCreancier,
+    EnvoiAutomatiquePoint,
+    PaiementRecouvrement,
+    ImputationManuelle,
+    HistoriqueActionRecouvrement,
+)
 
 
 @admin.register(DossierRecouvrement)
@@ -42,3 +49,30 @@ class EnvoiAutomatiquePointAdmin(admin.ModelAdmin):
     list_display = ['creancier', 'actif', 'frequence', 'jour_envoi', 'dernier_envoi', 'prochain_envoi']
     list_filter = ['actif', 'frequence']
     search_fields = ['creancier__nom']
+
+
+@admin.register(PaiementRecouvrement)
+class PaiementRecouvrementAdmin(admin.ModelAdmin):
+    list_display = [
+        'dossier', 'date_paiement', 'montant', 'mode_paiement',
+        'impute_principal', 'impute_interets', 'montant_a_reverser', 'est_reverse'
+    ]
+    list_filter = ['mode_paiement', 'est_reverse', 'date_paiement']
+    search_fields = ['dossier__reference', 'reference_paiement']
+    date_hierarchy = 'date_paiement'
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(ImputationManuelle)
+class ImputationManuelleAdmin(admin.ModelAdmin):
+    list_display = ['paiement', 'date_imputation', 'type_imputation', 'montant']
+    list_filter = ['type_imputation', 'date_imputation']
+    readonly_fields = ['created_at']
+
+
+@admin.register(HistoriqueActionRecouvrement)
+class HistoriqueActionRecouvrementAdmin(admin.ModelAdmin):
+    list_display = ['dossier', 'date_action', 'type_action', 'cree_par']
+    list_filter = ['type_action', 'date_action']
+    search_fields = ['dossier__reference', 'description']
+    readonly_fields = ['date_action']
