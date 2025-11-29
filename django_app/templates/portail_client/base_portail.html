@@ -625,10 +625,13 @@
                         <div class="user-code">{{ client.code_client }}</div>
                     </div>
                 </div>
-                <a href="{% url 'portail_deconnexion' %}" class="logout-btn">
-                    <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
-                    Déconnexion
-                </a>
+                <form method="post" action="{% url 'portail_deconnexion' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">
+                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                        Déconnexion
+                    </button>
+                </form>
             </div>
         </aside>
 
