@@ -510,9 +510,43 @@
                         <label class="form-label">Téléphone</label>
                         <input class="form-input" value="${partie.telephone || ''}" onchange="updatePartie('${type}', ${index}, 'telephone', this.value)">
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">IFU</label>
-                        <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+
+                    <!-- Section Commerçant / Entrepreneur individuel -->
+                    <div class="form-group full-width" style="margin-top: 16px; border-top: 1px dashed var(--neutral-300); padding-top: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" ${partie.estCommercant ? 'checked' : ''} onchange="toggleCommercant('${type}', ${index}, this.checked)">
+                            <strong>Commerçant / Entrepreneur individuel</strong>
+                        </label>
+                    </div>
+
+                    <div id="${type}_${index}_commercant" style="display: ${partie.estCommercant ? 'contents' : 'none'};">
+                        <div class="form-group">
+                            <label class="form-label">Nom commercial</label>
+                            <input class="form-input" placeholder="Ex: KOFFI DISTRIBUTION" value="${partie.nomCommercial || ''}" onchange="updatePartie('${type}', ${index}, 'nomCommercial', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Enseigne</label>
+                            <input class="form-input" placeholder="Ex: SUPERMARCHÉ DU CENTRE" value="${partie.enseigne || ''}" onchange="updatePartie('${type}', ${index}, 'enseigne', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">N° RCCM</label>
+                            <input class="form-input" placeholder="Ex: RB/PAR/21 A 1234" value="${partie.rccm || ''}" onchange="updatePartie('${type}', ${index}, 'rccm', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">N° IFU</label>
+                            <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Activité commerciale</label>
+                            <input class="form-input" placeholder="Ex: Commerce général, Import-Export, Restauration" value="${partie.activiteCommerciale || ''}" onchange="updatePartie('${type}', ${index}, 'activiteCommerciale', this.value)">
+                        </div>
+                    </div>
+
+                    <div id="${type}_${index}_ifu_normal" style="display: ${partie.estCommercant ? 'none' : 'contents'};">
+                        <div class="form-group">
+                            <label class="form-label">IFU</label>
+                            <input class="form-input" value="${partie.ifu || ''}" onchange="updatePartie('${type}', ${index}, 'ifu', this.value)">
+                        </div>
                     </div>
                 ` : `
                     <div class="form-group full-width">
@@ -589,6 +623,22 @@
     function updatePartie(type, index, field, value) {
         const arr = type === 'demandeur' ? demandeurs : defendeurs;
         arr[index][field] = value;
+    }
+
+    function toggleCommercant(type, index, checked) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        arr[index].estCommercant = checked;
+
+        // Afficher/masquer les sections
+        const sectionCommercant = document.getElementById(`${type}_${index}_commercant`);
+        const sectionIfuNormal = document.getElementById(`${type}_${index}_ifu_normal`);
+
+        if (sectionCommercant) {
+            sectionCommercant.style.display = checked ? 'contents' : 'none';
+        }
+        if (sectionIfuNormal) {
+            sectionIfuNormal.style.display = checked ? 'none' : 'contents';
+        }
     }
 </script>
 {% endblock %}

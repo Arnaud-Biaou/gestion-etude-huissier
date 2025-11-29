@@ -264,6 +264,11 @@ def nouveau_dossier(request):
                             nationalite=dem.get('nationalite', ''),
                             profession=dem.get('profession', ''),
                             domicile=dem.get('domicile', ''),
+                            # Personne physique commerçante
+                            est_commercant=dem.get('estCommercant', False),
+                            nom_commercial=dem.get('nomCommercial', ''),
+                            enseigne=dem.get('enseigne', ''),
+                            activite_commerciale=dem.get('activiteCommerciale', ''),
                             # Personne morale
                             denomination=dem.get('denomination', ''),
                             forme_juridique=dem.get('formeJuridique', ''),
@@ -292,6 +297,11 @@ def nouveau_dossier(request):
                             nationalite=def_.get('nationalite', ''),
                             profession=def_.get('profession', ''),
                             domicile=def_.get('domicile', ''),
+                            # Personne physique commerçante
+                            est_commercant=def_.get('estCommercant', False),
+                            nom_commercial=def_.get('nomCommercial', ''),
+                            enseigne=def_.get('enseigne', ''),
+                            activite_commerciale=def_.get('activiteCommerciale', ''),
                             # Personne morale
                             denomination=def_.get('denomination', ''),
                             forme_juridique=def_.get('formeJuridique', ''),
