@@ -1,14 +1,15 @@
 """
 Modèles pour l'import de données depuis l'ancienne application.
-Tables temporaires pour validation avant import définitif.
+Tables TEMPORAIRES pour validation avant import définitif.
+NE MODIFIE PAS les tables existantes.
 """
 from django.db import models
-from django.conf import settings
+from django.contrib.auth.models import User
 import json
 
 
 class SessionImport(models.Model):
-    """Session d'import de données"""
+    """Session d'import de données - Table temporaire"""
 
     STATUT_CHOICES = [
         ('en_cours', 'En cours'),
@@ -23,12 +24,11 @@ class SessionImport(models.Model):
         ('sql_file', 'Fichier SQL'),
         ('csv', 'Fichier CSV'),
         ('excel', 'Fichier Excel'),
-        ('direct_db', 'Connexion directe base'),
     ]
 
     # Identification
     nom = models.CharField(max_length=200, verbose_name="Nom de la session")
-    source_type = models.CharField(max_length=20, choices=SOURCE_CHOICES)
+    source_type = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='csv')
     fichier_source = models.FileField(upload_to='imports/', null=True, blank=True)
 
     # Statistiques
@@ -40,13 +40,13 @@ class SessionImport(models.Model):
 
     # Statut
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_cours')
-    progression = models.PositiveIntegerField(default=0, help_text="Pourcentage de progression")
+    progression = models.PositiveIntegerField(default=0)
 
-    # Rapport
-    rapport_json = models.TextField(blank=True, help_text="Rapport détaillé en JSON")
+    # Rapport détaillé
+    rapport_json = models.TextField(blank=True)
 
     # Métadonnées
-    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,93 +65,103 @@ class SessionImport(models.Model):
 
     def set_rapport(self, rapport_dict):
         self.rapport_json = json.dumps(rapport_dict, ensure_ascii=False, default=str)
-        self.save()
 
 
 class DossierImportTemp(models.Model):
-    """Dossier temporaire en attente de validation"""
+    """
+    Dossier temporaire en attente de validation.
+    Cette table est INDÉPENDANTE de la table Dossier principale.
+    Les données ne sont transférées qu'après validation manuelle.
+    """
 
     STATUT_CHOICES = [
         ('en_attente', 'En attente de validation'),
-        ('valide', 'Validé'),
-        ('importe', 'Importé'),
+        ('valide', 'Validé pour import'),
+        ('importe', 'Importé avec succès'),
         ('doublon', 'Doublon détecté'),
         ('erreur', 'Erreur'),
-        ('ignore', 'Ignoré'),
+        ('ignore', 'Ignoré manuellement'),
     ]
 
-    session = models.ForeignKey(SessionImport, on_delete=models.CASCADE, related_name='dossiers_temp')
+    session = models.ForeignKey(
+        SessionImport,
+        on_delete=models.CASCADE,
+        related_name='dossiers_temp'
+    )
 
-    # Données brutes de l'ancienne base
+    # ═══════════════════════════════════════════════════════════════
+    # DONNÉES BRUTES DE L'ANCIENNE BASE
+    # ═══════════════════════════════════════════════════════════════
     reference_originale = models.CharField(max_length=500, verbose_name="Référence originale")
-    donnees_brutes = models.TextField(blank=True, help_text="Données JSON brutes")
+    donnees_brutes_json = models.TextField(blank=True, help_text="Toutes les colonnes en JSON")
 
-    # Données parsées
+    # ═══════════════════════════════════════════════════════════════
+    # DONNÉES PARSÉES DEPUIS LA RÉFÉRENCE
+    # Format: REF_596_1125_MAB_AFF_YEKINI Djamal Dine_ctr_DJADOO
+    # ═══════════════════════════════════════════════════════════════
     numero_ordre = models.CharField(max_length=20, blank=True)
     mois_creation = models.PositiveIntegerField(null=True, blank=True)
     annee_creation = models.PositiveIntegerField(null=True, blank=True)
-    date_ouverture = models.DateField(null=True, blank=True)
+    date_ouverture_parsee = models.DateField(null=True, blank=True)
 
-    # Parties extraites
+    # ═══════════════════════════════════════════════════════════════
+    # DEMANDEUR EXTRAIT
+    # ═══════════════════════════════════════════════════════════════
+    demandeur_texte_brut = models.CharField(max_length=500, blank=True)
     demandeur_nom = models.CharField(max_length=300, blank=True)
     demandeur_prenom = models.CharField(max_length=100, blank=True)
+    demandeur_est_personne_morale = models.BooleanField(default=False)
+    demandeur_raison_sociale = models.CharField(max_length=300, blank=True)
     demandeur_adresse = models.TextField(blank=True)
     demandeur_telephone = models.CharField(max_length=50, blank=True)
     demandeur_email = models.CharField(max_length=200, blank=True)
 
+    # ═══════════════════════════════════════════════════════════════
+    # DÉFENDEUR EXTRAIT
+    # ═══════════════════════════════════════════════════════════════
+    defendeur_texte_brut = models.CharField(max_length=500, blank=True)
     defendeur_nom = models.CharField(max_length=300, blank=True)
     defendeur_prenom = models.CharField(max_length=100, blank=True)
+    defendeur_est_personne_morale = models.BooleanField(default=False)
+    defendeur_raison_sociale = models.CharField(max_length=300, blank=True)
     defendeur_adresse = models.TextField(blank=True)
     defendeur_telephone = models.CharField(max_length=50, blank=True)
     defendeur_email = models.CharField(max_length=200, blank=True)
 
-    # Montants
+    # ═══════════════════════════════════════════════════════════════
+    # MONTANTS (si disponibles dans l'ancienne base)
+    # ═══════════════════════════════════════════════════════════════
     montant_principal = models.DecimalField(max_digits=15, decimal_places=0, null=True, blank=True)
     montant_interets = models.DecimalField(max_digits=15, decimal_places=0, null=True, blank=True)
     montant_frais = models.DecimalField(max_digits=15, decimal_places=0, null=True, blank=True)
 
-    # Intitulé généré
+    # ═══════════════════════════════════════════════════════════════
+    # DONNÉES GÉNÉRÉES POUR LA NOUVELLE APPLICATION
+    # ═══════════════════════════════════════════════════════════════
     intitule_genere = models.CharField(max_length=500, blank=True)
-
-    # Nouvelle référence proposée
     nouvelle_reference = models.CharField(max_length=100, blank=True)
 
-    # Validation
+    # ═══════════════════════════════════════════════════════════════
+    # VALIDATION ET CORRESPONDANCES
+    # ═══════════════════════════════════════════════════════════════
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente')
-    message_erreur = models.TextField(blank=True)
+    message_validation = models.TextField(blank=True)
 
-    # Correspondances trouvées
-    dossier_existant = models.ForeignKey(
-        'gestion.Dossier',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='imports_correspondants',
-        help_text="Dossier existant correspondant (si doublon)"
-    )
-    demandeur_existant = models.ForeignKey(
-        'gestion.Partie',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='imports_demandeur'
-    )
-    defendeur_existant = models.ForeignKey(
-        'gestion.Partie',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='imports_defendeur'
-    )
+    # Parties existantes correspondantes (pour éviter les doublons)
+    demandeur_existant_id = models.PositiveIntegerField(null=True, blank=True)
+    demandeur_existant_nom = models.CharField(max_length=300, blank=True)
+    demandeur_score_similarite = models.FloatField(null=True, blank=True)
 
-    # Dossier créé après import
-    dossier_cree = models.ForeignKey(
-        'gestion.Dossier',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='import_source'
-    )
+    defendeur_existant_id = models.PositiveIntegerField(null=True, blank=True)
+    defendeur_existant_nom = models.CharField(max_length=300, blank=True)
+    defendeur_score_similarite = models.FloatField(null=True, blank=True)
+
+    # Dossier existant correspondant (si doublon)
+    dossier_existant_id = models.PositiveIntegerField(null=True, blank=True)
+    dossier_existant_ref = models.CharField(max_length=100, blank=True)
+
+    # Référence du dossier créé après import (pour traçabilité)
+    dossier_cree_id = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Dossier import temporaire"
@@ -162,6 +172,9 @@ class DossierImportTemp(models.Model):
         return f"{self.reference_originale} → {self.get_statut_display()}"
 
     def get_donnees_brutes(self):
-        if self.donnees_brutes:
-            return json.loads(self.donnees_brutes)
+        if self.donnees_brutes_json:
+            return json.loads(self.donnees_brutes_json)
         return {}
+
+    def set_donnees_brutes(self, donnees_dict):
+        self.donnees_brutes_json = json.dumps(donnees_dict, ensure_ascii=False, default=str)
