@@ -1137,6 +1137,25 @@ class Reversement(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
+    # TRAÇABILITÉ COMPTABLE
+    compte_tresorerie = models.ForeignKey(
+        'tresorerie.CompteBancaire',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='reversements',
+        verbose_name="Compte de trésorerie"
+    )
+
+    mouvement_tresorerie = models.OneToOneField(
+        'tresorerie.MouvementTresorerie',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reversement_source',
+        verbose_name="Mouvement de trésorerie"
+    )
+
     class Meta:
         verbose_name = 'Reversement'
         verbose_name_plural = 'Reversements'
