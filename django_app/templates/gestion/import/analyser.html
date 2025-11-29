@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block title %}Analyse import - {{ session.nom }}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <div class="mb-6">
+        <a href="{% url 'gestion:import_accueil' %}" class="text-blue-600 hover:underline">
+            <i class="fas fa-arrow-left mr-2"></i>Retour aux sessions
+        </a>
+    </div>
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">{{ session.nom }}</h1>
+            <p class="text-gray-500">
+                Créée le {{ session.created_at|date:"d/m/Y à H:i" }}
+                {% if session.cree_par %} par {{ session.cree_par.get_full_name|default:session.cree_par.username }}{% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            {% if stats.valides > 0 %}
+            <a href="{% url 'gestion:import_executer' session.pk %}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                <i class="fas fa-check mr-2"></i>Importer {{ stats.valides }} dossier(s)
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-6 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-3xl font-bold text-gray-800">{{ stats.total }}</p>
+            <p class="text-gray-500 text-sm">Total trouvés</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-3xl font-bold text-amber-600">{{ stats.en_attente }}</p>
+            <p class="text-gray-500 text-sm">En attente</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-3xl font-bold text-blue-600">{{ stats.valides }}</p>
+            <p class="text-gray-500 text-sm">Validés</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-3xl font-bold text-green-600">{{ stats.importes }}</p>
+            <p class="text-gray-500 text-sm">Importés</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-3xl font-bold text-purple-600">{{ stats.avec_demandeur_existant }}</p>
+            <p class="text-gray-500 text-sm">Parties existantes</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-3xl font-bold text-red-600">{{ stats.erreurs }}</p>
+            <p class="text-gray-500 text-sm">Erreurs</p>
+        </div>
+    </div>
+
+    <!-- Répartition par année -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="p-4 border-b">
+            <h3 class="font-semibold">Répartition par année</h3>
+        </div>
+        <div class="p-4 flex flex-wrap gap-2">
+            {% for annee, count in par_annee.items %}
+            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                {{ annee }} : <strong>{{ count }}</strong> dossiers
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Actions en masse -->
+    <form method="post" action="{% url 'gestion:import_valider' session.pk %}" id="form-validation">
+        {% csrf_token %}
+
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="font-semibold">Dossiers à importer</h3>
+                <div class="flex gap-2">
+                    <button type="submit" name="action" value="valider" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                        <i class="fas fa-check mr-1"></i>Valider sélection
+                    </button>
+                    <button type="submit" name="action" value="ignorer" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                        <i class="fas fa-times mr-1"></i>Ignorer sélection
+                    </button>
+                    <button type="submit" name="action" value="valider_tous" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                        <i class="fas fa-check-double mr-1"></i>Valider tous
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left">
+                                <input type="checkbox" onclick="toggleAll(this)" class="rounded">
+                            </th>
+                            <th class="px-3 py-2 text-left">Référence originale</th>
+                            <th class="px-3 py-2 text-left">Demandeur</th>
+                            <th class="px-3 py-2 text-left">Défendeur</th>
+                            <th class="px-3 py-2 text-center">Date</th>
+                            <th class="px-3 py-2 text-center">Correspondances</th>
+                            <th class="px-3 py-2 text-center">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dossier in dossiers_temp %}
+                        <tr class="border-b hover:bg-gray-50 {% if dossier.statut == 'importe' %}bg-green-50{% elif dossier.statut == 'erreur' %}bg-red-50{% endif %}">
+                            <td class="px-3 py-2">
+                                {% if dossier.statut == 'en_attente' or dossier.statut == 'valide' %}
+                                <input type="checkbox" name="dossiers_ids" value="{{ dossier.pk }}" class="rounded">
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="font-mono text-xs">{{ dossier.reference_originale|truncatechars:50 }}</span>
+                            </td>
+                            <td class="px-3 py-2">
+                                {% if dossier.demandeur_est_personne_morale %}
+                                <i class="fas fa-building text-blue-500 mr-1" title="Personne morale"></i>
+                                {{ dossier.demandeur_raison_sociale|truncatechars:30 }}
+                                {% else %}
+                                <i class="fas fa-user text-green-500 mr-1" title="Personne physique"></i>
+                                {{ dossier.demandeur_nom }} {{ dossier.demandeur_prenom }}
+                                {% endif %}
+                                {% if dossier.demandeur_existant_id %}
+                                <br><span class="text-xs text-purple-600">
+                                    <i class="fas fa-link"></i> {{ dossier.demandeur_existant_nom|truncatechars:25 }}
+                                    ({{ dossier.demandeur_score_similarite|floatformat:0 }}%)
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                {% if dossier.defendeur_est_personne_morale %}
+                                <i class="fas fa-building text-blue-500 mr-1"></i>
+                                {{ dossier.defendeur_raison_sociale|truncatechars:30 }}
+                                {% else %}
+                                <i class="fas fa-user text-green-500 mr-1"></i>
+                                {{ dossier.defendeur_nom }} {{ dossier.defendeur_prenom }}
+                                {% endif %}
+                                {% if dossier.defendeur_existant_id %}
+                                <br><span class="text-xs text-purple-600">
+                                    <i class="fas fa-link"></i> {{ dossier.defendeur_existant_nom|truncatechars:25 }}
+                                    ({{ dossier.defendeur_score_similarite|floatformat:0 }}%)
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-center">
+                                {% if dossier.date_ouverture_parsee %}
+                                {{ dossier.date_ouverture_parsee|date:"m/Y" }}
+                                {% else %}
+                                <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-center">
+                                {% if dossier.demandeur_existant_id or dossier.defendeur_existant_id %}
+                                <span class="text-purple-600" title="Parties existantes trouvées">
+                                    <i class="fas fa-users"></i>
+                                </span>
+                                {% else %}
+                                <span class="text-gray-300">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-center">
+                                {% if dossier.statut == 'importe' %}
+                                <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Importé</span>
+                                {% elif dossier.statut == 'valide' %}
+                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">Validé</span>
+                                {% elif dossier.statut == 'erreur' %}
+                                <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs" title="{{ dossier.message_validation }}">Erreur</span>
+                                {% elif dossier.statut == 'ignore' %}
+                                <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">Ignoré</span>
+                                {% else %}
+                                <span class="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs">En attente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-3 py-8 text-center text-gray-400">
+                                Aucun dossier trouvé dans ce fichier
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if dossiers_temp.count > 100 %}
+            <div class="p-4 bg-gray-50 text-center text-gray-500 text-sm">
+                Affichage limité aux 100 premiers dossiers. Total : {{ stats.total }}
+            </div>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleAll(checkbox) {
+    document.querySelectorAll('input[name="dossiers_ids"]').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+}
+</script>
+{% endblock %}
