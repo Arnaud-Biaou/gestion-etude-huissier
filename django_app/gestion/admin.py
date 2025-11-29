@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.utils.html import format_html
 from .models import (
     Utilisateur, Collaborateur, Partie, Dossier, Facture, LigneFacture,
     ActeProcedure, HistoriqueCalcul, TauxLegal, MessageChatbot,
@@ -14,7 +15,9 @@ from .models import (
     # Modèles de sécurité
     Role, Permission, RolePermission, PermissionUtilisateur,
     SessionUtilisateur, JournalAudit, AlerteSecurite,
-    PolitiqueSecurite, AdresseIPAutorisee, AdresseIPBloquee
+    PolitiqueSecurite, AdresseIPAutorisee, AdresseIPBloquee,
+    # Modèles supplémentaires
+    CalendrierSaisieImmo, PermissionsGranulaires
 )
 
 
@@ -848,3 +851,129 @@ class DossierImportTempAdmin(admin.ModelAdmin):
     list_filter = ['statut', 'session', 'annee_creation']
     search_fields = ['reference_originale', 'demandeur_nom', 'defendeur_nom']
     readonly_fields = ['donnees_brutes_json']
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADMIN CALENDRIER SAISIE IMMOBILIÈRE
+# ═══════════════════════════════════════════════════════════════
+
+@admin.register(CalendrierSaisieImmo)
+class CalendrierSaisieImmoAdmin(admin.ModelAdmin):
+    """Administration du calendrier de saisie immobilière (OHADA)"""
+    list_display = ('reference', 'creancier', 'juridiction', 'date_commandement', 'date_adjudication', 'statut_badge')
+    list_filter = ('juridiction', 'date_commandement', 'date_adjudication')
+    search_fields = ('reference', 'creancier', 'debiteurs', 'titre_foncier')
+    date_hierarchy = 'date_commandement'
+    raw_id_fields = ('dossier',)
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('reference', 'dossier', 'juridiction')
+        }),
+        ('Parties', {
+            'fields': ('creancier', 'debiteurs')
+        }),
+        ('Immeuble', {
+            'fields': ('designation_immeuble', 'titre_foncier')
+        }),
+        ('Dates planifiées', {
+            'fields': (
+                'date_commandement', 'date_publication', 'date_depot_cahier',
+                'date_sommation', 'date_audience_eventuelle', 'date_adjudication'
+            )
+        }),
+        ('Dates réelles', {
+            'fields': (
+                'date_publication_reelle', 'date_depot_cahier_reel',
+                'date_sommation_reelle', 'date_audience_reelle', 'date_adjudication_reelle'
+            ),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def statut_badge(self, obj):
+        couleurs = {
+            'en_cours': '#3498db',
+            'termine': '#27ae60',
+            'abandonne': '#95a5a6',
+        }
+        statut = getattr(obj, 'statut', 'en_cours') if hasattr(obj, 'statut') else 'en_cours'
+        couleur = couleurs.get(statut, '#3498db')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; '
+            'border-radius: 3px;">{}</span>',
+            couleur, statut.replace('_', ' ').title()
+        )
+    statut_badge.short_description = 'Statut'
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADMIN PERMISSIONS GRANULAIRES
+# ═══════════════════════════════════════════════════════════════
+
+@admin.register(PermissionsGranulaires)
+class PermissionsGranulairesAdmin(admin.ModelAdmin):
+    """Administration des permissions granulaires par utilisateur"""
+    list_display = ('utilisateur', 'dossiers_voir', 'dossiers_modifier', 'factures_creer', 'agenda_voir')
+    list_filter = ('dossiers_voir_tous', 'tresorerie_voir', 'comptabilite_voir')
+    search_fields = ('utilisateur__username', 'utilisateur__first_name', 'utilisateur__last_name')
+
+    fieldsets = (
+        ('Utilisateur', {
+            'fields': ('utilisateur',)
+        }),
+        ('Module Dossiers', {
+            'fields': (
+                'dossiers_voir', 'dossiers_creer', 'dossiers_modifier',
+                'dossiers_supprimer', 'dossiers_voir_tous'
+            )
+        }),
+        ('Module Recouvrement', {
+            'fields': (
+                'recouvrement_voir', 'recouvrement_creer', 'recouvrement_modifier',
+                'recouvrement_encaisser', 'recouvrement_reverser', 'recouvrement_point_global'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Module Facturation', {
+            'fields': (
+                'factures_voir', 'factures_creer', 'factures_modifier',
+                'factures_supprimer', 'factures_normaliser_mecef', 'factures_avoir'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Module Mémoires / Cédules', {
+            'fields': (
+                'memoires_voir', 'memoires_creer', 'memoires_modifier',
+                'memoires_soumettre', 'memoires_paiement_global'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Module Trésorerie', {
+            'fields': (
+                'tresorerie_voir', 'tresorerie_mouvements',
+                'tresorerie_rapprochement', 'tresorerie_voir_soldes'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Module Comptabilité', {
+            'fields': (
+                'comptabilite_voir', 'comptabilite_ecritures',
+                'comptabilite_cloture', 'comptabilite_etats'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Module Gérance Immobilière', {
+            'fields': (
+                'gerance_voir', 'gerance_biens', 'gerance_baux',
+                'gerance_quittances', 'gerance_reversements'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Module Agenda', {
+            'fields': (
+                'agenda_voir', 'agenda_creer'
+            ),
+            'classes': ('collapse',)
+        }),
+    )

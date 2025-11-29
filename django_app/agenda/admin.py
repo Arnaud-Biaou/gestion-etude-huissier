@@ -439,3 +439,88 @@ class ParticipationRdvAdmin(admin.ModelAdmin):
             couleur, obj.get_statut_presence_display()
         )
     statut_presence_badge.short_description = 'Statut présence'
+
+
+# =============================================================================
+# ADMIN DOCUMENTS RENDEZ-VOUS (STANDALONE)
+# =============================================================================
+
+@admin.register(DocumentRdv)
+class DocumentRdvAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'rendez_vous', 'type_document', 'date_ajout', 'ajoute_par']
+    list_filter = ['type_document', 'date_ajout']
+    search_fields = ['nom', 'rendez_vous__titre', 'description']
+    raw_id_fields = ['rendez_vous', 'ajoute_par']
+    readonly_fields = ['date_ajout']
+    date_hierarchy = 'date_ajout'
+
+
+# =============================================================================
+# ADMIN RAPPELS RENDEZ-VOUS (STANDALONE)
+# =============================================================================
+
+@admin.register(RappelRdv)
+class RappelRdvAdmin(admin.ModelAdmin):
+    list_display = ['rendez_vous', 'type_rappel', 'canal', 'envoye', 'date_envoi_prevue']
+    list_filter = ['type_rappel', 'canal', 'envoye']
+    search_fields = ['rendez_vous__titre']
+    raw_id_fields = ['rendez_vous']
+    readonly_fields = ['date_envoi']
+
+
+# =============================================================================
+# ADMIN DOCUMENTS TÂCHES (STANDALONE)
+# =============================================================================
+
+@admin.register(DocumentTache)
+class DocumentTacheAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'tache', 'type_document', 'date_ajout', 'ajoute_par']
+    list_filter = ['type_document', 'date_ajout']
+    search_fields = ['nom', 'tache__titre', 'description']
+    raw_id_fields = ['tache', 'ajoute_par']
+    readonly_fields = ['date_ajout']
+    date_hierarchy = 'date_ajout'
+
+
+# =============================================================================
+# ADMIN RAPPELS TÂCHES (STANDALONE)
+# =============================================================================
+
+@admin.register(RappelTache)
+class RappelTacheAdmin(admin.ModelAdmin):
+    list_display = ['tache', 'type_rappel', 'canal', 'envoye', 'date_envoi_prevue']
+    list_filter = ['type_rappel', 'canal', 'envoye']
+    search_fields = ['tache__titre']
+    raw_id_fields = ['tache']
+    readonly_fields = ['date_envoi']
+
+
+# =============================================================================
+# ADMIN COMMENTAIRES TÂCHES (STANDALONE)
+# =============================================================================
+
+@admin.register(CommentaireTache)
+class CommentaireTacheAdmin(admin.ModelAdmin):
+    list_display = ['tache', 'auteur', 'contenu_apercu', 'date_creation', 'est_important']
+    list_filter = ['est_important', 'date_creation']
+    search_fields = ['tache__titre', 'contenu', 'auteur__username']
+    raw_id_fields = ['tache', 'auteur']
+    readonly_fields = ['date_creation', 'date_modification']
+    date_hierarchy = 'date_creation'
+
+    def contenu_apercu(self, obj):
+        return obj.contenu[:50] + '...' if len(obj.contenu) > 50 else obj.contenu
+    contenu_apercu.short_description = 'Contenu'
+
+
+# =============================================================================
+# ADMIN SOUS-TÂCHES CHECKLIST (STANDALONE)
+# =============================================================================
+
+@admin.register(SousTacheChecklist)
+class SousTacheChecklistAdmin(admin.ModelAdmin):
+    list_display = ['titre', 'tache', 'est_complete', 'ordre', 'date_completion', 'complete_par']
+    list_filter = ['est_complete', 'date_completion']
+    search_fields = ['titre', 'tache__titre']
+    raw_id_fields = ['tache', 'complete_par']
+    readonly_fields = ['date_completion']

@@ -374,3 +374,46 @@ class ConfigurationRHAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# =============================================================================
+# LIGNES BULLETIN DE PAIE (STANDALONE)
+# =============================================================================
+
+@admin.register(LigneBulletinPaie)
+class LigneBulletinPaieAdmin(admin.ModelAdmin):
+    list_display = ('bulletin', 'element', 'libelle', 'base', 'taux', 'montant')
+    list_filter = ('element__type_element', 'element__nature', 'bulletin__periode')
+    search_fields = ('bulletin__reference', 'bulletin__employe__nom', 'libelle', 'element__code')
+    raw_id_fields = ('bulletin', 'element')
+
+
+# =============================================================================
+# ÉCHÉANCES DE PRÊT (STANDALONE)
+# =============================================================================
+
+@admin.register(EcheancePret)
+class EcheancePretAdmin(admin.ModelAdmin):
+    list_display = ('pret', 'numero', 'date_echeance', 'montant', 'statut', 'bulletin')
+    list_filter = ('statut', 'date_echeance')
+    search_fields = ('pret__reference', 'pret__employe__nom', 'pret__employe__prenoms')
+    raw_id_fields = ('pret', 'bulletin')
+    date_hierarchy = 'date_echeance'
+
+
+# =============================================================================
+# NOTES CRITÈRE ÉVALUATION (STANDALONE)
+# =============================================================================
+
+@admin.register(NoteCritereEvaluation)
+class NoteCritereEvaluationAdmin(admin.ModelAdmin):
+    list_display = ('evaluation', 'critere', 'note', 'commentaire_apercu')
+    list_filter = ('critere', 'note')
+    search_fields = ('evaluation__employe__nom', 'evaluation__employe__prenoms', 'critere__libelle', 'commentaire')
+    raw_id_fields = ('evaluation', 'critere')
+
+    def commentaire_apercu(self, obj):
+        if obj.commentaire:
+            return obj.commentaire[:50] + '...' if len(obj.commentaire) > 50 else obj.commentaire
+        return '-'
+    commentaire_apercu.short_description = 'Commentaire'
