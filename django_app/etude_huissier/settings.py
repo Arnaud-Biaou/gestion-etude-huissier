@@ -152,9 +152,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = 'gestion.Utilisateur'
 
 # Authentication settings
-LOGIN_URL = 'login'
+LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = 'login'
+LOGOUT_REDIRECT_URL = '/login/'
 
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 heures en secondes
