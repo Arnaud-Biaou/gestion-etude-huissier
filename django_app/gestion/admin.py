@@ -9,6 +9,8 @@ from .models import (
     # Mémoires de Cédules
     AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire,
     RegistreParquet,
+    # Paiements globaux et historique validation
+    PaiementGlobalMemoires, HistoriqueValidationMemoire,
     # Modèles de sécurité
     Role, Permission, RolePermission, PermissionUtilisateur,
     SessionUtilisateur, JournalAudit, AlerteSecurite,
@@ -753,3 +755,75 @@ class AdresseIPBloqueeAdmin(admin.ModelAdmin):
     list_filter = ('active', 'date_blocage')
     search_fields = ('adresse_ip', 'raison')
     readonly_fields = ('date_blocage',)
+
+
+# ============================================
+# Administration des Paiements Globaux Mémoires
+# ============================================
+
+@admin.register(PaiementGlobalMemoires)
+class PaiementGlobalMemoiresAdmin(admin.ModelAdmin):
+    """Administration des paiements globaux effectués par le Comptable Public"""
+    list_display = (
+        'reference', 'juridiction', 'montant', 'date_paiement',
+        'mode_paiement', 'facture_mecef', 'created_at'
+    )
+    list_filter = ('juridiction', 'date_paiement', 'mode_paiement')
+    search_fields = ('reference', 'comptable_public', 'reference_virement', 'observations')
+    date_hierarchy = 'date_paiement'
+    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ('facture_mecef', 'compte_tresorerie', 'created_by')
+    filter_horizontal = ('memoires_concernes',)
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('reference', 'juridiction', 'comptable_public')
+        }),
+        ('Paiement', {
+            'fields': ('montant', 'date_paiement', 'mode_paiement', 'reference_virement')
+        }),
+        ('Période couverte', {
+            'fields': ('periode_debut', 'periode_fin'),
+            'classes': ('collapse',)
+        }),
+        ('Facture MECeF', {
+            'fields': ('facture_mecef',),
+            'description': 'Facture normalisée demandée par le Comptable Public'
+        }),
+        ('Mémoires concernés (indicatif)', {
+            'fields': ('memoires_concernes',),
+            'classes': ('collapse',),
+            'description': 'Association indicative - le paiement n\'est pas rattaché à un mémoire spécifique'
+        }),
+        ('Trésorerie', {
+            'fields': ('compte_tresorerie', 'mouvement_tresorerie'),
+            'classes': ('collapse',)
+        }),
+        ('Notes', {
+            'fields': ('observations',)
+        }),
+        ('Métadonnées', {
+            'fields': ('created_at', 'updated_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(HistoriqueValidationMemoire)
+class HistoriqueValidationMemoireAdmin(admin.ModelAdmin):
+    """Historique des actions de validation/rejet sur les mémoires"""
+    list_display = ('memoire', 'action', 'date_action', 'effectue_par', 'montant_avant', 'montant_apres')
+    list_filter = ('action', 'date_action')
+    search_fields = ('memoire__numero', 'effectue_par', 'commentaire')
+    date_hierarchy = 'date_action'
+    readonly_fields = ('memoire', 'action', 'date_action', 'effectue_par', 'commentaire', 'montant_avant', 'montant_apres')
+    raw_id_fields = ('memoire',)
+
+    def has_add_permission(self, request):
+        return False  # Les entrées d'historique ne doivent pas être créées manuellement
+
+    def has_change_permission(self, request, obj=None):
+        return False  # Les entrées d'historique ne doivent pas être modifiées
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Les entrées d'historique ne doivent pas être supprimées
