@@ -1745,6 +1745,54 @@ class Memoire(models.Model):
     # Observations
     observations = models.TextField(blank=True)
 
+    # ═══════════════════════════════════════════════════════════════
+    # WORKFLOW DE VALIDATION PAR L'AUTORITÉ
+    # ═══════════════════════════════════════════════════════════════
+
+    STATUT_VALIDATION_CHOICES = [
+        ('soumis', 'Soumis'),
+        ('en_attente', 'En attente de contrôle'),
+        ('valide', 'Validé'),
+        ('rejete_correction', 'Rejeté - Correction demandée'),
+        ('rejete_definitif', 'Rejeté définitivement'),
+        ('paye', 'Payé'),
+    ]
+
+    statut_validation = models.CharField(
+        max_length=30,
+        choices=STATUT_VALIDATION_CHOICES,
+        default='soumis',
+        verbose_name="Statut de validation"
+    )
+
+    # Contrôle par l'autorité
+    date_soumission = models.DateField(null=True, blank=True, verbose_name="Date de soumission")
+    autorite_controle = models.CharField(max_length=200, blank=True, verbose_name="Autorité de contrôle")
+    date_controle = models.DateField(null=True, blank=True, verbose_name="Date du contrôle")
+
+    # Rejet
+    motif_rejet = models.TextField(blank=True, verbose_name="Motif du rejet")
+    montant_corrige = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        null=True,
+        blank=True,
+        verbose_name="Montant corrigé demandé",
+        help_text="Montant demandé par l'autorité si correction requise"
+    )
+    date_rejet = models.DateField(null=True, blank=True, verbose_name="Date du rejet")
+
+    # Mémoire correctif (si ce mémoire est une correction d'un autre)
+    memoire_original = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='memoires_correctifs',
+        verbose_name="Mémoire original (si correctif)"
+    )
+    est_correctif = models.BooleanField(default=False, verbose_name="Est un mémoire correctif")
+
     # Traçabilité
     cree_par = models.ForeignKey(
         Utilisateur, on_delete=models.SET_NULL,
@@ -3309,3 +3357,35 @@ class PaiementGlobalMemoires(models.Model):
         annee = datetime.now().year
         count = cls.objects.filter(created_at__year=annee).count() + 1
         return f"PGM-{annee}-{count:04d}"
+
+
+class HistoriqueValidationMemoire(models.Model):
+    """Historique des actions de validation/rejet sur un mémoire"""
+
+    ACTION_CHOICES = [
+        ('soumission', 'Soumission'),
+        ('validation', 'Validation'),
+        ('rejet_correction', 'Rejet avec demande de correction'),
+        ('rejet_definitif', 'Rejet définitif'),
+        ('correction', 'Correction effectuée'),
+    ]
+
+    memoire = models.ForeignKey(
+        'Memoire',
+        on_delete=models.CASCADE,
+        related_name='historique_validations'
+    )
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    date_action = models.DateTimeField(auto_now_add=True)
+    effectue_par = models.CharField(max_length=200, blank=True, verbose_name="Effectué par")
+    commentaire = models.TextField(blank=True)
+    montant_avant = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True)
+    montant_apres = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Historique validation mémoire"
+        verbose_name_plural = "Historiques validation mémoires"
+        ordering = ['-date_action']
+
+    def __str__(self):
+        return f"{self.memoire.numero} - {self.get_action_display()} ({self.date_action.strftime('%d/%m/%Y')})"
