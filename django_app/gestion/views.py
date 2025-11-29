@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Sum, Q
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.core.paginator import Paginator
 from functools import wraps
@@ -624,9 +625,6 @@ def nouveau_dossier(request):
         try:
             # Recuperer la reference du formulaire ou generer si vide
             reference = data.get('reference', '').strip()
-            if not reference:
-                # Generer la reference au dernier moment (evite race condition)
-                reference = Dossier.generer_reference()
             type_dossier = data.get('type_dossier', '')
             is_contentieux = data.get('is_contentieux', 'false') == 'true'
             description = data.get('description', '')
@@ -640,15 +638,38 @@ def nouveau_dossier(request):
                 except Collaborateur.DoesNotExist:
                     pass
 
-            # Creer le dossier
-            dossier = Dossier.objects.create(
-                reference=reference,
-                type_dossier=type_dossier if type_dossier else 'recouvrement',
-                is_contentieux=is_contentieux,
-                description=description,
-                affecte_a=affecte_a,
-                statut='actif'
-            )
+            # Creer le dossier avec retry en cas de collision de reference
+            max_retries = 3
+            dossier = None
+
+            for attempt in range(max_retries):
+                try:
+                    with transaction.atomic():
+                        # Generer reference si vide ou apres collision
+                        if not reference or attempt > 0:
+                            reference = Dossier.generer_reference()
+
+                        dossier = Dossier.objects.create(
+                            reference=reference,
+                            type_dossier=type_dossier if type_dossier else 'recouvrement',
+                            is_contentieux=is_contentieux,
+                            description=description,
+                            affecte_a=affecte_a,
+                            statut='actif'
+                        )
+                        break  # Succes, sortir de la boucle
+
+                except IntegrityError as e:
+                    if 'reference' in str(e).lower() and attempt < max_retries - 1:
+                        # Collision de reference, retry avec nouvelle generation
+                        reference = ''  # Forcer regeneration
+                        continue
+                    else:
+                        # Erreur autre ou dernier essai
+                        raise
+
+            if not dossier:
+                raise Exception("Impossible de creer le dossier apres plusieurs tentatives")
 
             # Creer les parties (demandeurs et defendeurs)
             demandeurs_json = data.get('demandeurs', '[]')
