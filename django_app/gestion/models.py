@@ -934,6 +934,25 @@ class Encaissement(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
+    # TRAÇABILITÉ COMPTABLE
+    compte_tresorerie = models.ForeignKey(
+        'tresorerie.CompteBancaire',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='encaissements',
+        verbose_name="Compte de trésorerie"
+    )
+
+    mouvement_tresorerie = models.OneToOneField(
+        'tresorerie.MouvementTresorerie',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='encaissement_source',
+        verbose_name="Mouvement de trésorerie"
+    )
+
     class Meta:
         verbose_name = 'Encaissement'
         verbose_name_plural = 'Encaissements'
