@@ -622,8 +622,9 @@ def nouveau_dossier(request):
         data = request.POST
 
         try:
-            # Recuperer les donnees du formulaire
-            reference = data.get('reference', '') or Dossier.generer_reference()
+            # Generer la reference de maniere atomique (ignore celle du formulaire)
+            # Cela evite les race conditions si 2 utilisateurs creent en meme temps
+            reference = Dossier.generer_reference()
             type_dossier = data.get('type_dossier', '')
             is_contentieux = data.get('is_contentieux', 'false') == 'true'
             description = data.get('description', '')
@@ -735,8 +736,8 @@ def nouveau_dossier(request):
             messages.error(request, f'Erreur lors de la creation du dossier: {str(e)}')
             return redirect('gestion:nouveau_dossier')
 
-    # Generer une nouvelle reference
-    context['reference'] = Dossier.generer_reference()
+    # Reference sera generee automatiquement au POST (evite race condition)
+    context['reference'] = '(Auto)'
     context['types_dossier'] = Dossier.TYPE_DOSSIER_CHOICES
 
     return render(request, 'gestion/nouveau_dossier.html', context)
