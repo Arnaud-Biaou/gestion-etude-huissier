@@ -679,6 +679,9 @@ class AccesPartage(models.Model):
         verbose_name_plural = "Accès Partages"
         ordering = ['-date_acces']
 
+    def __str__(self):
+        return f"Accès {self.action} - {self.partage.document.titre[:30] if self.partage.document else 'N/A'} - {self.date_acces.strftime('%d/%m/%Y %H:%M')}"
+
 
 class AuditDocument(models.Model):
     """Journal d'audit pour tous les documents"""

@@ -768,6 +768,9 @@ class MessageChatbot(models.Model):
         verbose_name_plural = 'Messages chatbot'
         ordering = ['date_creation']
 
+    def __str__(self):
+        return f"{self.type_message} - {self.session_id[:8]} - {self.date_creation.strftime('%d/%m/%Y %H:%M')}"
+
 
 # =============================================================================
 # MODELES POUR LA GESTION DES CREANCIERS
