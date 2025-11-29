@@ -58,6 +58,8 @@ def get_default_context(request):
         # Admin
         {'id': 'parametres', 'label': 'Paramètres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres:index'},
         {'id': 'securite', 'label': 'Sécurité & Accès', 'icon': 'shield', 'category': 'admin', 'url': 'gestion:securite'},
+        {'id': 'import_donnees', 'label': 'Import données', 'icon': 'database', 'category': 'admin', 'url': 'gestion:import_accueil'},
+        {'id': 'harmonisation', 'label': 'Harmonisation parties', 'icon': 'sparkles', 'category': 'admin', 'url': 'gestion:admin_suggestions_parties'},
     ]
 
     return {

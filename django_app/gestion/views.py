@@ -89,6 +89,8 @@ def get_default_context(request):
         {'id': 'agenda', 'label': 'Agenda', 'icon': 'calendar', 'category': 'gestion', 'url': 'agenda:home'},
         {'id': 'parametres', 'label': 'Parametres', 'icon': 'settings', 'category': 'admin', 'url': 'parametres:index'},
         {'id': 'securite', 'label': 'Securite & Acces', 'icon': 'shield', 'category': 'admin', 'url': 'gestion:securite'},
+        {'id': 'import_donnees', 'label': 'Import données', 'icon': 'database', 'category': 'admin', 'url': 'gestion:import_accueil'},
+        {'id': 'harmonisation', 'label': 'Harmonisation parties', 'icon': 'sparkles', 'category': 'admin', 'url': 'gestion:admin_suggestions_parties'},
     ]
 
     # Charger les collaborateurs depuis la base de données
