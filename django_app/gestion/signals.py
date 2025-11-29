@@ -3,8 +3,9 @@ Signaux Django pour le module Gestion.
 Notamment la création automatique de l'arborescence Drive lors de la création d'un dossier.
 """
 import logging
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -47,3 +48,40 @@ def creer_arborescence_drive(sender, instance, created, **kwargs):
         logger.error(
             f"Erreur création arborescence Drive pour dossier {instance.reference}: {e}"
         )
+
+
+@receiver(post_save, sender='gestion.Encaissement')
+def creer_mouvement_encaissement(sender, instance, created, **kwargs):
+    """Crée un mouvement de trésorerie (entrée) pour chaque encaissement"""
+    from tresorerie.models import MouvementTresorerie
+
+    if not instance.compte_tresorerie or instance.mouvement_tresorerie:
+        return
+
+    try:
+        dossier = getattr(instance, 'dossier', None)
+        libelle = f"Encaissement - {dossier.reference if dossier else 'N/A'}"
+
+        mouvement = MouvementTresorerie.objects.create(
+            compte=instance.compte_tresorerie,
+            type_mouvement='entree',
+            montant=instance.montant,
+            date_mouvement=getattr(instance, 'date_encaissement', timezone.now().date()),
+            libelle=libelle,
+            dossier=dossier,
+            reference_externe=f"ENC-{instance.pk}",
+        )
+
+        sender.objects.filter(pk=instance.pk).update(mouvement_tresorerie=mouvement)
+    except Exception as e:
+        logger.error(f"Erreur signal encaissement: {e}")
+
+
+@receiver(post_delete, sender='gestion.Encaissement')
+def supprimer_mouvement_encaissement(sender, instance, **kwargs):
+    """Supprime le mouvement de trésorerie associé lors de la suppression d'un encaissement"""
+    if instance.mouvement_tresorerie:
+        try:
+            instance.mouvement_tresorerie.delete()
+        except:
+            pass
