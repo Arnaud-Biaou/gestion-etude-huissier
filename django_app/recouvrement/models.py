@@ -60,6 +60,13 @@ class DossierRecouvrement(models.Model):
         ('autre', 'Autre'),
     ]
 
+    # Transitions de statut permises
+    TRANSITIONS_PERMISES = {
+        'en_cours': ['suspendu', 'cloture'],
+        'suspendu': ['en_cours', 'cloture'],
+        'cloture': [],  # État terminal - pas de sortie
+    }
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     reference = models.CharField(max_length=50, unique=True, verbose_name="Référence")
 
@@ -367,6 +374,38 @@ class DossierRecouvrement(models.Model):
             'frais_imputes', 'emoluments_imputes',
             'interets_imputes', 'principal_impute', 'total_reverse'
         ])
+
+    def changer_statut(self, nouveau_statut, motif=''):
+        """
+        Change le statut du dossier avec validation des transitions permises.
+
+        Args:
+            nouveau_statut: Le nouveau statut souhaité
+            motif: Motif de clôture (obligatoire si nouveau_statut == 'cloture')
+
+        Raises:
+            ValueError: Si la transition n'est pas autorisée ou si le motif manque
+        """
+        if nouveau_statut == self.statut:
+            return
+
+        transitions_possibles = self.TRANSITIONS_PERMISES.get(self.statut, [])
+        if nouveau_statut not in transitions_possibles:
+            raise ValueError(
+                f"Transition interdite: {self.statut} → {nouveau_statut}. "
+                f"Transitions permises: {', '.join(transitions_possibles) or 'aucune'}"
+            )
+
+        # Validation spécifique pour la clôture
+        if nouveau_statut == 'cloture':
+            if not motif or not motif.strip():
+                raise ValueError("Un motif est requis pour clôturer un dossier de recouvrement")
+            self.motif_cloture = motif
+            if not self.date_cloture:
+                self.date_cloture = timezone.now().date()
+
+        self.statut = nouveau_statut
+        self.save(update_fields=['statut', 'motif_cloture', 'date_cloture', 'date_modification'])
 
 
 class PointGlobalCreancier(models.Model):

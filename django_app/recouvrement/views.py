@@ -526,7 +526,15 @@ def modifier_dossier_recouvrement(request, dossier_id):
             # Récupérer les données
             dossier.type_recouvrement = request.POST.get('type_recouvrement', dossier.type_recouvrement)
             dossier.mode_facturation = request.POST.get('mode_facturation', dossier.mode_facturation)
-            dossier.statut = request.POST.get('statut', dossier.statut)
+
+            # Changement de statut avec validation des transitions
+            nouveau_statut = request.POST.get('statut')
+            if nouveau_statut and nouveau_statut != dossier.statut:
+                motif_cloture = request.POST.get('motif_cloture', '')
+                try:
+                    dossier.changer_statut(nouveau_statut, motif=motif_cloture)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
 
             montant_principal = request.POST.get('montant_principal')
             if montant_principal:
@@ -549,15 +557,6 @@ def modifier_dossier_recouvrement(request, dossier_id):
             dossier.observations = request.POST.get('observations', '')
             dossier.derniere_action = request.POST.get('derniere_action', '')
             dossier.prochaine_etape = request.POST.get('prochaine_etape', '')
-
-            # Gérer la clôture
-            if dossier.statut == 'cloture':
-                dossier.motif_cloture = request.POST.get('motif_cloture', '')
-                date_cloture = request.POST.get('date_cloture')
-                if date_cloture:
-                    dossier.date_cloture = datetime.strptime(date_cloture, '%Y-%m-%d').date()
-                elif not dossier.date_cloture:
-                    dossier.date_cloture = date.today()
 
             # Recalculer les émoluments si le montant ou type change
             if dossier.type_recouvrement == 'force':

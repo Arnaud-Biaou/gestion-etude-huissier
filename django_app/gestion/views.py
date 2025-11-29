@@ -851,7 +851,15 @@ def modifier_dossier(request, pk):
             dossier.type_dossier = data.get('type_dossier', dossier.type_dossier)
             dossier.is_contentieux = data.get('is_contentieux', 'false') == 'true'
             dossier.description = data.get('description', dossier.description)
-            dossier.statut = data.get('statut', dossier.statut)
+
+            # Changement de statut avec validation des transitions
+            nouveau_statut = data.get('statut')
+            if nouveau_statut and nouveau_statut != dossier.statut:
+                motif_cloture = data.get('motif_cloture', '')
+                try:
+                    dossier.changer_statut(nouveau_statut, motif=motif_cloture)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
 
             # Montants
             montant_creance = data.get('montant_creance', '')
