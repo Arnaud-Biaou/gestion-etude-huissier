@@ -116,10 +116,13 @@
                         <div class="user-role">Administrateur</div>
                     </div>
                 </div>
-                <a href="{% url 'logout' %}" class="logout-btn" title="Déconnexion">
-                    <i data-lucide="log-out"></i>
-                    <span>Déconnexion</span>
-                </a>
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn" title="Déconnexion">
+                        <i data-lucide="log-out"></i>
+                        <span>Déconnexion</span>
+                    </button>
+                </form>
             </div>
         </aside>
 
