@@ -827,3 +827,24 @@ class HistoriqueValidationMemoireAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False  # Les entrées d'historique ne doivent pas être supprimées
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADMIN IMPORT (Tables temporaires)
+# ═══════════════════════════════════════════════════════════════
+from gestion.models_import import SessionImport, DossierImportTemp
+
+
+@admin.register(SessionImport)
+class SessionImportAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'source_type', 'statut', 'dossiers_trouves', 'doublons_detectes', 'erreurs_detectees', 'created_at']
+    list_filter = ['statut', 'source_type', 'created_at']
+    readonly_fields = ['created_at', 'updated_at', 'rapport_json']
+
+
+@admin.register(DossierImportTemp)
+class DossierImportTempAdmin(admin.ModelAdmin):
+    list_display = ['reference_originale', 'demandeur_nom', 'defendeur_nom', 'annee_creation', 'statut']
+    list_filter = ['statut', 'session', 'annee_creation']
+    search_fields = ['reference_originale', 'demandeur_nom', 'defendeur_nom']
+    readonly_fields = ['donnees_brutes_json']
