@@ -3188,3 +3188,124 @@ class CalendrierSaisieImmo(models.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'pdf_url': self.document_pdf.url if self.document_pdf else None,
         }
+
+
+class PaiementGlobalMemoires(models.Model):
+    """
+    Paiement global effectué par le Comptable Public.
+    Non rattachable à un mémoire spécifique.
+
+    Contexte métier :
+    - Les mémoires de frais (cédules) ne sont PAS payés individuellement
+    - Le Comptable Public (niveau Cour d'Appel ou Cour Spéciale) effectue un paiement GLOBAL
+    - Ce montant n'est pas forcément égal à la somme des mémoires en attente
+    - Impossible de rattacher le paiement à un mémoire spécifique
+    - Le Comptable demande une FACTURE NORMALISÉE MECeF pour payer
+    """
+
+    JURIDICTION_CHOICES = [
+        ('ca_parakou', 'Cour d\'Appel de Parakou'),
+        ('ca_cotonou', 'Cour d\'Appel de Cotonou'),
+        ('ca_abomey', 'Cour d\'Appel d\'Abomey'),
+        ('criet', 'CRIET'),
+        ('cour_supreme', 'Cour Suprême'),
+        ('autre', 'Autre juridiction'),
+    ]
+
+    # Identification
+    reference = models.CharField(
+        max_length=50, unique=True, verbose_name="Référence paiement"
+    )
+
+    # Source du paiement
+    juridiction = models.CharField(
+        max_length=50, choices=JURIDICTION_CHOICES, verbose_name="Juridiction payeuse"
+    )
+    comptable_public = models.CharField(
+        max_length=200, blank=True, verbose_name="Nom du Comptable Public"
+    )
+
+    # Montant
+    montant = models.DecimalField(
+        max_digits=12, decimal_places=0, verbose_name="Montant reçu"
+    )
+    date_paiement = models.DateField(verbose_name="Date du paiement")
+    mode_paiement = models.CharField(
+        max_length=50, blank=True, verbose_name="Mode de paiement"
+    )
+    reference_virement = models.CharField(
+        max_length=100, blank=True, verbose_name="Référence virement/chèque"
+    )
+
+    # Facture normalisée MECeF (demandée par le comptable pour payer)
+    facture_mecef = models.ForeignKey(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paiements_memoires',
+        verbose_name="Facture MECeF associée"
+    )
+
+    # Période couverte (indicatif)
+    periode_debut = models.DateField(
+        null=True, blank=True, verbose_name="Période du"
+    )
+    periode_fin = models.DateField(
+        null=True, blank=True, verbose_name="Période au"
+    )
+
+    # Affectation indicative (optionnel - pour suivi interne)
+    memoires_concernes = models.ManyToManyField(
+        'Memoire',
+        blank=True,
+        related_name='paiements_recus',
+        verbose_name="Mémoires concernés (indicatif)",
+        help_text="Association indicative, le paiement n'est pas rattaché à un mémoire spécifique"
+    )
+
+    # Trésorerie
+    compte_tresorerie = models.ForeignKey(
+        'tresorerie.CompteBancaire',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='paiements_memoires',
+        verbose_name="Compte crédité"
+    )
+    mouvement_tresorerie = models.OneToOneField(
+        'tresorerie.MouvementTresorerie',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paiement_memoires_source'
+    )
+
+    # Notes
+    observations = models.TextField(blank=True)
+
+    # Métadonnées
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='paiements_memoires_crees'
+    )
+
+    class Meta:
+        verbose_name = "Paiement global mémoires"
+        verbose_name_plural = "Paiements globaux mémoires"
+        ordering = ['-date_paiement']
+
+    def __str__(self):
+        return f"{self.reference} - {self.montant:,.0f} FCFA ({self.get_juridiction_display()})"
+
+    @classmethod
+    def generer_reference(cls):
+        """Génère une référence unique pour le paiement global"""
+        from datetime import datetime
+        annee = datetime.now().year
+        count = cls.objects.filter(created_at__year=annee).count() + 1
+        return f"PGM-{annee}-{count:04d}"
