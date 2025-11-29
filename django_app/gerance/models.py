@@ -455,6 +455,16 @@ class Incident(models.Model):
     bien = models.ForeignKey(BienImmobilier, on_delete=models.CASCADE, related_name='incidents')
     bail = models.ForeignKey(Bail, on_delete=models.SET_NULL, null=True, blank=True, related_name='incidents')
 
+    # LIEN VERS UN DOSSIER JURIDIQUE (si procédure)
+    dossier = models.ForeignKey(
+        'gestion.Dossier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='incidents_gerance',
+        verbose_name="Dossier juridique"
+    )
+
     type_incident = models.CharField(max_length=20, choices=TYPES, default='panne')
     priorite = models.CharField(max_length=20, choices=PRIORITES, default='normale')
 
