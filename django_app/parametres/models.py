@@ -1602,3 +1602,206 @@ class TrancheIPTS(models.Model):
             'date_fin': self.date_fin.isoformat() if self.date_fin else None,
             'est_actif': self.est_actif,
         }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CONFIGURATION EN-TÊTES ET PIEDS DE PAGE
+# ═══════════════════════════════════════════════════════════════
+
+class ConfigurationEnteteDocument(models.Model):
+    """Configuration des en-têtes et pieds de page pour les documents"""
+
+    TYPE_DOCUMENT_CHOICES = [
+        ('etude', 'Documents de l\'étude (factures, rapports, courriers)'),
+        ('memoire', 'Mémoires et cédules (en-tête juridiction)'),
+        ('acte', 'Actes d\'huissier'),
+        ('autre', 'Autres documents'),
+    ]
+
+    type_document = models.CharField(
+        max_length=20,
+        choices=TYPE_DOCUMENT_CHOICES,
+        unique=True,
+        verbose_name="Type de document"
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # EN-TÊTE
+    # ═══════════════════════════════════════════════════════════════
+    utiliser_entete_image = models.BooleanField(
+        default=False,
+        verbose_name="Utiliser une image d'en-tête"
+    )
+    entete_image = models.ImageField(
+        upload_to='entetes/',
+        null=True,
+        blank=True,
+        verbose_name="Image d'en-tête",
+        help_text="Uploadez votre en-tête habituel (format recommandé : PNG ou JPG, largeur 2480px pour A4)"
+    )
+    entete_hauteur = models.PositiveIntegerField(
+        default=150,
+        verbose_name="Hauteur de l'en-tête (pixels)",
+        help_text="Hauteur de la zone d'en-tête sur le document"
+    )
+    entete_marge_haut = models.PositiveIntegerField(
+        default=20,
+        verbose_name="Marge supérieure (pixels)"
+    )
+    entete_marge_gauche = models.PositiveIntegerField(
+        default=50,
+        verbose_name="Marge gauche (pixels)"
+    )
+    entete_marge_droite = models.PositiveIntegerField(
+        default=50,
+        verbose_name="Marge droite (pixels)"
+    )
+    entete_centrer = models.BooleanField(
+        default=True,
+        verbose_name="Centrer l'en-tête"
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # PIED DE PAGE
+    # ═══════════════════════════════════════════════════════════════
+    utiliser_pied_image = models.BooleanField(
+        default=False,
+        verbose_name="Utiliser une image de pied de page"
+    )
+    pied_image = models.ImageField(
+        upload_to='pieds_page/',
+        null=True,
+        blank=True,
+        verbose_name="Image de pied de page"
+    )
+    pied_hauteur = models.PositiveIntegerField(
+        default=80,
+        verbose_name="Hauteur du pied de page (pixels)"
+    )
+    pied_marge_bas = models.PositiveIntegerField(
+        default=20,
+        verbose_name="Marge inférieure (pixels)"
+    )
+    pied_centrer = models.BooleanField(
+        default=True,
+        verbose_name="Centrer le pied de page"
+    )
+
+    # Texte alternatif si pas d'image
+    pied_texte = models.TextField(
+        blank=True,
+        verbose_name="Texte de pied de page (si pas d'image)",
+        help_text="Ex: Adresse, téléphone, email, RCCM, IFU..."
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # MARGES DU CORPS
+    # ═══════════════════════════════════════════════════════════════
+    corps_marge_haut = models.PositiveIntegerField(
+        default=180,
+        verbose_name="Début du contenu (pixels depuis le haut)",
+        help_text="Espace entre le haut de la page et le début du contenu"
+    )
+    corps_marge_bas = models.PositiveIntegerField(
+        default=100,
+        verbose_name="Fin du contenu (pixels depuis le bas)"
+    )
+
+    # Métadonnées
+    est_actif = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuration en-tête document"
+        verbose_name_plural = "Configurations en-têtes documents"
+
+    def __str__(self):
+        return f"En-tête: {self.get_type_document_display()}"
+
+    @classmethod
+    def get_config(cls, type_document):
+        """Récupère la configuration pour un type de document"""
+        config, created = cls.objects.get_or_create(type_document=type_document)
+        return config
+
+
+class EnteteJuridiction(models.Model):
+    """
+    Configuration de l'en-tête hiérarchique des juridictions.
+    Pour les mémoires : RÉPUBLIQUE DU BÉNIN → Cour d'Appel → TPI
+    """
+
+    NIVEAU_CHOICES = [
+        (1, 'République (niveau national)'),
+        (2, 'Cour Suprême / CRIET'),
+        (3, 'Cour d\'Appel'),
+        (4, 'Tribunal de Première Instance'),
+        (5, 'Tribunal de Commerce'),
+        (6, 'Autre juridiction'),
+    ]
+
+    # Identification
+    code = models.CharField(max_length=20, unique=True, verbose_name="Code")
+    nom = models.CharField(max_length=200, verbose_name="Nom de la juridiction")
+    nom_complet = models.CharField(
+        max_length=300,
+        blank=True,
+        verbose_name="Nom complet",
+        help_text="Ex: COUR D'APPEL DE PARAKOU"
+    )
+
+    # Hiérarchie
+    niveau = models.PositiveIntegerField(choices=NIVEAU_CHOICES, verbose_name="Niveau hiérarchique")
+    juridiction_superieure = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='juridictions_inferieures',
+        verbose_name="Juridiction supérieure"
+    )
+
+    # Affichage en-tête
+    afficher_embleme = models.BooleanField(default=True, verbose_name="Afficher l'emblème national")
+    devise = models.CharField(
+        max_length=100,
+        default="Fraternité - Justice - Travail",
+        verbose_name="Devise"
+    )
+
+    # Image/logo spécifique (optionnel)
+    logo = models.ImageField(
+        upload_to='logos_juridictions/',
+        null=True,
+        blank=True,
+        verbose_name="Logo spécifique"
+    )
+
+    # Ordre d'affichage
+    ordre_affichage = models.PositiveIntegerField(default=0)
+    est_actif = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "En-tête juridiction"
+        verbose_name_plural = "En-têtes juridictions"
+        ordering = ['niveau', 'ordre_affichage']
+
+    def __str__(self):
+        return self.nom_complet or self.nom
+
+    def get_hierarchie(self):
+        """Retourne la hiérarchie complète (de la juridiction sup à celle-ci)"""
+        hierarchie = [self]
+        parent = self.juridiction_superieure
+        while parent:
+            hierarchie.insert(0, parent)
+            parent = parent.juridiction_superieure
+        return hierarchie
+
+    def get_entete_complet(self):
+        """Retourne l'en-tête formaté pour les mémoires"""
+        lignes = []
+        for j in self.get_hierarchie():
+            lignes.append(j.nom_complet or j.nom.upper())
+        return lignes
