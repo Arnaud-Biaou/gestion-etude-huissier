@@ -1,0 +1,628 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Point Global Créancier - Recouvrement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .page-title h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .form-card {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .form-card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .form-group label {
+        font-weight: 500;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .form-group select,
+    .form-group input[type="date"],
+    .form-group input[type="text"],
+    .form-group textarea {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+    }
+
+    .form-group select:focus,
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(26, 54, 93, 0.1);
+    }
+
+    .checkbox-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+        padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary:hover {
+        background: #15294d;
+    }
+
+    .btn-secondary {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        padding: 0.625rem 1.25rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    /* Stats Preview */
+    .stats-preview {
+        display: none;
+        background: var(--bg-secondary);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .stats-preview.visible {
+        display: block;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .stat-item {
+        background: var(--card-bg);
+        padding: 1rem;
+        border-radius: 0.375rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    /* Table */
+    .table-container {
+        overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .data-table th {
+        background: var(--bg-secondary);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+
+    .data-table tr:hover {
+        background: var(--bg-secondary);
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .badge-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.375rem;
+        border-radius: 0.25rem;
+        color: var(--text-secondary);
+    }
+
+    .action-btn:hover {
+        background: var(--bg-secondary);
+        color: var(--primary);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .loading {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-secondary);
+    }
+
+    .loading.active {
+        display: flex;
+    }
+
+    .spinner {
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <i data-lucide="file-text"></i>
+        <h1>Point Global Créancier</h1>
+    </div>
+</div>
+
+<!-- Formulaire de génération -->
+<div class="form-card">
+    <div class="form-card-title">
+        <i data-lucide="plus-circle"></i>
+        Générer un nouveau point global
+    </div>
+
+    <form id="formPointGlobal">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="creancier">Créancier *</label>
+                <select id="creancier" name="creancier_id" required>
+                    <option value="">-- Sélectionner un créancier --</option>
+                    {% for c in creanciers %}
+                    <option value="{{ c.id }}">{{ c.code }} - {{ c.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="periode_debut">Période du *</label>
+                <input type="date" id="periode_debut" name="periode_debut" required>
+            </div>
+
+            <div class="form-group">
+                <label for="periode_fin">Au *</label>
+                <input type="date" id="periode_fin" name="periode_fin" required>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1rem;">
+            <label>Filtres</label>
+            <div class="checkbox-group">
+                <label class="checkbox-item">
+                    <input type="checkbox" id="inclure_en_cours" name="inclure_en_cours" checked>
+                    Dossiers en cours
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="inclure_clotures" name="inclure_clotures" checked>
+                    Dossiers clôturés
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="inclure_amiable" name="inclure_amiable" checked>
+                    Phase amiable
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="inclure_force" name="inclure_force" checked>
+                    Phase forcée
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1rem;">
+            <label for="observations">Observations</label>
+            <textarea id="observations" name="observations" rows="3" placeholder="Observations générales..."></textarea>
+        </div>
+
+        <div class="btn-group">
+            <button type="button" class="btn-secondary" onclick="previsualiserStats()">
+                <i data-lucide="eye"></i>
+                Prévisualiser
+            </button>
+            <button type="submit" class="btn-primary">
+                <i data-lucide="file-plus"></i>
+                Générer le point global
+            </button>
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <span>Génération en cours...</span>
+            </div>
+        </div>
+    </form>
+
+    <div class="stats-preview" id="statsPreview">
+        <div class="form-card-title">Aperçu des statistiques</div>
+        <div class="stats-grid" id="statsGrid">
+            <!-- Rempli dynamiquement -->
+        </div>
+    </div>
+</div>
+
+<!-- Liste des points générés -->
+<div class="form-card">
+    <div class="form-card-title">
+        <i data-lucide="history"></i>
+        Historique des points générés
+    </div>
+
+    <div class="table-container">
+        {% if points %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Créancier</th>
+                    <th>Période</th>
+                    <th>Dossiers</th>
+                    <th>Total créances</th>
+                    <th>Taux recouvrement</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in points %}
+                <tr>
+                    <td>{{ p.date_generation|date:"d/m/Y H:i" }}</td>
+                    <td>{{ p.creancier.nom }}</td>
+                    <td>{{ p.periode_debut|date:"d/m/Y" }} - {{ p.periode_fin|date:"d/m/Y" }}</td>
+                    <td>{{ p.nombre_dossiers }}</td>
+                    <td>{{ p.total_creances|floatformat:0 }} FCFA</td>
+                    <td>{{ p.taux_recouvrement|floatformat:2 }}%</td>
+                    <td>
+                        {% if p.statut == 'genere' %}
+                        <span class="badge badge-success">Généré</span>
+                        {% elif p.statut == 'envoye' %}
+                        <span class="badge badge-info">Envoyé</span>
+                        {% else %}
+                        <span class="badge badge-warning">Brouillon</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.document_pdf %}
+                        <a href="{% url 'recouvrement:api_telecharger_point_global' p.id %}" class="action-btn" title="Télécharger PDF">
+                            <i data-lucide="download"></i>
+                        </a>
+                        {% endif %}
+                        <button class="action-btn" title="Supprimer" onclick="supprimerPoint('{{ p.id }}')">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i data-lucide="file-x"></i>
+            <p>Aucun point global généré pour le moment.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+
+    // Définir les dates par défaut (année en cours)
+    const today = new Date();
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    document.getElementById('periode_debut').value = startOfYear.toISOString().split('T')[0];
+    document.getElementById('periode_fin').value = today.toISOString().split('T')[0];
+});
+
+// Formulaire de génération
+document.getElementById('formPointGlobal').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const loading = document.getElementById('loadingIndicator');
+    loading.classList.add('active');
+
+    const formData = {
+        creancier_id: document.getElementById('creancier').value,
+        periode_debut: document.getElementById('periode_debut').value,
+        periode_fin: document.getElementById('periode_fin').value,
+        inclure_en_cours: document.getElementById('inclure_en_cours').checked,
+        inclure_clotures: document.getElementById('inclure_clotures').checked,
+        inclure_amiable: document.getElementById('inclure_amiable').checked,
+        inclure_force: document.getElementById('inclure_force').checked,
+        observations: document.getElementById('observations').value,
+    };
+
+    try {
+        const response = await fetch('{% url "recouvrement:api_generer_point_global" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.pdf_url) {
+                // Télécharger automatiquement le PDF
+                window.open(data.pdf_url, '_blank');
+            }
+            // Recharger la page pour voir le nouveau point
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    } finally {
+        loading.classList.remove('active');
+    }
+});
+
+// Prévisualiser les statistiques
+async function previsualiserStats() {
+    const creancier_id = document.getElementById('creancier').value;
+    if (!creancier_id) {
+        alert('Veuillez sélectionner un créancier');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/recouvrement/api/creancier/${creancier_id}/statistiques/`);
+        const data = await response.json();
+
+        if (data.statistiques) {
+            const stats = data.statistiques;
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${stats.nombre_dossiers}</div>
+                    <div class="stat-label">Dossiers</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${formatMontant(stats.total_creances)}</div>
+                    <div class="stat-label">Total créances</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${formatMontant(stats.total_encaisse)}</div>
+                    <div class="stat-label">Encaissé</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${formatMontant(stats.total_reste_du)}</div>
+                    <div class="stat-label">Reste dû</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.taux_recouvrement}%</div>
+                    <div class="stat-label">Taux recouvrement</div>
+                </div>
+            `;
+            document.getElementById('statsPreview').classList.add('visible');
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+    }
+}
+
+// Supprimer un point global
+async function supprimerPoint(pointId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce point global ?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/recouvrement/api/point-global/${pointId}/supprimer/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
+}
+
+// Helpers
+function formatMontant(montant) {
+    return parseInt(montant).toLocaleString('fr-FR') + ' F';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
