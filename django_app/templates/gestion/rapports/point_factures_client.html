@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator"></span>
+<a href="{% url 'gestion:facturation' %}" class="breadcrumb-link">Facturation</a>
+<span class="breadcrumb-separator"></span>
+<span class="breadcrumb-current">Point des factures par client</span>
+{% endblock %}
+
+{% block content %}
+<!-- Header with navigation tabs -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div class="tabs" style="margin-bottom: 0; border-bottom: none;">
+        <a href="{% url 'gestion:point_factures_dossier' %}" class="tab">Par dossier</a>
+        <a href="{% url 'gestion:point_factures_client' %}" class="tab active">Par client</a>
+        <a href="{% url 'gestion:point_factures_avocat' %}" class="tab">Par collaborateur</a>
+        <a href="{% url 'gestion:point_notes_frais' %}" class="tab">Notes de frais</a>
+    </div>
+    <div class="flex gap-2">
+        <button class="btn btn-secondary" onclick="window.print()">
+            <i data-lucide="printer"></i> Imprimer
+        </button>
+        <button class="btn btn-primary" onclick="exporterRapport()">
+            <i data-lucide="download"></i> Exporter
+        </button>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title"><i data-lucide="filter"></i> Filtres</h3>
+    </div>
+    <div class="card-body">
+        <form method="get" class="flex gap-4 flex-wrap items-end">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Date debut</label>
+                <input type="date" name="date_debut" class="form-input" value="{{ date_debut|default:'' }}" style="width: 160px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Date fin</label>
+                <input type="date" name="date_fin" class="form-input" value="{{ date_fin|default:'' }}" style="width: 160px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Statut</label>
+                <select name="statut" class="form-select" style="width: 160px;">
+                    <option value="tous">Tous les statuts</option>
+                    {% for value, label in statuts %}
+                    <option value="{{ value }}" {% if statut_filtre == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="search"></i> Filtrer
+            </button>
+            <a href="{% url 'gestion:point_factures_client' %}" class="btn btn-secondary">
+                <i data-lucide="x"></i> Reinitialiser
+            </a>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiques -->
+<div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="stat-card">
+        <div class="stat-value">{{ nb_clients }}</div>
+        <div class="stat-label">Clients</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ nb_factures }}</div>
+        <div class="stat-label">Factures</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_general_ht|floatformat:0 }} F</div>
+        <div class="stat-label">Total HT</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ total_general_ttc|floatformat:0 }} F</div>
+        <div class="stat-label">Total TTC</div>
+    </div>
+</div>
+
+<!-- Liste des factures par client -->
+{% for client_nom, data in factures_par_client.items %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i data-lucide="user"></i>
+            {{ data.client }}
+            {% if data.ifu %}
+            <span style="font-weight: normal; color: var(--neutral-500); font-size: 0.85rem;">(IFU: {{ data.ifu }})</span>
+            {% endif %}
+        </h3>
+        <div class="flex gap-2">
+            <span class="status-badge info">{{ data.factures|length }} facture{{ data.factures|length|pluralize }}</span>
+            <span class="status-badge success">{{ data.total_ttc|floatformat:0 }} F TTC</span>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>N Facture</th>
+                    <th>Dossier</th>
+                    <th>Date emission</th>
+                    <th>Montant HT</th>
+                    <th>TVA</th>
+                    <th>Montant TTC</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for facture in data.factures %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ facture.numero }}</td>
+                    <td>
+                        {% if facture.dossier %}
+                        <a href="{% url 'gestion:dossier_detail' facture.dossier.id %}">{{ facture.dossier.reference }}</a>
+                        {% else %}
+                        <span style="color: var(--neutral-400);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ facture.date_emission|date:"d/m/Y" }}</td>
+                    <td>{{ facture.montant_ht|floatformat:0 }} F</td>
+                    <td>{{ facture.montant_tva|floatformat:0 }} F</td>
+                    <td style="font-weight: 600;">{{ facture.montant_ttc|floatformat:0 }} F</td>
+                    <td>
+                        <span class="status-badge {% if facture.statut == 'payee' %}active{% elif facture.statut == 'attente' %}warning{% elif facture.statut == 'annulee' %}danger{% else %}info{% endif %}">
+                            {{ facture.get_statut_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Voir" onclick="voirFacture('{{ facture.id }}')">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            <button class="icon-btn" title="Imprimer">
+                                <i data-lucide="printer"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: var(--neutral-100); font-weight: 600;">
+                    <td colspan="3">Total {{ data.client|truncatechars:30 }}</td>
+                    <td>{{ data.total_ht|floatformat:0 }} F</td>
+                    <td>{{ data.total_tva|floatformat:0 }} F</td>
+                    <td>{{ data.total_ttc|floatformat:0 }} F</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% empty %}
+<div class="card">
+    <div class="card-body text-center" style="padding: 60px;">
+        <i data-lucide="file-x" style="width: 48px; height: 48px; color: var(--neutral-400); margin-bottom: 16px;"></i>
+        <h3 style="margin-bottom: 8px;">Aucune facture trouvee</h3>
+        <p style="color: var(--neutral-500);">Modifiez les filtres ou creez de nouvelles factures.</p>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Total general -->
+{% if factures_par_client %}
+<div class="card">
+    <div class="card-header" style="background: var(--primary); color: white;">
+        <h3 class="card-title" style="color: white;">
+            <i data-lucide="calculator"></i> Total General
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+                <div style="font-size: 1.5rem; font-weight: 700;">{{ total_general_ht|floatformat:0 }} F</div>
+                <div style="color: var(--neutral-500);">Total HT</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: 700;">{{ total_general_tva|floatformat:0 }} F</div>
+                <div style="color: var(--neutral-500);">Total TVA</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ total_general_ttc|floatformat:0 }} F</div>
+                <div style="color: var(--neutral-500);">Total TTC</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exporterRapport() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'excel');
+    window.location.href = window.location.pathname + '?' + params.toString();
+}
+
+function voirFacture(id) {
+    alert('Visualisation de la facture #' + id);
+}
+
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+}
+</script>
+{% endblock %}

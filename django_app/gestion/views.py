@@ -5946,3 +5946,348 @@ def recherche_globale(request):
     })
 
     return render(request, 'gestion/recherche_globale.html', context)
+
+
+# =============================================================================
+# RAPPORTS - POINT DES FACTURES ET NOTES DE FRAIS
+# =============================================================================
+
+@login_required
+def point_factures_par_dossier(request):
+    """
+    Rapport du point des factures groupées par dossier.
+    Affiche les factures avec totaux par dossier.
+    """
+    # Filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    statut = request.GET.get('statut')
+
+    # Base queryset
+    factures = Facture.objects.select_related('dossier').all()
+
+    # Appliquer les filtres
+    if date_debut:
+        try:
+            date_debut_parsed = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            factures = factures.filter(date_emission__gte=date_debut_parsed)
+        except ValueError:
+            pass
+
+    if date_fin:
+        try:
+            date_fin_parsed = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            factures = factures.filter(date_emission__lte=date_fin_parsed)
+        except ValueError:
+            pass
+
+    if statut and statut != 'tous':
+        factures = factures.filter(statut=statut)
+
+    # Grouper par dossier
+    factures_par_dossier = {}
+    factures_sans_dossier = []
+
+    for facture in factures:
+        if facture.dossier:
+            dossier_id = facture.dossier.id
+            if dossier_id not in factures_par_dossier:
+                factures_par_dossier[dossier_id] = {
+                    'dossier': facture.dossier,
+                    'factures': [],
+                    'total_ht': Decimal('0'),
+                    'total_tva': Decimal('0'),
+                    'total_ttc': Decimal('0'),
+                }
+            factures_par_dossier[dossier_id]['factures'].append(facture)
+            factures_par_dossier[dossier_id]['total_ht'] += facture.montant_ht or Decimal('0')
+            factures_par_dossier[dossier_id]['total_tva'] += facture.montant_tva or Decimal('0')
+            factures_par_dossier[dossier_id]['total_ttc'] += facture.montant_ttc or Decimal('0')
+        else:
+            factures_sans_dossier.append(facture)
+
+    # Calcul des totaux généraux
+    total_general_ht = sum(d['total_ht'] for d in factures_par_dossier.values())
+    total_general_tva = sum(d['total_tva'] for d in factures_par_dossier.values())
+    total_general_ttc = sum(d['total_ttc'] for d in factures_par_dossier.values())
+
+    # Ajouter les factures sans dossier aux totaux
+    for f in factures_sans_dossier:
+        total_general_ht += f.montant_ht or Decimal('0')
+        total_general_tva += f.montant_tva or Decimal('0')
+        total_general_ttc += f.montant_ttc or Decimal('0')
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': 'Point des factures par dossier',
+        'factures_par_dossier': dict(sorted(factures_par_dossier.items(), key=lambda x: x[1]['dossier'].reference)),
+        'factures_sans_dossier': factures_sans_dossier,
+        'total_general_ht': total_general_ht,
+        'total_general_tva': total_general_tva,
+        'total_general_ttc': total_general_ttc,
+        'nb_dossiers': len(factures_par_dossier),
+        'nb_factures': factures.count(),
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'statut_filtre': statut,
+        'statuts': Facture.STATUT_CHOICES,
+    })
+
+    return render(request, 'gestion/rapports/point_factures_dossier.html', context)
+
+
+@login_required
+def point_factures_par_client(request):
+    """
+    Rapport du point des factures groupées par client.
+    Affiche les factures avec totaux par client.
+    """
+    # Filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    statut = request.GET.get('statut')
+
+    # Base queryset
+    factures = Facture.objects.select_related('dossier').all()
+
+    # Appliquer les filtres
+    if date_debut:
+        try:
+            date_debut_parsed = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            factures = factures.filter(date_emission__gte=date_debut_parsed)
+        except ValueError:
+            pass
+
+    if date_fin:
+        try:
+            date_fin_parsed = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            factures = factures.filter(date_emission__lte=date_fin_parsed)
+        except ValueError:
+            pass
+
+    if statut and statut != 'tous':
+        factures = factures.filter(statut=statut)
+
+    # Grouper par client
+    factures_par_client = {}
+
+    for facture in factures:
+        client_nom = facture.client or 'Client non spécifié'
+        if client_nom not in factures_par_client:
+            factures_par_client[client_nom] = {
+                'client': client_nom,
+                'ifu': facture.ifu,
+                'factures': [],
+                'total_ht': Decimal('0'),
+                'total_tva': Decimal('0'),
+                'total_ttc': Decimal('0'),
+            }
+        factures_par_client[client_nom]['factures'].append(facture)
+        factures_par_client[client_nom]['total_ht'] += facture.montant_ht or Decimal('0')
+        factures_par_client[client_nom]['total_tva'] += facture.montant_tva or Decimal('0')
+        factures_par_client[client_nom]['total_ttc'] += facture.montant_ttc or Decimal('0')
+
+    # Calcul des totaux généraux
+    total_general_ht = sum(d['total_ht'] for d in factures_par_client.values())
+    total_general_tva = sum(d['total_tva'] for d in factures_par_client.values())
+    total_general_ttc = sum(d['total_ttc'] for d in factures_par_client.values())
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': 'Point des factures par client',
+        'factures_par_client': dict(sorted(factures_par_client.items())),
+        'total_general_ht': total_general_ht,
+        'total_general_tva': total_general_tva,
+        'total_general_ttc': total_general_ttc,
+        'nb_clients': len(factures_par_client),
+        'nb_factures': factures.count(),
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'statut_filtre': statut,
+        'statuts': Facture.STATUT_CHOICES,
+    })
+
+    return render(request, 'gestion/rapports/point_factures_client.html', context)
+
+
+@login_required
+def point_factures_par_avocat(request):
+    """
+    Rapport du point des factures groupées par collaborateur/avocat.
+    Utilise les collaborateurs assignés aux dossiers des factures.
+    """
+    # Filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    statut = request.GET.get('statut')
+    collaborateur_id = request.GET.get('collaborateur')
+
+    # Base queryset
+    factures = Facture.objects.select_related('dossier').all()
+
+    # Appliquer les filtres
+    if date_debut:
+        try:
+            date_debut_parsed = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            factures = factures.filter(date_emission__gte=date_debut_parsed)
+        except ValueError:
+            pass
+
+    if date_fin:
+        try:
+            date_fin_parsed = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            factures = factures.filter(date_emission__lte=date_fin_parsed)
+        except ValueError:
+            pass
+
+    if statut and statut != 'tous':
+        factures = factures.filter(statut=statut)
+
+    if collaborateur_id:
+        try:
+            factures = factures.filter(dossier__collaborateur_id=int(collaborateur_id))
+        except (ValueError, TypeError):
+            pass
+
+    # Grouper par collaborateur (via le dossier)
+    factures_par_collaborateur = {}
+    factures_sans_collaborateur = []
+
+    for facture in factures:
+        collaborateur = None
+        if facture.dossier:
+            # Récupérer le collaborateur du dossier
+            try:
+                collaborateur = Collaborateur.objects.filter(
+                    id=facture.dossier.id  # Ajuster selon la relation réelle
+                ).first()
+            except Exception:
+                pass
+
+        if collaborateur:
+            collab_id = collaborateur.id
+            if collab_id not in factures_par_collaborateur:
+                factures_par_collaborateur[collab_id] = {
+                    'collaborateur': collaborateur,
+                    'factures': [],
+                    'total_ht': Decimal('0'),
+                    'total_tva': Decimal('0'),
+                    'total_ttc': Decimal('0'),
+                }
+            factures_par_collaborateur[collab_id]['factures'].append(facture)
+            factures_par_collaborateur[collab_id]['total_ht'] += facture.montant_ht or Decimal('0')
+            factures_par_collaborateur[collab_id]['total_tva'] += facture.montant_tva or Decimal('0')
+            factures_par_collaborateur[collab_id]['total_ttc'] += facture.montant_ttc or Decimal('0')
+        else:
+            factures_sans_collaborateur.append(facture)
+
+    # Calcul des totaux généraux
+    total_general_ht = sum(d['total_ht'] for d in factures_par_collaborateur.values())
+    total_general_tva = sum(d['total_tva'] for d in factures_par_collaborateur.values())
+    total_general_ttc = sum(d['total_ttc'] for d in factures_par_collaborateur.values())
+
+    # Ajouter les factures sans collaborateur aux totaux
+    for f in factures_sans_collaborateur:
+        total_general_ht += f.montant_ht or Decimal('0')
+        total_general_tva += f.montant_tva or Decimal('0')
+        total_general_ttc += f.montant_ttc or Decimal('0')
+
+    # Liste des collaborateurs pour le filtre
+    collaborateurs = Collaborateur.objects.filter(actif=True).order_by('nom')
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': 'Point des factures par collaborateur',
+        'factures_par_collaborateur': dict(sorted(
+            factures_par_collaborateur.items(),
+            key=lambda x: x[1]['collaborateur'].nom
+        )),
+        'factures_sans_collaborateur': factures_sans_collaborateur,
+        'total_general_ht': total_general_ht,
+        'total_general_tva': total_general_tva,
+        'total_general_ttc': total_general_ttc,
+        'nb_collaborateurs': len(factures_par_collaborateur),
+        'nb_factures': factures.count(),
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'statut_filtre': statut,
+        'collaborateur_filtre': collaborateur_id,
+        'statuts': Facture.STATUT_CHOICES,
+        'collaborateurs': collaborateurs,
+    })
+
+    return render(request, 'gestion/rapports/point_factures_avocat.html', context)
+
+
+@login_required
+def point_notes_frais(request):
+    """
+    Rapport du point des notes de frais.
+    Affiche les lignes de factures de type frais ou les dépenses liées aux dossiers.
+    """
+    # Filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    dossier_id = request.GET.get('dossier')
+
+    # Récupérer les lignes de factures (qui peuvent contenir des frais)
+    lignes = LigneFacture.objects.select_related('facture', 'facture__dossier').all()
+
+    # Appliquer les filtres
+    if date_debut:
+        try:
+            date_debut_parsed = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            lignes = lignes.filter(facture__date_emission__gte=date_debut_parsed)
+        except ValueError:
+            pass
+
+    if date_fin:
+        try:
+            date_fin_parsed = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            lignes = lignes.filter(facture__date_emission__lte=date_fin_parsed)
+        except ValueError:
+            pass
+
+    if dossier_id:
+        try:
+            lignes = lignes.filter(facture__dossier_id=int(dossier_id))
+        except (ValueError, TypeError):
+            pass
+
+    # Grouper par type de frais/description
+    frais_par_type = {}
+
+    for ligne in lignes:
+        type_frais = ligne.designation or 'Frais divers'
+        if type_frais not in frais_par_type:
+            frais_par_type[type_frais] = {
+                'type': type_frais,
+                'lignes': [],
+                'quantite_totale': 0,
+                'total_ht': Decimal('0'),
+            }
+        frais_par_type[type_frais]['lignes'].append(ligne)
+        frais_par_type[type_frais]['quantite_totale'] += ligne.quantite or 1
+        frais_par_type[type_frais]['total_ht'] += (ligne.montant_ht or Decimal('0'))
+
+    # Calcul des totaux généraux
+    total_general = sum(d['total_ht'] for d in frais_par_type.values())
+    total_lignes = sum(len(d['lignes']) for d in frais_par_type.values())
+
+    # Liste des dossiers pour le filtre
+    dossiers = Dossier.objects.filter(statut='actif').order_by('reference')[:100]
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': 'Point des notes de frais',
+        'frais_par_type': dict(sorted(frais_par_type.items())),
+        'total_general': total_general,
+        'nb_types': len(frais_par_type),
+        'nb_lignes': total_lignes,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'dossier_filtre': dossier_id,
+        'dossiers': dossiers,
+    })
+
+    return render(request, 'gestion/rapports/point_notes_frais.html', context)
