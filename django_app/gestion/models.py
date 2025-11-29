@@ -3534,3 +3534,271 @@ class HistoriqueValidationMemoire(models.Model):
 
     def __str__(self):
         return f"{self.memoire.numero} - {self.get_action_display()} ({self.date_action.strftime('%d/%m/%Y')})"
+
+
+class PermissionsGranulaires(models.Model):
+    """
+    Permissions granulaires par utilisateur.
+    L'administrateur coche les actions autorisées pour chaque collaborateur.
+    """
+
+    utilisateur = models.OneToOneField(
+        Utilisateur,
+        on_delete=models.CASCADE,
+        related_name='permissions_granulaires',
+        verbose_name="Utilisateur"
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE DOSSIERS
+    # ═══════════════════════════════════════════════════════════════
+    dossiers_voir = models.BooleanField(default=True, verbose_name="Voir les dossiers")
+    dossiers_creer = models.BooleanField(default=False, verbose_name="Créer des dossiers")
+    dossiers_modifier = models.BooleanField(default=False, verbose_name="Modifier les dossiers")
+    dossiers_supprimer = models.BooleanField(default=False, verbose_name="Supprimer des dossiers")
+    dossiers_voir_tous = models.BooleanField(default=False, verbose_name="Voir TOUS les dossiers (sinon uniquement les siens)")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE RECOUVREMENT
+    # ═══════════════════════════════════════════════════════════════
+    recouvrement_voir = models.BooleanField(default=True, verbose_name="Voir les recouvrements")
+    recouvrement_creer = models.BooleanField(default=False, verbose_name="Créer des recouvrements")
+    recouvrement_modifier = models.BooleanField(default=False, verbose_name="Modifier les recouvrements")
+    recouvrement_encaisser = models.BooleanField(default=False, verbose_name="Enregistrer des encaissements")
+    recouvrement_reverser = models.BooleanField(default=False, verbose_name="Effectuer des reversements")
+    recouvrement_point_global = models.BooleanField(default=False, verbose_name="Générer des points globaux")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE FACTURATION
+    # ═══════════════════════════════════════════════════════════════
+    factures_voir = models.BooleanField(default=True, verbose_name="Voir les factures")
+    factures_creer = models.BooleanField(default=False, verbose_name="Créer des factures")
+    factures_modifier = models.BooleanField(default=False, verbose_name="Modifier les factures")
+    factures_supprimer = models.BooleanField(default=False, verbose_name="Supprimer des factures")
+    factures_normaliser_mecef = models.BooleanField(default=False, verbose_name="Normaliser MECeF")
+    factures_avoir = models.BooleanField(default=False, verbose_name="Créer des avoirs")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE MÉMOIRES / CÉDULES
+    # ═══════════════════════════════════════════════════════════════
+    memoires_voir = models.BooleanField(default=True, verbose_name="Voir les mémoires")
+    memoires_creer = models.BooleanField(default=False, verbose_name="Créer des mémoires")
+    memoires_modifier = models.BooleanField(default=False, verbose_name="Modifier les mémoires")
+    memoires_soumettre = models.BooleanField(default=False, verbose_name="Soumettre les mémoires")
+    memoires_paiement_global = models.BooleanField(default=False, verbose_name="Enregistrer paiements globaux")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE TRÉSORERIE
+    # ═══════════════════════════════════════════════════════════════
+    tresorerie_voir = models.BooleanField(default=False, verbose_name="Voir la trésorerie")
+    tresorerie_mouvements = models.BooleanField(default=False, verbose_name="Créer des mouvements")
+    tresorerie_rapprochement = models.BooleanField(default=False, verbose_name="Rapprochement bancaire")
+    tresorerie_voir_soldes = models.BooleanField(default=False, verbose_name="Voir les soldes des comptes")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE COMPTABILITÉ
+    # ═══════════════════════════════════════════════════════════════
+    comptabilite_voir = models.BooleanField(default=False, verbose_name="Voir la comptabilité")
+    comptabilite_ecritures = models.BooleanField(default=False, verbose_name="Saisir des écritures")
+    comptabilite_cloture = models.BooleanField(default=False, verbose_name="Clôturer des périodes")
+    comptabilite_etats = models.BooleanField(default=False, verbose_name="Générer les états financiers")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE GÉRANCE IMMOBILIÈRE
+    # ═══════════════════════════════════════════════════════════════
+    gerance_voir = models.BooleanField(default=False, verbose_name="Voir la gérance")
+    gerance_biens = models.BooleanField(default=False, verbose_name="Gérer les biens")
+    gerance_baux = models.BooleanField(default=False, verbose_name="Gérer les baux")
+    gerance_quittances = models.BooleanField(default=False, verbose_name="Générer des quittances")
+    gerance_reversements = models.BooleanField(default=False, verbose_name="Reversements propriétaires")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE AGENDA
+    # ═══════════════════════════════════════════════════════════════
+    agenda_voir = models.BooleanField(default=True, verbose_name="Voir l'agenda")
+    agenda_creer = models.BooleanField(default=True, verbose_name="Créer des événements")
+    agenda_modifier_tous = models.BooleanField(default=False, verbose_name="Modifier tous les événements")
+    agenda_taches = models.BooleanField(default=True, verbose_name="Gérer les tâches")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE DOCUMENTS / DRIVE
+    # ═══════════════════════════════════════════════════════════════
+    documents_voir = models.BooleanField(default=True, verbose_name="Voir les documents")
+    documents_uploader = models.BooleanField(default=True, verbose_name="Uploader des documents")
+    documents_supprimer = models.BooleanField(default=False, verbose_name="Supprimer des documents")
+    documents_tous_dossiers = models.BooleanField(default=False, verbose_name="Accéder à tous les dossiers")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE RH
+    # ═══════════════════════════════════════════════════════════════
+    rh_voir = models.BooleanField(default=False, verbose_name="Voir les RH")
+    rh_employes = models.BooleanField(default=False, verbose_name="Gérer les employés")
+    rh_conges = models.BooleanField(default=False, verbose_name="Gérer les congés")
+    rh_paie = models.BooleanField(default=False, verbose_name="Gérer la paie")
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE PARAMÈTRES
+    # ═══════════════════════════════════════════════════════════════
+    parametres_voir = models.BooleanField(default=False, verbose_name="Voir les paramètres")
+    parametres_modifier = models.BooleanField(default=False, verbose_name="Modifier les paramètres")
+    parametres_utilisateurs = models.BooleanField(default=False, verbose_name="Gérer les utilisateurs")
+    parametres_permissions = models.BooleanField(default=False, verbose_name="Gérer les permissions")
+
+    # ═══════════════════════════════════════════════════════════════
+    # RAPPORTS ET EXPORTS
+    # ═══════════════════════════════════════════════════════════════
+    rapports_voir = models.BooleanField(default=False, verbose_name="Voir les rapports")
+    rapports_generer = models.BooleanField(default=False, verbose_name="Générer des rapports")
+    exports_excel = models.BooleanField(default=False, verbose_name="Exporter en Excel")
+    exports_pdf = models.BooleanField(default=True, verbose_name="Exporter en PDF")
+
+    # Métadonnées
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    modifie_par = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='permissions_granulaires_modifiees'
+    )
+
+    class Meta:
+        verbose_name = "Permissions granulaires"
+        verbose_name_plural = "Permissions granulaires"
+
+    def __str__(self):
+        return f"Permissions granulaires de {self.utilisateur.get_full_name() or self.utilisateur.username}"
+
+    @classmethod
+    def get_or_create_for_user(cls, user):
+        """Récupère ou crée les permissions pour un utilisateur"""
+        permissions, created = cls.objects.get_or_create(utilisateur=user)
+        return permissions
+
+    def has_permission(self, permission_name):
+        """Vérifie si l'utilisateur a une permission spécifique"""
+        if hasattr(self, permission_name):
+            return getattr(self, permission_name)
+        return False
+
+    def get_permissions_by_module(self):
+        """Retourne les permissions groupées par module"""
+        modules = {
+            'dossiers': {
+                'label': 'Dossiers',
+                'permissions': [
+                    ('dossiers_voir', self.dossiers_voir),
+                    ('dossiers_creer', self.dossiers_creer),
+                    ('dossiers_modifier', self.dossiers_modifier),
+                    ('dossiers_supprimer', self.dossiers_supprimer),
+                    ('dossiers_voir_tous', self.dossiers_voir_tous),
+                ]
+            },
+            'recouvrement': {
+                'label': 'Recouvrement',
+                'permissions': [
+                    ('recouvrement_voir', self.recouvrement_voir),
+                    ('recouvrement_creer', self.recouvrement_creer),
+                    ('recouvrement_modifier', self.recouvrement_modifier),
+                    ('recouvrement_encaisser', self.recouvrement_encaisser),
+                    ('recouvrement_reverser', self.recouvrement_reverser),
+                    ('recouvrement_point_global', self.recouvrement_point_global),
+                ]
+            },
+            'factures': {
+                'label': 'Facturation',
+                'permissions': [
+                    ('factures_voir', self.factures_voir),
+                    ('factures_creer', self.factures_creer),
+                    ('factures_modifier', self.factures_modifier),
+                    ('factures_supprimer', self.factures_supprimer),
+                    ('factures_normaliser_mecef', self.factures_normaliser_mecef),
+                    ('factures_avoir', self.factures_avoir),
+                ]
+            },
+            'memoires': {
+                'label': 'Mémoires / Cédules',
+                'permissions': [
+                    ('memoires_voir', self.memoires_voir),
+                    ('memoires_creer', self.memoires_creer),
+                    ('memoires_modifier', self.memoires_modifier),
+                    ('memoires_soumettre', self.memoires_soumettre),
+                    ('memoires_paiement_global', self.memoires_paiement_global),
+                ]
+            },
+            'tresorerie': {
+                'label': 'Trésorerie',
+                'permissions': [
+                    ('tresorerie_voir', self.tresorerie_voir),
+                    ('tresorerie_mouvements', self.tresorerie_mouvements),
+                    ('tresorerie_rapprochement', self.tresorerie_rapprochement),
+                    ('tresorerie_voir_soldes', self.tresorerie_voir_soldes),
+                ]
+            },
+            'comptabilite': {
+                'label': 'Comptabilité',
+                'permissions': [
+                    ('comptabilite_voir', self.comptabilite_voir),
+                    ('comptabilite_ecritures', self.comptabilite_ecritures),
+                    ('comptabilite_cloture', self.comptabilite_cloture),
+                    ('comptabilite_etats', self.comptabilite_etats),
+                ]
+            },
+            'gerance': {
+                'label': 'Gérance Immobilière',
+                'permissions': [
+                    ('gerance_voir', self.gerance_voir),
+                    ('gerance_biens', self.gerance_biens),
+                    ('gerance_baux', self.gerance_baux),
+                    ('gerance_quittances', self.gerance_quittances),
+                    ('gerance_reversements', self.gerance_reversements),
+                ]
+            },
+            'agenda': {
+                'label': 'Agenda',
+                'permissions': [
+                    ('agenda_voir', self.agenda_voir),
+                    ('agenda_creer', self.agenda_creer),
+                    ('agenda_modifier_tous', self.agenda_modifier_tous),
+                    ('agenda_taches', self.agenda_taches),
+                ]
+            },
+            'documents': {
+                'label': 'Documents / Drive',
+                'permissions': [
+                    ('documents_voir', self.documents_voir),
+                    ('documents_uploader', self.documents_uploader),
+                    ('documents_supprimer', self.documents_supprimer),
+                    ('documents_tous_dossiers', self.documents_tous_dossiers),
+                ]
+            },
+            'rh': {
+                'label': 'Ressources Humaines',
+                'permissions': [
+                    ('rh_voir', self.rh_voir),
+                    ('rh_employes', self.rh_employes),
+                    ('rh_conges', self.rh_conges),
+                    ('rh_paie', self.rh_paie),
+                ]
+            },
+            'parametres': {
+                'label': 'Paramètres',
+                'permissions': [
+                    ('parametres_voir', self.parametres_voir),
+                    ('parametres_modifier', self.parametres_modifier),
+                    ('parametres_utilisateurs', self.parametres_utilisateurs),
+                    ('parametres_permissions', self.parametres_permissions),
+                ]
+            },
+            'rapports': {
+                'label': 'Rapports et Exports',
+                'permissions': [
+                    ('rapports_voir', self.rapports_voir),
+                    ('rapports_generer', self.rapports_generer),
+                    ('exports_excel', self.exports_excel),
+                    ('exports_pdf', self.exports_pdf),
+                ]
+            },
+        }
+        return modules
