@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dossiers de Recouvrement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .page-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .page-title h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+        padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+    }
+
+    .btn-primary:hover {
+        background: #15294d;
+        color: white;
+    }
+
+    /* Stats Cards */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+
+    .stat-card .label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .stat-card.success .value { color: #166534; }
+    .stat-card.warning .value { color: #92400e; }
+    .stat-card.danger .value { color: #dc2626; }
+
+    /* Filter Card */
+    .filter-card {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .filter-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .filter-group label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        min-width: 150px;
+    }
+
+    .filter-group input[type="text"] {
+        min-width: 200px;
+    }
+
+    .btn-filter {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-filter:hover {
+        background: var(--border-color);
+    }
+
+    /* Table */
+    .table-card {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .data-table th {
+        background: var(--bg-secondary);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+
+    .data-table tr:hover {
+        background: var(--bg-secondary);
+    }
+
+    .data-table .amount {
+        font-family: monospace;
+        text-align: right;
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .badge-danger { background: #fee2e2; color: #dc2626; }
+    .badge-secondary { background: #f3f4f6; color: #4b5563; }
+
+    /* Action Buttons */
+    .action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.375rem;
+        border-radius: 0.25rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .action-btn:hover {
+        background: var(--bg-secondary);
+        color: var(--primary);
+    }
+
+    /* Pagination */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+
+    .pagination a,
+    .pagination span {
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.375rem;
+        text-decoration: none;
+        color: var(--text-primary);
+        background: var(--bg-secondary);
+    }
+
+    .pagination a:hover {
+        background: var(--border-color);
+    }
+
+    .pagination .current {
+        background: var(--primary);
+        color: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <i data-lucide="folder-open"></i>
+        <h1>Dossiers de Recouvrement</h1>
+    </div>
+    <a href="{% url 'recouvrement:creer_dossier_recouvrement' %}" class="btn-primary">
+        <i data-lucide="plus"></i>
+        Nouveau dossier
+    </a>
+</div>
+
+<!-- Stats rapides -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="value">{{ stats.total }}</div>
+        <div class="label">Total dossiers</div>
+    </div>
+    <div class="stat-card success">
+        <div class="value">{{ stats.en_cours }}</div>
+        <div class="label">En cours</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="value">{{ stats.suspendus }}</div>
+        <div class="label">Suspendus</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.clotures }}</div>
+        <div class="label">Clôturés</div>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="filter-card">
+    <form method="get" class="filter-form">
+        <div class="filter-group">
+            <label for="q">Recherche</label>
+            <input type="text" id="q" name="q" value="{{ filtres.q|default:'' }}" placeholder="Référence, créancier, débiteur...">
+        </div>
+        <div class="filter-group">
+            <label for="statut">Statut</label>
+            <select id="statut" name="statut">
+                <option value="">Tous les statuts</option>
+                <option value="en_cours" {% if filtres.statut == 'en_cours' %}selected{% endif %}>En cours</option>
+                <option value="suspendu" {% if filtres.statut == 'suspendu' %}selected{% endif %}>Suspendu</option>
+                <option value="cloture" {% if filtres.statut == 'cloture' %}selected{% endif %}>Clôturé</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="type">Type</label>
+            <select id="type" name="type">
+                <option value="">Tous les types</option>
+                <option value="amiable" {% if filtres.type == 'amiable' %}selected{% endif %}>Amiable</option>
+                <option value="force" {% if filtres.type == 'force' %}selected{% endif %}>Forcé</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="creancier">Créancier</label>
+            <select id="creancier" name="creancier">
+                <option value="">Tous les créanciers</option>
+                {% for c in creanciers %}
+                <option value="{{ c.id }}" {% if filtres.creancier == c.id|stringformat:'s' %}selected{% endif %}>{{ c.nom }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">
+            <i data-lucide="search"></i>
+            Filtrer
+        </button>
+        {% if filtres.q or filtres.statut or filtres.type or filtres.creancier %}
+        <a href="{% url 'recouvrement:liste_dossiers_recouvrement' %}" class="btn-filter">
+            <i data-lucide="x"></i>
+            Effacer
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Liste des dossiers -->
+<div class="table-card">
+    {% if dossiers %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Créancier</th>
+                    <th>Débiteur</th>
+                    <th>Type</th>
+                    <th>Statut</th>
+                    <th class="amount">Principal</th>
+                    <th class="amount">Encaissé</th>
+                    <th>Date ouverture</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in dossiers %}
+                <tr>
+                    <td>
+                        <a href="{% url 'recouvrement:detail_dossier_recouvrement' d.id %}" style="font-weight: 600; color: var(--primary); text-decoration: none;">
+                            {{ d.reference }}
+                        </a>
+                    </td>
+                    <td>{{ d.creancier.nom }}</td>
+                    <td>{{ d.debiteur.nom|default:'-' }}</td>
+                    <td>
+                        {% if d.type_recouvrement == 'amiable' %}
+                        <span class="badge badge-info">Amiable</span>
+                        {% else %}
+                        <span class="badge badge-warning">Forcé</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.statut == 'en_cours' %}
+                        <span class="badge badge-success">En cours</span>
+                        {% elif d.statut == 'suspendu' %}
+                        <span class="badge badge-warning">Suspendu</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Clôturé</span>
+                        {% endif %}
+                    </td>
+                    <td class="amount">{{ d.montant_principal|floatformat:0 }} F</td>
+                    <td class="amount">{{ d.montant_encaisse|floatformat:0 }} F</td>
+                    <td>{{ d.date_ouverture|date:"d/m/Y" }}</td>
+                    <td>
+                        <a href="{% url 'recouvrement:detail_dossier_recouvrement' d.id %}" class="action-btn" title="Voir détail">
+                            <i data-lucide="eye"></i>
+                        </a>
+                        <a href="{% url 'recouvrement:modifier_dossier_recouvrement' d.id %}" class="action-btn" title="Modifier">
+                            <i data-lucide="edit"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if dossiers.has_other_pages %}
+    <div class="pagination">
+        {% if dossiers.has_previous %}
+        <a href="?page={{ dossiers.previous_page_number }}{% if filtres.q %}&q={{ filtres.q }}{% endif %}{% if filtres.statut %}&statut={{ filtres.statut }}{% endif %}{% if filtres.type %}&type={{ filtres.type }}{% endif %}{% if filtres.creancier %}&creancier={{ filtres.creancier }}{% endif %}">
+            <i data-lucide="chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for num in dossiers.paginator.page_range %}
+            {% if dossiers.number == num %}
+            <span class="current">{{ num }}</span>
+            {% elif num > dossiers.number|add:'-3' and num < dossiers.number|add:'3' %}
+            <a href="?page={{ num }}{% if filtres.q %}&q={{ filtres.q }}{% endif %}{% if filtres.statut %}&statut={{ filtres.statut }}{% endif %}{% if filtres.type %}&type={{ filtres.type }}{% endif %}{% if filtres.creancier %}&creancier={{ filtres.creancier }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if dossiers.has_next %}
+        <a href="?page={{ dossiers.next_page_number }}{% if filtres.q %}&q={{ filtres.q }}{% endif %}{% if filtres.statut %}&statut={{ filtres.statut }}{% endif %}{% if filtres.type %}&type={{ filtres.type }}{% endif %}{% if filtres.creancier %}&creancier={{ filtres.creancier }}{% endif %}">
+            <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="folder-x"></i>
+        <p>Aucun dossier trouvé.</p>
+        <a href="{% url 'recouvrement:creer_dossier_recouvrement' %}" class="btn-primary" style="margin-top: 1rem;">
+            <i data-lucide="plus"></i>
+            Créer un dossier
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,819 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ dossier.reference }} - Recouvrement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .page-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .page-title h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .breadcrumb {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    .breadcrumb a {
+        color: var(--primary);
+        text-decoration: none;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-primary, .btn-secondary {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #15294d;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--border-color);
+    }
+
+    /* Cards */
+    .card {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    /* Info Grid */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+    }
+
+    .info-value {
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .info-value.large {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .info-value.money {
+        font-family: monospace;
+        color: var(--primary);
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .badge-danger { background: #fee2e2; color: #dc2626; }
+    .badge-secondary { background: #f3f4f6; color: #4b5563; }
+
+    /* Two column layout */
+    .two-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+        .two-columns {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Situation financière */
+    .situation-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .situation-item {
+        background: var(--bg-secondary);
+        border-radius: 0.375rem;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .situation-item .value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        font-family: monospace;
+    }
+
+    .situation-item .label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .situation-item.highlight {
+        background: var(--primary);
+        color: white;
+    }
+
+    .situation-item.highlight .label {
+        color: rgba(255,255,255,0.8);
+    }
+
+    .situation-item.success { background: #dcfce7; }
+    .situation-item.success .value { color: #166534; }
+
+    .situation-item.warning { background: #fef3c7; }
+    .situation-item.warning .value { color: #92400e; }
+
+    /* Progress bar */
+    .progress-container {
+        margin-top: 1.5rem;
+    }
+
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .progress-bar {
+        background: var(--bg-secondary);
+        border-radius: 9999px;
+        height: 0.75rem;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        background: linear-gradient(90deg, var(--primary), #166534);
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.3s ease;
+    }
+
+    /* Table */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .data-table th {
+        background: var(--bg-secondary);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+
+    .data-table tr:hover {
+        background: var(--bg-secondary);
+    }
+
+    .data-table .amount {
+        font-family: monospace;
+        text-align: right;
+    }
+
+    /* Historique */
+    .timeline {
+        padding: 0;
+        list-style: none;
+    }
+
+    .timeline-item {
+        display: flex;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .timeline-item:last-child {
+        border-bottom: none;
+    }
+
+    .timeline-icon {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: var(--bg-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .timeline-icon i {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .timeline-content {
+        flex: 1;
+    }
+
+    .timeline-date {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    .timeline-text {
+        font-size: 0.875rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'recouvrement:dashboard_recouvrement' %}">Recouvrement</a> /
+    <a href="{% url 'recouvrement:liste_dossiers_recouvrement' %}">Dossiers</a> /
+    {{ dossier.reference }}
+</div>
+
+<div class="page-header">
+    <div>
+        <div class="page-title">
+            <i data-lucide="folder"></i>
+            <h1>{{ dossier.reference }}</h1>
+            {% if dossier.statut == 'en_cours' %}
+            <span class="badge badge-success">En cours</span>
+            {% elif dossier.statut == 'suspendu' %}
+            <span class="badge badge-warning">Suspendu</span>
+            {% else %}
+            <span class="badge badge-secondary">Clôturé</span>
+            {% endif %}
+            {% if dossier.type_recouvrement == 'amiable' %}
+            <span class="badge badge-info">Amiable</span>
+            {% else %}
+            <span class="badge badge-warning">Forcé</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="btn-group">
+        <button class="btn-secondary" onclick="openPaiementModal()">
+            <i data-lucide="plus"></i>
+            Nouveau paiement
+        </button>
+        <a href="{% url 'recouvrement:modifier_dossier_recouvrement' dossier.id %}" class="btn-primary">
+            <i data-lucide="edit"></i>
+            Modifier
+        </a>
+    </div>
+</div>
+
+<div class="two-columns">
+    <!-- Colonne gauche -->
+    <div>
+        <!-- Informations générales -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i data-lucide="info"></i>
+                    Informations générales
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Créancier</span>
+                        <span class="info-value">{{ dossier.creancier.nom }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Débiteur</span>
+                        <span class="info-value">{{ dossier.debiteur.nom|default:'-' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Mode facturation</span>
+                        <span class="info-value">{{ dossier.get_mode_facturation_display }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Date d'ouverture</span>
+                        <span class="info-value">{{ dossier.date_ouverture|date:"d/m/Y" }}</span>
+                    </div>
+                    {% if dossier.dossier_principal %}
+                    <div class="info-item">
+                        <span class="info-label">Dossier principal</span>
+                        <span class="info-value">{{ dossier.dossier_principal.reference }}</span>
+                    </div>
+                    {% endif %}
+                    {% if dossier.date_cloture %}
+                    <div class="info-item">
+                        <span class="info-label">Date clôture</span>
+                        <span class="info-value">{{ dossier.date_cloture|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Motif clôture</span>
+                        <span class="info-value">{{ dossier.get_motif_cloture_display }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if dossier.observations %}
+                <div class="info-item" style="margin-top: 1rem;">
+                    <span class="info-label">Observations</span>
+                    <span class="info-value">{{ dossier.observations }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Situation financière -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i data-lucide="wallet"></i>
+                    Situation financière
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="situation-grid">
+                    <div class="situation-item">
+                        <div class="value">{{ situation.principal_du|floatformat:0 }}</div>
+                        <div class="label">Principal dû</div>
+                    </div>
+                    <div class="situation-item">
+                        <div class="value">{{ situation.interets_dus|floatformat:0 }}</div>
+                        <div class="label">Intérêts</div>
+                    </div>
+                    <div class="situation-item">
+                        <div class="value">{{ situation.frais_engages|floatformat:0 }}</div>
+                        <div class="label">Frais engagés</div>
+                    </div>
+                    <div class="situation-item">
+                        <div class="value">{{ situation.emoluments_calcules|floatformat:0 }}</div>
+                        <div class="label">Émoluments</div>
+                    </div>
+                </div>
+
+                <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border-color);">
+
+                <div class="situation-grid">
+                    <div class="situation-item success">
+                        <div class="value">{{ situation.total_paye|floatformat:0 }}</div>
+                        <div class="label">Total payé</div>
+                    </div>
+                    <div class="situation-item warning">
+                        <div class="value">{{ situation.principal_restant|floatformat:0 }}</div>
+                        <div class="label">Principal restant</div>
+                    </div>
+                    <div class="situation-item">
+                        <div class="value">{{ situation.total_a_reverser|floatformat:0 }}</div>
+                        <div class="label">À reverser</div>
+                    </div>
+                    <div class="situation-item highlight">
+                        <div class="value">{{ situation.total_reverse|floatformat:0 }}</div>
+                        <div class="label">Reversé</div>
+                    </div>
+                </div>
+
+                {% if situation.total_reserve > 0 %}
+                <div class="situation-grid" style="margin-top: 1rem;">
+                    <div class="situation-item warning">
+                        <div class="value">{{ situation.total_reserve|floatformat:0 }}</div>
+                        <div class="label">En réserve</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Barre de progression -->
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Taux de recouvrement</span>
+                        <span>{{ dossier.taux_recouvrement|floatformat:1 }}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ dossier.taux_recouvrement|floatformat:0 }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Colonne droite -->
+    <div>
+        <!-- Paiements -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i data-lucide="credit-card"></i>
+                    Paiements ({{ paiements.count }})
+                </span>
+                <button class="btn-secondary" onclick="openPaiementModal()" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">
+                    <i data-lucide="plus"></i>
+                </button>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                {% if paiements %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Mode</th>
+                            <th class="amount">Montant</th>
+                            <th>Reversé</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in paiements %}
+                        <tr>
+                            <td>{{ p.date_paiement|date:"d/m/Y" }}</td>
+                            <td>{{ p.get_mode_paiement_display }}</td>
+                            <td class="amount">{{ p.montant|floatformat:0 }} F</td>
+                            <td>
+                                {% if p.est_reverse %}
+                                <span class="badge badge-success">Oui</span>
+                                {% elif p.montant_a_reverser > 0 %}
+                                <button class="badge badge-warning" onclick="reverserPaiement('{{ p.id }}')" style="cursor: pointer; border: none;">
+                                    {{ p.montant_a_reverser|floatformat:0 }} F
+                                </button>
+                                {% else %}
+                                <span class="badge badge-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="action-btn" onclick="voirDetailPaiement('{{ p.id }}')" title="Détail">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <p>Aucun paiement enregistré.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Historique -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i data-lucide="history"></i>
+                    Historique récent
+                </span>
+            </div>
+            <div class="card-body" style="padding: 0.5rem 1.5rem;">
+                {% if historique %}
+                <ul class="timeline">
+                    {% for h in historique %}
+                    <li class="timeline-item">
+                        <div class="timeline-icon">
+                            {% if h.type_action == 'paiement' %}
+                            <i data-lucide="credit-card"></i>
+                            {% elif h.type_action == 'reversement' %}
+                            <i data-lucide="send"></i>
+                            {% elif h.type_action == 'creation' %}
+                            <i data-lucide="plus-circle"></i>
+                            {% else %}
+                            <i data-lucide="activity"></i>
+                            {% endif %}
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">{{ h.date_action|date:"d/m/Y H:i" }}</div>
+                            <div class="timeline-text">{{ h.description }}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state">
+                    <p>Aucun historique.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Paiement -->
+<div class="modal" id="paiementModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Enregistrer un paiement</h3>
+            <button onclick="closePaiementModal()" style="background: none; border: none; cursor: pointer;">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formPaiement">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="montant">Montant *</label>
+                        <input type="number" id="montant" name="montant" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_paiement">Date</label>
+                        <input type="date" id="date_paiement" name="date_paiement">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="mode_paiement">Mode de paiement</label>
+                        <select id="mode_paiement" name="mode_paiement">
+                            <option value="especes">Espèces</option>
+                            <option value="cheque">Chèque</option>
+                            <option value="virement">Virement</option>
+                            <option value="mobile">Mobile Money</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reference_paiement">Référence</label>
+                        <input type="text" id="reference_paiement" name="reference_paiement" placeholder="N° chèque, réf virement...">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="observations_paiement">Observations</label>
+                    <textarea id="observations_paiement" name="observations" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closePaiementModal()">Annuler</button>
+            <button class="btn-primary" onclick="enregistrerPaiement()">
+                <i data-lucide="save"></i>
+                Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+
+    // Date par défaut = aujourd'hui
+    document.getElementById('date_paiement').value = new Date().toISOString().split('T')[0];
+});
+
+function openPaiementModal() {
+    document.getElementById('paiementModal').classList.add('active');
+}
+
+function closePaiementModal() {
+    document.getElementById('paiementModal').classList.remove('active');
+    document.getElementById('formPaiement').reset();
+    document.getElementById('date_paiement').value = new Date().toISOString().split('T')[0];
+}
+
+async function enregistrerPaiement() {
+    const montant = document.getElementById('montant').value;
+    if (!montant || parseInt(montant) <= 0) {
+        alert('Veuillez saisir un montant valide');
+        return;
+    }
+
+    const data = {
+        dossier_id: '{{ dossier.id }}',
+        montant: parseInt(montant),
+        date_paiement: document.getElementById('date_paiement').value,
+        mode_paiement: document.getElementById('mode_paiement').value,
+        reference_paiement: document.getElementById('reference_paiement').value,
+        observations: document.getElementById('observations_paiement').value,
+    };
+
+    try {
+        const response = await fetch('{% url "recouvrement:api_enregistrer_paiement" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
+}
+
+async function reverserPaiement(paiementId) {
+    if (!confirm('Confirmer le reversement de ce montant au créancier ?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/recouvrement/api/paiement/${paiementId}/reverser/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({})
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
+}
+
+function voirDetailPaiement(paiementId) {
+    // Pour l'instant, affiche une alerte. Peut être étendu avec un modal de détail.
+    alert('Détail du paiement: ' + paiementId);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
