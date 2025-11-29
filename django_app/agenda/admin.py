@@ -447,8 +447,8 @@ class ParticipationRdvAdmin(admin.ModelAdmin):
 
 @admin.register(DocumentRdv)
 class DocumentRdvAdmin(admin.ModelAdmin):
-    list_display = ['nom', 'rendez_vous', 'type_document', 'date_ajout', 'ajoute_par']
-    list_filter = ['type_document', 'date_ajout']
+    list_display = ['nom', 'rendez_vous', 'date_ajout', 'ajoute_par']
+    list_filter = ['date_ajout']
     search_fields = ['nom', 'rendez_vous__titre', 'description']
     raw_id_fields = ['rendez_vous', 'ajoute_par']
     readonly_fields = ['date_ajout']
@@ -461,8 +461,8 @@ class DocumentRdvAdmin(admin.ModelAdmin):
 
 @admin.register(RappelRdv)
 class RappelRdvAdmin(admin.ModelAdmin):
-    list_display = ['rendez_vous', 'type_rappel', 'canal', 'envoye', 'date_envoi_prevue']
-    list_filter = ['type_rappel', 'canal', 'envoye']
+    list_display = ['rendez_vous', 'type_rappel', 'type_notification', 'est_envoye', 'date_envoi']
+    list_filter = ['type_rappel', 'type_notification', 'est_envoye']
     search_fields = ['rendez_vous__titre']
     raw_id_fields = ['rendez_vous']
     readonly_fields = ['date_envoi']
@@ -474,8 +474,8 @@ class RappelRdvAdmin(admin.ModelAdmin):
 
 @admin.register(DocumentTache)
 class DocumentTacheAdmin(admin.ModelAdmin):
-    list_display = ['nom', 'tache', 'type_document', 'date_ajout', 'ajoute_par']
-    list_filter = ['type_document', 'date_ajout']
+    list_display = ['nom', 'tache', 'date_ajout', 'ajoute_par']
+    list_filter = ['date_ajout']
     search_fields = ['nom', 'tache__titre', 'description']
     raw_id_fields = ['tache', 'ajoute_par']
     readonly_fields = ['date_ajout']
@@ -488,8 +488,8 @@ class DocumentTacheAdmin(admin.ModelAdmin):
 
 @admin.register(RappelTache)
 class RappelTacheAdmin(admin.ModelAdmin):
-    list_display = ['tache', 'type_rappel', 'canal', 'envoye', 'date_envoi_prevue']
-    list_filter = ['type_rappel', 'canal', 'envoye']
+    list_display = ['tache', 'type_rappel', 'type_notification', 'est_envoye', 'date_envoi']
+    list_filter = ['type_rappel', 'type_notification', 'est_envoye']
     search_fields = ['tache__titre']
     raw_id_fields = ['tache']
     readonly_fields = ['date_envoi']
@@ -501,11 +501,11 @@ class RappelTacheAdmin(admin.ModelAdmin):
 
 @admin.register(CommentaireTache)
 class CommentaireTacheAdmin(admin.ModelAdmin):
-    list_display = ['tache', 'auteur', 'contenu_apercu', 'date_creation', 'est_important']
-    list_filter = ['est_important', 'date_creation']
+    list_display = ['tache', 'auteur', 'contenu_apercu', 'date_creation', 'est_prive']
+    list_filter = ['est_prive', 'date_creation']
     search_fields = ['tache__titre', 'contenu', 'auteur__username']
     raw_id_fields = ['tache', 'auteur']
-    readonly_fields = ['date_creation', 'date_modification']
+    readonly_fields = ['date_creation']
     date_hierarchy = 'date_creation'
 
     def contenu_apercu(self, obj):
@@ -519,8 +519,8 @@ class CommentaireTacheAdmin(admin.ModelAdmin):
 
 @admin.register(SousTacheChecklist)
 class SousTacheChecklistAdmin(admin.ModelAdmin):
-    list_display = ['titre', 'tache', 'est_complete', 'ordre', 'date_completion', 'complete_par']
+    list_display = ['libelle', 'tache', 'est_complete', 'ordre', 'date_completion', 'complete_par']
     list_filter = ['est_complete', 'date_completion']
-    search_fields = ['titre', 'tache__titre']
+    search_fields = ['libelle', 'tache__titre']
     raw_id_fields = ['tache', 'complete_par']
     readonly_fields = ['date_completion']
