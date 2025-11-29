@@ -148,7 +148,7 @@
 {% endblock %}
 
 {% block content %}
-<a href="{% url 'portail_mes_dossiers' %}" class="back-link">
+<a href="{% url 'portail_client:portail_mes_dossiers' %}" class="back-link">
     <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
     Retour à mes dossiers
 </a>
@@ -240,7 +240,7 @@
                         <div class="doc-meta">{{ doc.get_type_document_display }} - {{ doc.date_mise_disposition|date:"d/m/Y" }}</div>
                     </div>
                     {% if not doc.paiement_requis or doc.est_paye %}
-                    <a href="{% url 'portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
+                    <a href="{% url 'portail_client:portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
                         <i data-lucide="download" style="width: 14px; height: 14px;"></i>
                     </a>
                     {% else %}
@@ -269,7 +269,7 @@
             <h4 style="font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 0.25rem;">Une question sur ce dossier ?</h4>
             <p style="color: var(--gris); font-size: 0.9rem;">Contactez-nous via la messagerie pour toute demande.</p>
         </div>
-        <a href="{% url 'portail_mes_messages' %}" class="btn btn-primary">
+        <a href="{% url 'portail_client:portail_mes_messages' %}" class="btn btn-primary">
             <i data-lucide="message-circle" style="width: 18px; height: 18px;"></i>
             Envoyer un message
         </a>

@@ -265,7 +265,7 @@
                 <i data-lucide="folder-open" style="width: 20px; height: 20px;"></i>
                 Dossiers récents
             </h3>
-            <a href="{% url 'portail_mes_dossiers' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+            <a href="{% url 'portail_client:portail_mes_dossiers' %}" class="btn btn-sm btn-secondary">Voir tout</a>
         </div>
         <div class="card-body">
             {% if dossiers %}
@@ -300,7 +300,7 @@
                 <i data-lucide="file-text" style="width: 20px; height: 20px;"></i>
                 Documents récents
             </h3>
-            <a href="{% url 'portail_mes_documents' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+            <a href="{% url 'portail_client:portail_mes_documents' %}" class="btn btn-sm btn-secondary">Voir tout</a>
         </div>
         <div class="card-body">
             {% if documents %}
@@ -314,7 +314,7 @@
                         <div class="item-title">{{ doc.titre|truncatewords:5 }}</div>
                         <div class="item-meta">{{ doc.get_type_document_display }} - {{ doc.date_mise_disposition|date:"d/m/Y" }}</div>
                     </div>
-                    <a href="{% url 'portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
+                    <a href="{% url 'portail_client:portail_telecharger_document' doc.id %}" class="btn btn-sm btn-gold">
                         <i data-lucide="download" style="width: 16px; height: 16px;"></i>
                     </a>
                 </li>
@@ -337,7 +337,7 @@
                 <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
                 Notifications
             </h3>
-            <a href="{% url 'portail_notifications' %}" class="btn btn-sm btn-secondary">Voir tout</a>
+            <a href="{% url 'portail_client:portail_notifications' %}" class="btn btn-sm btn-secondary">Voir tout</a>
         </div>
         <div class="card-body">
             {% if notifications %}
@@ -374,19 +374,19 @@
         </div>
         <div class="card-body">
             <div class="quick-actions">
-                <a href="{% url 'portail_mes_messages' %}" class="quick-action-btn">
+                <a href="{% url 'portail_client:portail_mes_messages' %}" class="quick-action-btn">
                     <i data-lucide="message-square-plus" style="width: 32px; height: 32px;"></i>
                     <span>Envoyer un message</span>
                 </a>
-                <a href="{% url 'portail_mes_documents' %}" class="quick-action-btn">
+                <a href="{% url 'portail_client:portail_mes_documents' %}" class="quick-action-btn">
                     <i data-lucide="download" style="width: 32px; height: 32px;"></i>
                     <span>Télécharger un document</span>
                 </a>
-                <a href="{% url 'portail_mes_dossiers' %}" class="quick-action-btn">
+                <a href="{% url 'portail_client:portail_mes_dossiers' %}" class="quick-action-btn">
                     <i data-lucide="search" style="width: 32px; height: 32px;"></i>
                     <span>Consulter mes dossiers</span>
                 </a>
-                <a href="{% url 'portail_mon_profil' %}" class="quick-action-btn">
+                <a href="{% url 'portail_client:portail_mon_profil' %}" class="quick-action-btn">
                     <i data-lucide="settings" style="width: 32px; height: 32px;"></i>
                     <span>Paramètres du compte</span>
                 </a>
