@@ -8,4 +8,7 @@ class GestionConfig(AppConfig):
 
     def ready(self):
         """Charge les signaux au démarrage de l'application."""
-        import gestion.signals  # noqa: F401
+        try:
+            import gestion.signals  # noqa: F401
+        except ImportError:
+            pass
