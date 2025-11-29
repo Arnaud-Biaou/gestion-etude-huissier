@@ -3,7 +3,7 @@ Modèles du module Recouvrement de Créances
 """
 
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
 import uuid
@@ -700,7 +700,7 @@ class PaiementRecouvrement(models.Model):
     # Métadonnées
     observations = models.TextField(blank=True)
     cree_par = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name='paiements_recouvrement_crees'
@@ -862,7 +862,7 @@ class ImputationManuelle(models.Model):
     montant = models.DecimalField(max_digits=15, decimal_places=0)
 
     observations = models.TextField(blank=True)
-    cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -952,7 +952,7 @@ class HistoriqueActionRecouvrement(models.Model):
     )
 
     # Métadonnées
-    cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
 
     class Meta:
         verbose_name = "Historique action"
