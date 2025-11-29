@@ -332,8 +332,169 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Factures -->
+        <div class="card mb-4">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="card-title"><i data-lucide="file-text" style="width: 18px; height: 18px;"></i> Factures</h3>
+                <span style="background: var(--info-light); color: var(--info); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ factures|length }}</span>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                {% if factures %}
+                <table class="w-full">
+                    <thead>
+                        <tr style="background: var(--neutral-50);">
+                            <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Numéro</th>
+                            <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
+                            <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Montant TTC</th>
+                            <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fac in factures %}
+                        <tr style="border-bottom: 1px solid var(--neutral-100);">
+                            <td style="padding: 8px 12px; font-size: 13px; color: var(--primary); font-weight: 500;">
+                                {{ fac.numero }}
+                            </td>
+                            <td style="padding: 8px 12px; font-size: 13px;">{{ fac.date_emission|date:"d/m/Y" }}</td>
+                            <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600;">{{ fac.montant_ttc|floatformat:0 }} F</td>
+                            <td style="padding: 8px 12px; text-align: center;">
+                                <span class="status-badge {% if fac.statut == 'payee' %}actif{% elif fac.statut == 'attente' %}urgent{% else %}archive{% endif %}">{{ fac.get_statut_display }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="padding: 16px; color: var(--neutral-500); font-style: italic;">Aucune facture</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Section pleine largeur : Tâches et Mouvements -->
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <!-- Tâches liées -->
+    <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 class="card-title"><i data-lucide="check-square" style="width: 18px; height: 18px;"></i> Tâches liées</h3>
+            <span style="background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ taches_dossier|length }}</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            {% if taches_dossier %}
+            <table class="w-full">
+                <thead>
+                    <tr style="background: var(--neutral-50);">
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Titre</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Échéance</th>
+                        <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Priorité</th>
+                        <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tache in taches_dossier %}
+                    <tr style="border-bottom: 1px solid var(--neutral-100);">
+                        <td style="padding: 8px 12px; font-size: 13px; color: var(--primary); font-weight: 500;">
+                            {{ tache.titre|truncatechars:30 }}
+                        </td>
+                        <td style="padding: 8px 12px; font-size: 13px;">{{ tache.date_echeance|date:"d/m/Y" }}</td>
+                        <td style="padding: 8px 12px; text-align: center;">
+                            <span class="status-badge {% if tache.priorite == 'haute' or tache.priorite == 'urgente' %}urgent{% elif tache.priorite == 'normale' %}actif{% else %}archive{% endif %}">
+                                {{ tache.get_priorite_display|default:tache.priorite }}
+                            </span>
+                        </td>
+                        <td style="padding: 8px 12px; text-align: center;">
+                            <span class="status-badge {% if tache.statut == 'terminee' %}actif{% elif tache.statut == 'en_cours' %}urgent{% else %}archive{% endif %}">
+                                {{ tache.get_statut_display|default:tache.statut }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="padding: 16px; color: var(--neutral-500); font-style: italic;">Aucune tâche liée</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Mouvements de trésorerie -->
+    <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 class="card-title"><i data-lucide="wallet" style="width: 18px; height: 18px;"></i> Mouvements de trésorerie</h3>
+            <span style="background: var(--success-light); color: var(--success); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ mouvements_dossier|length }}</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            {% if mouvements_dossier %}
+            <table class="w-full">
+                <thead>
+                    <tr style="background: var(--neutral-50);">
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Libellé</th>
+                        <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Type</th>
+                        <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Montant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mvt in mouvements_dossier %}
+                    <tr style="border-bottom: 1px solid var(--neutral-100);">
+                        <td style="padding: 8px 12px; font-size: 13px;">{{ mvt.date_mouvement|date:"d/m/Y" }}</td>
+                        <td style="padding: 8px 12px; font-size: 13px;">{{ mvt.libelle|truncatechars:25 }}</td>
+                        <td style="padding: 8px 12px; text-align: center;">
+                            <span class="status-badge {% if mvt.type_mouvement == 'entree' %}actif{% else %}urgent{% endif %}">
+                                {% if mvt.type_mouvement == 'entree' %}<i data-lucide="arrow-down-circle" style="width: 12px; height: 12px;"></i>{% else %}<i data-lucide="arrow-up-circle" style="width: 12px; height: 12px;"></i>{% endif %}
+                                {{ mvt.get_type_mouvement_display }}
+                            </span>
+                        </td>
+                        <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600; color: {% if mvt.type_mouvement == 'entree' %}var(--success){% else %}var(--danger){% endif %};">
+                            {% if mvt.type_mouvement == 'entree' %}+{% else %}-{% endif %}{{ mvt.montant|floatformat:0 }} F
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="padding: 16px; color: var(--neutral-500); font-style: italic;">Aucun mouvement</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Historique des basculements (si phase forcée) -->
+{% if dossier.phase == 'force' and basculements %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title"><i data-lucide="history" style="width: 18px; height: 18px;"></i> Historique des basculements</h3>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table class="w-full">
+            <thead>
+                <tr style="background: var(--neutral-50);">
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Type</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Motif</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Par</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for basc in basculements %}
+                <tr style="border-bottom: 1px solid var(--neutral-100);">
+                    <td style="padding: 8px 12px; font-size: 13px;">{{ basc.date_basculement|date:"d/m/Y H:i" }}</td>
+                    <td style="padding: 8px 12px; font-size: 13px;">
+                        <span class="status-badge urgent">
+                            <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Phase forcée
+                        </span>
+                    </td>
+                    <td style="padding: 8px 12px; font-size: 13px;">{{ basc.motif|default:"-" }}</td>
+                    <td style="padding: 8px 12px; font-size: 13px;">{{ basc.effectue_par|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <!-- Métadonnées -->
 <div class="card">

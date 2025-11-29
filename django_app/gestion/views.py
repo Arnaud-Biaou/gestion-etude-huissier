@@ -778,6 +778,24 @@ def dossier_detail(request, pk):
     if dossier.phase == 'force':
         context['basculements'] = dossier.basculements.all().order_by('-date_basculement')
 
+    # Tâches liées au dossier
+    taches_dossier = []
+    try:
+        from agenda.models import Tache
+        taches_dossier = list(Tache.objects.filter(dossier=dossier).order_by('-date_echeance')[:5])
+    except Exception:
+        pass
+    context['taches_dossier'] = taches_dossier
+
+    # Mouvements de trésorerie liés
+    mouvements_dossier = []
+    try:
+        from tresorerie.models import MouvementTresorerie
+        mouvements_dossier = list(MouvementTresorerie.objects.filter(dossier=dossier).order_by('-date_mouvement')[:5])
+    except Exception:
+        pass
+    context['mouvements_dossier'] = mouvements_dossier
+
     return render(request, 'gestion/dossier_detail.html', context)
 
 
