@@ -1,0 +1,412 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header avec bouton -->
+    <div class="flex justify-between items-center flex-wrap gap-4">
+        <div>
+            <h2 class="text-xl font-bold" style="color: var(--primary);">Calendriers de Saisie Immobilière</h2>
+            <p style="color: var(--neutral-500); font-size: 14px;">
+                Gestion des délais conformément aux Articles 246 à 335 OHADA
+            </p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">
+            <i data-lucide="plus"></i> Nouveau calendrier
+        </button>
+    </div>
+
+    <!-- Alertes globales -->
+    {% if calendriers %}
+    <div id="alertesGlobales" class="space-y-2">
+        <!-- Les alertes seront injectées ici par JS -->
+    </div>
+    {% endif %}
+
+    <!-- Liste des calendriers -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Liste des calendriers</h3>
+            <span class="nav-badge">{{ calendriers.count }}</span>
+        </div>
+        <div class="card-body">
+            {% if calendriers %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Référence</th>
+                        <th>Créancier</th>
+                        <th>Débiteur(s)</th>
+                        <th>Date Commandement</th>
+                        <th>Statut</th>
+                        <th>Prochaine échéance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cal in calendriers %}
+                    <tr data-id="{{ cal.id }}">
+                        <td>
+                            <a href="{% url 'gestion:calendrier_saisie_detail' cal.pk %}" class="text-primary font-medium">
+                                {{ cal.reference }}
+                            </a>
+                        </td>
+                        <td>{{ cal.creancier|truncatechars:30 }}</td>
+                        <td>{{ cal.debiteurs|truncatechars:40 }}</td>
+                        <td>{{ cal.date_commandement|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="status-badge {% if cal.statut == 'en_cours' %}active{% elif cal.statut == 'termine' %}closed{% else %}inactive{% endif %}">
+                                {{ cal.get_statut_display }}
+                            </span>
+                        </td>
+                        <td class="prochaine-echeance" data-id="{{ cal.id }}">
+                            <span style="color: var(--neutral-500);">Chargement...</span>
+                        </td>
+                        <td>
+                            <div class="flex gap-1">
+                                <a href="{% url 'gestion:api_telecharger_calendrier_pdf' cal.pk %}"
+                                   class="icon-btn" title="Télécharger PDF" target="_blank">
+                                    <i data-lucide="file-text"></i>
+                                </a>
+                                <a href="{% url 'gestion:calendrier_saisie_detail' cal.pk %}"
+                                   class="icon-btn" title="Voir détails">
+                                    <i data-lucide="eye"></i>
+                                </a>
+                                <button class="icon-btn" title="Supprimer"
+                                        onclick="supprimerCalendrier({{ cal.id }}, '{{ cal.reference }}')"
+                                        style="color: var(--danger);">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="text-align: center; padding: 60px 20px; color: var(--neutral-500);">
+                <i data-lucide="calendar-clock" style="width: 48px; height: 48px; margin-bottom: 16px;"></i>
+                <p>Aucun calendrier de saisie immobilière créé</p>
+                <p style="font-size: 14px; margin-top: 8px;">
+                    Cliquez sur "Nouveau calendrier" pour commencer
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal de création -->
+<div class="modal-overlay" id="modalCreation" onclick="if(event.target===this)closeModal()">
+    <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 class="modal-title">Nouveau Calendrier de Saisie Immobilière</h3>
+            <button class="modal-close" onclick="closeModal()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formCalendrier" onsubmit="return creerCalendrier(event)">
+                <div class="space-y-4">
+                    <!-- Juridiction -->
+                    <div class="form-group">
+                        <label class="form-label">Juridiction <span style="color: var(--danger);">*</span></label>
+                        <select class="form-select" id="juridiction" required>
+                            <option value="Tribunal de Première Instance de Première Classe de Parakou">
+                                Tribunal de Première Instance de Première Classe de Parakou
+                            </option>
+                            {% for j in juridictions %}
+                            <option value="{{ j.nom }}">{{ j.nom }}</option>
+                            {% endfor %}
+                            <option value="Tribunal de Première Instance de Première Classe de Cotonou">
+                                Tribunal de Première Instance de Première Classe de Cotonou
+                            </option>
+                            <option value="Tribunal de Première Instance de Deuxième Classe de Natitingou">
+                                Tribunal de Première Instance de Deuxième Classe de Natitingou
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Créancier -->
+                    <div class="form-group">
+                        <label class="form-label">Créancier poursuivant <span style="color: var(--danger);">*</span></label>
+                        <input class="form-input" type="text" id="creancier"
+                               placeholder="Ex: Banque XYZ, représentée par..." required>
+                    </div>
+
+                    <!-- Débiteurs -->
+                    <div class="form-group">
+                        <label class="form-label">Débiteur(s) saisi(s) <span style="color: var(--danger);">*</span></label>
+                        <textarea class="form-input" id="debiteurs" rows="3"
+                                  placeholder="Un débiteur par ligne&#10;Ex:&#10;M. DUPONT Jean&#10;Mme DUPONT Marie" required></textarea>
+                        <small style="color: var(--neutral-500);">Séparez chaque débiteur par un retour à la ligne</small>
+                    </div>
+
+                    <!-- Immeuble -->
+                    <div class="form-group">
+                        <label class="form-label">Désignation de l'immeuble</label>
+                        <textarea class="form-input" id="designation_immeuble" rows="2"
+                                  placeholder="Ex: Parcelle n°123, îlot 456, située à..."></textarea>
+                    </div>
+
+                    <!-- Titre foncier -->
+                    <div class="form-group">
+                        <label class="form-label">N° Titre foncier</label>
+                        <input class="form-input" type="text" id="titre_foncier"
+                               placeholder="Ex: TF 12345">
+                    </div>
+
+                    <!-- Date commandement -->
+                    <div class="form-group">
+                        <label class="form-label">Date de signification du commandement <span style="color: var(--danger);">*</span></label>
+                        <input class="form-input" type="date" id="date_commandement" required
+                               onchange="previewCalendrier()">
+                    </div>
+
+                    <!-- Observations -->
+                    <div class="form-group">
+                        <label class="form-label">Observations</label>
+                        <textarea class="form-input" id="observations" rows="2"
+                                  placeholder="Notes complémentaires..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Aperçu des dates calculées -->
+                <div id="previewSection" style="display: none; margin-top: 24px;">
+                    <h4 style="font-weight: 600; margin-bottom: 12px; color: var(--primary);">
+                        <i data-lucide="calendar" style="width: 18px; height: 18px; display: inline;"></i>
+                        Aperçu des délais calculés
+                    </h4>
+                    <div class="alert alert-info" style="margin-bottom: 12px;">
+                        <i data-lucide="info" style="width: 16px; height: 16px;"></i>
+                        <span>Les dates sont calculées en jours francs conformément aux règles OHADA</span>
+                    </div>
+                    <div id="previewTable" style="overflow-x: auto;">
+                        <!-- Tableau injecté par JS -->
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex gap-2 mt-6" style="justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="btnCreer">
+                        <i data-lucide="save"></i> Créer le calendrier
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // ═══════════════════════════════════════════════════════════════
+    // GESTION DU MODAL
+    // ═══════════════════════════════════════════════════════════════
+
+    function openModal() {
+        document.getElementById('modalCreation').classList.add('open');
+        document.getElementById('formCalendrier').reset();
+        document.getElementById('previewSection').style.display = 'none';
+    }
+
+    function closeModal() {
+        document.getElementById('modalCreation').classList.remove('open');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // APERÇU DES DATES
+    // ═══════════════════════════════════════════════════════════════
+
+    function previewCalendrier() {
+        const dateCmd = document.getElementById('date_commandement').value;
+        if (!dateCmd) return;
+
+        fetch(`{% url 'gestion:api_calculer_dates_saisie' %}?date_commandement=${dateCmd}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    afficherPreview(data.etapes);
+                }
+            })
+            .catch(err => console.error('Erreur preview:', err));
+    }
+
+    function afficherPreview(etapes) {
+        const section = document.getElementById('previewSection');
+        const table = document.getElementById('previewTable');
+
+        let html = '<table class="table" style="font-size: 13px;">';
+        html += '<thead><tr><th>N°</th><th>Étape</th><th>Date proposée</th><th>Date butoir</th></tr></thead>';
+        html += '<tbody>';
+
+        etapes.forEach(e => {
+            let dateProp = '-';
+            if (e.date_proposee) {
+                if (Array.isArray(e.date_proposee)) {
+                    dateProp = `Du ${formatDate(e.date_proposee[0])} au ${formatDate(e.date_proposee[1])}`;
+                } else {
+                    dateProp = formatDate(e.date_proposee);
+                }
+            }
+
+            let dateButoir = '-';
+            if (e.date_butoir) {
+                if (Array.isArray(e.date_butoir)) {
+                    dateButoir = `${formatDate(e.date_butoir[0])} - ${formatDate(e.date_butoir[1])}`;
+                } else {
+                    dateButoir = formatDate(e.date_butoir);
+                }
+            }
+            if (e.note) {
+                dateButoir = e.note;
+            }
+
+            const sanction = e.sanction ? ` <span style="color: var(--danger);">(${e.sanction})</span>` : '';
+
+            html += `<tr>
+                <td style="text-align: center;">${e.numero}</td>
+                <td>${e.nature}${sanction}</td>
+                <td>${dateProp}</td>
+                <td style="font-weight: 500;">${dateButoir}</td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        table.innerHTML = html;
+        section.style.display = 'block';
+        lucide.createIcons();
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('fr-FR');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CRÉATION DU CALENDRIER
+    // ═══════════════════════════════════════════════════════════════
+
+    function creerCalendrier(event) {
+        event.preventDefault();
+
+        const btn = document.getElementById('btnCreer');
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Création...';
+        lucide.createIcons();
+
+        const data = {
+            juridiction: document.getElementById('juridiction').value,
+            creancier: document.getElementById('creancier').value,
+            debiteurs: document.getElementById('debiteurs').value,
+            designation_immeuble: document.getElementById('designation_immeuble').value,
+            titre_foncier: document.getElementById('titre_foncier').value,
+            date_commandement: document.getElementById('date_commandement').value,
+            observations: document.getElementById('observations').value,
+        };
+
+        fetch('{% url "gestion:api_creer_calendrier_saisie" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Télécharger le PDF
+                if (result.pdf_url) {
+                    window.open(result.pdf_url, '_blank');
+                }
+                // Recharger la page
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="save"></i> Créer le calendrier';
+                lucide.createIcons();
+            }
+        })
+        .catch(error => {
+            alert('Erreur réseau: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="save"></i> Créer le calendrier';
+            lucide.createIcons();
+        });
+
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SUPPRESSION
+    // ═══════════════════════════════════════════════════════════════
+
+    function supprimerCalendrier(id, reference) {
+        if (!confirm(`Supprimer le calendrier ${reference} ?`)) return;
+
+        fetch(`/gestion/api/calendrier-saisie/${id}/supprimer/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Supprimer la ligne du tableau
+                const row = document.querySelector(`tr[data-id="${id}"]`);
+                if (row) row.remove();
+            } else {
+                alert('Erreur: ' + result.error);
+            }
+        })
+        .catch(error => alert('Erreur: ' + error.message));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CHARGEMENT DES ALERTES
+    // ═══════════════════════════════════════════════════════════════
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Charger les prochaines échéances pour chaque calendrier
+        document.querySelectorAll('.prochaine-echeance').forEach(cell => {
+            const id = cell.dataset.id;
+            fetch(`/gestion/api/calendrier-saisie/${id}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.alertes && data.alertes.length > 0) {
+                        const alerte = data.alertes[0];
+                        let color = 'var(--neutral-500)';
+                        if (alerte.type === 'danger') color = 'var(--danger)';
+                        else if (alerte.type === 'warning') color = 'var(--warning)';
+                        else if (alerte.type === 'info') color = 'var(--info)';
+
+                        cell.innerHTML = `<span style="color: ${color}; font-weight: 500;">${alerte.message}</span>`;
+                    } else {
+                        cell.innerHTML = '<span style="color: var(--success);">Aucune alerte</span>';
+                    }
+                })
+                .catch(() => {
+                    cell.innerHTML = '<span style="color: var(--neutral-400);">-</span>';
+                });
+        });
+    });
+</script>
+
+<style>
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}

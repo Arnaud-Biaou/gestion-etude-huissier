@@ -5078,3 +5078,311 @@ def api_dashboard_data(request):
             'error': str(e),
             'traceback': traceback.format_exc()
         }, status=500)
+
+
+# =============================================================================
+# VUES CALENDRIER SAISIE IMMOBILIÈRE
+# =============================================================================
+
+@login_required
+def calendriers_saisie_immo(request):
+    """Liste des calendriers de saisie immobilière"""
+    from .models import CalendrierSaisieImmo
+    from parametres.models import Juridiction
+
+    calendriers = CalendrierSaisieImmo.objects.all().order_by('-created_at')
+
+    # Récupérer les juridictions pour le formulaire
+    juridictions = Juridiction.objects.filter(actif=True).order_by('ordre', 'nom')
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': 'Calendriers Saisie Immobilière',
+        'active_module': 'calendriers_saisie',
+        'calendriers': calendriers,
+        'juridictions': juridictions,
+    })
+    return render(request, 'gestion/calendriers_saisie_immo.html', context)
+
+
+@login_required
+def calendrier_saisie_detail(request, pk):
+    """Détail d'un calendrier"""
+    from .models import CalendrierSaisieImmo
+
+    calendrier = get_object_or_404(CalendrierSaisieImmo, pk=pk)
+    etapes = calendrier.calculer_calendrier()
+    alertes = calendrier.get_alertes()
+
+    context = get_default_context(request)
+    context.update({
+        'page_title': f'Calendrier {calendrier.reference}',
+        'active_module': 'calendriers_saisie',
+        'calendrier': calendrier,
+        'etapes': etapes,
+        'alertes': alertes,
+    })
+    return render(request, 'gestion/calendrier_saisie_detail.html', context)
+
+
+@login_required
+@require_POST
+def api_creer_calendrier_saisie(request):
+    """Créer un nouveau calendrier de saisie immobilière"""
+    try:
+        from .models import CalendrierSaisieImmo
+        from .services.pdf_calendrier_saisie import generer_pdf_calendrier_saisie
+        from django.core.files.base import ContentFile
+
+        data = json.loads(request.body)
+
+        # Créer le calendrier
+        calendrier = CalendrierSaisieImmo.objects.create(
+            reference=data.get('reference') or CalendrierSaisieImmo.generer_reference(),
+            creancier=data['creancier'],
+            debiteurs=data['debiteurs'],
+            juridiction=data.get('juridiction', 'Tribunal de Première Instance de Première Classe de Parakou'),
+            designation_immeuble=data.get('designation_immeuble', ''),
+            titre_foncier=data.get('titre_foncier', ''),
+            date_commandement=datetime.strptime(data['date_commandement'], '%Y-%m-%d').date(),
+            observations=data.get('observations', ''),
+            created_by=request.user if hasattr(request, 'user') and request.user.is_authenticated else None,
+        )
+
+        # Générer le PDF
+        try:
+            pdf_buffer = generer_pdf_calendrier_saisie(calendrier)
+            calendrier.document_pdf.save(
+                f'calendrier_{calendrier.reference}.pdf',
+                ContentFile(pdf_buffer.read())
+            )
+            calendrier.save()
+        except Exception as pdf_error:
+            # Continuer même si le PDF échoue
+            pass
+
+        # Retourner les données du calendrier
+        etapes = calendrier.calculer_calendrier()
+
+        # Sérialiser les étapes pour JSON
+        etapes_json = []
+        for etape in etapes:
+            e = etape.copy()
+            for key in ['date_proposee', 'date_butoir']:
+                val = e.get(key)
+                if val:
+                    if isinstance(val, tuple):
+                        e[key] = [val[0].strftime('%Y-%m-%d'), val[1].strftime('%Y-%m-%d')]
+                    elif hasattr(val, 'strftime'):
+                        e[key] = val.strftime('%Y-%m-%d')
+            etapes_json.append(e)
+
+        return JsonResponse({
+            'success': True,
+            'id': calendrier.id,
+            'reference': calendrier.reference,
+            'pdf_url': calendrier.document_pdf.url if calendrier.document_pdf else None,
+            'etapes': etapes_json,
+        })
+
+    except KeyError as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Champ manquant: {str(e)}'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def api_telecharger_calendrier_pdf(request, pk):
+    """Télécharger le PDF du calendrier"""
+    from .models import CalendrierSaisieImmo
+    from .services.pdf_calendrier_saisie import generer_pdf_calendrier_saisie
+    from django.http import FileResponse
+
+    calendrier = get_object_or_404(CalendrierSaisieImmo, pk=pk)
+
+    # Regénérer le PDF
+    pdf_buffer = generer_pdf_calendrier_saisie(calendrier)
+
+    response = FileResponse(
+        pdf_buffer,
+        as_attachment=True,
+        filename=f'Calendrier_Saisie_Immo_{calendrier.reference}.pdf'
+    )
+    return response
+
+
+@login_required
+def api_telecharger_calendrier_pdf_detail(request, pk):
+    """Télécharger le PDF détaillé du calendrier"""
+    from .models import CalendrierSaisieImmo
+    from .services.pdf_calendrier_saisie import generer_pdf_calendrier_detail
+    from django.http import FileResponse
+
+    calendrier = get_object_or_404(CalendrierSaisieImmo, pk=pk)
+
+    # Générer le PDF détaillé
+    pdf_buffer = generer_pdf_calendrier_detail(calendrier)
+
+    response = FileResponse(
+        pdf_buffer,
+        as_attachment=True,
+        filename=f'Calendrier_Detail_{calendrier.reference}.pdf'
+    )
+    return response
+
+
+@login_required
+def api_calculer_dates_saisie(request):
+    """API pour calculer les dates à la volée (preview)"""
+    try:
+        date_commandement = request.GET.get('date_commandement')
+
+        if not date_commandement:
+            return JsonResponse({
+                'success': False,
+                'error': 'Date de commandement requise'
+            }, status=400)
+
+        from gestion.services.calcul_delais_ohada import CalendrierSaisieImmobiliere
+
+        date_cmd = datetime.strptime(date_commandement, '%Y-%m-%d').date()
+        cal = CalendrierSaisieImmobiliere(date_cmd)
+        etapes = cal.calculer_calendrier()
+
+        # Convertir les dates en strings
+        result = []
+        for etape in etapes:
+            e = etape.copy()
+            for key in ['date_proposee', 'date_butoir']:
+                val = e.get(key)
+                if val:
+                    if isinstance(val, tuple):
+                        e[key] = [val[0].strftime('%Y-%m-%d'), val[1].strftime('%Y-%m-%d')]
+                    elif hasattr(val, 'strftime'):
+                        e[key] = val.strftime('%Y-%m-%d')
+            result.append(e)
+
+        return JsonResponse({'success': True, 'etapes': result})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def api_supprimer_calendrier_saisie(request, pk):
+    """Supprimer un calendrier de saisie immobilière"""
+    from .models import CalendrierSaisieImmo
+
+    try:
+        calendrier = get_object_or_404(CalendrierSaisieImmo, pk=pk)
+        reference = calendrier.reference
+        calendrier.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Calendrier {reference} supprimé'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+@require_POST
+def api_modifier_calendrier_saisie(request, pk):
+    """Modifier un calendrier de saisie immobilière"""
+    from .models import CalendrierSaisieImmo
+
+    try:
+        calendrier = get_object_or_404(CalendrierSaisieImmo, pk=pk)
+        data = json.loads(request.body)
+
+        # Mettre à jour les champs modifiables
+        if 'creancier' in data:
+            calendrier.creancier = data['creancier']
+        if 'debiteurs' in data:
+            calendrier.debiteurs = data['debiteurs']
+        if 'juridiction' in data:
+            calendrier.juridiction = data['juridiction']
+        if 'designation_immeuble' in data:
+            calendrier.designation_immeuble = data['designation_immeuble']
+        if 'titre_foncier' in data:
+            calendrier.titre_foncier = data['titre_foncier']
+        if 'observations' in data:
+            calendrier.observations = data['observations']
+        if 'statut' in data:
+            calendrier.statut = data['statut']
+
+        # Dates optionnelles
+        date_fields = [
+            'date_publication', 'date_depot_cahier', 'date_sommation',
+            'date_audience_eventuelle', 'date_adjudication',
+            'date_publication_reelle', 'date_depot_cahier_reel',
+            'date_sommation_reelle', 'date_audience_reelle', 'date_adjudication_reelle'
+        ]
+        for field in date_fields:
+            if field in data:
+                val = data[field]
+                if val:
+                    setattr(calendrier, field, datetime.strptime(val, '%Y-%m-%d').date())
+                else:
+                    setattr(calendrier, field, None)
+
+        calendrier.save()
+
+        return JsonResponse({
+            'success': True,
+            'calendrier': calendrier.to_dict()
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def api_calendrier_saisie_detail(request, pk):
+    """Obtenir les détails d'un calendrier"""
+    from .models import CalendrierSaisieImmo
+
+    try:
+        calendrier = get_object_or_404(CalendrierSaisieImmo, pk=pk)
+        etapes = calendrier.calculer_calendrier()
+        alertes = calendrier.get_alertes()
+
+        # Sérialiser les étapes
+        etapes_json = []
+        for etape in etapes:
+            e = etape.copy()
+            for key in ['date_proposee', 'date_butoir']:
+                val = e.get(key)
+                if val:
+                    if isinstance(val, tuple):
+                        e[key] = [val[0].strftime('%Y-%m-%d'), val[1].strftime('%Y-%m-%d')]
+                    elif hasattr(val, 'strftime'):
+                        e[key] = val.strftime('%Y-%m-%d')
+            etapes_json.append(e)
+
+        return JsonResponse({
+            'success': True,
+            'calendrier': calendrier.to_dict(),
+            'etapes': etapes_json,
+            'alertes': alertes,
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)

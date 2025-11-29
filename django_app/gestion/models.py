@@ -2819,3 +2819,182 @@ class HistoriqueMdpUtilisateur(models.Model):
 
     def __str__(self):
         return f"MDP {self.utilisateur} - {self.date_creation.strftime('%d/%m/%Y')}"
+
+
+# =============================================================================
+# MODÈLE CALENDRIER SAISIE IMMOBILIÈRE
+# =============================================================================
+
+class CalendrierSaisieImmo(models.Model):
+    """
+    Calendrier de procédure de saisie immobilière
+    Conforme aux Articles 246 à 335 de l'Acte uniforme OHADA
+    """
+
+    STATUT_CHOICES = [
+        ('en_cours', 'En cours'),
+        ('termine', 'Terminé'),
+        ('abandonne', 'Abandonné'),
+    ]
+
+    # Identification
+    reference = models.CharField(max_length=50, unique=True)
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='calendriers_saisie_immo',
+        null=True, blank=True
+    )
+
+    # Parties
+    creancier = models.CharField(max_length=500, verbose_name="Créancier poursuivant")
+    debiteurs = models.TextField(verbose_name="Débiteur(s) saisi(s)")
+
+    # Juridiction
+    juridiction = models.CharField(
+        max_length=200,
+        default="Tribunal de Première Instance de Première Classe de Parakou"
+    )
+
+    # Immeuble
+    designation_immeuble = models.TextField(verbose_name="Désignation de l'immeuble")
+    titre_foncier = models.CharField(max_length=100, blank=True, verbose_name="N° Titre foncier")
+
+    # Dates clés (proposées/planifiées)
+    date_commandement = models.DateField(verbose_name="Date signification commandement")
+    date_publication = models.DateField(null=True, blank=True)
+    date_depot_cahier = models.DateField(null=True, blank=True)
+    date_sommation = models.DateField(null=True, blank=True)
+    date_audience_eventuelle = models.DateField(null=True, blank=True)
+    date_adjudication = models.DateField(null=True, blank=True)
+
+    # Dates réelles (quand les actes sont faits)
+    date_publication_reelle = models.DateField(null=True, blank=True)
+    date_depot_cahier_reel = models.DateField(null=True, blank=True)
+    date_sommation_reelle = models.DateField(null=True, blank=True)
+    date_audience_reelle = models.DateField(null=True, blank=True)
+    date_adjudication_reelle = models.DateField(null=True, blank=True)
+
+    # Statut et suivi
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_cours')
+    observations = models.TextField(blank=True)
+
+    # Document PDF
+    document_pdf = models.FileField(upload_to='calendriers_saisie_immo/', null=True, blank=True)
+
+    # Métadonnées
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        'Utilisateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='calendriers_saisie_crees'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Calendrier saisie immobilière"
+        verbose_name_plural = "Calendriers saisies immobilières"
+
+    def __str__(self):
+        return f"{self.reference} - {self.creancier} c/ {self.debiteurs[:50]}"
+
+    @classmethod
+    def generer_reference(cls):
+        """Génère une référence unique pour le calendrier"""
+        now = timezone.now()
+        count = cls.objects.filter(created_at__year=now.year).count() + 1
+        return f"SAI-{now.year}-{str(count).zfill(4)}"
+
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            self.reference = self.generer_reference()
+        super().save(*args, **kwargs)
+
+    def calculer_calendrier(self):
+        """Calcule toutes les dates du calendrier"""
+        from gestion.services.calcul_delais_ohada import CalendrierSaisieImmobiliere
+
+        cal = CalendrierSaisieImmobiliere(self.date_commandement)
+        etapes = cal.calculer_calendrier(
+            date_publication=self.date_publication,
+            date_depot_cahier=self.date_depot_cahier,
+            date_sommation=self.date_sommation,
+            date_audience=self.date_audience_eventuelle,
+            date_adjudication=self.date_adjudication,
+        )
+        return etapes
+
+    def get_prochaine_echeance(self):
+        """Retourne la prochaine échéance à respecter"""
+        from datetime import date as date_type
+        etapes = self.calculer_calendrier()
+        aujourd_hui = date_type.today()
+
+        for etape in etapes:
+            if etape.get('date_butoir'):
+                butoir = etape['date_butoir']
+                if isinstance(butoir, tuple):
+                    butoir = butoir[1]  # Date max de la fenêtre
+                if butoir >= aujourd_hui:
+                    return etape
+        return None
+
+    def get_alertes(self):
+        """Retourne les alertes sur les délais"""
+        from datetime import date as date_type, timedelta
+        alertes = []
+        aujourd_hui = date_type.today()
+
+        etapes = self.calculer_calendrier()
+        for etape in etapes:
+            butoir = etape.get('date_butoir')
+            if butoir:
+                if isinstance(butoir, tuple):
+                    butoir = butoir[1]
+
+                jours_restants = (butoir - aujourd_hui).days
+
+                if jours_restants < 0:
+                    alertes.append({
+                        'type': 'danger',
+                        'etape': etape['nature'],
+                        'message': f"DÉLAI DÉPASSÉ de {-jours_restants} jours !",
+                    })
+                elif jours_restants <= 5:
+                    alertes.append({
+                        'type': 'warning',
+                        'etape': etape['nature'],
+                        'message': f"Échéance dans {jours_restants} jours",
+                    })
+                elif jours_restants <= 15:
+                    alertes.append({
+                        'type': 'info',
+                        'etape': etape['nature'],
+                        'message': f"Échéance dans {jours_restants} jours",
+                    })
+
+        return alertes
+
+    def to_dict(self):
+        """Convertit le calendrier en dictionnaire"""
+        return {
+            'id': self.id,
+            'reference': self.reference,
+            'creancier': self.creancier,
+            'debiteurs': self.debiteurs,
+            'juridiction': self.juridiction,
+            'designation_immeuble': self.designation_immeuble,
+            'titre_foncier': self.titre_foncier,
+            'date_commandement': self.date_commandement.isoformat() if self.date_commandement else None,
+            'date_publication': self.date_publication.isoformat() if self.date_publication else None,
+            'date_depot_cahier': self.date_depot_cahier.isoformat() if self.date_depot_cahier else None,
+            'date_sommation': self.date_sommation.isoformat() if self.date_sommation else None,
+            'date_audience_eventuelle': self.date_audience_eventuelle.isoformat() if self.date_audience_eventuelle else None,
+            'date_adjudication': self.date_adjudication.isoformat() if self.date_adjudication else None,
+            'statut': self.statut,
+            'observations': self.observations,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'pdf_url': self.document_pdf.url if self.document_pdf else None,
+        }
