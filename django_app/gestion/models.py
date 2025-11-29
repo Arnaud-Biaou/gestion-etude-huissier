@@ -509,11 +509,14 @@ class Dossier(models.Model):
 
     @classmethod
     def generer_reference(cls):
+        from parametres.models import ConfigurationEtude
+
+        config = ConfigurationEtude.get_instance()
         now = timezone.now()
-        prefix = 175  # Numero de la loi
+        prefix = config.dossier_numero_cabinet
         mois = str(now.month).zfill(2)
         annee = str(now.year)[-2:]
-        suffix = "MAB"  # Initiales de l'huissier
+        suffix = config.dossier_initiales_huissier
 
         # Trouver le prochain numero
         derniers = cls.objects.filter(
