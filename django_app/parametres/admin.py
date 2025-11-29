@@ -6,7 +6,8 @@ from django.contrib import admin
 from .models import (
     ConfigurationEtude, SiteAgence, TypeDossier, StatutDossier,
     ModeleDocument, Localite, TauxLegal, JourFerie, TypeActe,
-    Juridiction, HistoriqueSauvegarde, JournalModification, ModeleTypeBail
+    Juridiction, HistoriqueSauvegarde, JournalModification, ModeleTypeBail,
+    TrancheIPTS, ConfigurationEnteteDocument, EnteteJuridiction
 )
 
 
@@ -163,3 +164,88 @@ class ModeleTypeBailAdmin(admin.ModelAdmin):
     list_display = ['code', 'libelle', 'modele_document', 'actif']
     list_filter = ['actif']
     search_fields = ['code', 'libelle']
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODÈLES FISCAUX ET PAIE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@admin.register(TrancheIPTS)
+class TrancheIPTSAdmin(admin.ModelAdmin):
+    """Administration du barème IPTS (Impôt Progressif sur Traitements et Salaires)"""
+    list_display = ['ordre', 'montant_min', 'montant_max', 'taux', 'date_debut', 'date_fin', 'est_actif']
+    list_filter = ['est_actif', 'date_debut']
+    ordering = ['ordre']
+    fieldsets = (
+        ('Tranche', {
+            'fields': ('ordre', 'montant_min', 'montant_max', 'taux')
+        }),
+        ('Période d\'application', {
+            'fields': ('date_debut', 'date_fin', 'est_actif')
+        }),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EN-TÊTES ET PIEDS DE PAGE DOCUMENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@admin.register(ConfigurationEnteteDocument)
+class ConfigurationEnteteDocumentAdmin(admin.ModelAdmin):
+    """Configuration des en-têtes et pieds de page pour les documents"""
+    list_display = ['type_document', 'utiliser_entete_image', 'utiliser_pied_image', 'est_actif', 'updated_at']
+    list_filter = ['type_document', 'est_actif', 'utiliser_entete_image']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        ('Type de document', {
+            'fields': ('type_document', 'est_actif')
+        }),
+        ('En-tête', {
+            'fields': (
+                'utiliser_entete_image', 'entete_image', 'entete_hauteur',
+                'entete_marge_haut', 'entete_marge_gauche', 'entete_marge_droite', 'entete_centrer'
+            ),
+            'classes': ['collapse']
+        }),
+        ('Pied de page', {
+            'fields': (
+                'utiliser_pied_image', 'pied_image', 'pied_hauteur',
+                'pied_marge_bas', 'pied_centrer', 'pied_texte'
+            ),
+            'classes': ['collapse']
+        }),
+        ('Marges du corps', {
+            'fields': ('corps_marge_haut', 'corps_marge_bas'),
+            'classes': ['collapse']
+        }),
+        ('Métadonnées', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ['collapse']
+        }),
+    )
+
+
+@admin.register(EnteteJuridiction)
+class EnteteJuridictionAdmin(admin.ModelAdmin):
+    """Configuration des en-têtes hiérarchiques des juridictions"""
+    list_display = ['code', 'nom', 'niveau', 'juridiction_superieure', 'afficher_embleme', 'est_actif', 'ordre_affichage']
+    list_filter = ['niveau', 'est_actif', 'afficher_embleme']
+    search_fields = ['code', 'nom', 'nom_complet']
+    ordering = ['niveau', 'ordre_affichage']
+    raw_id_fields = ['juridiction_superieure']
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('code', 'nom', 'nom_complet', 'niveau')
+        }),
+        ('Hiérarchie', {
+            'fields': ('juridiction_superieure',)
+        }),
+        ('Affichage', {
+            'fields': ('afficher_embleme', 'devise', 'logo', 'ordre_affichage')
+        }),
+        ('Statut', {
+            'fields': ('est_actif',)
+        }),
+    )
