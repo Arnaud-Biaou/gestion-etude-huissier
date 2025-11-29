@@ -390,6 +390,20 @@ class ConfigurationEtude(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(28)],
         verbose_name="Jour de paie"
     )
+    rh_taux_vps = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('4.0'),
+        verbose_name="Taux VPS (%)",
+        help_text="Versement Patronal sur Salaires"
+    )
+    rh_taux_risques_professionnels = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('2.0'),
+        verbose_name="Taux AT/Risques professionnels (%)",
+        help_text="Taux accidents du travail (variable selon activité: 1% à 4%)"
+    )
 
     # ===== SECTION 2.8: PARAMÈTRES MÉMOIRES DE CÉDULES =====
     cedules_residence = models.CharField(
@@ -778,6 +792,8 @@ class ConfigurationEtude(models.Model):
             'rh_conges_annuels': self.rh_conges_annuels,
             'rh_heures_hebdo': self.rh_heures_hebdo,
             'rh_jour_paie': self.rh_jour_paie,
+            'rh_taux_vps': str(self.rh_taux_vps),
+            'rh_taux_risques_professionnels': str(self.rh_taux_risques_professionnels),
             # Cédules
             'cedules_residence': self.cedules_residence,
             'cedules_premier_original': str(self.cedules_premier_original),
@@ -1448,4 +1464,141 @@ class ModeleTypeBail(models.Model):
             'description': self.description,
             'modele_document_id': self.modele_document_id,
             'actif': self.actif,
+        }
+
+
+class TrancheIPTS(models.Model):
+    """
+    Tranches du barème IPTS (Impôt Progressif sur Traitements et Salaires)
+    Barème fiscal béninois pour le calcul de l'impôt sur les salaires
+    """
+
+    ordre = models.PositiveIntegerField(
+        unique=True,
+        verbose_name="Ordre de la tranche"
+    )
+    montant_min = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        verbose_name="Montant minimum (FCFA)"
+    )
+    montant_max = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        null=True,
+        blank=True,
+        verbose_name="Montant maximum (FCFA)",
+        help_text="Laisser vide pour la dernière tranche (illimité)"
+    )
+    taux = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Taux (%)"
+    )
+
+    # Période d'application
+    date_debut = models.DateField(
+        default='2024-01-01',
+        verbose_name="Date d'effet"
+    )
+    date_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date de fin"
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name="Actif"
+    )
+
+    class Meta:
+        verbose_name = "Tranche IPTS"
+        verbose_name_plural = "Tranches IPTS"
+        ordering = ['ordre']
+
+    def __str__(self):
+        if self.montant_max:
+            return f"Tranche {self.ordre}: {self.montant_min:,.0f} - {self.montant_max:,.0f} FCFA → {self.taux}%"
+        else:
+            return f"Tranche {self.ordre}: > {self.montant_min:,.0f} FCFA → {self.taux}%"
+
+    @classmethod
+    def get_bareme_actif(cls):
+        """Retourne le barème IPTS actif sous forme de liste de tuples"""
+        from datetime import date
+        tranches = cls.objects.filter(
+            est_actif=True,
+            date_debut__lte=date.today()
+        ).filter(
+            models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=date.today())
+        ).order_by('ordre')
+
+        bareme = []
+        for t in tranches:
+            bareme.append((t.montant_min, t.montant_max, t.taux))
+        return bareme
+
+    @classmethod
+    def calculer_ipts(cls, salaire_imposable):
+        """
+        Calcule l'IPTS selon le barème actif
+
+        Args:
+            salaire_imposable: Montant du salaire imposable (après déduction CNSS)
+
+        Returns:
+            Montant de l'IPTS arrondi à l'entier
+        """
+        bareme = cls.get_bareme_actif()
+
+        if not bareme:
+            # Barème par défaut si aucun configuré (barème 2024 Bénin)
+            bareme = [
+                (Decimal('0'), Decimal('50000'), Decimal('0')),
+                (Decimal('50001'), Decimal('130000'), Decimal('10')),
+                (Decimal('130001'), Decimal('280000'), Decimal('15')),
+                (Decimal('280001'), Decimal('480000'), Decimal('19')),
+                (Decimal('480001'), Decimal('730000'), Decimal('24')),
+                (Decimal('730001'), Decimal('1030000'), Decimal('28')),
+                (Decimal('1030001'), Decimal('1380000'), Decimal('32')),
+                (Decimal('1380001'), Decimal('1880000'), Decimal('35')),
+                (Decimal('1880001'), Decimal('3780000'), Decimal('37')),
+                (Decimal('3780001'), None, Decimal('40')),
+            ]
+
+        ipts = Decimal('0')
+        reste = Decimal(str(salaire_imposable))
+
+        for seuil_min, seuil_max, taux in bareme:
+            seuil_min = Decimal(str(seuil_min))
+            taux = Decimal(str(taux))
+
+            if seuil_max:
+                seuil_max = Decimal(str(seuil_max))
+                largeur_tranche = seuil_max - seuil_min + 1
+            else:
+                # Dernière tranche illimitée
+                if reste > 0:
+                    ipts += reste * taux / 100
+                break
+
+            if reste <= 0:
+                break
+
+            montant_dans_tranche = min(reste, largeur_tranche)
+            ipts += montant_dans_tranche * taux / 100
+            reste -= montant_dans_tranche
+
+        return ipts.quantize(Decimal('1'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'ordre': self.ordre,
+            'montant_min': str(self.montant_min),
+            'montant_max': str(self.montant_max) if self.montant_max else None,
+            'taux': str(self.taux),
+            'date_debut': self.date_debut.isoformat() if self.date_debut else None,
+            'date_fin': self.date_fin.isoformat() if self.date_fin else None,
+            'est_actif': self.est_actif,
         }
