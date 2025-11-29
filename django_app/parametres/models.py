@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
 import json
+import uuid
 
 
 class ConfigurationEtude(models.Model):
@@ -1172,44 +1173,160 @@ class TypeActe(models.Model):
 
 
 class Juridiction(models.Model):
-    """Juridictions (tribunaux et cours)"""
-    TYPES = [
-        ('TPI', 'Tribunal de Première Instance'),
-        ('CA', "Cour d'Appel"),
-        ('CC', 'Cour de Cassation'),
-        ('TC', 'Tribunal de Commerce'),
-        ('TT', 'Tribunal du Travail'),
+    """
+    Juridictions du Bénin avec hiérarchie pour les mémoires de cédules
+    """
+    TYPE_CHOICES = [
+        ('tpi', 'Tribunal de Première Instance'),
+        ('cour_appel', "Cour d'Appel"),
+        ('cour_speciale', 'Cour Spéciale'),
     ]
 
-    type = models.CharField(
-        max_length=10,
-        choices=TYPES,
-        verbose_name="Type"
+    CLASSE_TPI_CHOICES = [
+        ('premiere', 'Première Classe'),
+        ('deuxieme', 'Deuxième Classe'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=200, verbose_name="Nom complet")
+    nom_court = models.CharField(max_length=100, verbose_name="Nom abrégé")
+    type_juridiction = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    classe_tpi = models.CharField(
+        max_length=20, choices=CLASSE_TPI_CHOICES, blank=True, null=True,
+        verbose_name="Classe TPI"
     )
-    nom = models.CharField(max_length=200, verbose_name="Nom")
-    ville = models.CharField(max_length=100, verbose_name="Ville")
-    adresse = models.TextField(blank=True, verbose_name="Adresse")
+
+    # Hiérarchie
+    cour_appel_rattachement = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='juridictions_rattachees',
+        limit_choices_to={'type_juridiction': 'cour_appel'},
+        verbose_name="Cour d'Appel de rattachement"
+    )
+
+    # Autorités
+    titre_procureur = models.CharField(
+        max_length=100, default="Procureur de la République",
+        verbose_name="Titre du Procureur"
+    )
+    titre_president = models.CharField(
+        max_length=100, default="Président",
+        verbose_name="Titre du Président"
+    )
+    nom_procureur = models.CharField(
+        max_length=200, blank=True, verbose_name="Nom du Procureur actuel"
+    )
+    nom_president = models.CharField(
+        max_length=200, blank=True, verbose_name="Nom du Président actuel"
+    )
+
+    # Pour Cour d'Appel
+    titre_procureur_general = models.CharField(
+        max_length=100, default="Procureur Général", blank=True,
+        verbose_name="Titre du Procureur Général"
+    )
+    nom_procureur_general = models.CharField(
+        max_length=200, blank=True, verbose_name="Nom du Procureur Général"
+    )
+    nom_president_cour = models.CharField(
+        max_length=200, blank=True, verbose_name="Nom du Président de la Cour"
+    )
+
+    # Localisation
+    ville = models.CharField(max_length=100)
+    adresse = models.TextField(blank=True)
     telephone = models.CharField(max_length=20, blank=True, verbose_name="Téléphone")
-    actif = models.BooleanField(default=True, verbose_name="Actif")
+
+    actif = models.BooleanField(default=True)
+    ordre = models.PositiveIntegerField(default=0)
 
     class Meta:
+        ordering = ['ordre', 'nom']
         verbose_name = "Juridiction"
         verbose_name_plural = "Juridictions"
-        ordering = ['type', 'ville', 'nom']
 
     def __str__(self):
-        return f"{self.get_type_display()} de {self.ville}"
+        return self.nom
+
+    def get_autorite_requisition(self):
+        """Retourne les infos pour la signature de la réquisition"""
+        if self.type_juridiction == 'cour_appel':
+            return {
+                'titre': self.titre_procureur_general,
+                'nom': self.nom_procureur_general,
+                'juridiction': self.nom,
+                'ville': self.ville,
+                'avec_visa': False
+            }
+        elif self.type_juridiction == 'cour_speciale':
+            return {
+                'titre': self.titre_procureur,  # "Procureur Spécial"
+                'nom': self.nom_procureur,
+                'juridiction': self.nom,
+                'ville': self.ville,
+                'avec_visa': False
+            }
+        else:  # TPI
+            return {
+                'titre': self.titre_procureur,
+                'nom': self.nom_procureur,
+                'juridiction': self.nom,
+                'ville': self.ville,
+                'avec_visa': True,
+                'visa_titre': self.cour_appel_rattachement.titre_procureur_general if self.cour_appel_rattachement else "Procureur Général",
+                'visa_nom': self.cour_appel_rattachement.nom_procureur_general if self.cour_appel_rattachement else ""
+            }
+
+    def get_autorite_executoire(self):
+        """Retourne les infos pour la signature de l'exécutoire"""
+        if self.type_juridiction == 'cour_appel':
+            return {
+                'titre': f"Président de la {self.nom}",
+                'nom': self.nom_president_cour,
+                'juridiction': self.nom,
+                'ville': self.ville,
+                'avec_visa': False
+            }
+        elif self.type_juridiction == 'cour_speciale':
+            return {
+                'titre': f"Président de la {self.nom_court}",
+                'nom': self.nom_president,
+                'juridiction': self.nom,
+                'ville': self.ville,
+                'avec_visa': False
+            }
+        else:  # TPI
+            return {
+                'titre': f"Président du {self.nom}",
+                'nom': self.nom_president,
+                'juridiction': self.nom,
+                'ville': self.ville,
+                'avec_visa': True,
+                'visa_titre': f"Président de la {self.cour_appel_rattachement.nom}" if self.cour_appel_rattachement else "Président de la Cour d'Appel",
+                'visa_nom': self.cour_appel_rattachement.nom_president_cour if self.cour_appel_rattachement else ""
+            }
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'type': self.type,
-            'type_display': self.get_type_display(),
+            'id': str(self.id),
             'nom': self.nom,
+            'nom_court': self.nom_court,
+            'type_juridiction': self.type_juridiction,
+            'type_juridiction_display': self.get_type_juridiction_display(),
+            'classe_tpi': self.classe_tpi,
+            'cour_appel_rattachement_id': str(self.cour_appel_rattachement_id) if self.cour_appel_rattachement_id else None,
+            'titre_procureur': self.titre_procureur,
+            'nom_procureur': self.nom_procureur,
+            'titre_president': self.titre_president,
+            'nom_president': self.nom_president,
+            'titre_procureur_general': self.titre_procureur_general,
+            'nom_procureur_general': self.nom_procureur_general,
+            'nom_president_cour': self.nom_president_cour,
             'ville': self.ville,
             'adresse': self.adresse,
             'telephone': self.telephone,
             'actif': self.actif,
+            'ordre': self.ordre,
         }
 
 

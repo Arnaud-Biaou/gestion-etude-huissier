@@ -65,6 +65,28 @@
                     </button>
                 </div>
                 <div class="form-group">
+                    <label>Juridiction requerante (pour PDF)</label>
+                    <select name="juridiction_id" id="juridiction_id" class="form-select">
+                        <option value="">-- Selectionner pour generer les signatures --</option>
+                        <optgroup label="Cours d'Appel">
+                            {% for j in juridictions_cour_appel %}
+                            <option value="{{ j.id }}">{{ j.nom }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Juridictions Speciales">
+                            {% for j in juridictions_speciales %}
+                            <option value="{{ j.id }}">{{ j.nom }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Tribunaux de Premiere Instance">
+                            {% for j in juridictions_tpi %}
+                            <option value="{{ j.id }}">{{ j.nom }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                    <small style="color: var(--neutral-500);">Definit les signatures Requisition/Executoire sur le PDF</small>
+                </div>
+                <div class="form-group">
                     <label>Residence huissier</label>
                     <input type="text" name="residence_huissier" id="residence_huissier" class="form-control" value="Parakou" placeholder="Ville de residence">
                 </div>
@@ -649,11 +671,13 @@
     // Nouveau memoire
     document.getElementById('formNouveauMemoire')?.addEventListener('submit', async function(e) {
         e.preventDefault();
+        const juridictionId = document.getElementById('juridiction_id').value;
         const data = {
             mois: parseInt(document.getElementById('mois').value),
             annee: parseInt(document.getElementById('annee').value),
             huissier_id: parseInt(document.getElementById('huissier_id').value),
             autorite_id: parseInt(document.getElementById('autorite_id').value),
+            juridiction_id: juridictionId ? juridictionId : null,
             residence_huissier: document.getElementById('residence_huissier').value,
             observations: document.getElementById('observations').value
         };

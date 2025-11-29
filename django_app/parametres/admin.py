@@ -116,9 +116,29 @@ class TypeActeAdmin(admin.ModelAdmin):
 
 @admin.register(Juridiction)
 class JuridictionAdmin(admin.ModelAdmin):
-    list_display = ['nom', 'type', 'ville', 'telephone', 'actif']
-    list_filter = ['type', 'ville', 'actif']
-    search_fields = ['nom', 'ville']
+    list_display = ['nom_court', 'type_juridiction', 'ville', 'cour_appel_rattachement', 'actif', 'ordre']
+    list_filter = ['type_juridiction', 'actif', 'cour_appel_rattachement']
+    search_fields = ['nom', 'nom_court', 'ville']
+    ordering = ['ordre']
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('nom', 'nom_court', 'type_juridiction', 'classe_tpi', 'ville', 'adresse', 'telephone')
+        }),
+        ('Hierarchie', {
+            'fields': ('cour_appel_rattachement',),
+            'description': "Pour les TPI, selectionnez la Cour d'Appel de rattachement"
+        }),
+        ('Autorites - Parquet', {
+            'fields': ('titre_procureur', 'nom_procureur', 'titre_procureur_general', 'nom_procureur_general')
+        }),
+        ('Autorites - Siege', {
+            'fields': ('titre_president', 'nom_president', 'nom_president_cour')
+        }),
+        ('Parametres', {
+            'fields': ('actif', 'ordre')
+        }),
+    )
 
 
 @admin.register(HistoriqueSauvegarde)

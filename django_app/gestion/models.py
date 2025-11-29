@@ -1477,6 +1477,16 @@ class Memoire(models.Model):
         verbose_name='Autorité requérante'
     )
 
+    # Juridiction requérante (nouveau modèle avec hiérarchie)
+    juridiction = models.ForeignKey(
+        'parametres.Juridiction',
+        on_delete=models.PROTECT,
+        related_name='memoires',
+        verbose_name='Juridiction requérante',
+        null=True, blank=True,
+        help_text="Juridiction pour génération des signatures Réquisition/Exécutoire"
+    )
+
     # Résidence de l'huissier (pour calcul des distances)
     residence_huissier = models.CharField(
         max_length=200, verbose_name='Résidence de l\'huissier',

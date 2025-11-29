@@ -3269,6 +3269,13 @@ def memoires(request):
     huissiers = Collaborateur.objects.filter(role='huissier', actif=True)
     autorites = AutoriteRequerante.objects.filter(actif=True)
 
+    # Juridictions pour le formulaire (nouveau modèle avec hiérarchie)
+    from parametres.models import Juridiction
+    juridictions = Juridiction.objects.filter(actif=True).order_by('ordre')
+    juridictions_cour_appel = juridictions.filter(type_juridiction='cour_appel')
+    juridictions_speciales = juridictions.filter(type_juridiction='cour_speciale')
+    juridictions_tpi = juridictions.filter(type_juridiction='tpi')
+
     # Mois pour les sélecteurs
     mois_noms = [
         {'id': 1, 'nom': 'Janvier'}, {'id': 2, 'nom': 'Février'}, {'id': 3, 'nom': 'Mars'},
@@ -3380,6 +3387,9 @@ def memoires(request):
     context['affaire_id'] = affaire_id
     context['huissiers'] = huissiers
     context['autorites'] = autorites
+    context['juridictions_cour_appel'] = juridictions_cour_appel
+    context['juridictions_speciales'] = juridictions_speciales
+    context['juridictions_tpi'] = juridictions_tpi
     context['mois_noms'] = mois_noms
     context['types_actes'] = types_actes
     context['qualites_destinataire'] = qualites_destinataire
@@ -3421,6 +3431,15 @@ def api_memoire_creer(request):
         huissier = get_object_or_404(Collaborateur, pk=data['huissier_id'])
         autorite = get_object_or_404(AutoriteRequerante, pk=data['autorite_id'])
 
+        # Récupérer la juridiction si fournie
+        juridiction = None
+        if data.get('juridiction_id'):
+            from parametres.models import Juridiction
+            try:
+                juridiction = Juridiction.objects.get(pk=data['juridiction_id'])
+            except Juridiction.DoesNotExist:
+                pass
+
         # Vérifier l'unicité
         existe = Memoire.objects.filter(
             mois=data['mois'],
@@ -3443,6 +3462,7 @@ def api_memoire_creer(request):
             annee=data['annee'],
             huissier=huissier,
             autorite_requerante=autorite,
+            juridiction=juridiction,
             residence_huissier=data.get('residence_huissier', 'Parakou'),
             observations=data.get('observations', ''),
             cree_par=utilisateur,
@@ -4179,81 +4199,31 @@ def api_autorite_creer(request):
 # API EXPORT PDF MÉMOIRE
 @require_GET
 def api_memoire_export_pdf(request, memoire_id):
-    """API pour exporter un mémoire en format texte (prévisualisation PDF)"""
+    """
+    API pour exporter un mémoire en PDF complet :
+    - Page 1 (portrait) : En-tête + Réquisition + Exécutoire
+    - Page 2+ : Tableau des coûts
+    """
     try:
         memoire = get_object_or_404(
-            Memoire.objects.select_related('huissier', 'autorite_requerante')
+            Memoire.objects.select_related('huissier', 'autorite_requerante', 'juridiction')
             .prefetch_related('affaires__destinataires__actes'),
             pk=memoire_id
         )
 
-        mois_noms = [
-            '', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN',
-            'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'
-        ]
+        # Générer le PDF complet
+        from .pdf_memoire import generer_pdf_memoire_complet
+        pdf_buffer = generer_pdf_memoire_complet(memoire)
 
-        # Construire le contenu du mémoire
-        contenu = []
-        contenu.append('=' * 70)
-        contenu.append(f'MÉMOIRE N° {memoire.numero} - {mois_noms[memoire.mois]} {memoire.annee}')
-        contenu.append('=' * 70)
-        contenu.append(f'Huissier: {memoire.huissier.nom if memoire.huissier else "-"}')
-        contenu.append(f'Autorité requérante: {memoire.autorite_requerante.nom if memoire.autorite_requerante else "-"}')
-        contenu.append('')
-
-        for affaire in memoire.affaires.all():
-            contenu.append('-' * 70)
-            contenu.append(f'AFFAIRE: {affaire.numero_parquet} - {affaire.intitule_affaire}')
-            contenu.append('-' * 70)
-
-            for dest in affaire.destinataires.all():
-                contenu.append(f'\n  {dest.get_nom_complet()}, {dest.get_qualite_display()}, {dest.localite}')
-                if dest.distance_km > 0:
-                    contenu.append(f'    Distance: {dest.distance_km} km')
-
-                for acte in dest.actes.all():
-                    contenu.append(f'    • {acte.get_type_acte_display()} ({acte.date_acte.strftime("%d/%m/%Y")}).......... {acte.montant_base:,.0f} F')
-                    if acte.copies_supplementaires > 0:
-                        contenu.append(f'      + Copies supplémentaires ({acte.copies_supplementaires}).......... {acte.montant_copies:,.0f} F')
-                    if acte.roles_pieces_jointes > 0:
-                        contenu.append(f'      + Pièces jointes ({acte.roles_pieces_jointes} rôles).......... {acte.montant_pieces:,.0f} F')
-
-                if dest.frais_transport > 0:
-                    contenu.append(f'    • Transport ({dest.distance_km} km × 140 F × 2).......... {dest.frais_transport:,.0f} F')
-                if dest.frais_mission > 0:
-                    contenu.append(f'    • Mission ({dest.get_type_mission_display()}).......... {dest.frais_mission:,.0f} F')
-
-                contenu.append(f'                                           Sous-total: {dest.montant_total_destinataire:,.0f} F')
-
-            contenu.append(f'\n                               TOTAL AFFAIRE: {affaire.montant_total_affaire:,.0f} F')
-
-        contenu.append('\n' + '=' * 70)
-        contenu.append('RÉCAPITULATIF')
-        contenu.append('-' * 70)
-        for affaire in memoire.affaires.all():
-            contenu.append(f'Affaire {affaire.numero_parquet}.......... {affaire.montant_total_affaire:,.0f} F')
-        contenu.append('=' * 70)
-        contenu.append(f'TOTAL GÉNÉRAL.......... {memoire.montant_total:,.0f} F')
-        contenu.append('=' * 70)
-        contenu.append('')
-        contenu.append(f'Arrêté le présent mémoire à la somme de:')
-        contenu.append(memoire.montant_total_lettres or Memoire.nombre_en_lettres(memoire.montant_total))
-        contenu.append('')
-        contenu.append('Certifié sincère et véritable')
-        contenu.append(f'Fait à {memoire.lieu_certification}, le {memoire.date_certification.strftime("%d/%m/%Y") if memoire.date_certification else timezone.now().strftime("%d/%m/%Y")}')
-        contenu.append('')
-        contenu.append('[Signature]')
-        contenu.append(f'                                    {memoire.huissier.nom if memoire.huissier else "Maître [NOM]"}')
-        contenu.append('                                    Huissier de Justice')
-
-        response = HttpResponse(content_type='text/plain; charset=utf-8')
-        filename = f"memoire_{memoire.numero}_{memoire.mois}_{memoire.annee}.txt"
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response.write('\n'.join(contenu))
-
+        # Retourner le fichier PDF
+        response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+        filename = f"memoire_{memoire.numero}_{memoire.mois}_{memoire.annee}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
         return response
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
