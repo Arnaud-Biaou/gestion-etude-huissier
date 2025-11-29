@@ -656,164 +656,105 @@
     </div>
 </div>
 
-<!-- Modal Paiement -->
-<div class="modal" id="paiementModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Enregistrer un paiement</h3>
-            <button onclick="closePaiementModal()" style="background: none; border: none; cursor: pointer;">
-                <i data-lucide="x"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <form id="formPaiement">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="montant">Montant *</label>
-                        <input type="number" id="montant" name="montant" required min="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="date_paiement">Date</label>
-                        <input type="date" id="date_paiement" name="date_paiement">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="mode_paiement">Mode de paiement</label>
-                        <select id="mode_paiement" name="mode_paiement">
-                            <option value="especes">Espèces</option>
-                            <option value="cheque">Chèque</option>
-                            <option value="virement">Virement</option>
-                            <option value="mobile">Mobile Money</option>
-                            <option value="autre">Autre</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="reference_paiement">Référence</label>
-                        <input type="text" id="reference_paiement" name="reference_paiement" placeholder="N° chèque, réf virement...">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="observations_paiement">Observations</label>
-                    <textarea id="observations_paiement" name="observations" rows="2"></textarea>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-secondary" onclick="closePaiementModal()">Annuler</button>
-            <button class="btn-primary" onclick="enregistrerPaiement()">
-                <i data-lucide="save"></i>
-                Enregistrer
-            </button>
-        </div>
-    </div>
-</div>
+<!-- Modals recouvrement -->
+{% include 'recouvrement/_modal_paiement.html' %}
+{% include 'recouvrement/_modal_reversement.html' %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Donnees du dossier pour les modals
+const dossierData = {
+    id: '{{ dossier.id }}',
+    reference: '{{ dossier.reference }}',
+    creancier: '{{ dossier.creancier.nom|escapejs }}',
+    type_recouvrement: '{{ dossier.type_recouvrement }}',
+    mode_facturation: '{{ dossier.mode_facturation }}'
+};
+
+// Situation financiere
+const situationData = {
+    principal_du: {{ situation.principal_du|default:0 }},
+    interets_dus: {{ situation.interets_dus|default:0 }},
+    frais_engages: {{ situation.frais_engages|default:0 }},
+    emoluments_calcules: {{ situation.emoluments_calcules|default:0 }},
+    total_paye: {{ situation.total_paye|default:0 }},
+    principal_restant: {{ situation.principal_restant|default:0 }},
+    interets_restants: {{ situation.interets_restants|default:0 }},
+    frais_restants: {{ situation.frais_restants|default:0 }},
+    emoluments_restants: {{ situation.emoluments_restants|default:0 }},
+    total_a_reverser: {{ situation.total_a_reverser|default:0 }},
+    total_reverse: {{ situation.total_reverse|default:0 }},
+    total_reserve: {{ situation.total_reserve|default:0 }}
+};
+
+// Donnees des paiements (pour les modals de detail)
+const paiementsData = {
+    {% for p in paiements %}
+    '{{ p.id }}': {
+        id: '{{ p.id }}',
+        date_paiement: '{{ p.date_paiement|date:"d/m/Y" }}',
+        montant: {{ p.montant|default:0 }},
+        mode_paiement: '{{ p.mode_paiement }}',
+        mode_paiement_display: '{{ p.get_mode_paiement_display }}',
+        reference_paiement: '{{ p.reference_paiement|escapejs }}',
+        impute_frais: {{ p.impute_frais|default:0 }},
+        impute_emoluments: {{ p.impute_emoluments|default:0 }},
+        impute_interets: {{ p.impute_interets|default:0 }},
+        impute_principal: {{ p.impute_principal|default:0 }},
+        montant_reserve: {{ p.montant_reserve|default:0 }},
+        montant_a_reverser: {{ p.montant_a_reverser|default:0 }},
+        est_reverse: {{ p.est_reverse|yesno:"true,false" }},
+        date_reversement: '{{ p.date_reversement|date:"d/m/Y"|default:"" }}',
+        reference_reversement: '{{ p.reference_reversement|escapejs }}',
+        observations: '{{ p.observations|escapejs }}',
+        dossier_reference: '{{ dossier.reference }}',
+        creancier: '{{ dossier.creancier.nom|escapejs }}'
+    },
+    {% endfor %}
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
 
-    // Date par défaut = aujourd'hui
-    document.getElementById('date_paiement').value = new Date().toISOString().split('T')[0];
+    // Initialiser le modal paiement avec les donnees du dossier
+    if (typeof initModalPaiement === 'function') {
+        initModalPaiement(dossierData, situationData);
+    }
 });
 
+// Fonction pour ouvrir le modal paiement
 function openPaiementModal() {
-    document.getElementById('paiementModal').classList.add('active');
-}
-
-function closePaiementModal() {
-    document.getElementById('paiementModal').classList.remove('active');
-    document.getElementById('formPaiement').reset();
-    document.getElementById('date_paiement').value = new Date().toISOString().split('T')[0];
-}
-
-async function enregistrerPaiement() {
-    const montant = document.getElementById('montant').value;
-    if (!montant || parseInt(montant) <= 0) {
-        alert('Veuillez saisir un montant valide');
-        return;
-    }
-
-    const data = {
-        dossier_id: '{{ dossier.id }}',
-        montant: parseInt(montant),
-        date_paiement: document.getElementById('date_paiement').value,
-        mode_paiement: document.getElementById('mode_paiement').value,
-        reference_paiement: document.getElementById('reference_paiement').value,
-        observations: document.getElementById('observations_paiement').value,
-    };
-
-    try {
-        const response = await fetch('{% url "recouvrement:api_enregistrer_paiement" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
-        }
-    } catch (error) {
-        alert('Erreur de connexion: ' + error.message);
+    if (typeof ouvrirModalPaiement === 'function') {
+        ouvrirModalPaiement();
     }
 }
 
-async function reverserPaiement(paiementId) {
-    if (!confirm('Confirmer le reversement de ce montant au créancier ?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/recouvrement/api/paiement/${paiementId}/reverser/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({})
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
-        }
-    } catch (error) {
-        alert('Erreur de connexion: ' + error.message);
+// Fonction pour reverser un paiement
+function reverserPaiement(paiementId) {
+    const paiement = paiementsData[paiementId];
+    if (paiement && typeof ouvrirModalReversement === 'function') {
+        ouvrirModalReversement(paiementId, paiement);
+    } else {
+        // Fallback: reversement rapide
+        reverserPaiementRapide(paiementId);
     }
 }
 
+// Fonction pour voir le detail d'un paiement
 function voirDetailPaiement(paiementId) {
-    // Pour l'instant, affiche une alerte. Peut être étendu avec un modal de détail.
-    alert('Détail du paiement: ' + paiementId);
+    const paiement = paiementsData[paiementId];
+    if (paiement && typeof ouvrirModalDetailPaiement === 'function') {
+        ouvrirModalDetailPaiement(paiementId, paiement);
+    }
 }
 
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+// Fonction pour imputer un montant reserve
+function imputerReserve(paiementId) {
+    const paiement = paiementsData[paiementId];
+    if (paiement && paiement.montant_reserve > 0 && typeof ouvrirModalImputerReserve === 'function') {
+        ouvrirModalImputerReserve(paiementId, paiement.montant_reserve);
     }
-    return cookieValue;
 }
 </script>
 {% endblock %}

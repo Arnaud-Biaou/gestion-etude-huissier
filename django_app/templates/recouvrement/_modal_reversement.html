@@ -1,0 +1,726 @@
+{#
+   Modal de confirmation de reversement
+
+   Utilisation:
+   {% include 'recouvrement/_modal_reversement.html' %}
+
+   Ce modal est appelé via JavaScript avec les données du paiement a reverser.
+#}
+
+<!-- Modal Confirmer Reversement -->
+<div class="modal" id="modalReversement">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>
+                <i data-lucide="send"></i>
+                Confirmer le reversement
+            </h3>
+            <button type="button" onclick="fermerModalReversement()" class="modal-close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <!-- Resume du paiement -->
+            <div class="reversement-resume">
+                <div class="resume-header">
+                    <i data-lucide="credit-card"></i>
+                    <span>Paiement du <strong id="revDatePaiement">-</strong></span>
+                </div>
+                <div class="resume-grid">
+                    <div class="resume-item">
+                        <span class="label">Dossier</span>
+                        <span class="value" id="revDossierRef">-</span>
+                    </div>
+                    <div class="resume-item">
+                        <span class="label">Creancier</span>
+                        <span class="value" id="revCreancier">-</span>
+                    </div>
+                    <div class="resume-item">
+                        <span class="label">Montant paye</span>
+                        <span class="value" id="revMontantPaye">0 F</span>
+                    </div>
+                    <div class="resume-item highlight">
+                        <span class="label">A reverser</span>
+                        <span class="value" id="revMontantAReverser">0 F</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire reversement -->
+            <form id="formReversement" onsubmit="return false;">
+                <input type="hidden" id="rev_paiement_id" name="paiement_id">
+
+                <div class="form-section">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="rev_date">Date du reversement</label>
+                            <input type="date" id="rev_date" name="date_reversement">
+                        </div>
+                        <div class="form-group">
+                            <label for="rev_reference">Reference reversement</label>
+                            <input type="text" id="rev_reference" name="reference_reversement"
+                                   placeholder="N° virement, cheque...">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="rev_observations">Observations (optionnel)</label>
+                        <textarea id="rev_observations" name="observations" rows="2"
+                                  placeholder="Notes sur le reversement..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Avertissement -->
+                <div class="reversement-warning">
+                    <i data-lucide="alert-triangle"></i>
+                    <div>
+                        <strong>Attention</strong>
+                        <p>Cette action marque le paiement comme reverse au creancier. Verifiez que le virement ou paiement a bien ete effectue.</p>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="fermerModalReversement()">
+                Annuler
+            </button>
+            <button type="button" class="btn-primary btn-success" onclick="confirmerReversement()">
+                <i data-lucide="check"></i>
+                Confirmer le reversement
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detail Paiement -->
+<div class="modal" id="modalDetailPaiement">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>
+                <i data-lucide="receipt"></i>
+                Detail du paiement
+            </h3>
+            <button type="button" onclick="fermerModalDetailPaiement()" class="modal-close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-paiement-content" id="detailPaiementContent">
+                <!-- Contenu genere par JS -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="fermerModalDetailPaiement()">
+                Fermer
+            </button>
+            <button type="button" class="btn-primary" id="btnReverserDepuisDetail" style="display: none;"
+                    onclick="reverserDepuisDetail()">
+                <i data-lucide="send"></i>
+                Reverser
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Imputer Reserve -->
+<div class="modal" id="modalImputerReserve">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>
+                <i data-lucide="sliders"></i>
+                Imputer un montant reserve
+            </h3>
+            <button type="button" onclick="fermerModalImputerReserve()" class="modal-close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="imputer-info">
+                <p>Montant en reserve: <strong id="impMontantReserve">0 F</strong></p>
+            </div>
+
+            <form id="formImputerReserve" onsubmit="return false;">
+                <input type="hidden" id="imp_paiement_id">
+
+                <div class="form-group">
+                    <label for="imp_type">Type d'imputation</label>
+                    <select id="imp_type" name="type_imputation" required>
+                        <option value="">-- Selectionner --</option>
+                        <option value="frais">Frais</option>
+                        <option value="emoluments">Emoluments</option>
+                        <option value="interets">Interets</option>
+                        <option value="principal">Principal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="imp_montant">Montant a imputer (FCFA)</label>
+                    <input type="number" id="imp_montant" name="montant" required min="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="imp_obs">Observations</label>
+                    <textarea id="imp_obs" name="observations" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="fermerModalImputerReserve()">
+                Annuler
+            </button>
+            <button type="button" class="btn-primary" onclick="confirmerImputation()">
+                <i data-lucide="check"></i>
+                Imputer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Styles specifiques aux modals reversement */
+.reversement-resume {
+    background: var(--bg-secondary, #f9fafb);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.resume-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6b7280);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.resume-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.resume-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.resume-item .label {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #9ca3af);
+    text-transform: uppercase;
+}
+
+.resume-item .value {
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.resume-item.highlight {
+    background: var(--primary, #1a365d);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    margin: -0.25rem;
+}
+
+.resume-item.highlight .label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.resume-item.highlight .value {
+    color: white;
+    font-size: 1.125rem;
+}
+
+.reversement-warning {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+}
+
+.reversement-warning i {
+    color: #d97706;
+    flex-shrink: 0;
+}
+
+.reversement-warning strong {
+    display: block;
+    color: #92400e;
+    margin-bottom: 0.25rem;
+}
+
+.reversement-warning p {
+    font-size: 0.875rem;
+    color: #92400e;
+    margin: 0;
+}
+
+/* Bouton succes */
+.btn-success {
+    background: #059669 !important;
+}
+
+.btn-success:hover {
+    background: #047857 !important;
+}
+
+/* Detail paiement */
+.detail-paiement-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.detail-section {
+    padding: 1rem;
+    background: var(--bg-secondary, #f9fafb);
+    border-radius: 0.5rem;
+}
+
+.detail-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary, #6b7280);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+}
+
+.detail-item .label {
+    color: var(--text-secondary, #6b7280);
+}
+
+.detail-item .value {
+    font-weight: 500;
+    font-family: monospace;
+}
+
+.detail-item.full {
+    grid-column: 1 / -1;
+}
+
+.imputation-bar {
+    display: flex;
+    height: 0.5rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: #e5e7eb;
+    margin-top: 0.5rem;
+}
+
+.imputation-bar-segment {
+    height: 100%;
+}
+
+.imputation-bar-segment.frais { background: #dc2626; }
+.imputation-bar-segment.emoluments { background: #d97706; }
+.imputation-bar-segment.interets { background: #2563eb; }
+.imputation-bar-segment.principal { background: #059669; }
+.imputation-bar-segment.reserve { background: #8b5cf6; }
+.imputation-bar-segment.reverser { background: #0891b2; }
+
+/* Imputer info */
+.imputer-info {
+    padding: 1rem;
+    background: var(--bg-secondary, #f9fafb);
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.imputer-info strong {
+    font-size: 1.25rem;
+    color: var(--primary, #1a365d);
+    font-family: monospace;
+}
+
+/* Form section dans les modals */
+.form-section {
+    margin-bottom: 1rem;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 480px) {
+    .form-row-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary, #1a365d);
+    box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+}
+</style>
+
+<script>
+// Variables pour les modals
+let currentPaiementId = null;
+let currentPaiementData = null;
+
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+// MODAL REVERSEMENT
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+
+function ouvrirModalReversement(paiementId, paiementData) {
+    currentPaiementId = paiementId;
+    currentPaiementData = paiementData;
+
+    // Remplir les infos
+    document.getElementById('rev_paiement_id').value = paiementId;
+    document.getElementById('revDatePaiement').textContent = paiementData.date_paiement || '-';
+    document.getElementById('revDossierRef').textContent = paiementData.dossier_reference || '-';
+    document.getElementById('revCreancier').textContent = paiementData.creancier || '-';
+    document.getElementById('revMontantPaye').textContent = formatMontantRev(paiementData.montant) + ' F';
+    document.getElementById('revMontantAReverser').textContent = formatMontantRev(paiementData.montant_a_reverser) + ' F';
+
+    // Date par defaut
+    document.getElementById('rev_date').value = new Date().toISOString().split('T')[0];
+
+    document.getElementById('modalReversement').classList.add('active');
+    lucide.createIcons();
+}
+
+function fermerModalReversement() {
+    document.getElementById('modalReversement').classList.remove('active');
+    document.getElementById('formReversement').reset();
+    currentPaiementId = null;
+    currentPaiementData = null;
+}
+
+async function confirmerReversement() {
+    if (!currentPaiementId) {
+        alert('Erreur: ID de paiement manquant');
+        return;
+    }
+
+    const data = {
+        date_reversement: document.getElementById('rev_date').value,
+        reference_reversement: document.getElementById('rev_reference').value,
+        observations: document.getElementById('rev_observations').value,
+    };
+
+    try {
+        const response = await fetch(`/recouvrement/api/paiement/${currentPaiementId}/reverser/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookieRev('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message || 'Reversement effectue avec succes');
+            fermerModalReversement();
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
+}
+
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+// MODAL DETAIL PAIEMENT
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+
+function ouvrirModalDetailPaiement(paiementId, paiementData) {
+    currentPaiementId = paiementId;
+    currentPaiementData = paiementData;
+
+    const container = document.getElementById('detailPaiementContent');
+    const total = parseFloat(paiementData.montant) || 0;
+
+    // Calculer les pourcentages pour la barre
+    const frais = parseFloat(paiementData.impute_frais) || 0;
+    const emoluments = parseFloat(paiementData.impute_emoluments) || 0;
+    const interets = parseFloat(paiementData.impute_interets) || 0;
+    const principal = parseFloat(paiementData.impute_principal) || 0;
+    const reserve = parseFloat(paiementData.montant_reserve) || 0;
+    const reverser = parseFloat(paiementData.montant_a_reverser) || 0;
+
+    let barHTML = '';
+    if (total > 0) {
+        barHTML = `
+            <div class="imputation-bar">
+                ${frais > 0 ? `<div class="imputation-bar-segment frais" style="width: ${(frais/total)*100}%"></div>` : ''}
+                ${emoluments > 0 ? `<div class="imputation-bar-segment emoluments" style="width: ${(emoluments/total)*100}%"></div>` : ''}
+                ${interets > 0 ? `<div class="imputation-bar-segment interets" style="width: ${(interets/total)*100}%"></div>` : ''}
+                ${principal > 0 ? `<div class="imputation-bar-segment principal" style="width: ${(principal/total)*100}%"></div>` : ''}
+                ${reserve > 0 ? `<div class="imputation-bar-segment reserve" style="width: ${(reserve/total)*100}%"></div>` : ''}
+                ${reverser > 0 ? `<div class="imputation-bar-segment reverser" style="width: ${(reverser/total)*100}%"></div>` : ''}
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="detail-section">
+            <div class="detail-section-title">Informations generales</div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="label">Date</span>
+                    <span class="value">${paiementData.date_paiement || '-'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Mode</span>
+                    <span class="value">${paiementData.mode_paiement_display || '-'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Reference</span>
+                    <span class="value">${paiementData.reference_paiement || '-'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Montant</span>
+                    <span class="value">${formatMontantRev(paiementData.montant)} F</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <div class="detail-section-title">Imputation</div>
+            ${barHTML}
+            <div class="detail-grid" style="margin-top: 0.75rem;">
+                <div class="detail-item">
+                    <span class="label">Frais</span>
+                    <span class="value">${formatMontantRev(frais)} F</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Emoluments</span>
+                    <span class="value">${formatMontantRev(emoluments)} F</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Interets</span>
+                    <span class="value">${formatMontantRev(interets)} F</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Principal</span>
+                    <span class="value">${formatMontantRev(principal)} F</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">En reserve</span>
+                    <span class="value">${formatMontantRev(reserve)} F</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">A reverser</span>
+                    <span class="value">${formatMontantRev(reverser)} F</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <div class="detail-section-title">Statut reversement</div>
+            <div class="detail-grid">
+                <div class="detail-item full">
+                    <span class="label">Etat</span>
+                    <span class="value">${paiementData.est_reverse ? 'Reverse le ' + (paiementData.date_reversement || '-') : 'Non reverse'}</span>
+                </div>
+                ${paiementData.reference_reversement ? `
+                <div class="detail-item full">
+                    <span class="label">Reference</span>
+                    <span class="value">${paiementData.reference_reversement}</span>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+
+        ${paiementData.observations ? `
+        <div class="detail-section">
+            <div class="detail-section-title">Observations</div>
+            <p style="margin: 0; font-size: 0.875rem;">${paiementData.observations}</p>
+        </div>
+        ` : ''}
+    `;
+
+    // Afficher le bouton reverser si applicable
+    const btnReverser = document.getElementById('btnReverserDepuisDetail');
+    if (!paiementData.est_reverse && reverser > 0) {
+        btnReverser.style.display = 'inline-flex';
+    } else {
+        btnReverser.style.display = 'none';
+    }
+
+    document.getElementById('modalDetailPaiement').classList.add('active');
+    lucide.createIcons();
+}
+
+function fermerModalDetailPaiement() {
+    document.getElementById('modalDetailPaiement').classList.remove('active');
+    currentPaiementId = null;
+    currentPaiementData = null;
+}
+
+function reverserDepuisDetail() {
+    fermerModalDetailPaiement();
+    if (currentPaiementId && currentPaiementData) {
+        ouvrirModalReversement(currentPaiementId, currentPaiementData);
+    }
+}
+
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+// MODAL IMPUTER RESERVE
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+
+function ouvrirModalImputerReserve(paiementId, montantReserve) {
+    currentPaiementId = paiementId;
+
+    document.getElementById('imp_paiement_id').value = paiementId;
+    document.getElementById('impMontantReserve').textContent = formatMontantRev(montantReserve) + ' F';
+    document.getElementById('imp_montant').max = montantReserve;
+
+    document.getElementById('modalImputerReserve').classList.add('active');
+    lucide.createIcons();
+}
+
+function fermerModalImputerReserve() {
+    document.getElementById('modalImputerReserve').classList.remove('active');
+    document.getElementById('formImputerReserve').reset();
+    currentPaiementId = null;
+}
+
+async function confirmerImputation() {
+    const paiementId = document.getElementById('imp_paiement_id').value;
+    const typeImputation = document.getElementById('imp_type').value;
+    const montant = document.getElementById('imp_montant').value;
+
+    if (!typeImputation) {
+        alert('Veuillez selectionner un type d\'imputation');
+        return;
+    }
+
+    if (!montant || parseInt(montant) <= 0) {
+        alert('Veuillez saisir un montant valide');
+        return;
+    }
+
+    const data = {
+        type_imputation: typeImputation,
+        montant: parseInt(montant),
+        observations: document.getElementById('imp_obs').value,
+    };
+
+    try {
+        const response = await fetch(`/recouvrement/api/paiement/${paiementId}/imputer/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookieRev('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message || 'Imputation effectuee avec succes');
+            fermerModalImputerReserve();
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
+}
+
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+// UTILITAIRES
+// PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+
+function formatMontantRev(montant) {
+    return parseInt(montant || 0).toLocaleString('fr-FR');
+}
+
+function getCookieRev(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Fonction helper pour appeler le reversement depuis le tableau
+async function reverserPaiementRapide(paiementId) {
+    if (!confirm('Confirmer le reversement de ce montant au creancier ?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/recouvrement/api/paiement/${paiementId}/reverser/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookieRev('csrftoken')
+            },
+            body: JSON.stringify({})
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message || 'Reversement effectue');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur: ' + error.message);
+    }
+}
+</script>

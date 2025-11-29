@@ -1,0 +1,805 @@
+{#
+   Modal d'enregistrement de paiement avec imputation
+
+   Utilisation:
+   {% include 'recouvrement/_modal_paiement.html' %}
+
+   Variables requises:
+   - dossier: Le dossier de recouvrement
+   - situation: La situation financiere calculee (ServicePaiement.calculer_situation_dossier)
+#}
+
+<!-- Modal Enregistrer Paiement -->
+<div class="modal" id="modalPaiement">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>
+                <i data-lucide="credit-card"></i>
+                Enregistrer un paiement
+            </h3>
+            <button type="button" onclick="fermerModalPaiement()" class="modal-close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="formPaiement" onsubmit="return false;">
+                <!-- Section Montant et Informations -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Informations du paiement</h4>
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label for="paiement_montant">Montant recu (FCFA) <span class="required">*</span></label>
+                            <input type="number" id="paiement_montant" name="montant"
+                                   required min="1" step="1"
+                                   placeholder="0"
+                                   oninput="calculerPrevisualisation()">
+                        </div>
+                        <div class="form-group">
+                            <label for="paiement_date">Date du paiement</label>
+                            <input type="date" id="paiement_date" name="date_paiement">
+                        </div>
+                        <div class="form-group">
+                            <label for="paiement_mode">Mode de paiement</label>
+                            <select id="paiement_mode" name="mode_paiement">
+                                <option value="especes">Especes</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="virement">Virement</option>
+                                <option value="mobile">Mobile Money</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="paiement_reference">Reference (optionnel)</label>
+                            <input type="text" id="paiement_reference" name="reference_paiement"
+                                   placeholder="N cheque, ref virement...">
+                        </div>
+                        <div class="form-group">
+                            <label for="paiement_observations">Observations</label>
+                            <input type="text" id="paiement_observations" name="observations"
+                                   placeholder="Notes...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Type d'imputation -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Mode d'imputation</h4>
+                    <div class="imputation-toggle">
+                        <label class="toggle-option">
+                            <input type="radio" name="mode_imputation" value="auto" checked
+                                   onchange="toggleImputationMode()">
+                            <span class="toggle-label">
+                                <i data-lucide="zap"></i>
+                                Automatique
+                            </span>
+                            <span class="toggle-desc">Selon l'ordre legal (frais, emoluments, interets, principal)</span>
+                        </label>
+                        <label class="toggle-option">
+                            <input type="radio" name="mode_imputation" value="manuel"
+                                   onchange="toggleImputationMode()">
+                            <span class="toggle-label">
+                                <i data-lucide="sliders"></i>
+                                Manuelle
+                            </span>
+                            <span class="toggle-desc">Definir l'imputation manuellement</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Section Imputation Manuelle (cachee par defaut) -->
+                <div class="form-section" id="sectionImputationManuelle" style="display: none;">
+                    <h4 class="form-section-title">Repartition manuelle</h4>
+                    <div class="imputation-grid">
+                        <div class="imputation-item">
+                            <label for="imp_frais">Frais</label>
+                            <input type="number" id="imp_frais" name="imputation_frais"
+                                   min="0" value="0" oninput="validerImputationManuelle()">
+                            <span class="imputation-restant" id="restant_frais">
+                                Restant: <span>0</span> F
+                            </span>
+                        </div>
+                        <div class="imputation-item">
+                            <label for="imp_emoluments">Emoluments</label>
+                            <input type="number" id="imp_emoluments" name="imputation_emoluments"
+                                   min="0" value="0" oninput="validerImputationManuelle()">
+                            <span class="imputation-restant" id="restant_emoluments">
+                                Restant: <span>0</span> F
+                            </span>
+                        </div>
+                        <div class="imputation-item">
+                            <label for="imp_interets">Interets</label>
+                            <input type="number" id="imp_interets" name="imputation_interets"
+                                   min="0" value="0" oninput="validerImputationManuelle()">
+                            <span class="imputation-restant" id="restant_interets">
+                                Restant: <span>0</span> F
+                            </span>
+                        </div>
+                        <div class="imputation-item">
+                            <label for="imp_principal">Principal</label>
+                            <input type="number" id="imp_principal" name="imputation_principal"
+                                   min="0" value="0" oninput="validerImputationManuelle()">
+                            <span class="imputation-restant" id="restant_principal">
+                                Restant: <span>0</span> F
+                            </span>
+                        </div>
+                        <div class="imputation-item">
+                            <label for="imp_reserve">En reserve</label>
+                            <input type="number" id="imp_reserve" name="imputation_reserve"
+                                   min="0" value="0" oninput="validerImputationManuelle()">
+                            <span class="imputation-desc">Imputation differee</span>
+                        </div>
+                        <div class="imputation-item">
+                            <label for="imp_reverser">A reverser</label>
+                            <input type="number" id="imp_reverser" name="imputation_reverser"
+                                   min="0" value="0" oninput="validerImputationManuelle()">
+                            <span class="imputation-desc">Au creancier</span>
+                        </div>
+                    </div>
+                    <div class="imputation-total" id="imputationTotal">
+                        <span class="label">Total impute:</span>
+                        <span class="value" id="totalImpute">0 FCFA</span>
+                        <span class="validation" id="validationImputation"></span>
+                    </div>
+                </div>
+
+                <!-- Section Previsualisation -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Previsualisation de l'imputation</h4>
+                    <div class="preview-container" id="previewContainer">
+                        <div class="preview-empty">
+                            <i data-lucide="calculator"></i>
+                            <p>Saisissez un montant pour voir la previsualisation</p>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="fermerModalPaiement()">
+                Annuler
+            </button>
+            <button type="button" class="btn-primary" onclick="enregistrerPaiement()" id="btnEnregistrerPaiement">
+                <i data-lucide="save"></i>
+                Enregistrer le paiement
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Styles du modal paiement */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--card-bg, #fff);
+    border-radius: 0.5rem;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content.modal-lg {
+    max-width: 700px;
+}
+
+.modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--text-secondary, #6b7280);
+}
+
+.modal-close:hover {
+    background: var(--bg-secondary, #f3f4f6);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-color, #e5e7eb);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+/* Sections du formulaire */
+.form-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.form-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.form-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-row-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .form-row-2, .form-row-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+}
+
+.form-group .required {
+    color: #dc2626;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary, #1a365d);
+    box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+}
+
+/* Toggle imputation */
+.imputation-toggle {
+    display: flex;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .imputation-toggle {
+        flex-direction: column;
+    }
+}
+
+.toggle-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border: 2px solid var(--border-color, #e5e7eb);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toggle-option:has(input:checked) {
+    border-color: var(--primary, #1a365d);
+    background: rgba(26, 54, 93, 0.05);
+}
+
+.toggle-option input {
+    display: none;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.toggle-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #6b7280);
+    margin-top: 0.25rem;
+}
+
+/* Grille imputation manuelle */
+.imputation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .imputation-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.imputation-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.imputation-item label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+}
+
+.imputation-item input {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-family: monospace;
+}
+
+.imputation-restant,
+.imputation-desc {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #9ca3af);
+}
+
+.imputation-total {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary, #f9fafb);
+    border-radius: 0.375rem;
+}
+
+.imputation-total .value {
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--primary, #1a365d);
+}
+
+.imputation-total .validation {
+    margin-left: auto;
+    font-size: 0.875rem;
+}
+
+.imputation-total .validation.valid {
+    color: #059669;
+}
+
+.imputation-total .validation.invalid {
+    color: #dc2626;
+}
+
+/* Previsualisation */
+.preview-container {
+    background: var(--bg-secondary, #f9fafb);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    min-height: 120px;
+}
+
+.preview-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+    color: var(--text-secondary, #9ca3af);
+    text-align: center;
+}
+
+.preview-empty i {
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
+.preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .preview-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.preview-item {
+    background: white;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    text-align: center;
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.preview-item .value {
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--primary, #1a365d);
+}
+
+.preview-item .label {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #6b7280);
+    margin-top: 0.25rem;
+}
+
+.preview-item.success .value { color: #059669; }
+.preview-item.warning .value { color: #d97706; }
+.preview-item.info .value { color: #0284c7; }
+
+/* Boutons */
+.btn-primary, .btn-secondary {
+    padding: 0.625rem 1.25rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--primary, #1a365d);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #15294d;
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: var(--bg-secondary, #f3f4f6);
+    color: var(--text-primary, #111827);
+    border: 1px solid var(--border-color, #d1d5db);
+}
+
+.btn-secondary:hover {
+    background: var(--border-color, #e5e7eb);
+}
+</style>
+
+<script>
+// Variables globales pour la situation du dossier
+let situationDossier = null;
+let dossierId = null;
+
+// Initialisation
+function initModalPaiement(dossier, situation) {
+    dossierId = dossier.id;
+    situationDossier = situation;
+
+    // Mettre a jour les restants
+    if (situation) {
+        document.querySelector('#restant_frais span').textContent =
+            formatMontant(situation.frais_restants || 0);
+        document.querySelector('#restant_emoluments span').textContent =
+            formatMontant(situation.emoluments_restants || 0);
+        document.querySelector('#restant_interets span').textContent =
+            formatMontant(situation.interets_restants || 0);
+        document.querySelector('#restant_principal span').textContent =
+            formatMontant(situation.principal_restant || 0);
+    }
+
+    // Date par defaut = aujourd'hui
+    document.getElementById('paiement_date').value = new Date().toISOString().split('T')[0];
+}
+
+function ouvrirModalPaiement() {
+    document.getElementById('modalPaiement').classList.add('active');
+    document.getElementById('paiement_montant').focus();
+    lucide.createIcons();
+}
+
+function fermerModalPaiement() {
+    document.getElementById('modalPaiement').classList.remove('active');
+    document.getElementById('formPaiement').reset();
+    document.getElementById('paiement_date').value = new Date().toISOString().split('T')[0];
+
+    // Reset preview
+    document.getElementById('previewContainer').innerHTML = `
+        <div class="preview-empty">
+            <i data-lucide="calculator"></i>
+            <p>Saisissez un montant pour voir la previsualisation</p>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function toggleImputationMode() {
+    const mode = document.querySelector('input[name="mode_imputation"]:checked').value;
+    const sectionManuelle = document.getElementById('sectionImputationManuelle');
+
+    if (mode === 'manuel') {
+        sectionManuelle.style.display = 'block';
+    } else {
+        sectionManuelle.style.display = 'none';
+    }
+
+    calculerPrevisualisation();
+}
+
+function calculerPrevisualisation() {
+    const montant = parseInt(document.getElementById('paiement_montant').value) || 0;
+    const mode = document.querySelector('input[name="mode_imputation"]:checked').value;
+    const container = document.getElementById('previewContainer');
+
+    if (montant <= 0) {
+        container.innerHTML = `
+            <div class="preview-empty">
+                <i data-lucide="calculator"></i>
+                <p>Saisissez un montant pour voir la previsualisation</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+
+    let imputation;
+
+    if (mode === 'manuel') {
+        imputation = {
+            frais: parseInt(document.getElementById('imp_frais').value) || 0,
+            emoluments: parseInt(document.getElementById('imp_emoluments').value) || 0,
+            interets: parseInt(document.getElementById('imp_interets').value) || 0,
+            principal: parseInt(document.getElementById('imp_principal').value) || 0,
+            reserve: parseInt(document.getElementById('imp_reserve').value) || 0,
+            reverser: parseInt(document.getElementById('imp_reverser').value) || 0,
+        };
+    } else {
+        // Calcul automatique selon ordre legal
+        imputation = calculerImputationAuto(montant);
+    }
+
+    // Afficher la previsualisation
+    container.innerHTML = `
+        <div class="preview-grid">
+            <div class="preview-item">
+                <div class="value">${formatMontant(imputation.frais)}</div>
+                <div class="label">Frais</div>
+            </div>
+            <div class="preview-item">
+                <div class="value">${formatMontant(imputation.emoluments)}</div>
+                <div class="label">Emoluments</div>
+            </div>
+            <div class="preview-item">
+                <div class="value">${formatMontant(imputation.interets)}</div>
+                <div class="label">Interets</div>
+            </div>
+            <div class="preview-item success">
+                <div class="value">${formatMontant(imputation.principal)}</div>
+                <div class="label">Principal</div>
+            </div>
+            <div class="preview-item warning">
+                <div class="value">${formatMontant(imputation.reserve)}</div>
+                <div class="label">En reserve</div>
+            </div>
+            <div class="preview-item info">
+                <div class="value">${formatMontant(imputation.reverser)}</div>
+                <div class="label">A reverser</div>
+            </div>
+        </div>
+    `;
+}
+
+function calculerImputationAuto(montant) {
+    if (!situationDossier) {
+        return { frais: 0, emoluments: 0, interets: 0, principal: 0, reserve: 0, reverser: montant };
+    }
+
+    let restant = montant;
+    const imputation = { frais: 0, emoluments: 0, interets: 0, principal: 0, reserve: 0, reverser: 0 };
+
+    // 1. Frais
+    const fraisDus = parseFloat(situationDossier.frais_restants) || 0;
+    if (restant > 0 && fraisDus > 0) {
+        imputation.frais = Math.min(restant, fraisDus);
+        restant -= imputation.frais;
+    }
+
+    // 2. Emoluments
+    const emolumentsDus = parseFloat(situationDossier.emoluments_restants) || 0;
+    if (restant > 0 && emolumentsDus > 0) {
+        imputation.emoluments = Math.min(restant, emolumentsDus);
+        restant -= imputation.emoluments;
+    }
+
+    // 3. Interets
+    const interetsDus = parseFloat(situationDossier.interets_restants) || 0;
+    if (restant > 0 && interetsDus > 0) {
+        imputation.interets = Math.min(restant, interetsDus);
+        restant -= imputation.interets;
+    }
+
+    // 4. Principal
+    const principalDu = parseFloat(situationDossier.principal_restant) || 0;
+    if (restant > 0 && principalDu > 0) {
+        imputation.principal = Math.min(restant, principalDu);
+        restant -= imputation.principal;
+    }
+
+    // 5. Excedent a reverser
+    if (restant > 0) {
+        imputation.reverser = restant;
+    }
+
+    return imputation;
+}
+
+function validerImputationManuelle() {
+    const montant = parseInt(document.getElementById('paiement_montant').value) || 0;
+
+    const frais = parseInt(document.getElementById('imp_frais').value) || 0;
+    const emoluments = parseInt(document.getElementById('imp_emoluments').value) || 0;
+    const interets = parseInt(document.getElementById('imp_interets').value) || 0;
+    const principal = parseInt(document.getElementById('imp_principal').value) || 0;
+    const reserve = parseInt(document.getElementById('imp_reserve').value) || 0;
+    const reverser = parseInt(document.getElementById('imp_reverser').value) || 0;
+
+    const total = frais + emoluments + interets + principal + reserve + reverser;
+
+    document.getElementById('totalImpute').textContent = formatMontant(total) + ' FCFA';
+
+    const validation = document.getElementById('validationImputation');
+    if (total === montant) {
+        validation.textContent = 'OK';
+        validation.className = 'validation valid';
+        document.getElementById('btnEnregistrerPaiement').disabled = false;
+    } else if (total < montant) {
+        validation.textContent = 'Reste ' + formatMontant(montant - total) + ' F a repartir';
+        validation.className = 'validation invalid';
+        document.getElementById('btnEnregistrerPaiement').disabled = true;
+    } else {
+        validation.textContent = 'Depasse de ' + formatMontant(total - montant) + ' F';
+        validation.className = 'validation invalid';
+        document.getElementById('btnEnregistrerPaiement').disabled = true;
+    }
+
+    calculerPrevisualisation();
+}
+
+async function enregistrerPaiement() {
+    const montant = parseInt(document.getElementById('paiement_montant').value);
+
+    if (!montant || montant <= 0) {
+        alert('Veuillez saisir un montant valide');
+        return;
+    }
+
+    const mode = document.querySelector('input[name="mode_imputation"]:checked').value;
+
+    const data = {
+        dossier_id: dossierId,
+        montant: montant,
+        date_paiement: document.getElementById('paiement_date').value,
+        mode_paiement: document.getElementById('paiement_mode').value,
+        reference_paiement: document.getElementById('paiement_reference').value,
+        observations: document.getElementById('paiement_observations').value,
+    };
+
+    // Ajouter l'imputation manuelle si necessaire
+    if (mode === 'manuel') {
+        data.imputation = {
+            frais: parseInt(document.getElementById('imp_frais').value) || 0,
+            emoluments: parseInt(document.getElementById('imp_emoluments').value) || 0,
+            interets: parseInt(document.getElementById('imp_interets').value) || 0,
+            principal: parseInt(document.getElementById('imp_principal').value) || 0,
+            reserve: parseInt(document.getElementById('imp_reserve').value) || 0,
+            reverser: parseInt(document.getElementById('imp_reverser').value) || 0,
+        };
+    }
+
+    try {
+        const response = await fetch('/recouvrement/api/paiement/enregistrer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message || 'Paiement enregistre avec succes');
+            fermerModalPaiement();
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
+}
+
+function formatMontant(montant) {
+    return parseInt(montant).toLocaleString('fr-FR');
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
