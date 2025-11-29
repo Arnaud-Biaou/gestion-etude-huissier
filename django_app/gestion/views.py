@@ -6291,3 +6291,204 @@ def point_notes_frais(request):
     })
 
     return render(request, 'gestion/rapports/point_notes_frais.html', context)
+
+
+# ═══════════════════════════════════════════════════════════════
+# API AUTOCOMPLÉTION ET SUGGESTIONS PARTIES
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
+def api_autocomplete_parties(request):
+    """
+    API d'autocomplétion pour la sélection des parties existantes.
+    Utilisé dans les formulaires de création de dossier.
+    """
+    from django.http import JsonResponse
+    from gestion.services.suggestions_parties import rechercher_parties_similaires
+
+    query = request.GET.get('q', '').strip()
+    type_partie = request.GET.get('type', '')  # 'physique', 'morale', ou vide pour tous
+    limite = int(request.GET.get('limite', 10))
+
+    if len(query) < 2:
+        return JsonResponse({'resultats': []})
+
+    # Filtrer par type si spécifié
+    parties_qs = Partie.objects.all()
+    if type_partie == 'physique':
+        parties_qs = parties_qs.filter(est_personne_morale=False)
+    elif type_partie == 'morale':
+        parties_qs = parties_qs.filter(est_personne_morale=True)
+
+    # Recherche simple par contenu
+    from django.db.models import Q
+    parties = parties_qs.filter(
+        Q(nom__icontains=query) |
+        Q(prenom__icontains=query) |
+        Q(raison_sociale__icontains=query) |
+        Q(email__icontains=query)
+    )[:limite]
+
+    resultats = []
+    for p in parties:
+        if p.est_personne_morale:
+            label = p.raison_sociale or p.nom
+            if p.forme_juridique:
+                label = f"{label} ({p.forme_juridique})"
+        else:
+            label = f"{p.nom} {p.prenom or ''}".strip()
+
+        resultats.append({
+            'id': p.pk,
+            'label': label,
+            'type': 'morale' if p.est_personne_morale else 'physique',
+            'email': p.email or '',
+            'telephone': p.telephone or '',
+            'adresse': p.adresse or '',
+        })
+
+    return JsonResponse({'resultats': resultats})
+
+
+@login_required
+def api_verifier_dossier_similaire(request):
+    """
+    API pour vérifier si un dossier avec les mêmes parties existe.
+    Appelé lors de la création d'un nouveau dossier.
+    """
+    from django.http import JsonResponse
+    from gestion.services.suggestions_parties import verifier_dossier_existant
+
+    demandeurs_ids = request.GET.getlist('demandeurs[]', [])
+    defendeurs_ids = request.GET.getlist('defendeurs[]', [])
+
+    # Convertir en entiers
+    try:
+        demandeurs_ids = [int(x) for x in demandeurs_ids if x]
+        defendeurs_ids = [int(x) for x in defendeurs_ids if x]
+    except ValueError:
+        return JsonResponse({'dossiers_similaires': []})
+
+    dossiers_similaires = verifier_dossier_existant(
+        demandeurs_ids,
+        defendeurs_ids,
+        Dossier
+    )
+
+    resultats = []
+    for item in dossiers_similaires:
+        dossier = item['dossier']
+        resultats.append({
+            'id': dossier.pk,
+            'reference': dossier.reference,
+            'intitule': dossier.intitule or '',
+            'statut': dossier.statut,
+            'date_ouverture': dossier.date_ouverture.strftime('%d/%m/%Y') if dossier.date_ouverture else '',
+            'demandeurs_communs': item['demandeurs_communs'],
+            'defendeurs_communs': item['defendeurs_communs'],
+            'url': f"/gestion/dossiers/{dossier.pk}/",
+        })
+
+    return JsonResponse({
+        'dossiers_similaires': resultats,
+        'alerte': len(resultats) > 0,
+        'message': f"{len(resultats)} dossier(s) existant(s) impliquant les mêmes parties" if resultats else "",
+    })
+
+
+@login_required
+def api_suggerer_normalisation(request):
+    """
+    API pour suggérer la normalisation d'un nom de partie.
+    Utilisé en temps réel lors de la saisie.
+    """
+    from django.http import JsonResponse
+    from gestion.services.suggestions_parties import suggerer_normalisation
+
+    nom = request.GET.get('nom', '')
+    forme = request.GET.get('forme', '')
+
+    if not nom:
+        return JsonResponse({'suggestion': None})
+
+    suggestion = suggerer_normalisation(nom, forme)
+
+    return JsonResponse({'suggestion': suggestion})
+
+
+@login_required
+def admin_suggestions_parties(request):
+    """
+    Vue admin pour revoir et appliquer les suggestions de normalisation.
+    L'admin valide manuellement chaque correction.
+    """
+    from gestion.services.suggestions_parties import (
+        suggerer_normalisation,
+        detecter_doublons_potentiels
+    )
+
+    # Récupérer toutes les parties personnes morales
+    parties_pm = Partie.objects.filter(est_personne_morale=True).order_by('raison_sociale')
+
+    # Générer les suggestions
+    suggestions = []
+    for partie in parties_pm:
+        nom = partie.raison_sociale or partie.nom or ''
+        suggestion = suggerer_normalisation(nom, partie.forme_juridique)
+
+        if suggestion and suggestion['a_corriger']:
+            suggestions.append({
+                'partie': partie,
+                'suggestion': suggestion,
+            })
+
+    # Détecter les doublons
+    doublons = detecter_doublons_potentiels(Partie)
+
+    # Statistiques
+    stats = {
+        'total_parties': Partie.objects.count(),
+        'personnes_morales': parties_pm.count(),
+        'suggestions_correction': len(suggestions),
+        'groupes_doublons': len(doublons),
+    }
+
+    return render(request, 'gestion/admin/suggestions_parties.html', {
+        'suggestions': suggestions,
+        'doublons': doublons,
+        'stats': stats,
+    })
+
+
+@login_required
+def admin_appliquer_suggestion(request, partie_id):
+    """
+    Applique une suggestion de normalisation après validation admin.
+    POST uniquement.
+    """
+    from django.http import JsonResponse
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        partie = Partie.objects.get(pk=partie_id)
+    except Partie.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Partie non trouvée'}, status=404)
+
+    nouveau_nom = request.POST.get('nouveau_nom', '').strip()
+    nouvelle_forme = request.POST.get('nouvelle_forme', '').strip()
+
+    if nouveau_nom:
+        partie.raison_sociale = nouveau_nom
+    if nouvelle_forme:
+        partie.forme_juridique = nouvelle_forme
+
+    partie.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Partie {partie.pk} mise à jour',
+        'nouveau_nom': partie.raison_sociale,
+        'nouvelle_forme': partie.forme_juridique,
+    })

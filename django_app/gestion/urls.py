@@ -140,4 +140,13 @@ urlpatterns = [
     path('rapports/factures/client/', views.point_factures_par_client, name='point_factures_client'),
     path('rapports/factures/avocat/', views.point_factures_par_avocat, name='point_factures_avocat'),
     path('rapports/notes-frais/', views.point_notes_frais, name='point_notes_frais'),
+
+    # API Autocomplétion et suggestions parties
+    path('api/parties/autocomplete/', views.api_autocomplete_parties, name='api_autocomplete_parties'),
+    path('api/parties/suggerer-normalisation/', views.api_suggerer_normalisation, name='api_suggerer_normalisation'),
+    path('api/dossiers/verifier-similaire/', views.api_verifier_dossier_similaire, name='api_verifier_dossier_similaire'),
+
+    # Admin suggestions parties
+    path('admin/suggestions-parties/', views.admin_suggestions_parties, name='admin_suggestions_parties'),
+    path('admin/appliquer-suggestion/<int:partie_id>/', views.admin_appliquer_suggestion, name='admin_appliquer_suggestion'),
 ]
