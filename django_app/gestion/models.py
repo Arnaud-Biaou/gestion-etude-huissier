@@ -230,6 +230,15 @@ class Dossier(models.Model):
         ('force', 'Phase forcée (exécution)'),
     ]
 
+    TYPE_TITRE_EXECUTOIRE_CHOICES = [
+        ('jugement', 'Décision juridictionnelle'),
+        ('ordonnance', 'Ordonnance'),
+        ('acte_notarie', 'Acte notarié'),
+        ('pv_conciliation', 'PV de conciliation'),
+        ('protet', 'Protêt'),
+        ('autre', 'Autre'),
+    ]
+
     # Transitions de statut permises
     TRANSITIONS_PERMISES = {
         'actif': ['urgent', 'archive', 'cloture'],
@@ -291,7 +300,9 @@ class Dossier(models.Model):
 
     # Titre exécutoire (pour phase forcée)
     titre_executoire_type = models.CharField(
-        max_length=100, blank=True,
+        max_length=20,
+        choices=TYPE_TITRE_EXECUTOIRE_CHOICES,
+        blank=True,
         verbose_name='Type de titre exécutoire'
     )
     titre_executoire_reference = models.CharField(
@@ -301,6 +312,12 @@ class Dossier(models.Model):
     titre_executoire_date = models.DateField(
         null=True, blank=True,
         verbose_name='Date du titre'
+    )
+    date_executoire = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date d'exécutorité",
+        help_text="Date à laquelle le titre devient exécutoire (après délai d'appel, signification, etc.)"
     )
     titre_executoire_juridiction = models.CharField(
         max_length=200, blank=True,
