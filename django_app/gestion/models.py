@@ -331,7 +331,8 @@ class Dossier(models.Model):
     defendeurs = models.ManyToManyField(Partie, related_name='dossiers_defendeur', blank=True)
 
     cree_par = models.ForeignKey(
-        Utilisateur, on_delete=models.SET_NULL, null=True, related_name='dossiers_crees'
+        Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='dossiers_crees', verbose_name="Créé par"
     )
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
