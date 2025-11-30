@@ -468,18 +468,36 @@ class Dossier(models.Model):
 
     @classmethod
     def generer_reference(cls):
+        """
+        Génère une référence unique pour un dossier.
+        Thread-safe grâce à select_for_update() et transaction.atomic()
+        Format: {175+compteur}_{mois}{année}_{MAB}
+        """
+        from django.db import transaction
+
         now = timezone.now()
-        prefix = 175  # Numero de la loi
+        prefix_base = 175  # Numero de la loi
         mois = str(now.month).zfill(2)
         annee = str(now.year)[-2:]
         suffix = "MAB"  # Initiales de l'huissier
+        pattern = f"_{mois}{annee}_{suffix}"
 
-        # Trouver le prochain numero
-        derniers = cls.objects.filter(
-            reference__startswith=f"{prefix}_{mois}{annee}"
-        ).count()
+        with transaction.atomic():
+            # Verrouille les enregistrements pendant le comptage
+            # pour éviter les doublons en cas de requêtes simultanées
+            existing_refs = cls.objects.select_for_update().filter(
+                reference__endswith=pattern
+            )
+            count = existing_refs.count()
+            numero = prefix_base + count
+            reference = f"{numero}_{mois}{annee}_{suffix}"
 
-        return f"{prefix + derniers}_{mois}{annee}_{suffix}"
+            # Vérification supplémentaire d'unicité (au cas où)
+            while cls.objects.filter(reference=reference).exists():
+                numero += 1
+                reference = f"{numero}_{mois}{annee}_{suffix}"
+
+            return reference
 
 
 class Facture(models.Model):

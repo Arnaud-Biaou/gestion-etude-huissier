@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Sum, Q
+from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
 from functools import wraps
@@ -622,36 +623,38 @@ def nouveau_dossier(request):
         data = request.POST
 
         try:
-            # Recuperer les donnees du formulaire
-            reference = data.get('reference', '') or Dossier.generer_reference()
-            type_dossier = data.get('type_dossier', '')
-            is_contentieux = data.get('is_contentieux', 'false') == 'true'
-            description = data.get('description', '')
-            affecte_a_id = data.get('affecte_a')
+            # Transaction atomique pour garantir l'intégrité des données
+            # Si une erreur survient, tout est annulé (rollback automatique)
+            with transaction.atomic():
+                # Recuperer les donnees du formulaire
+                reference = data.get('reference', '') or Dossier.generer_reference()
+                type_dossier = data.get('type_dossier', '')
+                is_contentieux = data.get('is_contentieux', 'false') == 'true'
+                description = data.get('description', '')
+                affecte_a_id = data.get('affecte_a')
 
-            # Recuperer le collaborateur
-            affecte_a = None
-            if affecte_a_id:
-                try:
-                    affecte_a = Collaborateur.objects.get(id=affecte_a_id)
-                except Collaborateur.DoesNotExist:
-                    pass
+                # Recuperer le collaborateur
+                affecte_a = None
+                if affecte_a_id:
+                    try:
+                        affecte_a = Collaborateur.objects.get(id=affecte_a_id)
+                    except Collaborateur.DoesNotExist:
+                        pass
 
-            # Creer le dossier
-            dossier = Dossier.objects.create(
-                reference=reference,
-                type_dossier=type_dossier if type_dossier else 'recouvrement',
-                is_contentieux=is_contentieux,
-                description=description,
-                affecte_a=affecte_a,
-                statut='actif'
-            )
+                # Creer le dossier
+                dossier = Dossier.objects.create(
+                    reference=reference,
+                    type_dossier=type_dossier if type_dossier else 'recouvrement',
+                    is_contentieux=is_contentieux,
+                    description=description,
+                    affecte_a=affecte_a,
+                    statut='actif'
+                )
 
-            # Creer les parties (demandeurs et defendeurs)
-            demandeurs_json = data.get('demandeurs', '[]')
-            defendeurs_json = data.get('defendeurs', '[]')
+                # Creer les parties (demandeurs et defendeurs)
+                demandeurs_json = data.get('demandeurs', '[]')
+                defendeurs_json = data.get('defendeurs', '[]')
 
-            try:
                 demandeurs_data = json.loads(demandeurs_json) if demandeurs_json else []
                 for dem in demandeurs_data:
                     if dem.get('nom') or dem.get('denomination'):
@@ -681,10 +684,7 @@ def nouveau_dossier(request):
                             ifu=dem.get('ifu', ''),
                         )
                         dossier.demandeurs.add(partie)
-            except (json.JSONDecodeError, TypeError):
-                pass
 
-            try:
                 defendeurs_data = json.loads(defendeurs_json) if defendeurs_json else []
                 for def_ in defendeurs_data:
                     if def_.get('nom') or def_.get('denomination'):
@@ -714,10 +714,8 @@ def nouveau_dossier(request):
                             ifu=def_.get('ifu', ''),
                         )
                         dossier.defendeurs.add(partie)
-            except (json.JSONDecodeError, TypeError):
-                pass
 
-            # Creer l'arborescence de dossiers virtuels dans le Drive
+            # Hors transaction : création Drive (non critique, peut échouer sans rollback)
             try:
                 from documents.services.document_service import DocumentService
                 service = DocumentService(utilisateur=request.user)
@@ -731,6 +729,9 @@ def nouveau_dossier(request):
             messages.success(request, f'Dossier {reference} cree avec succes!')
             return redirect('gestion:dossiers')
 
+        except json.JSONDecodeError as e:
+            messages.error(request, f'Erreur de format JSON dans les parties: {str(e)}')
+            return redirect('gestion:nouveau_dossier')
         except Exception as e:
             messages.error(request, f'Erreur lors de la creation du dossier: {str(e)}')
             return redirect('gestion:nouveau_dossier')
@@ -823,45 +824,47 @@ def modifier_dossier(request, pk):
         data = request.POST
 
         try:
-            # Mise à jour des champs de base
-            dossier.type_dossier = data.get('type_dossier', dossier.type_dossier)
-            dossier.is_contentieux = data.get('is_contentieux', 'false') == 'true'
-            dossier.description = data.get('description', dossier.description)
-            dossier.statut = data.get('statut', dossier.statut)
+            # Transaction atomique pour garantir l'intégrité des données
+            # Si une erreur survient, tout est annulé (rollback automatique)
+            with transaction.atomic():
+                # Mise à jour des champs de base
+                dossier.type_dossier = data.get('type_dossier', dossier.type_dossier)
+                dossier.is_contentieux = data.get('is_contentieux', 'false') == 'true'
+                dossier.description = data.get('description', dossier.description)
+                dossier.statut = data.get('statut', dossier.statut)
 
-            # Montants
-            montant_creance = data.get('montant_creance', '')
-            if montant_creance:
-                dossier.montant_creance = Decimal(montant_creance.replace(' ', '').replace(',', '.'))
+                # Montants
+                montant_creance = data.get('montant_creance', '')
+                if montant_creance:
+                    dossier.montant_creance = Decimal(montant_creance.replace(' ', '').replace(',', '.'))
 
-            montant_principal = data.get('montant_principal', '')
-            if montant_principal:
-                dossier.montant_principal = Decimal(montant_principal.replace(' ', '').replace(',', '.'))
+                montant_principal = data.get('montant_principal', '')
+                if montant_principal:
+                    dossier.montant_principal = Decimal(montant_principal.replace(' ', '').replace(',', '.'))
 
-            # Collaborateur assigné
-            affecte_a_id = data.get('affecte_a')
-            if affecte_a_id:
-                try:
-                    dossier.affecte_a = Collaborateur.objects.get(id=affecte_a_id)
-                except Collaborateur.DoesNotExist:
-                    pass
-            else:
-                dossier.affecte_a = None
+                # Collaborateur assigné
+                affecte_a_id = data.get('affecte_a')
+                if affecte_a_id:
+                    try:
+                        dossier.affecte_a = Collaborateur.objects.get(id=affecte_a_id)
+                    except Collaborateur.DoesNotExist:
+                        pass
+                else:
+                    dossier.affecte_a = None
 
-            # Créancier
-            creancier_id = data.get('creancier')
-            if creancier_id:
-                try:
-                    dossier.creancier = Creancier.objects.get(id=creancier_id)
-                except Creancier.DoesNotExist:
-                    pass
-            else:
-                dossier.creancier = None
+                # Créancier
+                creancier_id = data.get('creancier')
+                if creancier_id:
+                    try:
+                        dossier.creancier = Creancier.objects.get(id=creancier_id)
+                    except Creancier.DoesNotExist:
+                        pass
+                else:
+                    dossier.creancier = None
 
-            # Mettre à jour les parties (demandeurs)
-            demandeurs_json = data.get('demandeurs', '')
-            if demandeurs_json:
-                try:
+                # Mettre à jour les parties (demandeurs)
+                demandeurs_json = data.get('demandeurs', '')
+                if demandeurs_json:
                     demandeurs_data = json.loads(demandeurs_json)
                     # Supprimer les anciens demandeurs
                     dossier.demandeurs.clear()
@@ -879,13 +882,10 @@ def modifier_dossier(request, pk):
                                 ifu=dem.get('ifu', ''),
                             )
                             dossier.demandeurs.add(partie)
-                except (json.JSONDecodeError, TypeError):
-                    pass
 
-            # Mettre à jour les parties (défendeurs)
-            defendeurs_json = data.get('defendeurs', '')
-            if defendeurs_json:
-                try:
+                # Mettre à jour les parties (défendeurs)
+                defendeurs_json = data.get('defendeurs', '')
+                if defendeurs_json:
                     defendeurs_data = json.loads(defendeurs_json)
                     # Supprimer les anciens défendeurs
                     dossier.defendeurs.clear()
@@ -903,13 +903,14 @@ def modifier_dossier(request, pk):
                                 ifu=def_.get('ifu', ''),
                             )
                             dossier.defendeurs.add(partie)
-                except (json.JSONDecodeError, TypeError):
-                    pass
 
-            dossier.save()
+                dossier.save()
+
             messages.success(request, f'Dossier {dossier.reference} mis à jour avec succès!')
             return redirect('gestion:dossier_detail', pk=dossier.pk)
 
+        except json.JSONDecodeError as e:
+            messages.error(request, f'Erreur de format JSON dans les parties: {str(e)}')
         except Exception as e:
             messages.error(request, f'Erreur lors de la mise à jour: {str(e)}')
 
