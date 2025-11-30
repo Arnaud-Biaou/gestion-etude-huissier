@@ -251,7 +251,12 @@ class Dossier(models.Model):
 
     reference = models.CharField(max_length=20, unique=True)
     is_contentieux = models.BooleanField(default=False, verbose_name='Contentieux')
-    type_dossier = models.CharField(max_length=20, choices=TYPE_DOSSIER_CHOICES, blank=True)
+    type_dossier = models.CharField(
+        max_length=20,
+        choices=TYPE_DOSSIER_CHOICES,
+        default='recouvrement',
+        verbose_name='Type de dossier'
+    )
     description = models.TextField(blank=True)
     montant_creance = models.DecimalField(
         max_digits=15, decimal_places=0, null=True, blank=True,
