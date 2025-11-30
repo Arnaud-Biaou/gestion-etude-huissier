@@ -792,22 +792,143 @@ class Facture(models.Model):
 
 
 class LigneFacture(models.Model):
-    """Lignes de facture"""
-    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
-    description = models.CharField(max_length=500)
+    """Ligne d'une facture = UN ACTE avec ses frais ventilés (Groupe A/B E-MECeF)"""
+
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name='Facture'
+    )
+
+    # Lien vers l'acte (optionnel - peut être une ligne libre)
+    acte_dossier = models.ForeignKey(
+        'ActeDossier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lignes_facture',
+        verbose_name='Acte associé'
+    )
+
+    # Identification et ordre
+    numero_ligne = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Numéro de ligne'
+    )
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Ordre d'affichage"
+    )
+
+    # Description générale (ex: "Signification du 15/01/2025")
+    description = models.CharField(
+        max_length=500,
+        verbose_name="Description de l'acte"
+    )
+
+    # Quantité et prix unitaire (compatibilité)
     quantite = models.IntegerField(default=1)
-    prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+    prix_unitaire = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0')
+    )
+
+    # ─── MONTANTS CALCULÉS À PARTIR DES VENTILATIONS ───
+    montant_ht_groupe_a = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='HT Groupe A (Exonéré)',
+        help_text='Timbres + Enregistrement + Débours (auto-calculé)'
+    )
+    montant_ht_groupe_b = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='HT Groupe B (Taxable)',
+        help_text='Honoraires (auto-calculé)'
+    )
+    montant_tva_groupe_b = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='TVA sur Groupe B',
+        help_text='18% × montant_ht_groupe_b (auto-calculé)'
+    )
+    montant_total_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Total HT',
+        help_text='Groupe A + Groupe B (auto-calculé)'
+    )
+    montant_total_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Total TTC',
+        help_text='Total HT + TVA (auto-calculé)'
+    )
 
     class Meta:
         verbose_name = 'Ligne de facture'
         verbose_name_plural = 'Lignes de facture'
+        ordering = ['ordre']
+        unique_together = [['facture', 'numero_ligne']]
+        indexes = [
+            models.Index(fields=['facture', 'ordre']),
+        ]
 
     def __str__(self):
-        return f"{self.description} x {self.quantite}"
+        return f"{self.description} - {self.montant_total_ttc}F"
 
     @property
     def total(self):
+        """Compatibilité avec l'ancien modèle"""
+        if self.montant_total_ttc:
+            return self.montant_total_ttc
         return self.quantite * self.prix_unitaire
+
+    def recalculer_montants(self):
+        """Recalcule tous les montants à partir des ventilations"""
+        ventilations = self.ventilations.all()
+
+        # Sommes par groupe
+        self.montant_ht_groupe_a = sum(
+            v.montant_ht for v in ventilations if v.groupe_taxation_id == 'A'
+        ) or Decimal('0')
+
+        self.montant_ht_groupe_b = sum(
+            v.montant_ht for v in ventilations if v.groupe_taxation_id == 'B'
+        ) or Decimal('0')
+
+        # TVA sur Groupe B seulement
+        self.montant_tva_groupe_b = int(
+            self.montant_ht_groupe_b * Decimal('0.18')
+        )
+
+        # Totaux
+        self.montant_total_ht = self.montant_ht_groupe_a + self.montant_ht_groupe_b
+        self.montant_total_ttc = self.montant_total_ht + self.montant_tva_groupe_b
+
+        # Mettre à jour prix_unitaire pour compatibilité
+        self.prix_unitaire = self.montant_total_ttc
+
+        self.save(update_fields=[
+            'montant_ht_groupe_a',
+            'montant_ht_groupe_b',
+            'montant_tva_groupe_b',
+            'montant_total_ht',
+            'montant_total_ttc',
+            'prix_unitaire'
+        ])
 
 
 class ActeProcedure(models.Model):
@@ -3924,12 +4045,68 @@ class PermissionsGranulaires(models.Model):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MODÈLES DE FACTURATION ET SUIVI DES ACTES
+# MODÈLES DE FACTURATION E-MECeF ET SUIVI DES ACTES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class GroupeTaxation(models.Model):
+    """Groupe de taxation E-MECeF pour facturation normalisée
+
+    Groupes E-MECeF Bénin:
+    - A: Exonéré (débours, timbres, enregistrement) - 0% TVA
+    - B: Taxable (honoraires, prestations) - 18% TVA
+    - C: Exportation
+    - D: TVA régime exception 18%
+    - E: TPS
+    - F: Réservé
+    """
+
+    CODE_CHOICES = [
+        ('A', 'A - EXONÉRÉ (Débours, timbres, enregistrement)'),
+        ('B', 'B - TAXABLE 18% (Honoraires, prestations)'),
+        ('C', 'C - EXPORTATION'),
+        ('D', 'D - TVA RÉGIME EXCEPTION 18%'),
+        ('E', 'E - TPS'),
+        ('F', 'F - RÉSERVÉ'),
+    ]
+
+    code = models.CharField(
+        max_length=1,
+        choices=CODE_CHOICES,
+        unique=True,
+        primary_key=True,
+        verbose_name='Code E-MECeF'
+    )
+    libelle = models.CharField(
+        max_length=200,
+        verbose_name='Libellé'
+    )
+    taux_tva = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Taux TVA %'
+    )
+    taxable = models.BooleanField(
+        default=False,
+        verbose_name='Soumis à AIB',
+        help_text="Si True, AIB 3% s'applique"
+    )
+
+    class Meta:
+        verbose_name = 'Groupe de taxation'
+        verbose_name_plural = 'Groupes de taxation'
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+
 class ActeDossier(models.Model):
-    """Acte réalisé sur un dossier de recouvrement"""
+    """Acte réalisé sur un dossier (conteneur simple pour traçabilité)
+
+    Les montants sont gérés via LigneFacture et VentilationLigneFacture.
+    Ce modèle sert à tracer les actes réalisés et leur facturation.
+    """
 
     TYPE_ACTE_CHOICES = [
         ('commandement', 'Commandement de payer'),
@@ -3953,8 +4130,7 @@ class ActeDossier(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        verbose_name="Type d'acte (catalogue)",
-        help_text='Référence au catalogue pour le tarif'
+        verbose_name="Type d'acte (catalogue)"
     )
     document = models.ForeignKey(
         'documents.Document',
@@ -3982,65 +4158,24 @@ class ActeDossier(models.Model):
         verbose_name="Type d'acte"
     )
 
-    # Montants
-    montant_base = models.DecimalField(
-        max_digits=15,
-        decimal_places=0,
-        validators=[MinValueValidator(Decimal('0'))],
-        verbose_name='Montant de base'
-    )
-    montant_transport = models.DecimalField(
-        max_digits=15,
-        decimal_places=0,
-        null=True,
-        blank=True,
-        default=Decimal('0'),
-        validators=[MinValueValidator(Decimal('0'))],
-        verbose_name='Frais de transport'
-    )
-    montant_copies = models.DecimalField(
-        max_digits=15,
-        decimal_places=0,
-        null=True,
-        blank=True,
-        default=Decimal('0'),
-        validators=[MinValueValidator(Decimal('0'))],
-        verbose_name='Copies supplémentaires'
-    )
-    montant_total = models.DecimalField(
-        max_digits=15,
-        decimal_places=0,
-        validators=[MinValueValidator(Decimal('0'))],
-        verbose_name='Montant total',
-        help_text='base + transport + copies'
+    # ⭐ DÉTAILS SPÉCIFIQUES ACTE
+    nombre_feuillets = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Nombre de feuillets',
+        help_text='Pour calcul des timbres (1 timbre × 1.200 FCFA par feuillet)'
     )
 
-    # Détails
+    # Destinataires
     destinataires = models.ManyToManyField(
         'Partie',
         related_name='actes_recus',
-        verbose_name="Destinataires de l'acte",
+        verbose_name='Destinataires',
         blank=True
     )
+
     observations = models.TextField(
         blank=True,
-        verbose_name='Observations',
-        help_text='Refus, absent, remarques, etc.'
-    )
-
-    # Facturation
-    facturee = models.BooleanField(
-        default=False,
-        verbose_name='Facturé',
-        help_text='Cet acte a-t-il été facturé ?'
-    )
-    facture = models.ForeignKey(
-        'Facture',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='actes',
-        verbose_name='Facture associée'
+        verbose_name='Observations'
     )
 
     # Métadonnées
@@ -4066,20 +4201,10 @@ class ActeDossier(models.Model):
         indexes = [
             models.Index(fields=['dossier', 'date_acte']),
             models.Index(fields=['numero_acte']),
-            models.Index(fields=['facturee']),
         ]
 
     def __str__(self):
-        return f"{self.numero_acte} - {self.dossier.reference} - {self.montant_total}F"
-
-    def save(self, *args, **kwargs):
-        # Calculer montant_total automatiquement
-        self.montant_total = (
-            (self.montant_base or Decimal('0')) +
-            (self.montant_transport or Decimal('0')) +
-            (self.montant_copies or Decimal('0'))
-        )
-        super().save(*args, **kwargs)
+        return f"{self.numero_acte} - {self.dossier.reference}"
 
     @classmethod
     def generer_numero(cls):
@@ -4087,6 +4212,220 @@ class ActeDossier(models.Model):
         now = timezone.now()
         count = cls.objects.filter(date_creation__year=now.year).count() + 1
         return f"EXE-{now.year}-{str(count).zfill(4)}"
+
+    def get_montant_timbres(self):
+        """Calcule le montant des timbres (Groupe A)"""
+        return self.nombre_feuillets * 1200  # 1.200 FCFA par feuillet
+
+
+class VentilationLigneFacture(models.Model):
+    """Ventilation d'une ligne facture entre Groupe A (Exonéré) et B (Taxable)
+
+    EXEMPLE pour une signification :
+    ├── Ventilation 1 : Timbres (1.200 × 20 feuillets) = 24.000 - Groupe A
+    ├── Ventilation 2 : Enregistrement = 2.500 - Groupe A
+    ├── Ventilation 3 : Honoraires = 35.000 - Groupe B
+    └── Ventilation 4 : Frais de greffe = 5.000 - Groupe A
+    """
+
+    NATURE_CHOICES = [
+        ('honoraires', 'Honoraires'),
+        ('timbre', 'Timbre fiscal'),
+        ('enregistrement', "Enregistrement de l'acte"),
+        ('frais_greffe', 'Frais de greffe'),
+        ('frais_transport', 'Frais de transport'),
+        ('autre_debours', 'Autre débours'),
+    ]
+
+    ligne_facture = models.ForeignKey(
+        LigneFacture,
+        on_delete=models.CASCADE,
+        related_name='ventilations',
+        verbose_name='Ligne facture'
+    )
+
+    # Nature et groupe
+    nature = models.CharField(
+        max_length=50,
+        choices=NATURE_CHOICES,
+        verbose_name='Nature de la ventilation'
+    )
+    groupe_taxation = models.ForeignKey(
+        GroupeTaxation,
+        on_delete=models.PROTECT,
+        default='A',
+        verbose_name='Groupe de taxation'
+    )
+
+    # Description
+    description = models.CharField(
+        max_length=200,
+        verbose_name='Description'
+    )
+
+    # Montant
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant HT'
+    )
+
+    # Calcul TVA (pour affichage/vérification)
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant TVA',
+        help_text='Auto-calculé'
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant TTC',
+        help_text='HT + TVA'
+    )
+
+    # Ordre d'affichage
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Ordre d'affichage"
+    )
+
+    class Meta:
+        verbose_name = 'Ventilation ligne facture'
+        verbose_name_plural = 'Ventilations lignes factures'
+        ordering = ['ordre']
+        indexes = [
+            models.Index(fields=['ligne_facture', 'groupe_taxation']),
+        ]
+
+    def __str__(self):
+        return f"{self.description} - {self.montant_ttc}F ({self.groupe_taxation_id})"
+
+    def save(self, *args, **kwargs):
+        """Calcule TVA et TTC selon groupe"""
+        # TVA = 18% si Groupe B, sinon 0%
+        if self.groupe_taxation_id == 'B':
+            self.montant_tva = int(self.montant_ht * Decimal('0.18'))
+        else:
+            self.montant_tva = Decimal('0')
+
+        # TTC = HT + TVA
+        self.montant_ttc = self.montant_ht + self.montant_tva
+
+        super().save(*args, **kwargs)
+
+        # Recalculer les totaux de la ligne parent
+        self.ligne_facture.recalculer_montants()
+
+
+class CreanceAIB(models.Model):
+    """Créance AIB retenue à la source (Compte 4491 OHADA)
+
+    L'AIB (Acompte sur Impôt assis sur les Bénéfices) est retenu à 3%
+    par le client sur le montant HT taxable (Groupe B uniquement).
+    """
+
+    STATUT_CHOICES = [
+        ('genere', 'Générée (en attente)'),
+        ('retenue', 'Retenue par client'),
+        ('recupere', 'Récupérée (impôts)'),
+        ('annule', 'Annulée'),
+    ]
+
+    facture = models.OneToOneField(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='creance_aib',
+        verbose_name='Facture'
+    )
+
+    # Calcul AIB
+    montant_base_aib = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant base AIB',
+        help_text='Somme des HT Groupe B (taxables)'
+    )
+    taux_aib = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('3.00'),
+        verbose_name='Taux AIB %'
+    )
+    montant_aib = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant AIB retenu',
+        help_text='base_aib × taux_aib'
+    )
+
+    # Suivi
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='genere',
+        verbose_name='Statut'
+    )
+
+    attestation_aib = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='N° attestation AIB'
+    )
+    date_retenue = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date de retenue'
+    )
+    date_recuperation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date de récupération'
+    )
+
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création'
+    )
+
+    class Meta:
+        verbose_name = 'Créance AIB'
+        verbose_name_plural = 'Créances AIB'
+
+    def __str__(self):
+        return f"AIB {self.montant_aib}F - Facture {self.facture.numero}"
+
+    def save(self, *args, **kwargs):
+        # Calcule montant AIB
+        self.montant_aib = int(
+            self.montant_base_aib * (self.taux_aib / 100)
+        )
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def creer_depuis_facture(cls, facture):
+        """Crée une créance AIB depuis une facture"""
+        # Calculer la base AIB (somme des HT Groupe B)
+        montant_base = sum(
+            ligne.montant_ht_groupe_b
+            for ligne in facture.lignes.all()
+        ) or Decimal('0')
+
+        if montant_base > 0:
+            creance, created = cls.objects.update_or_create(
+                facture=facture,
+                defaults={'montant_base_aib': montant_base}
+            )
+            return creance
+        return None
 
 
 class Proforma(models.Model):
