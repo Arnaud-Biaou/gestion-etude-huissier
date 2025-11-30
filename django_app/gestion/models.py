@@ -774,7 +774,7 @@ class Facture(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.montant_tva:
-            self.montant_tva = self.montant_ht * self.taux_tva / 100
+            self.montant_tva = int(self.montant_ht * Decimal(str(self.taux_tva)) / 100)
         if not self.montant_ttc:
             self.montant_ttc = self.montant_ht + self.montant_tva
         super().save(*args, **kwargs)

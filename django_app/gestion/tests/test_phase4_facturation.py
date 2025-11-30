@@ -29,8 +29,8 @@ class TestPhase4Setup(TestCase):
         cls.user = Utilisateur.objects.create(
             username='huissier_test',
             email='huissier@test.bj',
-            nom='Test',
-            prenom='Huissier'
+            first_name='Test',
+            last_name='Huissier'
         )
         cls.user.set_password('test1234')
         cls.user.save()
