@@ -2633,35 +2633,51 @@ def api_chatbot(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @require_POST
 def api_supprimer_dossier(request):
-    """API pour supprimer un dossier (admin only)"""
+    """
+    API pour supprimer un dossier - Réservé aux administrateurs
+    Sécurisé : vérification du rôle côté serveur uniquement
+    """
     try:
         data = json.loads(request.body)
         dossier_id = data.get('dossier_id')
-        user_role = data.get('user_role', 'user')
 
-        if user_role != 'admin':
+        # SÉCURITÉ : Vérification du rôle côté SERVEUR (pas côté client)
+        user_is_admin = getattr(request.user, 'role', None) == 'admin' or request.user.is_superuser
+
+        if not user_is_admin:
             return JsonResponse({
                 'success': False,
-                'error': "Action non autorisee : Seul l'administrateur peut supprimer un dossier."
+                'error': "Vous n'avez pas les droits pour supprimer un dossier."
             }, status=403)
 
-        # Supprimer le dossier en base
-        dossier = Dossier.objects.filter(id=dossier_id).first()
-        if not dossier:
+        if not dossier_id:
             return JsonResponse({
                 'success': False,
-                'error': "Dossier introuvable."
-            }, status=404)
+                'error': "ID du dossier manquant."
+            }, status=400)
 
+        dossier = get_object_or_404(Dossier, id=dossier_id)
         reference = dossier.reference
         dossier.delete()
 
-        return JsonResponse({'success': True, 'message': f'Dossier {reference} supprimé'})
+        return JsonResponse({
+            'success': True,
+            'message': f'Dossier {reference} supprimé avec succès.'
+        })
 
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': "Données JSON invalides."
+        }, status=400)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error': f"Erreur lors de la suppression : {str(e)}"
+        }, status=500)
 
 
 # ============================================
