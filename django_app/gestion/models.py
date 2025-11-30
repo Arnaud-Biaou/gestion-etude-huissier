@@ -433,8 +433,39 @@ class Dossier(models.Model):
         # Calculer l'état actuel de la créance
         total_encaisse = self.get_total_encaisse()
         principal_restant = (self.montant_principal or self.montant_creance or 0)
-        interets_restant = self.montant_interets or 0
         frais_restant = self.montant_frais or 0
+
+        # Calculer les intérêts avec majoration 50% si applicable (Loi 2024-10)
+        if self.montant_creance and self.date_creance:
+            from recouvrement.services.calcul_interets import CalculateurInteretsOHADA
+
+            calculateur = CalculateurInteretsOHADA()
+
+            # Utiliser date_executoire si elle existe, sinon titre_executoire_date
+            date_decision = getattr(self, 'date_executoire', None) or self.titre_executoire_date
+
+            if date_decision:
+                date_fin = timezone.now().date()
+                calcul = calculateur.calculer_avec_majoration(
+                    principal=self.montant_creance,
+                    date_debut=self.date_creance,
+                    date_fin=date_fin,
+                    date_decision_executoire=date_decision
+                )
+                interets_calcules = calcul['total']
+            else:
+                # Si pas de date d'exécutorité, calcul sans majoration
+                calcul = calculateur.calculer_interets_multi_annees(
+                    principal=self.montant_creance,
+                    date_debut=self.date_creance,
+                    date_fin=timezone.now().date()
+                )
+                interets_calcules = calcul['total']
+        else:
+            interets_calcules = Decimal('0')
+
+        # Utiliser les intérêts calculés dynamiquement
+        interets_restant = interets_calcules
 
         # Imputer les encaissements déjà effectués
         reste_a_imputer = total_encaisse
