@@ -1,6 +1,8 @@
 from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MinValueValidator
 from django.utils import timezone
+from decimal import Decimal
 import json
 
 
@@ -251,7 +253,11 @@ class Dossier(models.Model):
     is_contentieux = models.BooleanField(default=False, verbose_name='Contentieux')
     type_dossier = models.CharField(max_length=20, choices=TYPE_DOSSIER_CHOICES, blank=True)
     description = models.TextField(blank=True)
-    montant_creance = models.DecimalField(max_digits=15, decimal_places=0, null=True, blank=True)
+    montant_creance = models.DecimalField(
+        max_digits=15, decimal_places=0, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant créance'
+    )
     date_creance = models.DateField(null=True, blank=True)
     date_ouverture = models.DateField(default=timezone.now)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='actif')
@@ -275,26 +281,32 @@ class Dossier(models.Model):
     # Montants détaillés pour le suivi
     montant_principal = models.DecimalField(
         max_digits=15, decimal_places=0, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Montant principal'
     )
     montant_interets = models.DecimalField(
         max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Intérêts'
     )
     montant_frais = models.DecimalField(
         max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Frais de procédure'
     )
     montant_emoluments = models.DecimalField(
         max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Émoluments'
     )
     montant_depens = models.DecimalField(
         max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Dépens'
     )
     montant_accessoires = models.DecimalField(
         max_digits=15, decimal_places=0, default=0,
+        validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Accessoires'
     )
 
