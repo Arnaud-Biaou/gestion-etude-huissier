@@ -593,7 +593,7 @@ class Dossier(models.Model):
 
 
 class Facture(models.Model):
-    """Factures de l'etude"""
+    """Factures de l'etude avec support E-MECeF complet"""
     STATUT_CHOICES = [
         ('brouillon', 'Brouillon'),
         ('attente', 'En attente'),
@@ -623,16 +623,87 @@ class Facture(models.Model):
         ('annule', 'Annulé par avoir'),
     ]
 
+    # ═══════════════════════════════════════════════════════════════
+    # RÉGIME FISCAL E-MECeF
+    # ═══════════════════════════════════════════════════════════════
+
+    REGIME_FISCAL_CHOICES = [
+        ('TVA', 'Régime TVA (Réel) - 18% sur Groupe B'),
+        ('TPS', 'Régime TPS (Exception) - 3% sur TOTAL CA'),
+    ]
+
     numero = models.CharField(max_length=20, unique=True)
     dossier = models.ForeignKey(
         Dossier, on_delete=models.SET_NULL, null=True, blank=True, related_name='factures'
     )
     client = models.CharField(max_length=200)
     ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
+
+    # ═══════════════════════════════════════════════════════════════
+    # RÉGIME FISCAL ET AIB
+    # ═══════════════════════════════════════════════════════════════
+
+    regime_fiscal = models.CharField(
+        max_length=10,
+        choices=REGIME_FISCAL_CHOICES,
+        default='TVA',
+        verbose_name='Régime fiscal',
+        help_text='TVA=18% sur Groupe B | TPS=3% sur total CA'
+    )
+
+    prelevable_aib = models.BooleanField(
+        default=True,
+        verbose_name='AIB prélevable',
+        help_text='True=Entreprise (peut prélever AIB) | False=Particulier (pas AIB)'
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # MONTANTS PAR GROUPE E-MECeF
+    # ═══════════════════════════════════════════════════════════════
+
+    # Anciens champs (compatibilité)
     montant_ht = models.DecimalField(max_digits=15, decimal_places=0)
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # Nouveaux champs E-MECeF
+    montant_ht_groupe_a = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        verbose_name='HT Groupe A (Exonéré)',
+        help_text='Débours, timbres, enregistrement (0% TVA)'
+    )
+    montant_ht_groupe_b = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        verbose_name='HT Groupe B (Taxable)',
+        help_text='Honoraires, prestations (18% TVA)'
+    )
+    montant_tva_tps = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        verbose_name='Montant TVA/TPS',
+        help_text='TVA 18% (régime TVA) ou TPS 3% (régime TPS)'
+    )
+    montant_total_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        verbose_name='Total HT',
+        help_text='Groupe A + Groupe B'
+    )
+    montant_total_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        verbose_name='Total TTC',
+        help_text='Total HT + TVA/TPS'
+    )
+
     date_emission = models.DateField(default=timezone.now)
     date_echeance = models.DateField(null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='attente')
@@ -790,6 +861,71 @@ class Facture(models.Model):
         """Vérifie si cette facture a été annulée par un avoir"""
         return self.statut_mecef == 'annule' or self.avoir_lie is not None
 
+    # ═══════════════════════════════════════════════════════════════
+    # RECALCUL TOTAUX E-MECeF
+    # ═══════════════════════════════════════════════════════════════
+
+    def recalculer_totaux(self):
+        """Recalcule tous les montants (HT par groupe, TVA/TPS, AIB)
+
+        RÉGIMES :
+        - TVA : 18% UNIQUEMENT sur Groupe B (honoraires taxables)
+        - TPS : 3% sur TOTAL CA (toutes lignes confondues)
+
+        AIB :
+        - 3% sur Groupe B UNIQUEMENT
+        - 0 si client particulier (prelevable_aib = False)
+        """
+        lignes = self.lignes.all()
+
+        # Sommes par groupe depuis les lignes
+        self.montant_ht_groupe_a = sum(
+            l.montant_ht_groupe_a for l in lignes
+        ) or Decimal('0')
+
+        self.montant_ht_groupe_b = sum(
+            l.montant_ht_groupe_b for l in lignes
+        ) or Decimal('0')
+
+        # Calcul TVA/TPS SELON RÉGIME
+        if self.regime_fiscal == 'TVA':
+            # TVA = 18% UNIQUEMENT sur Groupe B
+            self.montant_tva_tps = int(
+                self.montant_ht_groupe_b * Decimal('0.18')
+            )
+        elif self.regime_fiscal == 'TPS':
+            # TPS = 3% sur TOTAL (toutes lignes)
+            montant_total = self.montant_ht_groupe_a + self.montant_ht_groupe_b
+            self.montant_tva_tps = int(
+                montant_total * Decimal('0.03')
+            )
+        else:
+            self.montant_tva_tps = Decimal('0')
+
+        # Totaux HT et TTC
+        self.montant_total_ht = self.montant_ht_groupe_a + self.montant_ht_groupe_b
+        self.montant_total_ttc = self.montant_total_ht + self.montant_tva_tps
+
+        # Mise à jour anciens champs (compatibilité)
+        self.montant_ht = self.montant_total_ht
+        self.montant_tva = self.montant_tva_tps
+        self.montant_ttc = self.montant_total_ttc
+
+        self.save(update_fields=[
+            'montant_ht_groupe_a',
+            'montant_ht_groupe_b',
+            'montant_tva_tps',
+            'montant_total_ht',
+            'montant_total_ttc',
+            'montant_ht',
+            'montant_tva',
+            'montant_ttc'
+        ])
+
+        # Recalculer AIB si existe
+        if hasattr(self, 'creance_aib'):
+            self.creance_aib.save()
+
 
 class LigneFacture(models.Model):
     """Ligne d'une facture = UN ACTE avec ses frais ventilés (Groupe A/B E-MECeF)"""
@@ -897,7 +1033,10 @@ class LigneFacture(models.Model):
         return self.quantite * self.prix_unitaire
 
     def recalculer_montants(self):
-        """Recalcule tous les montants à partir des ventilations"""
+        """Recalcule montants de la ligne (puis appelle facture)
+
+        Note: TVA/TPS calculé au niveau Facture selon régime fiscal
+        """
         ventilations = self.ventilations.all()
 
         # Sommes par groupe
@@ -909,7 +1048,7 @@ class LigneFacture(models.Model):
             v.montant_ht for v in ventilations if v.groupe_taxation_id == 'B'
         ) or Decimal('0')
 
-        # TVA sur Groupe B seulement
+        # TVA estimée (pour affichage ligne - calcul définitif à la Facture)
         self.montant_tva_groupe_b = int(
             self.montant_ht_groupe_b * Decimal('0.18')
         )
@@ -929,6 +1068,9 @@ class LigneFacture(models.Model):
             'montant_total_ttc',
             'prix_unitaire'
         ])
+
+        # ⭐ Déclencher recalcul à la facture (TVA/TPS + AIB)
+        self.facture.recalculer_totaux()
 
 
 class ActeProcedure(models.Model):
@@ -4219,13 +4361,24 @@ class ActeDossier(models.Model):
 
 
 class VentilationLigneFacture(models.Model):
-    """Ventilation d'une ligne facture entre Groupe A (Exonéré) et B (Taxable)
+    """Ventilation d'une ligne facture par NATURE de prestation (Groupe A/B)
 
-    EXEMPLE pour une signification :
-    ├── Ventilation 1 : Timbres (1.200 × 20 feuillets) = 24.000 - Groupe A
-    ├── Ventilation 2 : Enregistrement = 2.500 - Groupe A
-    ├── Ventilation 3 : Honoraires = 35.000 - Groupe B
-    └── Ventilation 4 : Frais de greffe = 5.000 - Groupe A
+    ⚠️ IMPORTANT - AIB :
+    - AIB = 3% sur montants HT TAXABLES (Groupe B) UNIQUEMENT
+    - AIB = 0 si client est particulier (pas de prélèvement légal)
+    - AIB est un crédit d'impôt (imputable en déclaration annuelle)
+
+    EXEMPLE - Signification (Régime TVA, Client Entreprise) :
+    ├── Ventilation 1 : Timbres = 24.000 - Groupe A (pas TVA, pas AIB)
+    ├── Ventilation 2 : Enregistrement = 2.500 - Groupe A (pas TVA, pas AIB)
+    ├── Ventilation 3 : Honoraires = 35.000 - Groupe B (+ TVA 18%, + AIB 3%)
+    ├── TVA = 18% × 35.000 = 6.300F
+    └── AIB = 3% × 35.000 = 1.050F (sur B seulement)
+
+    EXEMPLE - Même signification, Client Particulier :
+    ├── Ventilation 1-3 : Identique
+    ├── TVA = 18% × 35.000 = 6.300F (inchangé)
+    └── AIB = 0 (particulier, pas de prélèvement)
     """
 
     NATURE_CHOICES = [
@@ -4326,8 +4479,10 @@ class VentilationLigneFacture(models.Model):
 class CreanceAIB(models.Model):
     """Créance AIB retenue à la source (Compte 4491 OHADA)
 
-    L'AIB (Acompte sur Impôt assis sur les Bénéfices) est retenu à 3%
-    par le client sur le montant HT taxable (Groupe B uniquement).
+    ⚠️ IMPORTANT :
+    - AIB = 3% sur montants HT TAXABLES (Groupe B) UNIQUEMENT
+    - AIB = 0 si client est particulier (prelevable_aib = False)
+    - AIB = crédit d'impôt (imputable en fin d'année)
     """
 
     STATUT_CHOICES = [
@@ -4337,6 +4492,11 @@ class CreanceAIB(models.Model):
         ('annule', 'Annulée'),
     ]
 
+    CLIENT_TYPE_CHOICES = [
+        ('entreprise', 'Entreprise (AIB prélevable)'),
+        ('particulier', 'Particulier (pas AIB)'),
+    ]
+
     facture = models.OneToOneField(
         Facture,
         on_delete=models.CASCADE,
@@ -4344,19 +4504,30 @@ class CreanceAIB(models.Model):
         verbose_name='Facture'
     )
 
-    # Calcul AIB
+    # ─── DÉTERMINATION AIB ───
+    client_type = models.CharField(
+        max_length=20,
+        choices=CLIENT_TYPE_CHOICES,
+        default='entreprise',
+        verbose_name='Type de client',
+        help_text='Entreprise=AIB prélevable | Particulier=pas AIB'
+    )
+
+    # ─── CALCUL AIB ───
     montant_base_aib = models.DecimalField(
         max_digits=15,
         decimal_places=0,
+        default=Decimal('0'),
         validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Montant base AIB',
-        help_text='Somme des HT Groupe B (taxables)'
+        help_text='TOUJOURS = HT Groupe B (montants taxables)'
     )
     taux_aib = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=Decimal('3.00'),
-        verbose_name='Taux AIB %'
+        verbose_name='Taux AIB %',
+        help_text='3% au Bénin'
     )
     montant_aib = models.DecimalField(
         max_digits=15,
@@ -4364,7 +4535,7 @@ class CreanceAIB(models.Model):
         default=Decimal('0'),
         validators=[MinValueValidator(Decimal('0'))],
         verbose_name='Montant AIB retenu',
-        help_text='base_aib × taux_aib'
+        help_text='base_aib × taux_aib (0 si particulier)'
     )
 
     # Suivi
@@ -4378,7 +4549,8 @@ class CreanceAIB(models.Model):
     attestation_aib = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name='N° attestation AIB'
+        verbose_name='N° attestation AIB',
+        help_text='Quittance de reversement (si prélevée)'
     )
     date_retenue = models.DateField(
         null=True,
@@ -4401,31 +4573,59 @@ class CreanceAIB(models.Model):
         verbose_name_plural = 'Créances AIB'
 
     def __str__(self):
-        return f"AIB {self.montant_aib}F - Facture {self.facture.numero}"
+        return f"AIB {self.montant_aib}F - Facture {self.facture.numero} ({self.client_type})"
 
     def save(self, *args, **kwargs):
-        # Calcule montant AIB
-        self.montant_aib = int(
-            self.montant_base_aib * (self.taux_aib / 100)
-        )
+        """Calcule montant AIB selon type client
+
+        - AIB = 3% sur Groupe B si entreprise
+        - AIB = 0 si particulier (pas de prélèvement légal)
+        """
+        facture = self.facture
+
+        # Déterminer type client si pas défini (depuis prelevable_aib)
+        if not self.client_type or self.client_type == 'entreprise':
+            self.client_type = 'entreprise' if facture.prelevable_aib else 'particulier'
+
+        # ⭐ BASE AIB = TOUJOURS Groupe B (montants taxables)
+        self.montant_base_aib = facture.montant_ht_groupe_b or Decimal('0')
+
+        # ⭐ AIB = 0 si particulier, sinon 3% sur Groupe B
+        if self.client_type == 'entreprise' and facture.prelevable_aib:
+            self.montant_aib = int(
+                self.montant_base_aib * (self.taux_aib / 100)
+            )
+            if self.statut == 'annule':
+                self.statut = 'genere'
+        else:
+            # Particulier : pas de prélèvement AIB
+            self.montant_aib = Decimal('0')
+            self.statut = 'annule'
+
         super().save(*args, **kwargs)
 
     @classmethod
     def creer_depuis_facture(cls, facture):
-        """Crée une créance AIB depuis une facture"""
-        # Calculer la base AIB (somme des HT Groupe B)
-        montant_base = sum(
-            ligne.montant_ht_groupe_b
-            for ligne in facture.lignes.all()
-        ) or Decimal('0')
+        """Crée une créance AIB depuis une facture
 
-        if montant_base > 0:
-            creance, created = cls.objects.update_or_create(
-                facture=facture,
-                defaults={'montant_base_aib': montant_base}
-            )
-            return creance
-        return None
+        - Base AIB = HT Groupe B (taxables)
+        - AIB = 3% si entreprise, 0 si particulier
+        """
+        # Déterminer type client
+        client_type = 'entreprise' if facture.prelevable_aib else 'particulier'
+
+        # Calculer la base AIB (HT Groupe B)
+        montant_base = facture.montant_ht_groupe_b or Decimal('0')
+
+        # Toujours créer la créance (même si 0 pour traçabilité)
+        creance, created = cls.objects.update_or_create(
+            facture=facture,
+            defaults={
+                'montant_base_aib': montant_base,
+                'client_type': client_type
+            }
+        )
+        return creance
 
 
 class Proforma(models.Model):

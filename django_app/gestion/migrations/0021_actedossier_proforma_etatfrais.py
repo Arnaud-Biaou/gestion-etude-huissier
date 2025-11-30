@@ -326,15 +326,108 @@ class Migration(migrations.Migration):
         ),
 
         # ═══════════════════════════════════════════════════════════════════════
-        # 6. CreanceAIB - Suivi des retenues AIB 3%
+        # 6. Modification Facture - Ajout champs régime fiscal et AIB
+        # ═══════════════════════════════════════════════════════════════════════
+        migrations.AddField(
+            model_name='facture',
+            name='regime_fiscal',
+            field=models.CharField(
+                choices=[
+                    ('TVA', 'Régime TVA (Réel) - 18% sur Groupe B'),
+                    ('TPS', 'Régime TPS (Exception) - 3% sur TOTAL CA'),
+                ],
+                default='TVA',
+                help_text='TVA=18% sur Groupe B | TPS=3% sur total CA',
+                max_length=10,
+                verbose_name='Régime fiscal'
+            ),
+        ),
+        migrations.AddField(
+            model_name='facture',
+            name='prelevable_aib',
+            field=models.BooleanField(
+                default=True,
+                help_text='True=Entreprise (peut prélever AIB) | False=Particulier (pas AIB)',
+                verbose_name='AIB prélevable'
+            ),
+        ),
+        migrations.AddField(
+            model_name='facture',
+            name='montant_ht_groupe_a',
+            field=models.DecimalField(
+                decimal_places=0,
+                default=Decimal('0'),
+                help_text='Débours, timbres, enregistrement (0% TVA)',
+                max_digits=15,
+                verbose_name='HT Groupe A (Exonéré)'
+            ),
+        ),
+        migrations.AddField(
+            model_name='facture',
+            name='montant_ht_groupe_b',
+            field=models.DecimalField(
+                decimal_places=0,
+                default=Decimal('0'),
+                help_text='Honoraires, prestations (18% TVA)',
+                max_digits=15,
+                verbose_name='HT Groupe B (Taxable)'
+            ),
+        ),
+        migrations.AddField(
+            model_name='facture',
+            name='montant_tva_tps',
+            field=models.DecimalField(
+                decimal_places=0,
+                default=Decimal('0'),
+                help_text='TVA 18% (régime TVA) ou TPS 3% (régime TPS)',
+                max_digits=15,
+                verbose_name='Montant TVA/TPS'
+            ),
+        ),
+        migrations.AddField(
+            model_name='facture',
+            name='montant_total_ht',
+            field=models.DecimalField(
+                decimal_places=0,
+                default=Decimal('0'),
+                help_text='Groupe A + Groupe B',
+                max_digits=15,
+                verbose_name='Total HT'
+            ),
+        ),
+        migrations.AddField(
+            model_name='facture',
+            name='montant_total_ttc',
+            field=models.DecimalField(
+                decimal_places=0,
+                default=Decimal('0'),
+                help_text='Total HT + TVA/TPS',
+                max_digits=15,
+                verbose_name='Total TTC'
+            ),
+        ),
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # 7. CreanceAIB - Suivi des retenues AIB 3%
         # ═══════════════════════════════════════════════════════════════════════
         migrations.CreateModel(
             name='CreanceAIB',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('client_type', models.CharField(
+                    choices=[
+                        ('entreprise', 'Entreprise (AIB prélevable)'),
+                        ('particulier', 'Particulier (pas AIB)'),
+                    ],
+                    default='entreprise',
+                    help_text='Entreprise=AIB prélevable | Particulier=pas AIB',
+                    max_length=20,
+                    verbose_name='Type de client'
+                )),
                 ('montant_base_aib', models.DecimalField(
                     decimal_places=0,
-                    help_text='Somme des HT Groupe B (taxables)',
+                    default=Decimal('0'),
+                    help_text='TOUJOURS = HT Groupe B (montants taxables)',
                     max_digits=15,
                     validators=[django.core.validators.MinValueValidator(Decimal('0'))],
                     verbose_name='Montant base AIB'
@@ -342,13 +435,14 @@ class Migration(migrations.Migration):
                 ('taux_aib', models.DecimalField(
                     decimal_places=2,
                     default=Decimal('3.00'),
+                    help_text='3% au Bénin',
                     max_digits=5,
                     verbose_name='Taux AIB %'
                 )),
                 ('montant_aib', models.DecimalField(
                     decimal_places=0,
                     default=Decimal('0'),
-                    help_text='base_aib × taux_aib',
+                    help_text='base_aib × taux_aib (0 si particulier)',
                     max_digits=15,
                     validators=[django.core.validators.MinValueValidator(Decimal('0'))],
                     verbose_name='Montant AIB retenu'
@@ -366,6 +460,7 @@ class Migration(migrations.Migration):
                 )),
                 ('attestation_aib', models.CharField(
                     blank=True,
+                    help_text='Quittance de reversement (si prélevée)',
                     max_length=100,
                     verbose_name='N° attestation AIB'
                 )),
@@ -386,7 +481,7 @@ class Migration(migrations.Migration):
         ),
 
         # ═══════════════════════════════════════════════════════════════════════
-        # 7. Proforma - Devis avant facturation
+        # 8. Proforma - Devis avant facturation
         # ═══════════════════════════════════════════════════════════════════════
         migrations.CreateModel(
             name='Proforma',
@@ -520,7 +615,7 @@ class Migration(migrations.Migration):
         ),
 
         # ═══════════════════════════════════════════════════════════════════════
-        # 8. EtatFrais - État des frais à charge du débiteur
+        # 9. EtatFrais - État des frais à charge du débiteur
         # ═══════════════════════════════════════════════════════════════════════
         migrations.CreateModel(
             name='EtatFrais',
