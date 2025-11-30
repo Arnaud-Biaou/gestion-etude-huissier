@@ -1503,18 +1503,17 @@ class BasculementAmiableForce(models.Model):
         return f"Basculement {self.dossier.reference} - {self.date_basculement.strftime('%d/%m/%Y')}"
 
     def calculer_emoluments_ohada(self, montant):
-        """Calcule les émoluments selon le barème OHADA"""
-        # Barème des émoluments OHADA (simplifié)
-        if montant <= 500000:
-            return montant * 0.10
-        elif montant <= 1000000:
-            return 50000 + (montant - 500000) * 0.08
-        elif montant <= 5000000:
-            return 90000 + (montant - 1000000) * 0.05
-        elif montant <= 10000000:
-            return 290000 + (montant - 5000000) * 0.03
-        else:
-            return 440000 + (montant - 10000000) * 0.01
+        """
+        Calcule les émoluments selon le Décret 2017-066 (Article 2).
+
+        Utilise le barème de recouvrement forcé (charge du débiteur).
+        """
+        from recouvrement.services.baremes import calculer_emoluments_force
+
+        if not montant:
+            return Decimal('0')
+
+        return calculer_emoluments_force(montant)
 
 
 # =============================================================================
