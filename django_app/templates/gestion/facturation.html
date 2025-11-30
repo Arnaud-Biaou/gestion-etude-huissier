@@ -71,13 +71,14 @@
                     </td>
                 </tr>
                 {% endif %}
-                {% empty %}
+                {% endfor %}
+                {% if not nb_normalisees or nb_normalisees == 0 %}
                 <tr>
                     <td colspan="7" class="text-center" style="padding: 40px; color: var(--neutral-500);">
                         Aucune facture normalisee
                     </td>
                 </tr>
-                {% endfor %}
+                {% endif %}
             </tbody>
         </table>
     </div>
