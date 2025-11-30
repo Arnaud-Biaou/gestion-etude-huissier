@@ -3923,5 +3923,610 @@ class PermissionsGranulaires(models.Model):
         return modules
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODÈLES DE FACTURATION ET SUIVI DES ACTES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class ActeDossier(models.Model):
+    """Acte réalisé sur un dossier de recouvrement"""
+
+    TYPE_ACTE_CHOICES = [
+        ('commandement', 'Commandement de payer'),
+        ('signification', 'Signification'),
+        ('citation', 'Citation'),
+        ('pv_saisie', 'Procès-verbal de saisie'),
+        ('pv_constat', 'Procès-verbal de constat'),
+        ('mise_demeure', 'Mise en demeure'),
+        ('autre', 'Autre acte'),
+    ]
+
+    # Liens
+    dossier = models.ForeignKey(
+        Dossier,
+        on_delete=models.CASCADE,
+        related_name='actes_realises',
+        verbose_name='Dossier'
+    )
+    acte_type = models.ForeignKey(
+        'ActeProcedure',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Type d'acte (catalogue)",
+        help_text='Référence au catalogue pour le tarif'
+    )
+    document = models.ForeignKey(
+        'documents.Document',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes_dossier',
+        verbose_name='Document associé'
+    )
+
+    # Identification
+    numero_acte = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Numéro d'acte",
+        help_text='Format : EXE-2025-001'
+    )
+    date_acte = models.DateField(
+        verbose_name="Date de l'acte"
+    )
+    type_acte = models.CharField(
+        max_length=20,
+        choices=TYPE_ACTE_CHOICES,
+        default='autre',
+        verbose_name="Type d'acte"
+    )
+
+    # Montants
+    montant_base = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant de base'
+    )
+    montant_transport = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        null=True,
+        blank=True,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Frais de transport'
+    )
+    montant_copies = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        null=True,
+        blank=True,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Copies supplémentaires'
+    )
+    montant_total = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant total',
+        help_text='base + transport + copies'
+    )
+
+    # Détails
+    destinataires = models.ManyToManyField(
+        'Partie',
+        related_name='actes_recus',
+        verbose_name="Destinataires de l'acte",
+        blank=True
+    )
+    observations = models.TextField(
+        blank=True,
+        verbose_name='Observations',
+        help_text='Refus, absent, remarques, etc.'
+    )
+
+    # Facturation
+    facturee = models.BooleanField(
+        default=False,
+        verbose_name='Facturé',
+        help_text='Cet acte a-t-il été facturé ?'
+    )
+    facture = models.ForeignKey(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes',
+        verbose_name='Facture associée'
+    )
+
+    # Métadonnées
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création'
+    )
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Date de modification'
+    )
+    cree_par = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.PROTECT,
+        related_name='actes_crees',
+        verbose_name='Créé par'
+    )
+
+    class Meta:
+        verbose_name = 'Acte de dossier'
+        verbose_name_plural = 'Actes de dossiers'
+        ordering = ['-date_acte']
+        indexes = [
+            models.Index(fields=['dossier', 'date_acte']),
+            models.Index(fields=['numero_acte']),
+            models.Index(fields=['facturee']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero_acte} - {self.dossier.reference} - {self.montant_total}F"
+
+    def save(self, *args, **kwargs):
+        # Calculer montant_total automatiquement
+        self.montant_total = (
+            (self.montant_base or Decimal('0')) +
+            (self.montant_transport or Decimal('0')) +
+            (self.montant_copies or Decimal('0'))
+        )
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generer_numero(cls):
+        """Génère un numéro d'acte unique"""
+        now = timezone.now()
+        count = cls.objects.filter(date_creation__year=now.year).count() + 1
+        return f"EXE-{now.year}-{str(count).zfill(4)}"
+
+
+class Proforma(models.Model):
+    """Devis/Proforma pour prestations avant création dossier"""
+
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('envoyee', 'Envoyée au client'),
+        ('acceptee', 'Acceptée par client'),
+        ('commandee', 'Commandée (créer dossier)'),
+        ('facturee', 'Convertie en facture'),
+        ('expiree', 'Expirée'),
+        ('annulee', 'Annulée'),
+    ]
+
+    # Identification
+    numero = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Numéro proforma',
+        help_text='Format : PRO-2025-001'
+    )
+    date_emission = models.DateField(
+        default=timezone.now,
+        verbose_name="Date d'émission"
+    )
+    date_validite = models.DateField(
+        verbose_name='Date de validité',
+        help_text='Proforma expire après cette date'
+    )
+
+    # Liens optionnels (avant dossier)
+    creancier = models.ForeignKey(
+        Creancier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proformas',
+        verbose_name='Créancier'
+    )
+    dossier = models.ForeignKey(
+        Dossier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proformas',
+        verbose_name='Dossier créé',
+        help_text='Rempli une fois la proforma acceptée'
+    )
+
+    # Client (si pas encore créancier)
+    client_nom = models.CharField(
+        max_length=200,
+        verbose_name='Nom du client',
+        help_text='Nom du client si pas encore créancier'
+    )
+    client_adresse = models.TextField(
+        blank=True,
+        verbose_name='Adresse du client'
+    )
+    client_telephone = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Téléphone'
+    )
+    client_email = models.EmailField(
+        blank=True,
+        verbose_name='Email'
+    )
+    client_ifu = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='IFU client'
+    )
+
+    # Description de la prestation
+    titre = models.CharField(
+        max_length=200,
+        verbose_name='Titre de la prestation',
+        help_text='Ex: Recouvrement de créance 5M FCFA'
+    )
+    description = models.TextField(
+        verbose_name='Description détaillée'
+    )
+
+    # Montants
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant HT'
+    )
+    taux_tva = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('18.00'),
+        verbose_name='Taux TVA %'
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant TVA'
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant TTC'
+    )
+
+    # Conditions
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='brouillon',
+        verbose_name='Statut'
+    )
+    delai_paiement = models.PositiveIntegerField(
+        default=15,
+        verbose_name='Délai de paiement (jours)'
+    )
+
+    # Facture générée
+    facture = models.OneToOneField(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proforma_origine',
+        verbose_name='Facture générée'
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.PROTECT,
+        related_name='proformas_creees',
+        verbose_name='Créé par'
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création'
+    )
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Date de modification'
+    )
+    observations = models.TextField(
+        blank=True,
+        verbose_name='Observations'
+    )
+
+    class Meta:
+        verbose_name = 'Proforma'
+        verbose_name_plural = 'Proformas'
+        ordering = ['-date_emission']
+        indexes = [
+            models.Index(fields=['numero']),
+            models.Index(fields=['statut']),
+            models.Index(fields=['creancier']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} - {self.titre} - {self.montant_ttc}F"
+
+    def save(self, *args, **kwargs):
+        # Calculer TVA et TTC
+        self.montant_tva = int(self.montant_ht * (self.taux_tva / 100))
+        self.montant_ttc = self.montant_ht + self.montant_tva
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generer_numero(cls):
+        """Génère un numéro de proforma unique"""
+        now = timezone.now()
+        count = cls.objects.filter(date_creation__year=now.year).count() + 1
+        return f"PRO-{now.year}-{str(count).zfill(4)}"
+
+    @property
+    def est_expiree(self):
+        """Vérifie si la proforma est expirée"""
+        return timezone.now().date() > self.date_validite
+
+    def convertir_en_facture(self, utilisateur):
+        """Convertit la proforma en facture"""
+        if self.statut == 'facturee':
+            raise ValueError("Cette proforma a déjà été convertie en facture")
+
+        facture = Facture.objects.create(
+            numero=Facture.generer_numero(),
+            dossier=self.dossier,
+            client=self.client_nom,
+            ifu=self.client_ifu,
+            montant_ht=self.montant_ht,
+            taux_tva=self.taux_tva,
+            montant_tva=self.montant_tva,
+            montant_ttc=self.montant_ttc,
+            observations=f"Générée depuis proforma {self.numero}"
+        )
+
+        self.facture = facture
+        self.statut = 'facturee'
+        self.save()
+
+        return facture
+
+
+class EtatFrais(models.Model):
+    """État des frais à charge du débiteur"""
+
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('emis', 'Émis au débiteur'),
+        ('accepte', 'Accepté'),
+        ('conteste', 'Contesté'),
+        ('paye', 'Payé'),
+        ('ajuste', 'Ajusté'),
+    ]
+
+    # Identification
+    numero = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Numéro état frais',
+        help_text='Format : FRAIS-2025-001'
+    )
+    date_emission = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date d'émission"
+    )
+
+    # Lien obligatoire
+    dossier = models.ForeignKey(
+        Dossier,
+        on_delete=models.CASCADE,
+        related_name='etats_frais',
+        verbose_name='Dossier'
+    )
+
+    # Débiteur (qui doit payer)
+    debiteur = models.ForeignKey(
+        Partie,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='etats_frais_recus',
+        verbose_name='Débiteur',
+        help_text='Partie qui doit payer ces frais'
+    )
+
+    # Détail des frais par catégorie
+    montant_principal = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Principal dû',
+        help_text='Montant de la créance initiale'
+    )
+    montant_interets = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Intérêts'
+    )
+    montant_emoluments = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Émoluments'
+    )
+    montant_frais_signification = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Frais de signification'
+    )
+    montant_frais_deplacement = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Frais de déplacement'
+    )
+    montant_depens = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Dépens'
+    )
+    montant_accessoires = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Accessoires'
+    )
+    montant_total = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant total',
+        help_text='Somme de tous les frais + principal'
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='brouillon',
+        verbose_name='Statut'
+    )
+
+    # Contestation
+    motif_contestation = models.TextField(
+        blank=True,
+        verbose_name='Motif de contestation'
+    )
+    date_contestation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date de contestation'
+    )
+
+    # Paiement
+    montant_paye = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Montant payé'
+    )
+    date_paiement = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date de paiement'
+    )
+
+    # Observations
+    observations = models.TextField(
+        blank=True,
+        verbose_name='Observations'
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.PROTECT,
+        related_name='etats_frais_crees',
+        verbose_name='Créé par'
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création'
+    )
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Date de modification'
+    )
+
+    class Meta:
+        verbose_name = 'État des frais'
+        verbose_name_plural = 'États des frais'
+        ordering = ['-date_creation']
+        indexes = [
+            models.Index(fields=['numero']),
+            models.Index(fields=['dossier']),
+            models.Index(fields=['statut']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} - {self.dossier.reference} - {self.montant_total}F"
+
+    def save(self, *args, **kwargs):
+        # Calculer montant_total automatiquement
+        self.montant_total = (
+            (self.montant_principal or Decimal('0')) +
+            (self.montant_interets or Decimal('0')) +
+            (self.montant_emoluments or Decimal('0')) +
+            (self.montant_frais_signification or Decimal('0')) +
+            (self.montant_frais_deplacement or Decimal('0')) +
+            (self.montant_depens or Decimal('0')) +
+            (self.montant_accessoires or Decimal('0'))
+        )
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generer_numero(cls):
+        """Génère un numéro d'état des frais unique"""
+        now = timezone.now()
+        count = cls.objects.filter(date_creation__year=now.year).count() + 1
+        return f"FRAIS-{now.year}-{str(count).zfill(4)}"
+
+    @property
+    def solde_restant(self):
+        """Calcule le solde restant à payer"""
+        return self.montant_total - (self.montant_paye or Decimal('0'))
+
+    @property
+    def est_solde(self):
+        """Vérifie si l'état des frais est soldé"""
+        return self.solde_restant <= 0
+
+    def calculer_depuis_dossier(self):
+        """
+        Recalcule les montants depuis les données du dossier.
+        Utilise les champs du dossier et les actes réalisés.
+        """
+        d = self.dossier
+
+        # Principal
+        self.montant_principal = d.montant_principal or Decimal('0')
+
+        # Intérêts (depuis le dossier)
+        self.montant_interets = d.montant_interets or Decimal('0')
+
+        # Frais (depuis le dossier)
+        self.montant_emoluments = d.montant_frais or Decimal('0')
+
+        # Frais de signification et déplacement (depuis les actes réalisés)
+        from django.db.models import Sum
+        actes = d.actes_realises.aggregate(
+            total_base=Sum('montant_base'),
+            total_transport=Sum('montant_transport'),
+            total_copies=Sum('montant_copies')
+        )
+        self.montant_frais_signification = actes['total_base'] or Decimal('0')
+        self.montant_frais_deplacement = actes['total_transport'] or Decimal('0')
+
+        self.save()
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp
