@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Étude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:dossiers' %}" class="breadcrumb-item">Dossiers</a>
+{% if dossier %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:dossier_detail' pk=dossier.pk %}" class="breadcrumb-item">{{ dossier.reference }}</a>
+{% endif %}
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item active">Nouvel acte</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ title }}</h2>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Informations de l'acte</h3>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="id_dossier">Dossier *</label>
+                    {{ form.dossier }}
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="id_numero_acte">Numéro d'acte</label>
+                    {{ form.numero_acte }}
+                    <small class="form-text text-muted">Généré automatiquement</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="id_type_acte">Type d'acte *</label>
+                    {{ form.type_acte }}
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="id_date_acte">Date de l'acte *</label>
+                    {{ form.date_acte }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="id_nombre_feuillets">Nombre de feuillets</label>
+                    {{ form.nombre_feuillets }}
+                    <small class="form-text text-muted">Pour calcul des timbres (1.200 FCFA / feuillet)</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="id_observations">Observations</label>
+                {{ form.observations }}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="save"></i>
+                    Enregistrer l'acte
+                </button>
+                {% if dossier %}
+                <a href="{% url 'gestion:dossier_detail' pk=dossier.pk %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i>
+                    Annuler
+                </a>
+                {% else %}
+                <a href="{% url 'gestion:dossiers' %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i>
+                    Annuler
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

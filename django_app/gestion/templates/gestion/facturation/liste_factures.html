@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Factures E-MECeF - Étude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:facturation' %}" class="breadcrumb-item">Facturation</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item active">E-MECeF</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Factures E-MECeF</h2>
+    <a href="{% url 'gestion:creer_facture' %}" class="btn btn-primary">
+        <i data-lucide="plus"></i>
+        Nouvelle facture
+    </a>
+</div>
+
+<!-- Statistiques -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Factures</div>
+        <div class="stat-value">{{ stats.count|default:0 }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">HT Groupe A (Exonéré)</div>
+        <div class="stat-value">{{ stats.total_groupe_a|default:0|floatformat:0 }} F</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">HT Groupe B (Taxable)</div>
+        <div class="stat-value">{{ stats.total_groupe_b|default:0|floatformat:0 }} F</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total TTC</div>
+        <div class="stat-value">{{ stats.total_ttc|default:0|floatformat:0 }} F</div>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="card">
+    <div class="card-header">
+        <h3>Filtres de recherche</h3>
+    </div>
+    <div class="card-body">
+        <form method="get" class="filter-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Numéro</label>
+                    {{ form.numero }}
+                </div>
+                <div class="form-group">
+                    <label>Client</label>
+                    {{ form.client }}
+                </div>
+                <div class="form-group">
+                    <label>Date début</label>
+                    {{ form.date_debut }}
+                </div>
+                <div class="form-group">
+                    <label>Date fin</label>
+                    {{ form.date_fin }}
+                </div>
+                <div class="form-group">
+                    <label>Statut</label>
+                    {{ form.statut }}
+                </div>
+                <div class="form-group">
+                    <label>Régime fiscal</label>
+                    {{ form.regime_fiscal }}
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="search"></i>
+                    Rechercher
+                </button>
+                <a href="{% url 'gestion:liste_factures_emecef' %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i>
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Liste des factures -->
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Numéro</th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Régime</th>
+                    <th class="text-right">Groupe A</th>
+                    <th class="text-right">Groupe B</th>
+                    <th class="text-right">TVA/TPS</th>
+                    <th class="text-right">TTC</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for facture in factures %}
+                <tr>
+                    <td>
+                        <a href="{% url 'gestion:facture_detail' pk=facture.pk %}">
+                            {{ facture.numero }}
+                        </a>
+                    </td>
+                    <td>{{ facture.date_emission|date:"d/m/Y" }}</td>
+                    <td>{{ facture.client|truncatechars:30 }}</td>
+                    <td>
+                        <span class="badge {% if facture.regime_fiscal == 'TVA' %}badge-primary{% else %}badge-secondary{% endif %}">
+                            {{ facture.regime_fiscal }}
+                        </span>
+                    </td>
+                    <td class="text-right">{{ facture.montant_ht_groupe_a|floatformat:0 }}</td>
+                    <td class="text-right">{{ facture.montant_ht_groupe_b|floatformat:0 }}</td>
+                    <td class="text-right">{{ facture.montant_tva_tps|floatformat:0 }}</td>
+                    <td class="text-right"><strong>{{ facture.montant_total_ttc|floatformat:0 }}</strong></td>
+                    <td>
+                        <span class="badge badge-{{ facture.statut }}">
+                            {{ facture.get_statut_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{% url 'gestion:facture_detail' pk=facture.pk %}" class="btn btn-sm btn-secondary" title="Voir">
+                                <i data-lucide="eye"></i>
+                            </a>
+                            <a href="{% url 'gestion:facture_pdf' pk=facture.pk %}" class="btn btn-sm btn-secondary" title="PDF">
+                                <i data-lucide="download"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center">Aucune facture trouvée</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if factures.has_other_pages %}
+        <div class="pagination">
+            {% if factures.has_previous %}
+            <a href="?page={{ factures.previous_page_number }}" class="btn btn-sm btn-secondary">&laquo; Précédent</a>
+            {% endif %}
+            <span class="page-info">Page {{ factures.number }} sur {{ factures.paginator.num_pages }}</span>
+            {% if factures.has_next %}
+            <a href="?page={{ factures.next_page_number }}" class="btn btn-sm btn-secondary">Suivant &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

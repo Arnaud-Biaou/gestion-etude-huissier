@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Étude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:facturation' %}" class="breadcrumb-item">Facturation</a>
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:facture_detail' pk=facture.pk %}" class="breadcrumb-item">{{ facture.numero }}</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item active">Ventilation</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Ventilation par groupe E-MECeF</h2>
+</div>
+
+<!-- Info ligne -->
+<div class="card">
+    <div class="card-header">
+        <h3>Ligne à ventiler</h3>
+    </div>
+    <div class="card-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Facture</label>
+                <span>{{ facture.numero }}</span>
+            </div>
+            <div class="info-item">
+                <label>Ligne #{{ ligne.numero_ligne }}</label>
+                <span>{{ ligne.description }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aide ventilation -->
+<div class="alert alert-info">
+    <h4>Groupes de taxation E-MECeF</h4>
+    <div class="row">
+        <div class="col-md-6">
+            <strong>Groupe A - Exonéré (0% TVA)</strong>
+            <ul>
+                <li>Timbres fiscaux</li>
+                <li>Frais d'enregistrement</li>
+                <li>Débours divers</li>
+                <li>Frais de greffe</li>
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <strong>Groupe B - Taxable (18% TVA)</strong>
+            <ul>
+                <li>Honoraires</li>
+                <li>Prestations de service</li>
+                <li>Frais de transport (selon cas)</li>
+            </ul>
+        </div>
+    </div>
+    <p class="mt-2">
+        <strong>AIB (Acompte sur Impôt sur Bénéfice)</strong> : 3% prélevé sur le montant HT Groupe B
+        <em>uniquement si le client est une entreprise</em>.
+    </p>
+</div>
+
+<!-- Formulaire ventilation -->
+<div class="card">
+    <div class="card-header">
+        <h3>Détail des ventilations</h3>
+    </div>
+    <div class="card-body">
+        <form method="post" id="ventilationForm">
+            {% csrf_token %}
+            {{ formset.management_form }}
+
+            <table class="table" id="ventilationTable">
+                <thead>
+                    <tr>
+                        <th style="width: 150px">Nature</th>
+                        <th style="width: 100px">Groupe</th>
+                        <th>Description</th>
+                        <th style="width: 150px">Montant HT</th>
+                        <th style="width: 100px">TVA calculée</th>
+                        <th style="width: 50px">Suppr.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in formset %}
+                    <tr class="ventilation-row">
+                        <td>
+                            {{ form.nature }}
+                            {{ form.id }}
+                            {{ form.ordre }}
+                        </td>
+                        <td>{{ form.groupe_taxation }}</td>
+                        <td>{{ form.description }}</td>
+                        <td>{{ form.montant_ht }}</td>
+                        <td class="tva-calculee">-</td>
+                        <td>{{ form.DELETE }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-right"><strong>Totaux :</strong></td>
+                        <td id="totalHT">0</td>
+                        <td id="totalTVA">0</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="save"></i>
+                    Enregistrer la ventilation
+                </button>
+                <a href="{% url 'gestion:facture_detail' pk=facture.pk %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i>
+                    Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Récapitulatif temps réel -->
+<div class="card" id="recapCard">
+    <div class="card-header">
+        <h3>Récapitulatif (calcul automatique)</h3>
+    </div>
+    <div class="card-body">
+        <div class="recap-grid">
+            <div class="recap-item">
+                <span>Total Groupe A (Exonéré)</span>
+                <span id="recapGroupeA">0 F</span>
+            </div>
+            <div class="recap-item">
+                <span>Total Groupe B (Taxable)</span>
+                <span id="recapGroupeB">0 F</span>
+            </div>
+            <div class="recap-item">
+                <span>TVA (18% sur Groupe B)</span>
+                <span id="recapTVA">0 F</span>
+            </div>
+            <div class="recap-item total">
+                <span>Total TTC</span>
+                <span id="recapTTC">0 F</span>
+            </div>
+            {% if facture.prelevable_aib %}
+            <div class="recap-item aib">
+                <span>AIB à retenir (3% sur Groupe B)</span>
+                <span id="recapAIB">0 F</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .info-item label {
+        display: block;
+        font-size: 0.85rem;
+        color: #666;
+    }
+    .recap-grid {
+        display: grid;
+        gap: 0.5rem;
+    }
+    .recap-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    .recap-item.total {
+        background: #28a745;
+        color: white;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    .recap-item.aib {
+        background: #ffc107;
+        font-weight: bold;
+    }
+    .tva-calculee {
+        color: #666;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+
+    // Calcul automatique des totaux
+    function calculerTotaux() {
+        let totalGroupeA = 0;
+        let totalGroupeB = 0;
+        let totalTVA = 0;
+
+        document.querySelectorAll('.ventilation-row').forEach(row => {
+            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (deleteCheckbox && deleteCheckbox.checked) return;
+
+            const montantInput = row.querySelector('.montant-ht, input[name$="-montant_ht"]');
+            const groupeSelect = row.querySelector('select[name$="-groupe_taxation"]');
+            const tvaCell = row.querySelector('.tva-calculee');
+
+            if (!montantInput || !groupeSelect) return;
+
+            const montant = parseFloat(montantInput.value) || 0;
+            const groupe = groupeSelect.value;
+
+            if (groupe === 'A') {
+                totalGroupeA += montant;
+                if (tvaCell) tvaCell.textContent = '0';
+            } else if (groupe === 'B') {
+                totalGroupeB += montant;
+                const tva = Math.round(montant * 0.18);
+                totalTVA += tva;
+                if (tvaCell) tvaCell.textContent = tva.toLocaleString('fr-FR');
+            }
+        });
+
+        const totalHT = totalGroupeA + totalGroupeB;
+        const totalTTC = totalHT + totalTVA;
+        const aib = Math.round(totalGroupeB * 0.03);
+
+        // Mettre à jour les totaux du tableau
+        document.getElementById('totalHT').textContent = totalHT.toLocaleString('fr-FR');
+        document.getElementById('totalTVA').textContent = totalTVA.toLocaleString('fr-FR');
+
+        // Mettre à jour le récapitulatif
+        document.getElementById('recapGroupeA').textContent = totalGroupeA.toLocaleString('fr-FR') + ' F';
+        document.getElementById('recapGroupeB').textContent = totalGroupeB.toLocaleString('fr-FR') + ' F';
+        document.getElementById('recapTVA').textContent = totalTVA.toLocaleString('fr-FR') + ' F';
+        document.getElementById('recapTTC').textContent = totalTTC.toLocaleString('fr-FR') + ' F';
+
+        const recapAIB = document.getElementById('recapAIB');
+        if (recapAIB) {
+            recapAIB.textContent = aib.toLocaleString('fr-FR') + ' F';
+        }
+    }
+
+    // Écouter les changements
+    document.querySelectorAll('input[name$="-montant_ht"], select[name$="-groupe_taxation"], input[type="checkbox"][name$="-DELETE"]').forEach(el => {
+        el.addEventListener('change', calculerTotaux);
+        el.addEventListener('input', calculerTotaux);
+    });
+
+    // Calcul initial
+    calculerTotaux();
+</script>
+{% endblock %}

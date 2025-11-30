@@ -156,4 +156,21 @@ urlpatterns = [
     path('import/<int:session_id>/analyser/', views.import_donnees_analyser, name='import_analyser'),
     path('import/<int:session_id>/valider/', views.import_donnees_valider, name='import_valider'),
     path('import/<int:session_id>/executer/', views.import_donnees_executer, name='import_executer'),
+
+    # Phase 4 - Facturation E-MECeF
+    path('facturation/emecef/', views.liste_factures_emecef, name='liste_factures_emecef'),
+    path('facturation/creer/', views.creer_facture, name='creer_facture'),
+    path('facturation/creer/<int:dossier_id>/', views.creer_facture, name='creer_facture_dossier'),
+    path('facturation/<int:pk>/', views.facture_detail, name='facture_detail'),
+    path('facturation/<int:pk>/pdf/', views.facture_pdf, name='facture_pdf'),
+    path('facturation/<int:facture_id>/ajouter-ligne/', views.ajouter_ligne_facture, name='ajouter_ligne_facture'),
+    path('facturation/ligne/<int:ligne_id>/ventiler/', views.ventiler_ligne, name='ventiler_ligne'),
+
+    # Actes de dossier
+    path('acte/creer/', views.creer_acte_dossier, name='creer_acte_dossier'),
+    path('acte/creer/<int:dossier_id>/', views.creer_acte_dossier, name='creer_acte_dossier_dossier'),
+
+    # API Phase 4
+    path('api/facturation/ventiler-ligne/', views.api_ventiler_ligne, name='api_ventiler_ligne'),
+    path('api/facturation/recalculer/', views.api_recalculer_facture, name='api_recalculer_facture'),
 ]

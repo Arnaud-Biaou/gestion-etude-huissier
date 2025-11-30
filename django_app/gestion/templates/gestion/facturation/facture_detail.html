@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ facture.numero }} - Étude BIAOU{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:facturation' %}" class="breadcrumb-item">Facturation</a>
+<span class="breadcrumb-separator">/</span>
+<a href="{% url 'gestion:liste_factures_emecef' %}" class="breadcrumb-item">E-MECeF</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-item active">{{ facture.numero }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Facture {{ facture.numero }}</h2>
+    <div class="btn-group">
+        <a href="{% url 'gestion:ajouter_ligne_facture' facture_id=facture.pk %}" class="btn btn-primary">
+            <i data-lucide="plus"></i>
+            Ajouter une ligne
+        </a>
+        <a href="{% url 'gestion:facture_pdf' pk=facture.pk %}" class="btn btn-secondary">
+            <i data-lucide="download"></i>
+            Télécharger PDF
+        </a>
+    </div>
+</div>
+
+<!-- Informations facture -->
+<div class="card">
+    <div class="card-header">
+        <h3>Informations générales</h3>
+    </div>
+    <div class="card-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Client</label>
+                <span>{{ facture.client }}</span>
+            </div>
+            <div class="info-item">
+                <label>IFU</label>
+                <span>{{ facture.ifu|default:"-" }}</span>
+            </div>
+            <div class="info-item">
+                <label>Date d'émission</label>
+                <span>{{ facture.date_emission|date:"d/m/Y" }}</span>
+            </div>
+            <div class="info-item">
+                <label>Régime fiscal</label>
+                <span class="badge {% if facture.regime_fiscal == 'TVA' %}badge-primary{% else %}badge-secondary{% endif %}">
+                    {{ facture.get_regime_fiscal_display }}
+                </span>
+            </div>
+            <div class="info-item">
+                <label>Type client</label>
+                <span>{% if facture.prelevable_aib %}Entreprise (AIB){% else %}Particulier{% endif %}</span>
+            </div>
+            <div class="info-item">
+                <label>Statut</label>
+                <span class="badge badge-{{ facture.statut }}">{{ facture.get_statut_display }}</span>
+            </div>
+            {% if facture.dossier %}
+            <div class="info-item">
+                <label>Dossier</label>
+                <a href="{% url 'gestion:dossier_detail' pk=facture.dossier.pk %}">
+                    {{ facture.dossier.reference }}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Lignes de la facture -->
+<div class="card">
+    <div class="card-header">
+        <h3>Lignes de facturation</h3>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th class="text-right">Groupe A (Exonéré)</th>
+                    <th class="text-right">Groupe B (Taxable)</th>
+                    <th class="text-right">TVA</th>
+                    <th class="text-right">TTC</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.numero_ligne }}</td>
+                    <td>
+                        {{ ligne.description }}
+                        {% if ligne.acte_dossier %}
+                        <br><small class="text-muted">Acte: {{ ligne.acte_dossier.numero_acte }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">{{ ligne.montant_ht_groupe_a|floatformat:0 }}</td>
+                    <td class="text-right">{{ ligne.montant_ht_groupe_b|floatformat:0 }}</td>
+                    <td class="text-right">{{ ligne.montant_tva|floatformat:0 }}</td>
+                    <td class="text-right"><strong>{{ ligne.montant_ttc|floatformat:0 }}</strong></td>
+                    <td>
+                        <a href="{% url 'gestion:ventiler_ligne' ligne_id=ligne.pk %}" class="btn btn-sm btn-primary" title="Ventiler">
+                            <i data-lucide="layers"></i>
+                            Ventiler
+                        </a>
+                    </td>
+                </tr>
+                <!-- Détail des ventilations -->
+                {% if ligne.ventilations.exists %}
+                <tr class="ventilation-row">
+                    <td></td>
+                    <td colspan="6">
+                        <table class="table table-sm table-nested">
+                            <thead>
+                                <tr>
+                                    <th>Nature</th>
+                                    <th>Description</th>
+                                    <th>Groupe</th>
+                                    <th class="text-right">Montant HT</th>
+                                    <th class="text-right">TVA</th>
+                                    <th class="text-right">TTC</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in ligne.ventilations.all %}
+                                <tr>
+                                    <td>{{ v.get_nature_display }}</td>
+                                    <td>{{ v.description }}</td>
+                                    <td>
+                                        <span class="badge {% if v.groupe_taxation_id == 'A' %}badge-success{% else %}badge-warning{% endif %}">
+                                            {{ v.groupe_taxation_id }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">{{ v.montant_ht|floatformat:0 }}</td>
+                                    <td class="text-right">{{ v.montant_tva|floatformat:0 }}</td>
+                                    <td class="text-right">{{ v.montant_ttc|floatformat:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">
+                        Aucune ligne. <a href="{% url 'gestion:ajouter_ligne_facture' facture_id=facture.pk %}">Ajouter une ligne</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Totaux E-MECeF -->
+<div class="card">
+    <div class="card-header">
+        <h3>Récapitulatif E-MECeF</h3>
+    </div>
+    <div class="card-body">
+        <div class="totaux-grid">
+            <div class="total-row">
+                <span>Total HT Groupe A (Exonéré - 0% TVA)</span>
+                <span class="amount">{{ facture.montant_ht_groupe_a|floatformat:0 }} F</span>
+            </div>
+            <div class="total-row">
+                <span>Total HT Groupe B (Taxable - 18% TVA)</span>
+                <span class="amount">{{ facture.montant_ht_groupe_b|floatformat:0 }} F</span>
+            </div>
+            <div class="total-row">
+                <span>Total HT (A + B)</span>
+                <span class="amount">{{ facture.montant_total_ht|floatformat:0 }} F</span>
+            </div>
+            <div class="total-row">
+                <span>{{ facture.get_regime_fiscal_display }}</span>
+                <span class="amount">{{ facture.montant_tva_tps|floatformat:0 }} F</span>
+            </div>
+            <div class="total-row total-ttc">
+                <span>TOTAL TTC</span>
+                <span class="amount">{{ facture.montant_total_ttc|floatformat:0 }} F</span>
+            </div>
+
+            {% if creance_aib %}
+            <hr>
+            <div class="total-row {% if creance_aib.montant_aib > 0 %}text-warning{% endif %}">
+                <span>
+                    AIB retenu (3% sur Groupe B)
+                    <small>- {{ creance_aib.get_client_type_display }}</small>
+                </span>
+                <span class="amount">{{ creance_aib.montant_aib|floatformat:0 }} F</span>
+            </div>
+            {% if creance_aib.montant_aib > 0 %}
+            <div class="total-row total-net">
+                <span>Net à recevoir (TTC - AIB)</span>
+                <span class="amount">{{ facture.montant_total_ttc|add:creance_aib.montant_aib|floatformat:0 }} F</span>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Informations MECeF -->
+{% if facture.mecef_numero %}
+<div class="card">
+    <div class="card-header">
+        <h3>Normalisation E-MECeF</h3>
+    </div>
+    <div class="card-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>NIM</label>
+                <span>{{ facture.nim }}</span>
+            </div>
+            <div class="info-item">
+                <label>Numéro MECeF</label>
+                <span>{{ facture.mecef_numero }}</span>
+            </div>
+            <div class="info-item">
+                <label>Date normalisation</label>
+                <span>{{ facture.date_mecef|date:"d/m/Y H:i" }}</span>
+            </div>
+        </div>
+        {% if facture.mecef_qr %}
+        <div class="qr-code">
+            <img src="data:image/png;base64,{{ facture.mecef_qr }}" alt="QR Code MECeF">
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .info-item label {
+        display: block;
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+    }
+    .totaux-grid {
+        max-width: 500px;
+        margin-left: auto;
+    }
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    .total-ttc {
+        font-size: 1.25rem;
+        font-weight: bold;
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+    }
+    .total-net {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .ventilation-row {
+        background: #f8f9fa;
+    }
+    .table-nested {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    .table-nested th {
+        background: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

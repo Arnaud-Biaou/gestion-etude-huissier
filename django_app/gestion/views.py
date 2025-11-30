@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Max
 from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.core.paginator import Paginator
@@ -60,6 +60,8 @@ from .models import (
     AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire,
     # Calendrier Saisie Immobilière
     CalendrierSaisieImmo,
+    # Phase 4 - Facturation E-MECeF
+    GroupeTaxation, ActeDossier, VentilationLigneFacture, CreanceAIB,
 )
 
 
@@ -6772,3 +6774,410 @@ def import_donnees_executer(request, session_id):
 
     messages.success(request, f"Import terminé : {importes} dossier(s) importé(s), {erreurs} erreur(s)")
     return redirect('gestion:import_analyser', session_id=session.pk)
+
+
+# =============================================================================
+# PHASE 4 - FACTURATION E-MECeF
+# =============================================================================
+
+@login_required
+def creer_acte_dossier(request, dossier_id=None):
+    """Créer un acte de dossier (conteneur pour facturation)"""
+    from .forms import ActeDossierForm
+
+    dossier = None
+    if dossier_id:
+        dossier = get_object_or_404(Dossier, pk=dossier_id)
+
+    if request.method == 'POST':
+        form = ActeDossierForm(request.POST)
+        if form.is_valid():
+            acte = form.save(commit=False)
+            acte.cree_par = request.user
+            acte.save()
+            messages.success(request, f"Acte {acte.numero_acte} créé avec succès")
+            return redirect('gestion:dossier_detail', pk=acte.dossier.pk)
+    else:
+        initial = {'numero_acte': ActeDossier.generer_numero()}
+        if dossier:
+            initial['dossier'] = dossier
+        form = ActeDossierForm(initial=initial)
+
+    context = get_default_context(request)
+    context.update({
+        'form': form,
+        'dossier': dossier,
+        'title': 'Créer un acte',
+    })
+    return render(request, 'gestion/facturation/acte_dossier_form.html', context)
+
+
+@login_required
+def creer_facture(request, dossier_id=None):
+    """Créer une facture E-MECeF avec lignes et ventilations"""
+    from .forms import FactureForm, LigneFactureFormSet
+
+    dossier = None
+    if dossier_id:
+        dossier = get_object_or_404(Dossier, pk=dossier_id)
+
+    if request.method == 'POST':
+        form = FactureForm(request.POST)
+        if form.is_valid():
+            with transaction.atomic():
+                facture = form.save(commit=False)
+                # Générer numéro automatique
+                now = timezone.now()
+                count = Facture.objects.filter(date_emission__year=now.year).count() + 1
+                facture.numero = f"F-{now.year}-{str(count).zfill(5)}"
+                facture.montant_ht = Decimal('0')
+                facture.montant_tva = Decimal('0')
+                facture.montant_ttc = Decimal('0')
+                facture.save()
+
+                # Créer automatiquement la créance AIB
+                CreanceAIB.objects.create(
+                    facture=facture,
+                    client_type='entreprise' if facture.prelevable_aib else 'particulier',
+                    montant_base_aib=Decimal('0'),
+                    montant_aib=Decimal('0'),
+                )
+
+                messages.success(request, f"Facture {facture.numero} créée")
+                return redirect('gestion:facture_detail', pk=facture.pk)
+    else:
+        initial = {}
+        if dossier:
+            initial['dossier'] = dossier
+            # Pré-remplir le client avec le premier demandeur
+            demandeur = dossier.demandeurs.first()
+            if demandeur:
+                initial['client'] = demandeur.nom_complet
+        form = FactureForm(initial=initial)
+
+    context = get_default_context(request)
+    context.update({
+        'form': form,
+        'dossier': dossier,
+        'title': 'Créer une facture',
+    })
+    return render(request, 'gestion/facturation/facture_form.html', context)
+
+
+@login_required
+def facture_detail(request, pk):
+    """Afficher le détail d'une facture avec toutes ses lignes et ventilations"""
+    facture = get_object_or_404(Facture.objects.select_related(
+        'dossier', 'creance_aib'
+    ).prefetch_related(
+        'lignes__ventilations',
+        'lignes__acte_dossier'
+    ), pk=pk)
+
+    context = get_default_context(request)
+    context.update({
+        'facture': facture,
+        'lignes': facture.lignes.all().order_by('numero_ligne'),
+        'creance_aib': getattr(facture, 'creance_aib', None),
+        'title': f'Facture {facture.numero}',
+    })
+    return render(request, 'gestion/facturation/facture_detail.html', context)
+
+
+@login_required
+def ajouter_ligne_facture(request, facture_id):
+    """Ajouter une ligne à une facture"""
+    from .forms import LigneFactureForm
+
+    facture = get_object_or_404(Facture, pk=facture_id)
+
+    if request.method == 'POST':
+        form = LigneFactureForm(request.POST)
+        if form.is_valid():
+            ligne = form.save(commit=False)
+            ligne.facture = facture
+            # Déterminer le numéro de ligne suivant
+            max_num = facture.lignes.aggregate(m=Max('numero_ligne'))['m'] or 0
+            ligne.numero_ligne = max_num + 1
+            ligne.save()
+            messages.success(request, "Ligne ajoutée")
+            return redirect('gestion:facture_detail', pk=facture.pk)
+    else:
+        form = LigneFactureForm()
+
+    context = get_default_context(request)
+    context.update({
+        'form': form,
+        'facture': facture,
+        'title': f'Ajouter ligne - {facture.numero}',
+    })
+    return render(request, 'gestion/facturation/ligne_facture_form.html', context)
+
+
+@login_required
+def ventiler_ligne(request, ligne_id):
+    """Ventiler une ligne de facture par groupe E-MECeF"""
+    from .forms import VentilationFormSet
+
+    ligne = get_object_or_404(LigneFacture.objects.select_related('facture'), pk=ligne_id)
+    facture = ligne.facture
+
+    if request.method == 'POST':
+        formset = VentilationFormSet(request.POST, instance=ligne)
+        if formset.is_valid():
+            with transaction.atomic():
+                formset.save()
+                # Le recalcul cascade est automatique via save()
+                messages.success(request, "Ventilation enregistrée")
+            return redirect('gestion:facture_detail', pk=facture.pk)
+    else:
+        formset = VentilationFormSet(instance=ligne)
+
+    # S'assurer que les groupes A et B existent
+    GroupeTaxation.objects.get_or_create(
+        code='A',
+        defaults={'libelle': 'Exonéré (Débours, timbres)', 'taux_tva': Decimal('0'), 'taxable': False}
+    )
+    GroupeTaxation.objects.get_or_create(
+        code='B',
+        defaults={'libelle': 'Taxable 18% (Honoraires)', 'taux_tva': Decimal('18'), 'taxable': True}
+    )
+
+    context = get_default_context(request)
+    context.update({
+        'formset': formset,
+        'ligne': ligne,
+        'facture': facture,
+        'groupes_taxation': GroupeTaxation.objects.filter(code__in=['A', 'B']),
+        'title': f'Ventiler ligne - {facture.numero}',
+    })
+    return render(request, 'gestion/facturation/ventilation_form.html', context)
+
+
+@login_required
+def liste_factures_emecef(request):
+    """Liste des factures avec filtres E-MECeF"""
+    from .forms import RechercheFactureForm
+
+    form = RechercheFactureForm(request.GET)
+    factures = Facture.objects.select_related('dossier').prefetch_related('lignes')
+
+    # Appliquer les filtres
+    if form.is_valid():
+        if form.cleaned_data.get('numero'):
+            factures = factures.filter(numero__icontains=form.cleaned_data['numero'])
+        if form.cleaned_data.get('client'):
+            factures = factures.filter(client__icontains=form.cleaned_data['client'])
+        if form.cleaned_data.get('date_debut'):
+            factures = factures.filter(date_emission__gte=form.cleaned_data['date_debut'])
+        if form.cleaned_data.get('date_fin'):
+            factures = factures.filter(date_emission__lte=form.cleaned_data['date_fin'])
+        if form.cleaned_data.get('statut'):
+            factures = factures.filter(statut=form.cleaned_data['statut'])
+        if form.cleaned_data.get('regime_fiscal'):
+            factures = factures.filter(regime_fiscal=form.cleaned_data['regime_fiscal'])
+
+    factures = factures.order_by('-date_emission')
+
+    # Pagination
+    paginator = Paginator(factures, 25)
+    page = request.GET.get('page', 1)
+    factures_page = paginator.get_page(page)
+
+    # Statistiques
+    stats = Facture.objects.aggregate(
+        total_ht=Sum('montant_total_ht'),
+        total_ttc=Sum('montant_total_ttc'),
+        total_groupe_a=Sum('montant_ht_groupe_a'),
+        total_groupe_b=Sum('montant_ht_groupe_b'),
+        count=Count('id')
+    )
+
+    context = get_default_context(request)
+    context.update({
+        'factures': factures_page,
+        'form': form,
+        'stats': stats,
+        'title': 'Factures E-MECeF',
+    })
+    return render(request, 'gestion/facturation/liste_factures.html', context)
+
+
+@login_required
+@require_POST
+def api_ventiler_ligne(request):
+    """API pour ventiler une ligne (AJAX)"""
+    try:
+        data = json.loads(request.body)
+        ligne_id = data.get('ligne_id')
+        ventilations = data.get('ventilations', [])
+
+        ligne = get_object_or_404(LigneFacture, pk=ligne_id)
+
+        with transaction.atomic():
+            # Supprimer les anciennes ventilations
+            ligne.ventilations.all().delete()
+
+            # Créer les nouvelles
+            for i, v in enumerate(ventilations):
+                VentilationLigneFacture.objects.create(
+                    ligne_facture=ligne,
+                    nature=v.get('nature', 'autre_debours'),
+                    groupe_taxation_id=v.get('groupe', 'A'),
+                    description=v.get('description', ''),
+                    montant_ht=Decimal(str(v.get('montant_ht', 0))),
+                    ordre=i
+                )
+
+            # Recalcul cascade automatique
+
+        # Recharger la facture pour avoir les totaux à jour
+        ligne.refresh_from_db()
+        facture = ligne.facture
+        facture.refresh_from_db()
+
+        return JsonResponse({
+            'success': True,
+            'ligne': {
+                'montant_ht_groupe_a': int(ligne.montant_ht_groupe_a),
+                'montant_ht_groupe_b': int(ligne.montant_ht_groupe_b),
+                'montant_tva': int(ligne.montant_tva),
+                'montant_ttc': int(ligne.montant_ttc),
+            },
+            'facture': {
+                'montant_ht_groupe_a': int(facture.montant_ht_groupe_a),
+                'montant_ht_groupe_b': int(facture.montant_ht_groupe_b),
+                'montant_total_ht': int(facture.montant_total_ht),
+                'montant_tva_tps': int(facture.montant_tva_tps),
+                'montant_total_ttc': int(facture.montant_total_ttc),
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def api_recalculer_facture(request):
+    """API pour forcer le recalcul d'une facture"""
+    try:
+        data = json.loads(request.body)
+        facture_id = data.get('facture_id')
+
+        facture = get_object_or_404(Facture, pk=facture_id)
+        facture.recalculer_totaux()
+
+        return JsonResponse({
+            'success': True,
+            'facture': {
+                'montant_ht_groupe_a': int(facture.montant_ht_groupe_a),
+                'montant_ht_groupe_b': int(facture.montant_ht_groupe_b),
+                'montant_total_ht': int(facture.montant_total_ht),
+                'montant_tva_tps': int(facture.montant_tva_tps),
+                'montant_total_ttc': int(facture.montant_total_ttc),
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+def facture_pdf(request, pk):
+    """Générer le PDF d'une facture E-MECeF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from io import BytesIO
+
+    facture = get_object_or_404(Facture.objects.select_related(
+        'dossier', 'creance_aib'
+    ).prefetch_related(
+        'lignes__ventilations'
+    ), pk=pk)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Titre
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Title'],
+        fontSize=16,
+        alignment=1
+    )
+    elements.append(Paragraph(f"FACTURE {facture.numero}", title_style))
+    elements.append(Spacer(1, 10*mm))
+
+    # Infos client
+    info_style = ParagraphStyle('Info', parent=styles['Normal'], fontSize=10)
+    elements.append(Paragraph(f"<b>Client:</b> {facture.client}", info_style))
+    if facture.ifu:
+        elements.append(Paragraph(f"<b>IFU:</b> {facture.ifu}", info_style))
+    elements.append(Paragraph(f"<b>Date:</b> {facture.date_emission.strftime('%d/%m/%Y')}", info_style))
+    elements.append(Paragraph(f"<b>Régime fiscal:</b> {facture.get_regime_fiscal_display()}", info_style))
+    elements.append(Spacer(1, 10*mm))
+
+    # Tableau des lignes
+    data = [['Description', 'Groupe A', 'Groupe B', 'TVA', 'TTC']]
+    for ligne in facture.lignes.all():
+        data.append([
+            ligne.description[:50],
+            f"{int(ligne.montant_ht_groupe_a):,}".replace(',', ' '),
+            f"{int(ligne.montant_ht_groupe_b):,}".replace(',', ' '),
+            f"{int(ligne.montant_tva):,}".replace(',', ' '),
+            f"{int(ligne.montant_ttc):,}".replace(',', ' '),
+        ])
+
+    # Totaux
+    data.append(['', '', '', '', ''])
+    data.append([
+        'TOTAUX',
+        f"{int(facture.montant_ht_groupe_a):,}".replace(',', ' '),
+        f"{int(facture.montant_ht_groupe_b):,}".replace(',', ' '),
+        f"{int(facture.montant_tva_tps):,}".replace(',', ' '),
+        f"{int(facture.montant_total_ttc):,}".replace(',', ' '),
+    ])
+
+    table = Table(data, colWidths=[80*mm, 25*mm, 25*mm, 25*mm, 25*mm])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 10*mm))
+
+    # AIB si entreprise
+    creance_aib = getattr(facture, 'creance_aib', None)
+    if creance_aib and creance_aib.montant_aib > 0:
+        elements.append(Paragraph(
+            f"<b>AIB retenu à la source (3% sur Groupe B):</b> {int(creance_aib.montant_aib):,} FCFA".replace(',', ' '),
+            info_style
+        ))
+        elements.append(Paragraph(
+            f"<b>Net à payer:</b> {int(facture.montant_total_ttc - creance_aib.montant_aib):,} FCFA".replace(',', ' '),
+            info_style
+        ))
+
+    # E-MECeF
+    if facture.mecef_qr:
+        elements.append(Spacer(1, 10*mm))
+        elements.append(Paragraph(f"<b>NIM:</b> {facture.nim}", info_style))
+        elements.append(Paragraph(f"<b>N° MECeF:</b> {facture.mecef_numero}", info_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="facture_{facture.numero}.pdf"'
+    return response
