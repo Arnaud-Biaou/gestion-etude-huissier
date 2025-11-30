@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Sum, Q
 from django.db import transaction
 from django.utils import timezone
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from functools import wraps
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -583,6 +583,17 @@ def dossiers(request):
     if assigned_filter and assigned_filter != 'all':
         dossiers_qs = dossiers_qs.filter(affecte_a_id=assigned_filter)
 
+    # Pagination serveur (50 dossiers par page)
+    page = request.GET.get('page', 1)
+    paginator = Paginator(dossiers_qs, 50)
+
+    try:
+        dossiers_page = paginator.page(page)
+    except PageNotAnInteger:
+        dossiers_page = paginator.page(1)
+    except EmptyPage:
+        dossiers_page = paginator.page(paginator.num_pages)
+
     # Construire la liste des dossiers avec l'ID pour les liens
     context['dossiers_list'] = [{
         'id': d.id,
@@ -593,13 +604,19 @@ def dossiers(request):
         'montant': f"{d.montant_creance:,.0f}" if d.montant_creance else '-',
         'affecte_a': d.affecte_a.nom if d.affecte_a else '-',
         'statut': d.statut,
-    } for d in dossiers_qs[:50]]
+    } for d in dossiers_page]
 
+    # Pagination context
+    context['page_obj'] = dossiers_page
+    context['paginator'] = paginator
+    context['is_paginated'] = paginator.num_pages > 1
+
+    # Onglets avec compteurs (sans valeurs hardcodées)
     context['tabs'] = [
-        {'id': 'all', 'label': 'Tous', 'count': Dossier.objects.count() or 127},
-        {'id': 'actifs', 'label': 'Actifs', 'count': Dossier.objects.filter(statut='actif').count() or 89},
-        {'id': 'urgents', 'label': 'Urgents', 'count': Dossier.objects.filter(statut='urgent').count() or 14},
-        {'id': 'archives', 'label': 'Archives', 'count': Dossier.objects.filter(statut__in=['archive', 'cloture']).count() or 24},
+        {'id': 'all', 'label': 'Tous', 'count': Dossier.objects.count()},
+        {'id': 'actifs', 'label': 'Actifs', 'count': Dossier.objects.filter(statut='actif').count()},
+        {'id': 'urgents', 'label': 'Urgents', 'count': Dossier.objects.filter(statut='urgent').count()},
+        {'id': 'archives', 'label': 'Archives', 'count': Dossier.objects.filter(statut__in=['archive', 'cloture']).count()},
     ]
     context['current_tab'] = tab
     context['filters'] = {
