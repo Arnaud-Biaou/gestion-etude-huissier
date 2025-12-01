@@ -3978,5 +3978,177 @@ class ActeSecurise(models.Model):
         self.save(update_fields=['nombre_verifications', 'derniere_verification'])
 
 
+class ActeDossier(models.Model):
+    """
+    Enregistre un acte effectué dans un dossier.
+    Permet le suivi des actes et leur facturation.
+    """
+
+    # Lien vers le dossier
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='actes_dossier',
+        verbose_name="Dossier"
+    )
+
+    # Type d'acte (depuis le catalogue)
+    type_acte = models.ForeignKey(
+        'ActeProcedure',
+        on_delete=models.PROTECT,
+        related_name='actes_realises',
+        verbose_name="Type d'acte",
+        null=True,
+        blank=True,
+        help_text="Sélectionner depuis le catalogue ou saisir manuellement"
+    )
+
+    # Libellé personnalisé (si pas de type_acte ou pour préciser)
+    libelle = models.CharField(
+        max_length=255,
+        verbose_name="Libellé",
+        help_text="Description de l'acte effectué"
+    )
+
+    # Date de réalisation
+    date_realisation = models.DateField(
+        verbose_name="Date de réalisation"
+    )
+
+    # Tarif (peut être différent du catalogue)
+    montant_ht = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Montant HT",
+        help_text="Montant hors taxes de l'acte"
+    )
+
+    # TVA
+    taux_tva = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=18.00,
+        verbose_name="Taux TVA (%)"
+    )
+
+    # Quantité (pour les actes multiples, ex: 3 significations)
+    quantite = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Quantité"
+    )
+
+    # Notes / Observations
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Notes",
+        help_text="Observations ou détails supplémentaires"
+    )
+
+    # Statut de facturation
+    STATUT_CHOICES = [
+        ('non_facture', 'Non facturé'),
+        ('facture', 'Facturé'),
+        ('annule', 'Annulé'),
+    ]
+    statut_facturation = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='non_facture',
+        verbose_name="Statut facturation"
+    )
+
+    # Lien vers la ligne de facture (quand facturé)
+    ligne_facture = models.ForeignKey(
+        'LigneFacture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes_source',
+        verbose_name="Ligne de facture"
+    )
+
+    # Lien vers ActeSecurise (pour QR code)
+    acte_securise = models.OneToOneField(
+        'ActeSecurise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acte_dossier',
+        verbose_name="Acte sécurisé (QR)"
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        'rh.Collaborateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='actes_crees',
+        verbose_name="Créé par"
+    )
+    cree_le = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Créé le"
+    )
+    modifie_le = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Modifié le"
+    )
+
+    class Meta:
+        verbose_name = "Acte du dossier"
+        verbose_name_plural = "Actes du dossier"
+        ordering = ['-date_realisation', '-cree_le']
+        indexes = [
+            models.Index(fields=['dossier', '-date_realisation']),
+            models.Index(fields=['statut_facturation']),
+        ]
+
+    def __str__(self):
+        return f"{self.libelle} - {self.dossier.reference}"
+
+    @property
+    def montant_tva(self):
+        """Calcule le montant de la TVA"""
+        return (self.montant_ht * self.quantite * self.taux_tva) / 100
+
+    @property
+    def montant_ttc(self):
+        """Calcule le montant TTC"""
+        return (self.montant_ht * self.quantite) + self.montant_tva
+
+    @property
+    def total_ht(self):
+        """Montant HT total (quantité × montant unitaire)"""
+        return self.montant_ht * self.quantite
+
+    def marquer_facture(self, ligne_facture):
+        """Marque l'acte comme facturé et lie à la ligne de facture"""
+        self.statut_facturation = 'facture'
+        self.ligne_facture = ligne_facture
+        self.save(update_fields=['statut_facturation', 'ligne_facture', 'modifie_le'])
+
+    def annuler(self):
+        """Annule l'acte"""
+        self.statut_facturation = 'annule'
+        self.save(update_fields=['statut_facturation', 'modifie_le'])
+
+    @classmethod
+    def actes_non_factures(cls, dossier):
+        """Retourne les actes non facturés d'un dossier"""
+        return cls.objects.filter(
+            dossier=dossier,
+            statut_facturation='non_facture'
+        )
+
+    @classmethod
+    def total_non_facture(cls, dossier):
+        """Calcule le total HT des actes non facturés"""
+        from django.db.models import Sum, F
+        result = cls.actes_non_factures(dossier).aggregate(
+            total=Sum(F('montant_ht') * F('quantite'))
+        )
+        return result['total'] or 0
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp
