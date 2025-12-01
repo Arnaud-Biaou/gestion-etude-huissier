@@ -1,9 +1,16 @@
 from django.urls import path
 from . import views
+from . import views_verification
 
 app_name = 'gestion'
 
 urlpatterns = [
+    # === VÉRIFICATION PUBLIQUE DES ACTES (pas de login requis) ===
+    path('v/<str:code>/', views_verification.verification_acte, name='verification_acte_court'),
+    path('verification/', views_verification.verification_accueil, name='verification_accueil'),
+    path('verification/<str:code>/', views_verification.verification_acte, name='verification_acte'),
+    path('api/verification/<str:code>/', views_verification.verification_acte_api, name='verification_acte_api'),
+
     # Pages principales
     path('', views.dashboard, name='dashboard'),
     path('recherche/', views.recherche_globale, name='recherche_globale'),
