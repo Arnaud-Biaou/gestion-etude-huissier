@@ -6909,9 +6909,10 @@ def ajouter_acte_dossier(request, dossier_id):
                 type_acte_id = request.POST.get('type_acte')
                 libelle = request.POST.get('libelle', '').strip()
                 date_realisation = request.POST.get('date_realisation')
-                montant_ht = request.POST.get('montant_ht', '0')
-                taux_tva = request.POST.get('taux_tva', '18')
-                quantite = request.POST.get('quantite', '1')
+                honoraires_ht = request.POST.get('honoraires_ht', '0')
+                debours = request.POST.get('debours', '0')
+                detail_debours = request.POST.get('detail_debours', '')
+                nombre_actes = request.POST.get('nombre_actes', '1')
                 notes = request.POST.get('notes', '')
 
                 # Récupérer le type d'acte si sélectionné
@@ -6920,8 +6921,8 @@ def ajouter_acte_dossier(request, dossier_id):
                     type_acte = ActeProcedure.objects.filter(id=type_acte_id).first()
                     if type_acte and not libelle:
                         libelle = type_acte.libelle
-                    if type_acte and not montant_ht:
-                        montant_ht = str(type_acte.tarif)
+                    if type_acte and not honoraires_ht:
+                        honoraires_ht = str(type_acte.tarif)
 
                 # Validation
                 if not libelle:
@@ -6933,9 +6934,9 @@ def ajouter_acte_dossier(request, dossier_id):
                     return redirect('gestion:ajouter_acte_dossier', dossier_id=dossier_id)
 
                 # Convertir les valeurs
-                montant_ht = Decimal(montant_ht.replace(' ', '').replace(',', '.') or '0')
-                taux_tva = Decimal(taux_tva.replace(',', '.') or '18')
-                quantite = int(quantite or '1')
+                honoraires_ht = Decimal(honoraires_ht.replace(' ', '').replace(',', '.') or '0')
+                debours = Decimal(debours.replace(' ', '').replace(',', '.') or '0')
+                nombre_actes = int(nombre_actes or '1')
 
                 # Récupérer le collaborateur
                 collaborateur = None
@@ -6948,9 +6949,10 @@ def ajouter_acte_dossier(request, dossier_id):
                     type_acte=type_acte,
                     libelle=libelle,
                     date_realisation=date_realisation,
-                    montant_ht=montant_ht,
-                    taux_tva=taux_tva,
-                    quantite=quantite,
+                    honoraires_ht=honoraires_ht,
+                    debours=debours,
+                    detail_debours=detail_debours,
+                    nombre_actes=nombre_actes,
                     notes=notes,
                     cree_par=collaborateur,
                 )
@@ -6993,17 +6995,19 @@ def modifier_acte_dossier(request, acte_id):
                 acte.libelle = request.POST.get('libelle', acte.libelle)
                 acte.date_realisation = request.POST.get('date_realisation', acte.date_realisation)
 
-                montant_ht = request.POST.get('montant_ht', '')
-                if montant_ht:
-                    acte.montant_ht = Decimal(montant_ht.replace(' ', '').replace(',', '.'))
+                honoraires_ht = request.POST.get('honoraires_ht', '')
+                if honoraires_ht:
+                    acte.honoraires_ht = Decimal(honoraires_ht.replace(' ', '').replace(',', '.'))
 
-                taux_tva = request.POST.get('taux_tva', '')
-                if taux_tva:
-                    acte.taux_tva = Decimal(taux_tva.replace(',', '.'))
+                debours = request.POST.get('debours', '')
+                if debours:
+                    acte.debours = Decimal(debours.replace(' ', '').replace(',', '.'))
 
-                quantite = request.POST.get('quantite', '')
-                if quantite:
-                    acte.quantite = int(quantite)
+                acte.detail_debours = request.POST.get('detail_debours', acte.detail_debours)
+
+                nombre_actes = request.POST.get('nombre_actes', '')
+                if nombre_actes:
+                    acte.nombre_actes = int(nombre_actes)
 
                 acte.notes = request.POST.get('notes', '')
                 acte.save()

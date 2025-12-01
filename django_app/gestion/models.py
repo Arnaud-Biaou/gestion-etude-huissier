@@ -3981,8 +3981,11 @@ class ActeSecurise(models.Model):
 class ActeDossier(models.Model):
     """
     Enregistre un acte effectué dans un dossier.
-    Permet le suivi des actes et leur facturation.
+    Distingue les honoraires (taxables à 18%) des débours (non taxables).
     """
+
+    # Taux TVA fixe Bénin
+    TAUX_TVA = Decimal('18.00')
 
     # Lien vers le dossier
     dossier = models.ForeignKey(
@@ -4015,26 +4018,36 @@ class ActeDossier(models.Model):
         verbose_name="Date de réalisation"
     )
 
-    # Tarif (peut être différent du catalogue)
-    montant_ht = models.DecimalField(
+    # === HONORAIRES (taxables à 18%) ===
+    honoraires_ht = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        verbose_name="Montant HT",
-        help_text="Montant hors taxes de l'acte"
+        default=0,
+        verbose_name="Honoraires HT",
+        help_text="Émoluments et frais de l'huissier (taxables à 18%)"
     )
 
-    # TVA
-    taux_tva = models.DecimalField(
-        max_digits=5,
+    # === DÉBOURS (non taxables) ===
+    debours = models.DecimalField(
+        max_digits=12,
         decimal_places=2,
-        default=18.00,
-        verbose_name="Taux TVA (%)"
+        default=0,
+        verbose_name="Débours",
+        help_text="Frais avancés : timbres, enregistrement, greffe, etc. (non taxables)"
     )
 
-    # Quantité (pour les actes multiples, ex: 3 significations)
-    quantite = models.PositiveIntegerField(
+    # Détail des débours (optionnel, pour traçabilité)
+    detail_debours = models.TextField(
+        blank=True,
+        verbose_name="Détail des débours",
+        help_text="Ex: Timbre fiscal 2000F, Enregistrement 5000F..."
+    )
+
+    # Nombre d'actes (pour les actes multiples, ex: 3 significations)
+    nombre_actes = models.PositiveIntegerField(
         default=1,
-        verbose_name="Quantité"
+        verbose_name="Nombre d'actes",
+        help_text="Quantité si plusieurs actes identiques"
     )
 
     # Notes / Observations
@@ -4106,20 +4119,34 @@ class ActeDossier(models.Model):
     def __str__(self):
         return f"{self.libelle} - {self.dossier.reference}"
 
-    @property
-    def montant_tva(self):
-        """Calcule le montant de la TVA"""
-        return (self.montant_ht * self.quantite * self.taux_tva) / 100
+    # === PROPRIÉTÉS CALCULÉES ===
 
     @property
-    def montant_ttc(self):
-        """Calcule le montant TTC"""
-        return (self.montant_ht * self.quantite) + self.montant_tva
+    def total_honoraires_ht(self):
+        """Total honoraires HT (nombre_actes × honoraires unitaire)"""
+        return self.honoraires_ht * self.nombre_actes
+
+    @property
+    def montant_tva(self):
+        """TVA sur les honoraires uniquement (18%)"""
+        return (self.total_honoraires_ht * self.TAUX_TVA) / 100
+
+    @property
+    def total_debours(self):
+        """Total débours (montant global, pas multiplié par nombre_actes)"""
+        return self.debours
 
     @property
     def total_ht(self):
-        """Montant HT total (quantité × montant unitaire)"""
-        return self.montant_ht * self.quantite
+        """Total HT = Honoraires HT + Débours"""
+        return self.total_honoraires_ht + self.total_debours
+
+    @property
+    def total_ttc(self):
+        """Total TTC = Honoraires HT + TVA + Débours"""
+        return self.total_honoraires_ht + self.montant_tva + self.total_debours
+
+    # === MÉTHODES ===
 
     def marquer_facture(self, ligne_facture):
         """Marque l'acte comme facturé et lie à la ligne de facture"""
@@ -4142,12 +4169,15 @@ class ActeDossier(models.Model):
 
     @classmethod
     def total_non_facture(cls, dossier):
-        """Calcule le total HT des actes non facturés"""
+        """Calcule le total HT des actes non facturés (honoraires + débours)"""
         from django.db.models import Sum, F
         result = cls.actes_non_factures(dossier).aggregate(
-            total=Sum(F('montant_ht') * F('quantite'))
+            total_honoraires=Sum(F('honoraires_ht') * F('nombre_actes')),
+            total_debours=Sum('debours')
         )
-        return result['total'] or 0
+        honoraires = result['total_honoraires'] or 0
+        debours = result['total_debours'] or 0
+        return honoraires + debours
 
 
 # Import des modèles d'import (pour les inclure dans les migrations)
