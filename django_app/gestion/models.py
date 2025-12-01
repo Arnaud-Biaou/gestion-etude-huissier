@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from decimal import Decimal
 import json
 
 
@@ -3980,12 +3981,25 @@ class ActeSecurise(models.Model):
 
 class ActeDossier(models.Model):
     """
-    Enregistre un acte effectué dans un dossier.
-    Distingue les honoraires (taxables à 18%) des débours (non taxables).
+    Enregistre un acte ou un débours dans un dossier.
+    Structure conforme à la facturation des huissiers au Bénin.
+
+    Types de lignes :
+    - 'acte' : Honoraires + Timbre fiscal + Enregistrement
+    - 'debours' : Débours variable (enrôlement, greffe, etc.)
     """
 
-    # Taux TVA fixe Bénin
-    TAUX_TVA = Decimal('18.00')
+    # Type de ligne
+    TYPE_LIGNE_CHOICES = [
+        ('acte', 'Acte (honoraires + débours fixes)'),
+        ('debours', 'Débours variable'),
+    ]
+    type_ligne = models.CharField(
+        max_length=20,
+        choices=TYPE_LIGNE_CHOICES,
+        default='acte',
+        verbose_name="Type de ligne"
+    )
 
     # Lien vers le dossier
     dossier = models.ForeignKey(
@@ -3995,7 +4009,7 @@ class ActeDossier(models.Model):
         verbose_name="Dossier"
     )
 
-    # Type d'acte (depuis le catalogue)
+    # Type d'acte (depuis le catalogue, uniquement pour type_ligne='acte')
     type_acte = models.ForeignKey(
         'ActeProcedure',
         on_delete=models.PROTECT,
@@ -4003,14 +4017,14 @@ class ActeDossier(models.Model):
         verbose_name="Type d'acte",
         null=True,
         blank=True,
-        help_text="Sélectionner depuis le catalogue ou saisir manuellement"
+        help_text="Catalogue des actes (optionnel)"
     )
 
-    # Libellé personnalisé (si pas de type_acte ou pour préciser)
+    # Libellé / Description
     libelle = models.CharField(
         max_length=255,
         verbose_name="Libellé",
-        help_text="Description de l'acte effectué"
+        help_text="Description de l'acte ou du débours"
     )
 
     # Date de réalisation
@@ -4018,43 +4032,65 @@ class ActeDossier(models.Model):
         verbose_name="Date de réalisation"
     )
 
-    # === HONORAIRES (taxables à 18%) ===
+    # ========================================
+    # CHAMPS POUR TYPE 'acte'
+    # ========================================
+
+    # Honoraires (taxables à 18%)
     honoraires_ht = models.DecimalField(
         max_digits=12,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         verbose_name="Honoraires HT",
-        help_text="Émoluments et frais de l'huissier (taxables à 18%)"
+        help_text="Émoluments de l'huissier (taxables à 18%)"
     )
 
-    # === DÉBOURS (non taxables) ===
-    debours = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        verbose_name="Débours",
-        help_text="Frais avancés : timbres, enregistrement, greffe, etc. (non taxables)"
-    )
-
-    # Détail des débours (optionnel, pour traçabilité)
-    detail_debours = models.TextField(
-        blank=True,
-        verbose_name="Détail des débours",
-        help_text="Ex: Timbre fiscal 2000F, Enregistrement 5000F..."
-    )
-
-    # Nombre d'actes (pour les actes multiples, ex: 3 significations)
-    nombre_actes = models.PositiveIntegerField(
+    # Timbre fiscal
+    nombre_feuillets = models.PositiveIntegerField(
         default=1,
-        verbose_name="Nombre d'actes",
-        help_text="Quantité si plusieurs actes identiques"
+        verbose_name="Nombre de feuillets",
+        help_text="Pour le calcul du timbre fiscal"
     )
 
-    # Notes / Observations
+    TARIF_TIMBRE_FEUILLET = 1200  # FCFA par feuillet
+
+    # Enregistrement
+    inclure_enregistrement = models.BooleanField(
+        default=True,
+        verbose_name="Inclure l'enregistrement",
+        help_text="Ajouter les frais d'enregistrement (2.500 F)"
+    )
+
+    TARIF_ENREGISTREMENT = 2500  # FCFA par acte
+
+    # ========================================
+    # CHAMPS POUR TYPE 'debours'
+    # ========================================
+
+    # Montant du débours variable
+    montant_debours = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Montant débours",
+        help_text="Montant du débours variable (non taxable)"
+    )
+
+    # ========================================
+    # CHAMPS COMMUNS
+    # ========================================
+
+    # Quantité (pour actes multiples identiques)
+    quantite = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Quantité",
+        help_text="Nombre d'actes identiques"
+    )
+
+    # Notes
     notes = models.TextField(
         blank=True,
-        verbose_name="Notes",
-        help_text="Observations ou détails supplémentaires"
+        verbose_name="Notes"
     )
 
     # Statut de facturation
@@ -4070,7 +4106,7 @@ class ActeDossier(models.Model):
         verbose_name="Statut facturation"
     )
 
-    # Lien vers la ligne de facture (quand facturé)
+    # Lien vers la ligne de facture
     ligne_facture = models.ForeignKey(
         'LigneFacture',
         on_delete=models.SET_NULL,
@@ -4080,7 +4116,7 @@ class ActeDossier(models.Model):
         verbose_name="Ligne de facture"
     )
 
-    # Lien vers ActeSecurise (pour QR code)
+    # Lien vers ActeSecurise (QR code)
     acte_securise = models.OneToOneField(
         'ActeSecurise',
         on_delete=models.SET_NULL,
@@ -4098,14 +4134,8 @@ class ActeDossier(models.Model):
         related_name='actes_crees',
         verbose_name="Créé par"
     )
-    cree_le = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="Créé le"
-    )
-    modifie_le = models.DateTimeField(
-        auto_now=True,
-        verbose_name="Modifié le"
-    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+    modifie_le = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Acte du dossier"
@@ -4114,17 +4144,43 @@ class ActeDossier(models.Model):
         indexes = [
             models.Index(fields=['dossier', '-date_realisation']),
             models.Index(fields=['statut_facturation']),
+            models.Index(fields=['type_ligne']),
         ]
 
     def __str__(self):
         return f"{self.libelle} - {self.dossier.reference}"
 
-    # === PROPRIÉTÉS CALCULÉES ===
+    # ========================================
+    # PROPRIÉTÉS CALCULÉES
+    # ========================================
+
+    TAUX_TVA = Decimal('18')
+
+    @property
+    def timbre_fiscal(self):
+        """Montant du timbre fiscal (nombre de feuillets × tarif)"""
+        if self.type_ligne == 'acte':
+            return self.nombre_feuillets * self.TARIF_TIMBRE_FEUILLET * self.quantite
+        return 0
+
+    @property
+    def frais_enregistrement(self):
+        """Frais d'enregistrement si inclus"""
+        if self.type_ligne == 'acte' and self.inclure_enregistrement:
+            return self.TARIF_ENREGISTREMENT * self.quantite
+        return 0
+
+    @property
+    def total_debours_fixes(self):
+        """Total des débours fixes (timbre + enregistrement)"""
+        return self.timbre_fiscal + self.frais_enregistrement
 
     @property
     def total_honoraires_ht(self):
-        """Total honoraires HT (nombre_actes × honoraires unitaire)"""
-        return self.honoraires_ht * self.nombre_actes
+        """Total honoraires HT"""
+        if self.type_ligne == 'acte':
+            return self.honoraires_ht * self.quantite
+        return 0
 
     @property
     def montant_tva(self):
@@ -4132,52 +4188,60 @@ class ActeDossier(models.Model):
         return (self.total_honoraires_ht * self.TAUX_TVA) / 100
 
     @property
-    def total_debours(self):
-        """Total débours (montant global, pas multiplié par nombre_actes)"""
-        return self.debours
+    def total_debours_variables(self):
+        """Total des débours variables"""
+        if self.type_ligne == 'debours':
+            return self.montant_debours * self.quantite
+        return 0
 
     @property
     def total_ht(self):
-        """Total HT = Honoraires HT + Débours"""
-        return self.total_honoraires_ht + self.total_debours
+        """Total HT de la ligne (honoraires + tous débours)"""
+        return self.total_honoraires_ht + self.total_debours_fixes + self.total_debours_variables
 
     @property
     def total_ttc(self):
-        """Total TTC = Honoraires HT + TVA + Débours"""
-        return self.total_honoraires_ht + self.montant_tva + self.total_debours
+        """Total TTC de la ligne"""
+        return self.total_ht + self.montant_tva
 
-    # === MÉTHODES ===
+    # ========================================
+    # MÉTHODES
+    # ========================================
 
     def marquer_facture(self, ligne_facture):
-        """Marque l'acte comme facturé et lie à la ligne de facture"""
+        """Marque comme facturé"""
         self.statut_facturation = 'facture'
         self.ligne_facture = ligne_facture
         self.save(update_fields=['statut_facturation', 'ligne_facture', 'modifie_le'])
 
     def annuler(self):
-        """Annule l'acte"""
+        """Annule l'acte/débours"""
         self.statut_facturation = 'annule'
         self.save(update_fields=['statut_facturation', 'modifie_le'])
 
     @classmethod
     def actes_non_factures(cls, dossier):
-        """Retourne les actes non facturés d'un dossier"""
-        return cls.objects.filter(
-            dossier=dossier,
-            statut_facturation='non_facture'
-        )
+        """Retourne les actes/débours non facturés d'un dossier"""
+        return cls.objects.filter(dossier=dossier, statut_facturation='non_facture')
 
     @classmethod
-    def total_non_facture(cls, dossier):
-        """Calcule le total HT des actes non facturés (honoraires + débours)"""
-        from django.db.models import Sum, F
-        result = cls.actes_non_factures(dossier).aggregate(
-            total_honoraires=Sum(F('honoraires_ht') * F('nombre_actes')),
-            total_debours=Sum('debours')
-        )
-        honoraires = result['total_honoraires'] or 0
-        debours = result['total_debours'] or 0
-        return honoraires + debours
+    def totaux_non_factures(cls, dossier):
+        """Calcule les totaux non facturés d'un dossier"""
+        actes = cls.actes_non_factures(dossier)
+
+        total_honoraires = sum(a.total_honoraires_ht for a in actes)
+        total_tva = sum(a.montant_tva for a in actes)
+        total_debours_fixes = sum(a.total_debours_fixes for a in actes)
+        total_debours_variables = sum(a.total_debours_variables for a in actes)
+
+        return {
+            'honoraires_ht': total_honoraires,
+            'tva': total_tva,
+            'debours_fixes': total_debours_fixes,
+            'debours_variables': total_debours_variables,
+            'total_ht': total_honoraires + total_debours_fixes + total_debours_variables,
+            'total_ttc': total_honoraires + total_tva + total_debours_fixes + total_debours_variables,
+        }
 
 
 # Import des modèles d'import (pour les inclure dans les migrations)
