@@ -4027,9 +4027,22 @@ class ActeDossier(models.Model):
         help_text="Description de l'acte ou du débours"
     )
 
-    # Date de réalisation
-    date_realisation = models.DateField(
-        verbose_name="Date de réalisation"
+    # ========================================
+    # DATES DE RÉALISATION
+    # ========================================
+
+    # Date principale (pour tri et recherche)
+    date_debut = models.DateField(
+        verbose_name="Date de réalisation",
+        help_text="Date de l'acte ou première date si plusieurs"
+    )
+
+    # Dates supplémentaires (texte libre pour affichage facture)
+    dates_supplementaires = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Dates supplémentaires",
+        help_text="Ex: '29 et 30/11/2025' si signifié sur plusieurs jours"
     )
 
     # ========================================
@@ -4140,21 +4153,48 @@ class ActeDossier(models.Model):
     class Meta:
         verbose_name = "Acte du dossier"
         verbose_name_plural = "Actes du dossier"
-        ordering = ['-date_realisation', '-cree_le']
+        ordering = ['-date_debut', '-cree_le']
         indexes = [
-            models.Index(fields=['dossier', '-date_realisation']),
+            models.Index(fields=['dossier', '-date_debut']),
             models.Index(fields=['statut_facturation']),
             models.Index(fields=['type_ligne']),
         ]
 
     def __str__(self):
-        return f"{self.libelle} - {self.dossier.reference}"
+        return f"{self.libelle_facture} - {self.dossier.reference}"
 
     # ========================================
     # PROPRIÉTÉS CALCULÉES
     # ========================================
 
     TAUX_TVA = Decimal('18')
+
+    @property
+    def libelle_facture(self):
+        """
+        Génère le libellé pour la facture, incluant les dates.
+        Garantit l'unicité pour la conformité MECeF.
+        """
+        # Formater la date principale
+        date_str = self.date_debut.strftime('%d/%m/%Y')
+
+        if self.dates_supplementaires:
+            # Plusieurs dates : "Signification des 28, 29, 30/11/2025"
+            return f"{self.libelle} des {self.date_debut.strftime('%d')}, {self.dates_supplementaires}"
+        else:
+            # Date unique : "Signification du 28/11/2025"
+            return f"{self.libelle} du {date_str}"
+
+    @property
+    def dates_affichage(self):
+        """
+        Retourne les dates formatées pour affichage.
+        """
+        date_str = self.date_debut.strftime('%d/%m/%Y')
+
+        if self.dates_supplementaires:
+            return f"{self.date_debut.strftime('%d')}, {self.dates_supplementaires}"
+        return date_str
 
     @property
     def timbre_fiscal(self):

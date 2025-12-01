@@ -6875,7 +6875,7 @@ def liste_actes_dossier(request, dossier_id):
     Liste tous les actes d'un dossier avec récapitulatif facturation.
     """
     dossier = get_object_or_404(Dossier, id=dossier_id)
-    actes = dossier.actes_dossier.all().order_by('-date_realisation')
+    actes = dossier.actes_dossier.all().order_by('-date_debut')
 
     # Calculs récapitulatifs
     actes_non_factures = actes.filter(statut_facturation='non_facture')
@@ -6906,13 +6906,16 @@ def ajouter_acte_dossier(request, dossier_id):
         try:
             with transaction.atomic():
                 # Récupérer les données
+                type_ligne = request.POST.get('type_ligne', 'acte')
                 type_acte_id = request.POST.get('type_acte')
                 libelle = request.POST.get('libelle', '').strip()
-                date_realisation = request.POST.get('date_realisation')
+                date_debut = request.POST.get('date_debut')
+                dates_supplementaires = request.POST.get('dates_supplementaires', '').strip()
                 honoraires_ht = request.POST.get('honoraires_ht', '0')
-                debours = request.POST.get('debours', '0')
-                detail_debours = request.POST.get('detail_debours', '')
-                nombre_actes = request.POST.get('nombre_actes', '1')
+                nombre_feuillets = request.POST.get('nombre_feuillets', '1')
+                inclure_enregistrement = request.POST.get('inclure_enregistrement') == 'on'
+                montant_debours = request.POST.get('montant_debours', '0')
+                quantite = request.POST.get('quantite', '1')
                 notes = request.POST.get('notes', '')
 
                 # Récupérer le type d'acte si sélectionné
@@ -6929,14 +6932,15 @@ def ajouter_acte_dossier(request, dossier_id):
                     messages.error(request, "Le libellé est obligatoire.")
                     return redirect('gestion:ajouter_acte_dossier', dossier_id=dossier_id)
 
-                if not date_realisation:
+                if not date_debut:
                     messages.error(request, "La date de réalisation est obligatoire.")
                     return redirect('gestion:ajouter_acte_dossier', dossier_id=dossier_id)
 
                 # Convertir les valeurs
                 honoraires_ht = Decimal(honoraires_ht.replace(' ', '').replace(',', '.') or '0')
-                debours = Decimal(debours.replace(' ', '').replace(',', '.') or '0')
-                nombre_actes = int(nombre_actes or '1')
+                montant_debours = Decimal(montant_debours.replace(' ', '').replace(',', '.') or '0')
+                nombre_feuillets = int(nombre_feuillets or '1')
+                quantite = int(quantite or '1')
 
                 # Récupérer le collaborateur
                 collaborateur = None
@@ -6946,13 +6950,16 @@ def ajouter_acte_dossier(request, dossier_id):
                 # Créer l'acte
                 acte = ActeDossier.objects.create(
                     dossier=dossier,
+                    type_ligne=type_ligne,
                     type_acte=type_acte,
                     libelle=libelle,
-                    date_realisation=date_realisation,
+                    date_debut=date_debut,
+                    dates_supplementaires=dates_supplementaires,
                     honoraires_ht=honoraires_ht,
-                    debours=debours,
-                    detail_debours=detail_debours,
-                    nombre_actes=nombre_actes,
+                    nombre_feuillets=nombre_feuillets,
+                    inclure_enregistrement=inclure_enregistrement,
+                    montant_debours=montant_debours,
+                    quantite=quantite,
                     notes=notes,
                     cree_par=collaborateur,
                 )
@@ -6992,23 +6999,47 @@ def modifier_acte_dossier(request, acte_id):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                acte.libelle = request.POST.get('libelle', acte.libelle)
-                acte.date_realisation = request.POST.get('date_realisation', acte.date_realisation)
+                # Type de ligne
+                acte.type_ligne = request.POST.get('type_ligne', acte.type_ligne)
 
+                # Libellé
+                acte.libelle = request.POST.get('libelle', acte.libelle)
+
+                # Dates (MECeF compliance)
+                date_debut = request.POST.get('date_debut')
+                if date_debut:
+                    acte.date_debut = date_debut
+                acte.dates_supplementaires = request.POST.get('dates_supplementaires', '').strip()
+
+                # Type acte
+                type_acte_id = request.POST.get('type_acte')
+                if type_acte_id:
+                    acte.type_acte_id = int(type_acte_id)
+                else:
+                    acte.type_acte = None
+
+                # Champs pour type_ligne='acte'
                 honoraires_ht = request.POST.get('honoraires_ht', '')
                 if honoraires_ht:
                     acte.honoraires_ht = Decimal(honoraires_ht.replace(' ', '').replace(',', '.'))
 
-                debours = request.POST.get('debours', '')
-                if debours:
-                    acte.debours = Decimal(debours.replace(' ', '').replace(',', '.'))
+                nombre_feuillets = request.POST.get('nombre_feuillets', '')
+                if nombre_feuillets:
+                    acte.nombre_feuillets = int(nombre_feuillets)
 
-                acte.detail_debours = request.POST.get('detail_debours', acte.detail_debours)
+                acte.inclure_enregistrement = request.POST.get('inclure_enregistrement') == 'on'
 
-                nombre_actes = request.POST.get('nombre_actes', '')
-                if nombre_actes:
-                    acte.nombre_actes = int(nombre_actes)
+                # Champ pour type_ligne='debours'
+                montant_debours = request.POST.get('montant_debours', '')
+                if montant_debours:
+                    acte.montant_debours = Decimal(montant_debours.replace(' ', '').replace(',', '.'))
 
+                # Quantité
+                quantite = request.POST.get('quantite', '')
+                if quantite:
+                    acte.quantite = int(quantite)
+
+                # Notes
                 acte.notes = request.POST.get('notes', '')
                 acte.save()
 
