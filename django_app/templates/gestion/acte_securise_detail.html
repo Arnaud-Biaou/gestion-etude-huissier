@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Acte Sécurisé - {{ acte.code_verification }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossiers' %}">Dossiers</a>
+        <span>/</span>
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <span>Acte sécurisé</span>
+    </div>
+    <h1>Acte Sécurisé</h1>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start;">
+
+    <!-- Informations de l'acte -->
+    <div class="card">
+        <div class="card-header">
+            <h2>Informations de l'acte</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; gap: 16px;">
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Code de vérification</label>
+                    <div style="font-family: monospace; font-size: 1.25rem; font-weight: 600; color: var(--primary);">
+                        {{ acte.code_verification }}
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Type d'acte</label>
+                    <div style="font-size: 1rem;">{{ acte.get_type_acte_display }}</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Titre</label>
+                    <div style="font-size: 1rem;">{{ acte.titre_acte }}</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Date de l'acte</label>
+                    <div style="font-size: 1rem;">{{ acte.date_acte|date:"d F Y" }}</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Parties</label>
+                    <div style="font-size: 1rem;">{{ acte.parties_resume }}</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Référence dossier</label>
+                    <div style="font-size: 1rem;">
+                        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Créé le</label>
+                    <div style="font-size: 1rem;">{{ acte.cree_le|date:"d/m/Y à H:i" }}</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Hash de sécurité (SHA-256)</label>
+                    <div style="font-family: monospace; font-size: 0.75rem; color: var(--neutral-600); word-break: break-all;">
+                        {{ acte.hash_contenu }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="card">
+        <div class="card-header">
+            <h2>QR Code</h2>
+        </div>
+        <div class="card-body" style="text-align: center;">
+            {% if qr_disponible %}
+            <img src="{{ qr_code }}"
+                 alt="QR Code de vérification"
+                 style="width: 200px; height: 200px; margin-bottom: 16px;">
+
+            <p style="font-size: 0.75rem; color: var(--neutral-600); margin-bottom: 16px;">
+                Scannez ce QR code pour vérifier l'authenticité de l'acte
+            </p>
+
+            <div style="background: var(--neutral-100); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="font-size: 0.625rem; color: var(--neutral-500); margin-bottom: 4px;">URL de vérification</div>
+                <div style="font-size: 0.75rem; font-family: monospace; word-break: break-all;">
+                    {{ acte.get_qr_data }}
+                </div>
+            </div>
+
+            <button onclick="window.print()" class="btn btn-secondary btn-sm" style="width: 100%;">
+                Imprimer le QR
+            </button>
+            {% else %}
+            <div style="padding: 40px; color: var(--neutral-500);">
+                <p>Module QR code non disponible</p>
+                <p style="font-size: 0.875rem;">Installez le module avec :</p>
+                <code style="font-size: 0.75rem;">pip install qrcode[pil]</code>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Instructions -->
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2>Instructions d'utilisation</h2>
+    </div>
+    <div class="card-body">
+        <ol style="padding-left: 20px; line-height: 1.8;">
+            <li><strong>Imprimez le QR code</strong> ou faites une capture d'écran</li>
+            <li><strong>Intégrez-le</strong> dans votre acte (coin inférieur droit recommandé)</li>
+            <li><strong>Ajoutez le code</strong> en texte sous le QR : <code>{{ acte.code_verification }}</code></li>
+            <li>Le destinataire pourra <strong>scanner le QR</strong> pour vérifier l'authenticité</li>
+        </ol>
+    </div>
+</div>
+
+<div style="margin-top: 24px; display: flex; gap: 12px;">
+    <a href="{% url 'gestion:dossier_detail' dossier.id %}" class="btn btn-secondary">
+        Retour au dossier
+    </a>
+    <a href="{% url 'gestion:securiser_acte' dossier.id %}" class="btn btn-primary">
+        + Sécuriser un autre acte
+    </a>
+</div>
+
+<style>
+@media print {
+    .page-header, .breadcrumb, .card-header, .btn, ol { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+}
+</style>
+{% endblock %}

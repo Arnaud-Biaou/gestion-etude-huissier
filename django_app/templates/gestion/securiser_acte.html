@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Sécuriser un Acte - {{ dossier.reference }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossiers' %}">Dossiers</a>
+        <span>/</span>
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <span>Sécuriser un acte</span>
+    </div>
+    <h1>Sécuriser un Acte</h1>
+    <p style="color: var(--neutral-600);">
+        Générer un QR code de vérification pour un acte du dossier {{ dossier.reference }}
+    </p>
+</div>
+
+<div class="card" style="max-width: 700px;">
+    <div class="card-header">
+        <h2>Informations de l'acte</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="type_acte" class="form-label">Type d'acte *</label>
+                <select name="type_acte" id="type_acte" class="form-control" required>
+                    <option value="">-- Sélectionnez --</option>
+                    {% for value, label in types_acte %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="titre_acte" class="form-label">Titre de l'acte *</label>
+                <input type="text"
+                       name="titre_acte"
+                       id="titre_acte"
+                       class="form-control"
+                       placeholder="Ex: Signification de jugement, PV de constat, Commandement de payer..."
+                       required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="date_acte" class="form-label">Date de l'acte *</label>
+                <input type="date"
+                       name="date_acte"
+                       id="date_acte"
+                       class="form-control"
+                       value="{% now 'Y-m-d' %}"
+                       required>
+                <small style="color: var(--neutral-500);">
+                    Pour les significations, indiquez la date prévue ou laissez la date du jour.
+                </small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="parties_resume" class="form-label">Parties concernées *</label>
+                <input type="text"
+                       name="parties_resume"
+                       id="parties_resume"
+                       class="form-control"
+                       value="{{ parties_default }}"
+                       placeholder="Ex: BANQUE XYZ c/ M. DUPONT Jean"
+                       required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="contenu_acte" class="form-label">Contenu ou description (optionnel)</label>
+                <textarea name="contenu_acte"
+                          id="contenu_acte"
+                          class="form-control"
+                          rows="4"
+                          placeholder="Résumé du contenu de l'acte pour le hash de sécurité..."></textarea>
+                <small style="color: var(--neutral-500);">
+                    Ce contenu sera utilisé pour générer l'empreinte de sécurité (hash SHA-256).
+                </small>
+            </div>
+
+            <div style="background: var(--info-bg, #e7f3ff); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="font-size: 0.875rem; color: var(--info-text, #0066cc); margin: 0;">
+                    <strong>Information</strong><br>
+                    Un code de vérification unique sera généré. Ce code apparaîtra sous forme de QR code
+                    à intégrer dans votre acte. Toute personne pourra scanner ce QR pour vérifier
+                    l'authenticité du document.
+                </p>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{% url 'gestion:dossier_detail' dossier.id %}" class="btn btn-secondary">
+                    Annuler
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Générer le QR de sécurité
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
