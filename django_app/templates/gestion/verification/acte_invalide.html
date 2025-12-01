@@ -1,0 +1,54 @@
+{% extends "gestion/verification/base_verification.html" %}
+
+{% block title %}Acte Non Reconnu{% endblock %}
+
+{% block content %}
+<div class="status invalide">
+    <span class="status-icon">❌</span>
+    <span class="status-text">Acte Non Reconnu</span>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Code recherché</div>
+    <div class="info-value code-display">{{ code }}</div>
+</div>
+
+{% if raison %}
+<div class="info-group">
+    <div class="info-label">Raison</div>
+    <div class="info-value">{{ raison }}</div>
+</div>
+{% endif %}
+
+<div class="divider"></div>
+
+<div style="background: #fef3cd; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+    <p style="font-size: 0.875rem; color: #856404; margin-bottom: 8px;">
+        <strong>⚠️ Attention</strong>
+    </p>
+    <p style="font-size: 0.875rem; color: #856404;">
+        Ce code de vérification n'existe pas dans notre système.
+        L'acte que vous possédez pourrait être falsifié ou modifié.
+    </p>
+</div>
+
+<div class="divider"></div>
+
+<p style="font-size: 0.875rem; color: #6b7280; text-align: center; margin-bottom: 16px;">
+    <strong>Contactez l'Étude pour vérification :</strong>
+</p>
+
+<div class="info-group">
+    <div class="info-label">Téléphone</div>
+    <div class="info-value">+229 XX XX XX XX</div>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Email</div>
+    <div class="info-value">contact@etude-biaou.bj</div>
+</div>
+
+<a href="{% url 'gestion:verification_accueil' %}" class="btn">
+    Vérifier un autre code
+</a>
+{% endblock %}

@@ -3814,5 +3814,169 @@ class PermissionsGranulaires(models.Model):
         return modules
 
 
+class ActeSecurise(models.Model):
+    """
+    Enregistrement de sécurisation pour chaque acte produit.
+    Permet la vérification d'authenticité via QR code.
+    """
+    # Identifiant unique de vérification
+    code_verification = models.CharField(
+        max_length=25,
+        unique=True,
+        db_index=True,
+        verbose_name="Code de vérification"
+    )  # Format: ACT-2025-1130-7F3B2
+
+    # Lien vers le dossier
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='actes_securises',
+        verbose_name="Dossier"
+    )
+
+    # Type d'acte
+    TYPE_ACTE_CHOICES = [
+        ('signification', 'Signification'),
+        ('constat', 'Procès-verbal de constat'),
+        ('sommation', 'Sommation'),
+        ('commandement', 'Commandement de payer'),
+        ('saisie', 'Procès-verbal de saisie'),
+        ('inventaire', 'Inventaire'),
+        ('citation', 'Citation à comparaître'),
+        ('notification', 'Notification'),
+        ('proces_verbal', 'Procès-verbal'),
+        ('autre', 'Autre acte'),
+    ]
+    type_acte = models.CharField(
+        max_length=50,
+        choices=TYPE_ACTE_CHOICES,
+        verbose_name="Type d'acte"
+    )
+
+    # Informations de l'acte
+    titre_acte = models.CharField(
+        max_length=255,
+        verbose_name="Titre de l'acte"
+    )
+    date_acte = models.DateField(
+        verbose_name="Date de l'acte"
+    )
+
+    # Parties concernées (résumé pour affichage vérification)
+    parties_resume = models.TextField(
+        verbose_name="Parties",
+        help_text="Ex: BANQUE XYZ c/ M. DUPONT Jean"
+    )
+
+    # Sécurisation - Hash du contenu
+    hash_contenu = models.CharField(
+        max_length=64,
+        verbose_name="Hash du document",
+        help_text="SHA-256 du contenu PDF"
+    )
+    hash_algorithme = models.CharField(
+        max_length=10,
+        default='SHA256',
+        verbose_name="Algorithme"
+    )
+
+    # Lien vers document (optionnel)
+    document = models.ForeignKey(
+        'documents.Document',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes_securises',
+        verbose_name="Document associé"
+    )
+
+    # Métadonnées de création
+    cree_par = models.ForeignKey(
+        'hr.Collaborateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Créé par"
+    )
+    cree_le = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Créé le"
+    )
+
+    # Statistiques de vérification
+    nombre_verifications = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Nombre de vérifications"
+    )
+    derniere_verification = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière vérification"
+    )
+
+    # Statut
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name="Actif",
+        help_text="Décocher pour invalider un acte (erreur, annulation)"
+    )
+
+    class Meta:
+        verbose_name = "Acte sécurisé"
+        verbose_name_plural = "Actes sécurisés"
+        ordering = ['-cree_le']
+        indexes = [
+            models.Index(fields=['code_verification']),
+            models.Index(fields=['dossier', '-date_acte']),
+        ]
+
+    def __str__(self):
+        return f"{self.code_verification} - {self.titre_acte}"
+
+    @classmethod
+    def generer_code_verification(cls):
+        """
+        Génère un code unique pour un acte.
+        Format: ACT-AAAA-MMJJ-XXXXX
+        """
+        import secrets
+        from django.utils import timezone
+
+        now = timezone.now()
+
+        while True:
+            random_part = secrets.token_hex(3).upper()  # 6 caractères hex
+            code = f"ACT-{now.year}-{now.month:02d}{now.day:02d}-{random_part}"
+
+            # Vérifier unicité
+            if not cls.objects.filter(code_verification=code).exists():
+                return code
+
+    @staticmethod
+    def calculer_hash(contenu_bytes):
+        """
+        Calcule le hash SHA-256 d'un contenu.
+        """
+        import hashlib
+        return hashlib.sha256(contenu_bytes).hexdigest()
+
+    def get_verification_url(self):
+        """URL relative de vérification"""
+        return f"/verification/{self.code_verification}/"
+
+    def get_qr_data(self):
+        """Données à encoder dans le QR code"""
+        from django.conf import settings
+        base_url = getattr(settings, 'SITE_URL', 'https://etude-biaou.bj')
+        return f"{base_url}/v/{self.code_verification}"
+
+    def incrementer_verification(self):
+        """Incrémente le compteur lors d'une vérification"""
+        from django.utils import timezone
+        self.nombre_verifications += 1
+        self.derniere_verification = timezone.now()
+        self.save(update_fields=['nombre_verifications', 'derniere_verification'])
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp

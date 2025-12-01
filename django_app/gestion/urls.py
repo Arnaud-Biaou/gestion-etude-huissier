@@ -1,9 +1,16 @@
 from django.urls import path
 from . import views
+from . import views_verification
 
 app_name = 'gestion'
 
 urlpatterns = [
+    # === VÉRIFICATION PUBLIQUE DES ACTES (pas de login requis) ===
+    path('v/<str:code>/', views_verification.verification_acte, name='verification_acte_court'),
+    path('verification/', views_verification.verification_accueil, name='verification_accueil'),
+    path('verification/<str:code>/', views_verification.verification_acte, name='verification_acte'),
+    path('api/verification/<str:code>/', views_verification.verification_acte_api, name='verification_acte_api'),
+
     # Pages principales
     path('', views.dashboard, name='dashboard'),
     path('recherche/', views.recherche_globale, name='recherche_globale'),
@@ -11,6 +18,12 @@ urlpatterns = [
     path('dossiers/nouveau/', views.nouveau_dossier, name='nouveau_dossier'),
     path('dossiers/<int:pk>/', views.dossier_detail, name='dossier_detail'),
     path('dossiers/<int:pk>/modifier/', views.modifier_dossier, name='modifier_dossier'),
+
+    # === ACTES SÉCURISÉS ===
+    path('dossier/<int:dossier_id>/securiser/', views.securiser_acte, name='securiser_acte'),
+    path('acte-securise/<int:acte_id>/', views.acte_securise_detail, name='acte_securise_detail'),
+    path('dossier/<int:dossier_id>/actes-securises/', views.liste_actes_securises, name='liste_actes_securises'),
+
     path('facturation/', views.facturation, name='facturation'),
     path('memoires/', views.memoires, name='memoires'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
