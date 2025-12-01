@@ -7272,20 +7272,23 @@ def confirmer_facture_actes(request):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                # Options fiscales
-                type_taxe = request.POST.get('type_taxe', 'tps')
+                # Options fiscales et client
+                type_client = request.POST.get('type_client', 'prive')
                 client_soumis_aib = request.POST.get('client_soumis_aib') == 'on'
                 client_nom = request.POST.get('client_nom', '')
                 client_ifu = request.POST.get('client_ifu', '')
 
-                # Recalculer avec le bon taux
-                if type_taxe == 'tva':
+                # Déterminer type_taxe selon type_client (MECeF)
+                # Client public = TVA 18%, Client privé = TPS 5%
+                if type_client == 'public':
+                    type_taxe = 'tva'
                     taux = Decimal('18')
-                    montant_taxe = (total_honoraires * taux) / 100
                 else:
+                    type_taxe = 'tps'
                     taux = Decimal('5')
-                    montant_taxe = total_taxe
 
+                # Calculer la taxe sur les honoraires uniquement
+                montant_taxe = (total_honoraires * taux) / 100
                 montant_ttc = total_ht + montant_taxe
 
                 # Générer le numéro
@@ -7294,12 +7297,13 @@ def confirmer_facture_actes(request):
                 # Lier à un dossier principal (le premier) ou None si multi-dossiers
                 dossier_principal = list(dossiers)[0] if len(dossiers) == 1 else None
 
-                # Créer la facture
+                # Créer la facture avec type_client MECeF
                 facture = Facture.objects.create(
                     numero=numero,
                     dossier=dossier_principal,
                     client=client_nom,
                     ifu=client_ifu,
+                    type_client=type_client,
                     montant_ht=total_ht,
                     taux_tva=taux,
                     montant_tva=montant_taxe,
@@ -7310,14 +7314,24 @@ def confirmer_facture_actes(request):
                     statut='brouillon',
                 )
 
-                # Créer les lignes
+                # Créer les lignes avec groupe de taxation MECeF
                 for acte in actes_list:
+                    # Déterminer le type de ligne
+                    type_ligne = getattr(acte, 'type_ligne_facture', 'honoraires')
+                    if acte.type_ligne == 'debours':
+                        type_ligne = 'debours_exonere'
+
                     ligne = LigneFacture.objects.create(
                         facture=facture,
                         description=f"[{acte.dossier.reference}] {acte.libelle_facture}",
                         quantite=acte.quantite,
                         prix_unitaire=acte.total_ht,
+                        type_ligne=type_ligne,
                     )
+                    # Appliquer les règles MECeF pour le groupe de taxation
+                    ligne.determiner_groupe_taxation(type_client=type_client, regime_etude='tps')
+                    ligne.save()
+
                     acte.marquer_facture(ligne)
 
                 # Nettoyer la session
