@@ -1,0 +1,43 @@
+{% extends "gestion/verification/base_verification.html" %}
+
+{% block title %}Vérifier un Acte{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 24px;">
+    <div style="font-size: 3rem; margin-bottom: 8px;">🔍</div>
+    <h2 style="font-size: 1.25rem; color: #1f2937; margin-bottom: 8px;">
+        Vérifier l'authenticité d'un acte
+    </h2>
+    <p style="font-size: 0.875rem; color: #6b7280;">
+        Saisissez le code de vérification qui figure sur l'acte
+    </p>
+</div>
+
+<form method="GET" action="">
+    <div class="info-group">
+        <label class="info-label" for="code">Code de vérification</label>
+        <input
+            type="text"
+            id="code"
+            name="code"
+            placeholder="ACT-2025-1130-XXXXX"
+            required
+            pattern="[A-Za-z0-9\-]+"
+            autocomplete="off"
+        >
+    </div>
+
+    <button type="submit" class="btn">
+        Vérifier l'acte
+    </button>
+</form>
+
+<div class="divider"></div>
+
+<div style="text-align: center;">
+    <p style="font-size: 0.75rem; color: #9ca3af;">
+        Vous pouvez également scanner le QR code<br>
+        présent sur l'acte avec votre téléphone.
+    </p>
+</div>
+{% endblock %}

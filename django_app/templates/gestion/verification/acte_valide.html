@@ -1,0 +1,54 @@
+{% extends "gestion/verification/base_verification.html" %}
+
+{% block title %}Acte Authentique{% endblock %}
+
+{% block content %}
+<div class="status valide">
+    <span class="status-icon">✅</span>
+    <span class="status-text">Acte Authentique</span>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Code de vérification</div>
+    <div class="info-value code-display">{{ acte.code }}</div>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Type d'acte</div>
+    <div class="info-value">{{ acte.type_acte }}</div>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Titre</div>
+    <div class="info-value">{{ acte.titre }}</div>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Date de l'acte</div>
+    <div class="info-value">{{ acte.date_acte|date:"d F Y" }}</div>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Parties</div>
+    <div class="info-value">{{ acte.parties }}</div>
+</div>
+
+<div class="divider"></div>
+
+<div class="info-group">
+    <div class="info-label">Référence dossier</div>
+    <div class="info-value">{{ acte.reference_dossier }}</div>
+</div>
+
+<div class="info-group">
+    <div class="info-label">Vérifié</div>
+    <div class="info-value">{{ acte.nombre_verifications }} fois</div>
+</div>
+
+<div class="divider"></div>
+
+<p style="font-size: 0.875rem; color: #6b7280; text-align: center;">
+    🔒 Cet acte a été certifié par l'Étude Me BIAOU.<br>
+    Document enregistré et sécurisé.
+</p>
+{% endblock %}
