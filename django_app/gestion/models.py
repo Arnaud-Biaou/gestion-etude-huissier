@@ -524,6 +524,52 @@ class Facture(models.Model):
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # ═══════════════════════════════════════════════════════════════
+    # RÉGIME FISCAL ET AIB
+    # ═══════════════════════════════════════════════════════════════
+
+    TYPE_TAXE_CHOICES = [
+        ('tps', 'TPS (5%)'),
+        ('tva', 'TVA (18%)'),
+    ]
+    type_taxe = models.CharField(
+        max_length=10,
+        choices=TYPE_TAXE_CHOICES,
+        default='tps',
+        verbose_name="Type de taxe",
+        help_text="TPS pour régime simplifié, TVA pour régime réel"
+    )
+
+    # AIB (Acompte sur Impôt sur les Bénéfices)
+    client_soumis_aib = models.BooleanField(
+        default=False,
+        verbose_name="Client soumis à l'AIB",
+        help_text="Cocher si le client doit retenir l'AIB"
+    )
+
+    taux_aib = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('3.00'),
+        verbose_name="Taux AIB (%)"
+    )
+
+    montant_aib = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Montant AIB retenu"
+    )
+
+    net_a_payer = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Net à payer",
+        help_text="Montant TTC moins AIB retenu"
+    )
+
     date_emission = models.DateField(default=timezone.now)
     date_echeance = models.DateField(null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='attente')
@@ -592,11 +638,23 @@ class Facture(models.Model):
     def __str__(self):
         return f"{self.numero} - {self.client}"
 
+    def calculer_aib(self):
+        """Calcule l'AIB et le net à payer"""
+        if self.client_soumis_aib and self.montant_ttc:
+            self.montant_aib = int((self.montant_ttc * self.taux_aib) / 100)
+        else:
+            self.montant_aib = 0
+        self.net_a_payer = self.montant_ttc - self.montant_aib
+        return self.montant_aib
+
     def save(self, *args, **kwargs):
+        # Calcul taxe (TVA ou TPS)
         if not self.montant_tva:
             self.montant_tva = self.montant_ht * self.taux_tva / 100
         if not self.montant_ttc:
             self.montant_ttc = self.montant_ht + self.montant_tva
+        # Calcul AIB et net à payer
+        self.calculer_aib()
         super().save(*args, **kwargs)
 
     @classmethod
@@ -4167,7 +4225,12 @@ class ActeDossier(models.Model):
     # PROPRIÉTÉS CALCULÉES
     # ========================================
 
-    TAUX_TVA = Decimal('18')
+    # Taux de taxe selon régime fiscal
+    TAUX_TPS = Decimal('5')   # Régime simplifié (défaut étude Me BIAOU)
+    TAUX_TVA = Decimal('18')  # Régime réel (si client l'exige)
+
+    # Taux par défaut pour cette étude
+    TAUX_TAXE_DEFAUT = TAUX_TPS
 
     @property
     def libelle_facture(self):
@@ -4223,9 +4286,19 @@ class ActeDossier(models.Model):
         return 0
 
     @property
+    def montant_taxe(self):
+        """Taxe sur les honoraires (TPS 5% par défaut)"""
+        return (self.total_honoraires_ht * self.TAUX_TAXE_DEFAUT) / 100
+
+    @property
+    def montant_tps(self):
+        """Alias - TPS sur les honoraires (5%)"""
+        return self.montant_taxe
+
+    @property
     def montant_tva(self):
-        """TVA sur les honoraires uniquement (18%)"""
-        return (self.total_honoraires_ht * self.TAUX_TVA) / 100
+        """Alias pour compatibilité templates existants"""
+        return self.montant_taxe
 
     @property
     def total_debours_variables(self):
@@ -4242,7 +4315,7 @@ class ActeDossier(models.Model):
     @property
     def total_ttc(self):
         """Total TTC de la ligne"""
-        return self.total_ht + self.montant_tva
+        return self.total_ht + self.montant_taxe
 
     # ========================================
     # MÉTHODES
@@ -4267,20 +4340,26 @@ class ActeDossier(models.Model):
     @classmethod
     def totaux_non_factures(cls, dossier):
         """Calcule les totaux non facturés d'un dossier"""
-        actes = cls.actes_non_factures(dossier)
+        actes = list(cls.actes_non_factures(dossier))
 
         total_honoraires = sum(a.total_honoraires_ht for a in actes)
-        total_tva = sum(a.montant_tva for a in actes)
+        total_taxe = sum(a.montant_taxe for a in actes)
         total_debours_fixes = sum(a.total_debours_fixes for a in actes)
         total_debours_variables = sum(a.total_debours_variables for a in actes)
 
+        total_ht = total_honoraires + total_debours_fixes + total_debours_variables
+        total_ttc = total_ht + total_taxe
+
         return {
             'honoraires_ht': total_honoraires,
-            'tva': total_tva,
+            'taxe': total_taxe,
+            'tps': total_taxe,      # Alias
+            'tva': total_taxe,      # Alias compatibilité
             'debours_fixes': total_debours_fixes,
             'debours_variables': total_debours_variables,
-            'total_ht': total_honoraires + total_debours_fixes + total_debours_variables,
-            'total_ttc': total_honoraires + total_tva + total_debours_fixes + total_debours_variables,
+            'total_ht': total_ht,
+            'total_ttc': total_ttc,
+            'taux_taxe': cls.TAUX_TAXE_DEFAUT,
         }
 
 
