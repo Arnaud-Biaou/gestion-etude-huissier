@@ -7088,3 +7088,96 @@ def supprimer_acte_dossier(request, acte_id):
     })
 
     return render(request, 'gestion/actes_dossier/supprimer.html', context)
+
+
+@login_required
+def facturer_actes_dossier(request, dossier_id):
+    """
+    Génère une facture à partir des actes non facturés d'un dossier.
+    Gère TPS (5%) et AIB optionnel (3%).
+    """
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    # Récupérer les actes non facturés
+    actes_non_factures = ActeDossier.actes_non_factures(dossier)
+
+    if not actes_non_factures.exists():
+        messages.warning(request, "Aucun acte à facturer pour ce dossier.")
+        return redirect('gestion:liste_actes_dossier', dossier_id=dossier_id)
+
+    # Calculer les totaux
+    totaux = ActeDossier.totaux_non_factures(dossier)
+
+    # Séparer actes et débours pour l'affichage
+    actes = actes_non_factures.filter(type_ligne='acte')
+    debours = actes_non_factures.filter(type_ligne='debours')
+
+    # Déterminer le client (créancier du dossier)
+    creancier = dossier.parties.filter(role='creancier').first()
+    client_nom = creancier.nom if creancier else dossier.reference
+    client_ifu = getattr(creancier, 'ifu', '') if creancier else ''
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Récupérer les options du formulaire
+                type_taxe = request.POST.get('type_taxe', 'tps')
+                client_soumis_aib = request.POST.get('client_soumis_aib') == 'on'
+
+                # Recalculer avec le bon taux si TVA choisie
+                if type_taxe == 'tva':
+                    taux = Decimal('18')
+                    montant_taxe = (totaux['honoraires_ht'] * taux) / 100
+                else:
+                    taux = Decimal('5')
+                    montant_taxe = totaux['taxe']
+
+                montant_ttc = totaux['total_ht'] + montant_taxe
+
+                # Générer le numéro de facture
+                numero = Facture.generer_numero()
+
+                # Créer la facture
+                facture = Facture.objects.create(
+                    numero=numero,
+                    dossier=dossier,
+                    client=client_nom,
+                    ifu=client_ifu,
+                    montant_ht=totaux['total_ht'],
+                    taux_tva=taux,
+                    montant_tva=montant_taxe,
+                    montant_ttc=montant_ttc,
+                    type_taxe=type_taxe,
+                    client_soumis_aib=client_soumis_aib,
+                    taux_aib=Decimal('3.00') if client_soumis_aib else Decimal('0'),
+                    statut='attente',
+                )
+                # Le save() calcule automatiquement l'AIB et net_a_payer
+
+                # Créer les lignes de facture
+                for acte in list(actes_non_factures):
+                    ligne = LigneFacture.objects.create(
+                        facture=facture,
+                        description=acte.libelle_facture,
+                        quantite=acte.quantite,
+                        prix_unitaire=acte.total_ht,
+                    )
+                    acte.marquer_facture(ligne)
+
+                messages.success(request, f"Facture {numero} créée avec succès.")
+                return redirect('gestion:liste_actes_dossier', dossier_id=dossier_id)
+
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la création de la facture : {str(e)}")
+
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'actes': actes,
+        'debours': debours,
+        'totaux': totaux,
+        'nb_actes': actes_non_factures.count(),
+        'client_nom': client_nom,
+        'client_ifu': client_ifu,
+    })
+    return render(request, 'gestion/actes_dossier/facturer.html', context)

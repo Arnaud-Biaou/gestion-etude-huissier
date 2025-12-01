@@ -29,6 +29,7 @@ urlpatterns = [
     path('dossier/<int:dossier_id>/actes/ajouter/', views.ajouter_acte_dossier, name='ajouter_acte_dossier'),
     path('acte-dossier/<int:acte_id>/modifier/', views.modifier_acte_dossier, name='modifier_acte_dossier'),
     path('acte-dossier/<int:acte_id>/supprimer/', views.supprimer_acte_dossier, name='supprimer_acte_dossier'),
+    path('dossier/<int:dossier_id>/actes/facturer/', views.facturer_actes_dossier, name='facturer_actes_dossier'),
 
     path('facturation/', views.facturation, name='facturation'),
     path('memoires/', views.memoires, name='memoires'),

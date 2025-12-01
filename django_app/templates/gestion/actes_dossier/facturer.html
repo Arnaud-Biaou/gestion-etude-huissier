@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Facturer - {{ dossier.reference }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <a href="{% url 'gestion:liste_actes_dossier' dossier.id %}">Actes</a>
+        <span>/</span>
+        <span>Facturer</span>
+    </div>
+    <h1>Générer une facture</h1>
+</div>
+
+<div class="card" style="max-width: 900px;">
+    <div class="card-body">
+        <p style="margin-bottom: 16px;">
+            Facture pour <strong>{{ client_nom }}</strong>
+            {% if client_ifu %}(IFU: {{ client_ifu }}){% endif %}
+            - Dossier <strong>{{ dossier.reference }}</strong>
+        </p>
+
+        <!-- Lignes d'actes -->
+        {% if actes %}
+        <h3 style="font-size: 1rem; margin-bottom: 12px;">Actes ({{ actes.count }})</h3>
+        <table class="table" style="margin-bottom: 24px;">
+            <thead>
+                <tr>
+                    <th>Désignation</th>
+                    <th style="text-align: right;">Honoraires</th>
+                    <th style="text-align: right;">Débours fixes</th>
+                    <th style="text-align: right;">Total HT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acte in actes %}
+                <tr>
+                    <td>{{ acte.libelle_facture }}</td>
+                    <td style="text-align: right;">{{ acte.total_honoraires_ht|floatformat:0 }} F</td>
+                    <td style="text-align: right;">{{ acte.total_debours_fixes|floatformat:0 }} F</td>
+                    <td style="text-align: right;"><strong>{{ acte.total_ht|floatformat:0 }} F</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Lignes de débours variables -->
+        {% if debours %}
+        <h3 style="font-size: 1rem; margin-bottom: 12px;">Débours variables ({{ debours.count }})</h3>
+        <table class="table" style="margin-bottom: 24px;">
+            <thead>
+                <tr>
+                    <th>Désignation</th>
+                    <th style="text-align: right;">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in debours %}
+                <tr>
+                    <td>{{ d.libelle_facture }}</td>
+                    <td style="text-align: right;"><strong>{{ d.total_debours_variables|floatformat:0 }} F</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Formulaire options fiscales -->
+        <form method="POST" action="" id="formFacture">
+            {% csrf_token %}
+
+            <!-- Options fiscales -->
+            <div style="background: var(--neutral-100); padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Options fiscales</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <!-- Type de taxe -->
+                    <div>
+                        <label style="font-weight: 600; margin-bottom: 8px; display: block;">Type de taxe</label>
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
+                            <input type="radio" name="type_taxe" value="tps" checked>
+                            <span>TPS (5%) - Régime simplifié</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="type_taxe" value="tva">
+                            <span>TVA (18%) - Régime réel</span>
+                        </label>
+                    </div>
+
+                    <!-- AIB -->
+                    <div>
+                        <label style="font-weight: 600; margin-bottom: 8px; display: block;">AIB (Retenue à la source)</label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="client_soumis_aib" id="aib_checkbox" onchange="toggleAIB()">
+                            <span>Client soumis à l'AIB (3%)</span>
+                        </label>
+                        <small style="color: var(--neutral-500); display: block; margin-top: 4px;">
+                            Cochez si le client est une entreprise qui retiendra l'AIB
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Récapitulatif -->
+            <div style="background: var(--primary-light, #e6f0ff); padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Récapitulatif</h3>
+                <table style="width: 100%; max-width: 450px; margin-left: auto;">
+                    <tr>
+                        <td>Honoraires HT</td>
+                        <td style="text-align: right;">{{ totaux.honoraires_ht|floatformat:0 }} F</td>
+                    </tr>
+                    <tr>
+                        <td>Débours fixes (timbres, enreg.)</td>
+                        <td style="text-align: right;">{{ totaux.debours_fixes|floatformat:0 }} F</td>
+                    </tr>
+                    <tr>
+                        <td>Débours variables</td>
+                        <td style="text-align: right;">{{ totaux.debours_variables|floatformat:0 }} F</td>
+                    </tr>
+                    <tr style="border-top: 1px solid var(--neutral-300);">
+                        <td><strong>Total HT</strong></td>
+                        <td style="text-align: right;"><strong>{{ totaux.total_ht|floatformat:0 }} F</strong></td>
+                    </tr>
+                    <tr id="ligne_taxe">
+                        <td><span id="label_taxe">TPS (5% sur honoraires)</span></td>
+                        <td style="text-align: right;"><span id="montant_taxe">{{ totaux.taxe|floatformat:0 }}</span> F</td>
+                    </tr>
+                    <tr style="border-top: 2px solid var(--neutral-400);">
+                        <td><strong>TOTAL TTC</strong></td>
+                        <td style="text-align: right;"><strong><span id="montant_ttc">{{ totaux.total_ttc|floatformat:0 }}</span> F</strong></td>
+                    </tr>
+                    <tr id="ligne_aib" style="display: none; color: var(--danger);">
+                        <td>AIB retenu (3%)</td>
+                        <td style="text-align: right;">- <span id="montant_aib">0</span> F</td>
+                    </tr>
+                    <tr id="ligne_net" style="display: none; border-top: 1px solid var(--neutral-300); font-size: 1.25rem;">
+                        <td><strong>NET À PAYER</strong></td>
+                        <td style="text-align: right;"><strong><span id="montant_net">0</span> F</strong></td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Avertissement -->
+            <div style="background: var(--warning-bg, #fff8e6); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                <p style="margin: 0;">
+                    <strong>Attention :</strong> Une fois la facture générée, les actes seront
+                    marqués comme facturés et ne pourront plus être modifiés.
+                </p>
+            </div>
+
+            <!-- Boutons -->
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{% url 'gestion:liste_actes_dossier' dossier.id %}" class="btn btn-secondary">
+                    Annuler
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Confirmer et générer la facture
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Valeurs de base
+const honorairesHT = {{ totaux.honoraires_ht|default:0 }};
+const totalHT = {{ totaux.total_ht|default:0 }};
+
+function updateTotaux() {
+    const typeTaxe = document.querySelector('input[name="type_taxe"]:checked').value;
+    const aibChecked = document.getElementById('aib_checkbox').checked;
+
+    // Calculer la taxe
+    let tauxTaxe = typeTaxe === 'tva' ? 18 : 5;
+    let montantTaxe = Math.round(honorairesHT * tauxTaxe / 100);
+    let montantTTC = totalHT + montantTaxe;
+
+    // Mettre à jour l'affichage taxe
+    document.getElementById('label_taxe').textContent =
+        typeTaxe === 'tva' ? 'TVA (18% sur honoraires)' : 'TPS (5% sur honoraires)';
+    document.getElementById('montant_taxe').textContent = montantTaxe.toLocaleString('fr-FR');
+    document.getElementById('montant_ttc').textContent = montantTTC.toLocaleString('fr-FR');
+
+    // Gérer l'AIB
+    if (aibChecked) {
+        let montantAIB = Math.round(montantTTC * 3 / 100);
+        let montantNet = montantTTC - montantAIB;
+
+        document.getElementById('ligne_aib').style.display = 'table-row';
+        document.getElementById('ligne_net').style.display = 'table-row';
+        document.getElementById('montant_aib').textContent = montantAIB.toLocaleString('fr-FR');
+        document.getElementById('montant_net').textContent = montantNet.toLocaleString('fr-FR');
+    } else {
+        document.getElementById('ligne_aib').style.display = 'none';
+        document.getElementById('ligne_net').style.display = 'none';
+    }
+}
+
+function toggleAIB() {
+    updateTotaux();
+}
+
+// Écouter les changements de type de taxe
+document.querySelectorAll('input[name="type_taxe"]').forEach(radio => {
+    radio.addEventListener('change', updateTotaux);
+});
+
+// Initialiser
+updateTotaux();
+</script>
+{% endblock %}
