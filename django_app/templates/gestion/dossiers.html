@@ -92,9 +92,6 @@
                             <a href="{% url 'gestion:modifier_dossier' dossier.id %}" class="icon-btn" title="Modifier">
                                 <i data-lucide="edit"></i>
                             </a>
-                            <button class="icon-btn" title="QR Code">
-                                <i data-lucide="qr-code"></i>
-                            </button>
                             <button class="icon-btn" style="color: var(--danger);" title="Supprimer" onclick="deleteDossier({{ dossier.id }})">
                                 <i data-lucide="trash-2"></i>
                             </button>
