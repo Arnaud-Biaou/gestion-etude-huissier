@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Actes Sécurisés - {{ dossier.reference }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossiers' %}">Dossiers</a>
+        <span>/</span>
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <span>Actes sécurisés</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Actes Sécurisés</h1>
+        <a href="{% url 'gestion:securiser_acte' dossier.id %}" class="btn btn-primary">
+            + Sécuriser un acte
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if actes %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Type</th>
+                    <th>Titre</th>
+                    <th>Date</th>
+                    <th>Vérifications</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acte in actes %}
+                <tr>
+                    <td>
+                        <code style="font-size: 0.875rem;">{{ acte.code_verification }}</code>
+                    </td>
+                    <td>{{ acte.get_type_acte_display }}</td>
+                    <td>{{ acte.titre_acte }}</td>
+                    <td>{{ acte.date_acte|date:"d/m/Y" }}</td>
+                    <td>
+                        <span style="background: var(--neutral-100); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">
+                            {{ acte.nombre_verifications }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if acte.est_actif %}
+                        <span style="color: var(--success);">Actif</span>
+                        {% else %}
+                        <span style="color: var(--danger);">Désactivé</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'gestion:acte_securise_detail' acte.id %}" class="btn btn-sm btn-secondary">
+                            Voir QR
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: var(--neutral-500);">
+            <p style="font-size: 1.25rem; margin-bottom: 8px;">Aucun acte sécurisé</p>
+            <p>Créez votre premier acte sécurisé pour ce dossier.</p>
+            <a href="{% url 'gestion:securiser_acte' dossier.id %}" class="btn btn-primary" style="margin-top: 16px;">
+                + Sécuriser un acte
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div style="margin-top: 24px;">
+    <a href="{% url 'gestion:dossier_detail' dossier.id %}" class="btn btn-secondary">
+        Retour au dossier
+    </a>
+</div>
+{% endblock %}
