@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Vérification d'acte{% endblock %} - Étude Me BIAOU</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            margin: 20px auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1a365d;
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 24px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .status.valide {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.invalide {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-icon {
+            font-size: 2rem;
+        }
+
+        .status-text {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .info-group {
+            margin-bottom: 16px;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        .divider {
+            height: 1px;
+            background: #e5e7eb;
+            margin: 20px 0;
+        }
+
+        .footer {
+            background: #f9fafb;
+            padding: 16px 24px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .footer a {
+            color: #1a365d;
+            text-decoration: none;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #1a365d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            width: 100%;
+            margin-top: 16px;
+        }
+
+        .btn:hover {
+            background: #2d4a7c;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #1a365d;
+        }
+
+        .code-display {
+            font-family: 'Monaco', 'Consolas', monospace;
+            background: #f3f4f6;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 16px;
+            }
+
+            .content {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>Étude Me Martial Arnaud BIAOU</h1>
+                <p>Huissier de Justice - Parakou, Bénin</p>
+            </div>
+
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+
+            <div class="footer">
+                <p>Chambre Nationale des Huissiers de Justice du Bénin</p>
+                <p>TPI et Cour d'Appel de Parakou</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
