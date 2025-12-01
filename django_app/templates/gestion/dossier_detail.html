@@ -20,6 +20,9 @@
         </div>
     </div>
     <div class="flex gap-2">
+        <a href="{% url 'gestion:securiser_acte' dossier.pk %}" class="btn btn-secondary">
+            <i data-lucide="qr-code"></i> Sécuriser
+        </a>
         <a href="{% url 'gestion:modifier_dossier' dossier.pk %}" class="btn btn-primary">
             <i data-lucide="edit"></i> Modifier
         </a>
@@ -458,6 +461,65 @@
             <p style="padding: 16px; color: var(--neutral-500); font-style: italic;">Aucun mouvement</p>
             {% endif %}
         </div>
+    </div>
+</div>
+
+<!-- Section Actes Sécurisés -->
+<div class="card mb-4">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="card-title"><i data-lucide="qr-code" style="width: 18px; height: 18px;"></i> Actes Sécurisés</h3>
+        <a href="{% url 'gestion:securiser_acte' dossier.id %}" class="btn btn-primary btn-sm">
+            + Sécuriser un acte
+        </a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if dossier.actes_securises.exists %}
+        <table class="w-full">
+            <thead>
+                <tr style="background: var(--neutral-50);">
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Code</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Type</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Titre</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
+                    <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Vérif.</th>
+                    <th style="padding: 8px 12px; text-align: center; font-size: 12px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acte in dossier.actes_securises.all|slice:":5" %}
+                <tr style="border-bottom: 1px solid var(--neutral-100);">
+                    <td style="padding: 8px 12px; font-size: 13px;">
+                        <code style="font-size: 11px; background: var(--neutral-100); padding: 2px 6px; border-radius: 4px;">{{ acte.code_verification }}</code>
+                    </td>
+                    <td style="padding: 8px 12px; font-size: 13px;">{{ acte.get_type_acte_display }}</td>
+                    <td style="padding: 8px 12px; font-size: 13px;">{{ acte.titre_acte|truncatechars:25 }}</td>
+                    <td style="padding: 8px 12px; font-size: 13px;">{{ acte.date_acte|date:"d/m/Y" }}</td>
+                    <td style="padding: 8px 12px; text-align: center;">
+                        <span style="background: var(--neutral-100); padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                            {{ acte.nombre_verifications }}
+                        </span>
+                    </td>
+                    <td style="padding: 8px 12px; text-align: center;">
+                        <a href="{% url 'gestion:acte_securise_detail' acte.id %}" class="btn btn-sm btn-secondary" style="padding: 4px 8px; font-size: 11px;">
+                            QR
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if dossier.actes_securises.count > 5 %}
+        <div style="text-align: center; padding: 12px; border-top: 1px solid var(--neutral-100);">
+            <a href="{% url 'gestion:liste_actes_securises' dossier.id %}" style="color: var(--primary); font-size: 13px;">
+                Voir tous les actes sécurisés ({{ dossier.actes_securises.count }})
+            </a>
+        </div>
+        {% endif %}
+        {% else %}
+        <p style="padding: 20px; color: var(--neutral-500); font-style: italic; text-align: center;">
+            Aucun acte sécurisé pour ce dossier
+        </p>
+        {% endif %}
     </div>
 </div>
 
