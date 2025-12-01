@@ -1,7 +1,27 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from decimal import Decimal
 import json
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CONSTANTES MECeF - GROUPES DE TAXATION (e-mecef.impots.bj)
+# ════════════════════════════════════════════════════════════════════════════
+
+GROUPE_TAXATION_CHOICES = [
+    ('A', 'A - Exonéré'),
+    ('B', 'B - Taxable (TVA 18%)'),
+    ('C', 'C - Exportation'),
+    ('D', 'D - TVA régime exception'),
+    ('E', 'E - Régime TPS'),
+    ('F', 'F - Réservé'),
+]
+
+TYPE_CLIENT_CHOICES = [
+    ('prive', 'Client privé'),
+    ('public', 'Client public (État, collectivités)'),
+]
 
 
 class Utilisateur(AbstractUser):
@@ -519,20 +539,117 @@ class Facture(models.Model):
     )
     client = models.CharField(max_length=200)
     ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
+
+    # === TYPE DE CLIENT (MECeF) ===
+    type_client = models.CharField(
+        max_length=20,
+        choices=TYPE_CLIENT_CHOICES,
+        default='prive',
+        verbose_name="Type de client",
+        help_text="Public = État, mairies, ministères, établissements publics"
+    )
+
     montant_ht = models.DecimalField(max_digits=15, decimal_places=0)
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # ═══════════════════════════════════════════════════════════════
+    # RÉGIME FISCAL ET AIB
+    # ═══════════════════════════════════════════════════════════════
+
+    TYPE_TAXE_CHOICES = [
+        ('tps', 'TPS (5%)'),
+        ('tva', 'TVA (18%)'),
+    ]
+    type_taxe = models.CharField(
+        max_length=10,
+        choices=TYPE_TAXE_CHOICES,
+        default='tps',
+        verbose_name="Type de taxe",
+        help_text="TPS pour régime simplifié, TVA pour régime réel"
+    )
+
+    # AIB (Acompte sur Impôt sur les Bénéfices)
+    client_soumis_aib = models.BooleanField(
+        default=False,
+        verbose_name="Client soumis à l'AIB",
+        help_text="Cocher si le client doit retenir l'AIB"
+    )
+
+    taux_aib = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('3.00'),
+        verbose_name="Taux AIB (%)"
+    )
+
+    montant_aib = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Montant AIB retenu"
+    )
+
+    net_a_payer = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Net à payer",
+        help_text="Montant TTC moins AIB retenu"
+    )
+
     date_emission = models.DateField(default=timezone.now)
     date_echeance = models.DateField(null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='attente')
     observations = models.TextField(blank=True)
 
-    # MECeF
-    mecef_qr = models.TextField(blank=True, verbose_name='QR Code MECeF')
-    mecef_numero = models.CharField(max_length=50, blank=True, verbose_name='Numero MECeF')
-    nim = models.CharField(max_length=20, blank=True, verbose_name='NIM')
-    date_mecef = models.DateTimeField(null=True, blank=True, verbose_name='Date normalisation MECeF')
+    # ═══════════════════════════════════════════════════════════════
+    # NORMALISATION e-MECeF (e-mecef.impots.bj)
+    # ═══════════════════════════════════════════════════════════════
+
+    # NIM - Numéro d'Identification Machine
+    nim = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="NIM",
+        help_text="Numéro d'Identification Machine de l'émetteur"
+    )
+
+    # Code unique de la facture normalisée
+    code_mecef = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Code MECeF/DGI",
+        help_text="Code unique de la facture normalisée"
+    )
+
+    # Signature électronique
+    signature_mecef = models.TextField(
+        blank=True,
+        verbose_name="Signature électronique MECeF"
+    )
+
+    # QR Code pour vérification
+    qr_mecef = models.TextField(
+        blank=True,
+        verbose_name="QR Code MECeF",
+        help_text="Données du QR code généré par MECeF"
+    )
+
+    # Date de normalisation
+    date_normalisation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de normalisation"
+    )
+
+    # Réponse brute de l'API (pour débogage)
+    reponse_mecef = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Réponse API MECeF"
+    )
 
     # ═══════════════════════════════════════════════════════════════
     # CHAMPS AVOIR ET FACTURES CORRECTIVES
@@ -591,11 +708,33 @@ class Facture(models.Model):
     def __str__(self):
         return f"{self.numero} - {self.client}"
 
+    def calculer_aib(self):
+        """Calcule l'AIB et le net à payer"""
+        if self.client_soumis_aib and self.montant_ttc:
+            self.montant_aib = int((self.montant_ttc * self.taux_aib) / 100)
+        else:
+            self.montant_aib = 0
+        self.net_a_payer = self.montant_ttc - self.montant_aib
+        return self.montant_aib
+
+    @property
+    def est_modifiable(self):
+        """Une facture est modifiable tant qu'elle n'est pas normalisée"""
+        return self.statut_mecef in ('non_normalise', 'erreur')
+
+    @property
+    def est_normalisee(self):
+        """Vérifie si la facture a été normalisée"""
+        return self.statut_mecef == 'normalise'
+
     def save(self, *args, **kwargs):
+        # Calcul taxe (TVA ou TPS)
         if not self.montant_tva:
             self.montant_tva = self.montant_ht * self.taux_tva / 100
         if not self.montant_ttc:
             self.montant_ttc = self.montant_ht + self.montant_tva
+        # Calcul AIB et net à payer
+        self.calculer_aib()
         super().save(*args, **kwargs)
 
     @classmethod
@@ -682,11 +821,47 @@ class Facture(models.Model):
 
 
 class LigneFacture(models.Model):
-    """Lignes de facture"""
+    """Lignes de facture avec groupe de taxation MECeF"""
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
     description = models.CharField(max_length=500)
     quantite = models.IntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # === GROUPE DE TAXATION MECeF ===
+    TYPE_LIGNE_FACTURE_CHOICES = [
+        ('honoraire', 'Honoraire (prestation)'),
+        ('debours_exonere', 'Débours exonéré (timbre, enreg.)'),
+        ('debours_taxable', 'Débours taxable'),
+    ]
+    type_ligne = models.CharField(
+        max_length=20,
+        choices=TYPE_LIGNE_FACTURE_CHOICES,
+        default='honoraire',
+        verbose_name="Type de ligne"
+    )
+
+    groupe_taxation = models.CharField(
+        max_length=1,
+        choices=GROUPE_TAXATION_CHOICES,
+        default='E',
+        verbose_name="Groupe de taxation",
+        help_text="A=Exonéré, B=Taxable, E=TPS, etc."
+    )
+
+    taux_taxe_ligne = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name="Taux taxe (%)",
+        help_text="0% pour groupe A/E, 18% pour groupe B"
+    )
+
+    montant_taxe_ligne = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Montant taxe"
+    )
 
     class Meta:
         verbose_name = 'Ligne de facture'
@@ -698,6 +873,35 @@ class LigneFacture(models.Model):
     @property
     def total(self):
         return self.quantite * self.prix_unitaire
+
+    @property
+    def total_ttc(self):
+        return self.total + self.montant_taxe_ligne
+
+    def determiner_groupe_taxation(self, type_client='prive', regime_etude='tps'):
+        """
+        Détermine automatiquement le groupe de taxation selon les règles MECeF.
+
+        Règles :
+        - Débours exonérés → toujours Groupe A (0%)
+        - Honoraires + TPS + Client privé → Groupe E (0%)
+        - Honoraires + TPS + Client public → Groupe B (18%)
+        - Honoraires + TVA → Groupe B (18%)
+        """
+        if self.type_ligne == 'debours_exonere':
+            self.groupe_taxation = 'A'
+            self.taux_taxe_ligne = Decimal('0')
+        elif regime_etude == 'tps' and type_client == 'prive':
+            self.groupe_taxation = 'E'
+            self.taux_taxe_ligne = Decimal('0')
+        else:
+            # TPS + public OU TVA
+            self.groupe_taxation = 'B'
+            self.taux_taxe_ligne = Decimal('18')
+
+        # Calculer la taxe
+        self.montant_taxe_ligne = int((self.prix_unitaire * self.quantite * self.taux_taxe_ligne) / 100)
+        return self.groupe_taxation
 
 
 class ActeProcedure(models.Model):
@@ -3976,6 +4180,356 @@ class ActeSecurise(models.Model):
         self.nombre_verifications += 1
         self.derniere_verification = timezone.now()
         self.save(update_fields=['nombre_verifications', 'derniere_verification'])
+
+
+class ActeDossier(models.Model):
+    """
+    Enregistre un acte ou un débours dans un dossier.
+    Structure conforme à la facturation des huissiers au Bénin.
+
+    Types de lignes :
+    - 'acte' : Honoraires + Timbre fiscal + Enregistrement
+    - 'debours' : Débours variable (enrôlement, greffe, etc.)
+    """
+
+    # Type de ligne
+    TYPE_LIGNE_CHOICES = [
+        ('acte', 'Acte (honoraires + débours fixes)'),
+        ('debours', 'Débours variable'),
+    ]
+    type_ligne = models.CharField(
+        max_length=20,
+        choices=TYPE_LIGNE_CHOICES,
+        default='acte',
+        verbose_name="Type de ligne"
+    )
+
+    # Type pour la ligne de facture (détermine le groupe de taxation MECeF)
+    TYPE_LIGNE_FACTURE_CHOICES = [
+        ('honoraire', 'Honoraire (prestation)'),
+        ('debours_exonere', 'Débours exonéré'),
+    ]
+    type_ligne_facture = models.CharField(
+        max_length=20,
+        choices=TYPE_LIGNE_FACTURE_CHOICES,
+        default='honoraire',
+        verbose_name="Type pour facturation",
+        help_text="Honoraire = groupe E/B, Débours exonéré = groupe A"
+    )
+
+    # Lien vers le dossier
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='actes_dossier',
+        verbose_name="Dossier"
+    )
+
+    # Type d'acte (depuis le catalogue, uniquement pour type_ligne='acte')
+    type_acte = models.ForeignKey(
+        'ActeProcedure',
+        on_delete=models.PROTECT,
+        related_name='actes_realises',
+        verbose_name="Type d'acte",
+        null=True,
+        blank=True,
+        help_text="Catalogue des actes (optionnel)"
+    )
+
+    # Libellé / Description
+    libelle = models.CharField(
+        max_length=255,
+        verbose_name="Libellé",
+        help_text="Description de l'acte ou du débours"
+    )
+
+    # ========================================
+    # DATES DE RÉALISATION
+    # ========================================
+
+    # Date principale (pour tri et recherche)
+    date_debut = models.DateField(
+        verbose_name="Date de réalisation",
+        help_text="Date de l'acte ou première date si plusieurs"
+    )
+
+    # Dates supplémentaires (texte libre pour affichage facture)
+    dates_supplementaires = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Dates supplémentaires",
+        help_text="Ex: '29 et 30/11/2025' si signifié sur plusieurs jours"
+    )
+
+    # ========================================
+    # CHAMPS POUR TYPE 'acte'
+    # ========================================
+
+    # Honoraires (taxables à 18%)
+    honoraires_ht = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Honoraires HT",
+        help_text="Émoluments de l'huissier (taxables à 18%)"
+    )
+
+    # Timbre fiscal
+    nombre_feuillets = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Nombre de feuillets",
+        help_text="Pour le calcul du timbre fiscal"
+    )
+
+    TARIF_TIMBRE_FEUILLET = 1200  # FCFA par feuillet
+
+    # Enregistrement
+    inclure_enregistrement = models.BooleanField(
+        default=True,
+        verbose_name="Inclure l'enregistrement",
+        help_text="Ajouter les frais d'enregistrement (2.500 F)"
+    )
+
+    TARIF_ENREGISTREMENT = 2500  # FCFA par acte
+
+    # ========================================
+    # CHAMPS POUR TYPE 'debours'
+    # ========================================
+
+    # Montant du débours variable
+    montant_debours = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=0,
+        verbose_name="Montant débours",
+        help_text="Montant du débours variable (non taxable)"
+    )
+
+    # ========================================
+    # CHAMPS COMMUNS
+    # ========================================
+
+    # Quantité (pour actes multiples identiques)
+    quantite = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Quantité",
+        help_text="Nombre d'actes identiques"
+    )
+
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Notes"
+    )
+
+    # Statut de facturation
+    STATUT_CHOICES = [
+        ('non_facture', 'Non facturé'),
+        ('facture', 'Facturé'),
+        ('annule', 'Annulé'),
+    ]
+    statut_facturation = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='non_facture',
+        verbose_name="Statut facturation"
+    )
+
+    # Lien vers la ligne de facture
+    ligne_facture = models.ForeignKey(
+        'LigneFacture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes_source',
+        verbose_name="Ligne de facture"
+    )
+
+    # Lien vers ActeSecurise (QR code)
+    acte_securise = models.OneToOneField(
+        'ActeSecurise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acte_dossier',
+        verbose_name="Acte sécurisé (QR)"
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        'rh.Collaborateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='actes_crees',
+        verbose_name="Créé par"
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Acte du dossier"
+        verbose_name_plural = "Actes du dossier"
+        ordering = ['-date_debut', '-cree_le']
+        indexes = [
+            models.Index(fields=['dossier', '-date_debut']),
+            models.Index(fields=['statut_facturation']),
+            models.Index(fields=['type_ligne']),
+        ]
+
+    def __str__(self):
+        return f"{self.libelle_facture} - {self.dossier.reference}"
+
+    # ========================================
+    # PROPRIÉTÉS CALCULÉES
+    # ========================================
+
+    # Taux de taxe selon régime fiscal
+    TAUX_TPS = Decimal('5')   # Régime simplifié (défaut étude Me BIAOU)
+    TAUX_TVA = Decimal('18')  # Régime réel (si client l'exige)
+
+    # Taux par défaut pour cette étude
+    TAUX_TAXE_DEFAUT = TAUX_TPS
+
+    @property
+    def libelle_facture(self):
+        """
+        Génère le libellé pour la facture, incluant les dates.
+        Garantit l'unicité pour la conformité MECeF.
+        """
+        # Formater la date principale
+        date_str = self.date_debut.strftime('%d/%m/%Y')
+
+        if self.dates_supplementaires:
+            # Plusieurs dates : "Signification des 28, 29, 30/11/2025"
+            return f"{self.libelle} des {self.date_debut.strftime('%d')}, {self.dates_supplementaires}"
+        else:
+            # Date unique : "Signification du 28/11/2025"
+            return f"{self.libelle} du {date_str}"
+
+    @property
+    def dates_affichage(self):
+        """
+        Retourne les dates formatées pour affichage.
+        """
+        date_str = self.date_debut.strftime('%d/%m/%Y')
+
+        if self.dates_supplementaires:
+            return f"{self.date_debut.strftime('%d')}, {self.dates_supplementaires}"
+        return date_str
+
+    @property
+    def groupe_taxation_suggere(self):
+        """
+        Suggère le groupe de taxation MECeF par défaut.
+        - Débours → Groupe A (exonéré)
+        - Honoraires → Groupe E (TPS) par défaut
+        """
+        if self.type_ligne == 'debours':
+            return 'A'  # Débours = exonéré
+        return 'E'  # Honoraires TPS par défaut
+
+    @property
+    def timbre_fiscal(self):
+        """Montant du timbre fiscal (nombre de feuillets × tarif)"""
+        if self.type_ligne == 'acte':
+            return self.nombre_feuillets * self.TARIF_TIMBRE_FEUILLET * self.quantite
+        return 0
+
+    @property
+    def frais_enregistrement(self):
+        """Frais d'enregistrement si inclus"""
+        if self.type_ligne == 'acte' and self.inclure_enregistrement:
+            return self.TARIF_ENREGISTREMENT * self.quantite
+        return 0
+
+    @property
+    def total_debours_fixes(self):
+        """Total des débours fixes (timbre + enregistrement)"""
+        return self.timbre_fiscal + self.frais_enregistrement
+
+    @property
+    def total_honoraires_ht(self):
+        """Total honoraires HT"""
+        if self.type_ligne == 'acte':
+            return self.honoraires_ht * self.quantite
+        return 0
+
+    @property
+    def montant_taxe(self):
+        """Taxe sur les honoraires (TPS 5% par défaut)"""
+        return (self.total_honoraires_ht * self.TAUX_TAXE_DEFAUT) / 100
+
+    @property
+    def montant_tps(self):
+        """Alias - TPS sur les honoraires (5%)"""
+        return self.montant_taxe
+
+    @property
+    def montant_tva(self):
+        """Alias pour compatibilité templates existants"""
+        return self.montant_taxe
+
+    @property
+    def total_debours_variables(self):
+        """Total des débours variables"""
+        if self.type_ligne == 'debours':
+            return self.montant_debours * self.quantite
+        return 0
+
+    @property
+    def total_ht(self):
+        """Total HT de la ligne (honoraires + tous débours)"""
+        return self.total_honoraires_ht + self.total_debours_fixes + self.total_debours_variables
+
+    @property
+    def total_ttc(self):
+        """Total TTC de la ligne"""
+        return self.total_ht + self.montant_taxe
+
+    # ========================================
+    # MÉTHODES
+    # ========================================
+
+    def marquer_facture(self, ligne_facture):
+        """Marque comme facturé"""
+        self.statut_facturation = 'facture'
+        self.ligne_facture = ligne_facture
+        self.save(update_fields=['statut_facturation', 'ligne_facture', 'modifie_le'])
+
+    def annuler(self):
+        """Annule l'acte/débours"""
+        self.statut_facturation = 'annule'
+        self.save(update_fields=['statut_facturation', 'modifie_le'])
+
+    @classmethod
+    def actes_non_factures(cls, dossier):
+        """Retourne les actes/débours non facturés d'un dossier"""
+        return cls.objects.filter(dossier=dossier, statut_facturation='non_facture')
+
+    @classmethod
+    def totaux_non_factures(cls, dossier):
+        """Calcule les totaux non facturés d'un dossier"""
+        actes = list(cls.actes_non_factures(dossier))
+
+        total_honoraires = sum(a.total_honoraires_ht for a in actes)
+        total_taxe = sum(a.montant_taxe for a in actes)
+        total_debours_fixes = sum(a.total_debours_fixes for a in actes)
+        total_debours_variables = sum(a.total_debours_variables for a in actes)
+
+        total_ht = total_honoraires + total_debours_fixes + total_debours_variables
+        total_ttc = total_ht + total_taxe
+
+        return {
+            'honoraires_ht': total_honoraires,
+            'taxe': total_taxe,
+            'tps': total_taxe,      # Alias
+            'tva': total_taxe,      # Alias compatibilité
+            'debours_fixes': total_debours_fixes,
+            'debours_variables': total_debours_variables,
+            'total_ht': total_ht,
+            'total_ttc': total_ttc,
+            'taux_taxe': cls.TAUX_TAXE_DEFAUT,
+        }
 
 
 # Import des modèles d'import (pour les inclure dans les migrations)

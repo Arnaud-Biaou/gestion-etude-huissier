@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Modifier - {{ acte.libelle }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <a href="{% url 'gestion:liste_actes_dossier' dossier.id %}">Actes</a>
+        <span>/</span>
+        <span>Modifier</span>
+    </div>
+    <h1>Modifier l'acte</h1>
+</div>
+
+<div class="card" style="max-width: 800px;">
+    <div class="card-body">
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <input type="hidden" name="type_ligne" value="{{ acte.type_ligne }}">
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Libellé *</label>
+                <input type="text" name="libelle" class="form-control" value="{{ acte.libelle }}" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Date de réalisation *</label>
+                    <input type="date" name="date_debut" class="form-control"
+                           value="{{ acte.date_debut|date:'Y-m-d' }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dates supplémentaires</label>
+                    <input type="text" name="dates_supplementaires" class="form-control"
+                           value="{{ acte.dates_supplementaires }}"
+                           placeholder="Ex: 29, 30/11/2025">
+                </div>
+            </div>
+
+            {% if acte.type_ligne == 'acte' %}
+            <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 16px; font-size: 1rem;">Honoraires et débours fixes</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Honoraires HT (FCFA)</label>
+                        <input type="number" name="honoraires_ht" class="form-control"
+                               value="{{ acte.honoraires_ht|floatformat:0 }}" min="0" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre de feuillets</label>
+                        <input type="number" name="nombre_feuillets" class="form-control"
+                               value="{{ acte.nombre_feuillets }}" min="1">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" name="inclure_enregistrement" {% if acte.inclure_enregistrement %}checked{% endif %}>
+                        <span>Inclure les frais d'enregistrement (2.500 F)</span>
+                    </label>
+                </div>
+            </div>
+            {% else %}
+            <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 16px; font-size: 1rem;">Débours variable</h3>
+
+                <div class="form-group">
+                    <label class="form-label">Montant (FCFA)</label>
+                    <input type="number" name="montant_debours" class="form-control"
+                           value="{{ acte.montant_debours|floatformat:0 }}" min="0" step="100">
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Quantité</label>
+                    <input type="number" name="quantite" class="form-control"
+                           value="{{ acte.quantite }}" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2">{{ acte.notes }}</textarea>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{% url 'gestion:liste_actes_dossier' dossier.id %}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

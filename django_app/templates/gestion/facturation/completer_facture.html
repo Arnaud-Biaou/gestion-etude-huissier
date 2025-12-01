@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Compléter {{ facture.numero }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Compléter la facture {{ facture.numero }}</h1>
+    <p>Statut : <span style="color: var(--warning);">{{ facture.get_statut_display }} (modifiable)</span></p>
+</div>
+
+<div class="card" style="max-width: 900px; margin-bottom: 24px;">
+    <div class="card-header">
+        <strong>Lignes actuelles ({{ lignes_actuelles.count }})</strong>
+    </div>
+    <div class="card-body">
+        {% if lignes_actuelles %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th style="text-align: right;">Qté</th>
+                    <th style="text-align: right;">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes_actuelles %}
+                <tr>
+                    <td>{{ ligne.description }}</td>
+                    <td style="text-align: right;">{{ ligne.quantite }}</td>
+                    <td style="text-align: right;">{{ ligne.prix_unitaire|floatformat:0 }} F</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid var(--neutral-300);">
+                    <td colspan="2">Total actuel TTC</td>
+                    <td style="text-align: right;">{{ facture.montant_ttc|floatformat:0 }} F</td>
+                </tr>
+            </tfoot>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: var(--neutral-500);">Aucune ligne pour l'instant.</p>
+        {% endif %}
+    </div>
+</div>
+
+<form method="POST" action="">
+    {% csrf_token %}
+
+    <div class="card" style="max-width: 900px;">
+        <div class="card-header">
+            <strong>Ajouter des actes ({{ nb_actes_disponibles }} disponibles)</strong>
+        </div>
+        <div class="card-body">
+            {% if actes_par_dossier %}
+            {% for dossier_id, data in actes_par_dossier.items %}
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong>{{ data.dossier.reference }}</strong>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="toggleDossier({{ dossier_id }})">
+                        Sélectionner tout
+                    </button>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Date</th>
+                            <th>Libellé</th>
+                            <th style="text-align: right;">Total HT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for acte in data.actes %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" name="actes" value="{{ acte.id }}" class="acte-cb dossier-{{ dossier_id }}">
+                            </td>
+                            <td>{{ acte.dates_affichage }}</td>
+                            <td>{{ acte.libelle }}</td>
+                            <td style="text-align: right;">{{ acte.total_ht|floatformat:0 }} F</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p style="text-align: center; color: var(--neutral-500); padding: 20px;">
+                Aucun acte disponible à ajouter.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+        <a href="{% url 'gestion:facturation' %}" class="btn btn-secondary">Annuler</a>
+        {% if actes_par_dossier %}
+        <button type="submit" class="btn btn-primary">Ajouter les actes sélectionnés</button>
+        {% endif %}
+    </div>
+</form>
+
+<script>
+function toggleDossier(dossierId) {
+    const checkboxes = document.querySelectorAll('.dossier-' + dossierId);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+</script>
+{% endblock %}

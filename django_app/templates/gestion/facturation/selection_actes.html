@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Nouvelle facture - Sélection des actes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Nouvelle facture multi-dossiers</h1>
+    <p>Sélectionnez les actes à inclure dans la facture ({{ nb_total_actes }} actes disponibles)</p>
+</div>
+
+<form method="POST" action="" id="formSelection">
+    {% csrf_token %}
+
+    {% if actes_par_dossier %}
+
+    <!-- Boutons de sélection rapide -->
+    <div style="margin-bottom: 20px; display: flex; gap: 12px;">
+        <button type="button" class="btn btn-secondary" onclick="toutSelectionner()">
+            Tout sélectionner
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="toutDeselectionner()">
+            Tout désélectionner
+        </button>
+    </div>
+
+    <!-- Liste des dossiers avec leurs actes -->
+    {% for dossier_id, data in actes_par_dossier.items %}
+    <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>{{ data.dossier.reference }}</strong>
+                <span style="color: var(--neutral-500); margin-left: 8px;">{{ data.actes|length }} acte(s)</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleDossier({{ dossier_id }})">
+                Sélectionner ce dossier
+            </button>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"></th>
+                        <th>Date(s)</th>
+                        <th>Libellé</th>
+                        <th style="text-align: right;">Total HT</th>
+                        <th style="text-align: right;">TPS</th>
+                        <th style="text-align: right;">Total TTC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acte in data.actes %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="actes" value="{{ acte.id }}"
+                                   class="acte-checkbox dossier-{{ dossier_id }}"
+                                   data-ttc="{{ acte.total_ttc }}"
+                                   onchange="updateTotal()">
+                        </td>
+                        <td>{{ acte.dates_affichage }}</td>
+                        <td>
+                            {{ acte.libelle }}
+                            {% if acte.type_ligne == 'debours' %}
+                            <span style="background: var(--neutral-200); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">Débours</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">{{ acte.total_ht|floatformat:0 }} F</td>
+                        <td style="text-align: right;">{{ acte.montant_taxe|floatformat:0 }} F</td>
+                        <td style="text-align: right;"><strong>{{ acte.total_ttc|floatformat:0 }} F</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Récapitulatif flottant -->
+    <div style="position: sticky; bottom: 0; background: white; padding: 20px; border-top: 2px solid var(--primary); margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span id="nb_selectionnes">0</span> acte(s) sélectionné(s)
+                <strong style="margin-left: 16px;">Total TTC : <span id="total_selectionne">0</span> F</strong>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btnContinuer" disabled>
+                Continuer →
+            </button>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 40px;">
+            <p style="font-size: 1.25rem; color: var(--neutral-500);">Aucun acte à facturer</p>
+            <p>Tous les actes ont déjà été facturés.</p>
+            <a href="{% url 'gestion:facturation' %}" class="btn btn-secondary" style="margin-top: 16px;">
+                ← Retour à la facturation
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</form>
+
+<script>
+function updateTotal() {
+    const checkboxes = document.querySelectorAll('.acte-checkbox:checked');
+    const nb = checkboxes.length;
+    let total = 0;
+
+    checkboxes.forEach(cb => {
+        total += parseFloat(cb.dataset.ttc || 0);
+    });
+
+    document.getElementById('nb_selectionnes').textContent = nb;
+    document.getElementById('total_selectionne').textContent = Math.round(total).toLocaleString('fr-FR');
+    document.getElementById('btnContinuer').disabled = nb === 0;
+}
+
+function toutSelectionner() {
+    document.querySelectorAll('.acte-checkbox').forEach(cb => cb.checked = true);
+    updateTotal();
+}
+
+function toutDeselectionner() {
+    document.querySelectorAll('.acte-checkbox').forEach(cb => cb.checked = false);
+    updateTotal();
+}
+
+function toggleDossier(dossierId) {
+    const checkboxes = document.querySelectorAll('.dossier-' + dossierId);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateTotal();
+}
+</script>
+{% endblock %}

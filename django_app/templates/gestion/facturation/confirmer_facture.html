@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmer la facture{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Confirmer la facture</h1>
+    <p>{{ actes|length }} acte(s) de {{ nb_dossiers }} dossier(s)</p>
+</div>
+
+<div class="card" style="max-width: 900px;">
+    <div class="card-body">
+
+        <!-- Formulaire -->
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <!-- Informations client -->
+            <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Client</h3>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Nom du client *</label>
+                        <input type="text" name="client_nom" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU</label>
+                        <input type="text" name="client_ifu" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type de client *</label>
+                        <select name="type_client" id="type_client" class="form-control" onchange="updateRecap()">
+                            <option value="prive" selected>Client privé</option>
+                            <option value="public">Client public (État)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerte client public -->
+            <div id="alerte_public" style="display: none; background: var(--warning-bg, #fff8e6); padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--warning);">
+                <strong>Client public détecté</strong>
+                <p style="margin: 8px 0 0 0;">Les honoraires seront facturés avec TVA 18% (groupe B) au lieu du régime TPS.</p>
+            </div>
+
+            <!-- Actes sélectionnés avec groupe de taxation -->
+            <h3 style="font-size: 1rem; margin-bottom: 12px;">Actes à facturer</h3>
+            <table class="table" style="margin-bottom: 24px;">
+                <thead>
+                    <tr>
+                        <th>Dossier</th>
+                        <th>Désignation</th>
+                        <th style="text-align: center;">Groupe</th>
+                        <th style="text-align: right;">HT</th>
+                        <th style="text-align: right;">Taxe</th>
+                        <th style="text-align: right;">TTC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acte in actes %}
+                    <tr class="ligne-acte"
+                        data-type="{{ acte.type_ligne_facture|default:'honoraires' }}"
+                        data-ht="{{ acte.total_ht }}"
+                        data-honoraires="{{ acte.total_honoraires_ht|default:acte.total_ht }}">
+                        <td><small>{{ acte.dossier.reference }}</small></td>
+                        <td>{{ acte.libelle_facture }}</td>
+                        <td style="text-align: center;">
+                            <span class="groupe-badge" data-groupe-prive="{{ acte.groupe_taxation_suggere|default:'E' }}" data-groupe-public="B">
+                                {{ acte.groupe_taxation_suggere|default:'E' }}
+                            </span>
+                        </td>
+                        <td style="text-align: right;">{{ acte.total_ht|floatformat:0 }} F</td>
+                        <td style="text-align: right;" class="cell-taxe">0 F</td>
+                        <td style="text-align: right;" class="cell-ttc"><strong>{{ acte.total_ht|floatformat:0 }} F</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: bold; background: var(--neutral-100);">
+                        <td colspan="3">TOTAUX</td>
+                        <td style="text-align: right;" id="total_ht">{{ totaux.total_ht|floatformat:0 }} F</td>
+                        <td style="text-align: right;" id="total_taxe">0 F</td>
+                        <td style="text-align: right;" id="total_ttc">{{ totaux.total_ht|floatformat:0 }} F</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <!-- Options AIB -->
+            <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Options</h3>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" name="client_soumis_aib" id="aib_cb" onchange="updateRecap()">
+                    <span>Client soumis à l'AIB (3% retenu à la source)</span>
+                </label>
+            </div>
+
+            <!-- Récapitulatif -->
+            <div style="background: var(--primary-light, #e6f0ff); padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Récapitulatif</h3>
+                <table style="width: 100%; max-width: 400px; margin-left: auto;">
+                    <tr>
+                        <td>Honoraires HT</td>
+                        <td style="text-align: right;"><span id="recap_honoraires">{{ totaux.honoraires_ht|floatformat:0 }}</span> F</td>
+                    </tr>
+                    <tr>
+                        <td>Débours</td>
+                        <td style="text-align: right;"><span id="recap_debours">{{ totaux.debours_fixes|floatformat:0|add:totaux.debours_variables|floatformat:0 }}</span> F</td>
+                    </tr>
+                    <tr style="border-top: 1px solid var(--neutral-300);">
+                        <td><strong>Total HT</strong></td>
+                        <td style="text-align: right;"><strong><span id="recap_total_ht">{{ totaux.total_ht|floatformat:0 }}</span> F</strong></td>
+                    </tr>
+                    <tr>
+                        <td><span id="label_taxe">TPS (5%)</span></td>
+                        <td style="text-align: right;"><span id="recap_taxe">{{ totaux.taxe|floatformat:0 }}</span> F</td>
+                    </tr>
+                    <tr style="border-top: 2px solid var(--neutral-400); font-size: 1.1rem;">
+                        <td><strong>TOTAL TTC</strong></td>
+                        <td style="text-align: right;"><strong><span id="recap_ttc">{{ totaux.total_ttc|floatformat:0 }}</span> F</strong></td>
+                    </tr>
+                    <tr id="ligne_aib" style="display: none; color: var(--danger);">
+                        <td>AIB retenu (3%)</td>
+                        <td style="text-align: right;">- <span id="montant_aib">0</span> F</td>
+                    </tr>
+                    <tr id="ligne_net" style="display: none; font-size: 1.25rem; border-top: 1px solid var(--neutral-300);">
+                        <td><strong>NET À PAYER</strong></td>
+                        <td style="text-align: right;"><strong><span id="montant_net">0</span> F</strong></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{% url 'gestion:nouvelle_facture_actes' %}" class="btn btn-secondary">← Retour</a>
+                <button type="submit" class="btn btn-primary">Créer la facture</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const honorairesHT = {{ totaux.honoraires_ht|default:0 }};
+const totalHT = {{ totaux.total_ht|default:0 }};
+const TAUX_TPS = 5;
+const TAUX_TVA = 18;
+
+function updateRecap() {
+    const typeClient = document.getElementById('type_client').value;
+    const aibChecked = document.getElementById('aib_cb').checked;
+    const isPublic = typeClient === 'public';
+
+    // Afficher/masquer alerte client public
+    document.getElementById('alerte_public').style.display = isPublic ? 'block' : 'none';
+
+    // Déterminer le taux de taxe
+    const tauxTaxe = isPublic ? TAUX_TVA : TAUX_TPS;
+
+    // Mettre à jour les badges de groupe
+    document.querySelectorAll('.groupe-badge').forEach(badge => {
+        const groupePrive = badge.dataset.groupePrive;
+        const groupePublic = badge.dataset.groupePublic;
+        const groupe = isPublic ? groupePublic : groupePrive;
+        badge.textContent = groupe;
+
+        // Couleur selon le groupe
+        if (groupe === 'A') {
+            badge.style.background = 'var(--neutral-200)';
+            badge.style.color = 'var(--neutral-600)';
+        } else if (groupe === 'B') {
+            badge.style.background = 'var(--danger-light, #ffe6e6)';
+            badge.style.color = 'var(--danger)';
+        } else {
+            badge.style.background = 'var(--primary-light, #e6f0ff)';
+            badge.style.color = 'var(--primary)';
+        }
+    });
+
+    // Calculer les taxes par ligne
+    let totalTaxe = 0;
+    let totalTTC = 0;
+
+    document.querySelectorAll('.ligne-acte').forEach(row => {
+        const typeLigne = row.dataset.type;
+        const ht = parseFloat(row.dataset.ht) || 0;
+        const honoraires = parseFloat(row.dataset.honoraires) || 0;
+
+        let taxeLigne = 0;
+
+        // Débours exonérés = pas de taxe (groupe A)
+        if (typeLigne === 'debours_exonere') {
+            taxeLigne = 0;
+        } else {
+            // Honoraires : taxe selon type client
+            taxeLigne = Math.round(honoraires * tauxTaxe / 100);
+        }
+
+        const ttcLigne = ht + taxeLigne;
+
+        row.querySelector('.cell-taxe').textContent = taxeLigne.toLocaleString('fr-FR') + ' F';
+        row.querySelector('.cell-ttc').innerHTML = '<strong>' + ttcLigne.toLocaleString('fr-FR') + ' F</strong>';
+
+        totalTaxe += taxeLigne;
+        totalTTC += ttcLigne;
+    });
+
+    // Mettre à jour les totaux du tableau
+    document.getElementById('total_taxe').textContent = totalTaxe.toLocaleString('fr-FR') + ' F';
+    document.getElementById('total_ttc').textContent = totalTTC.toLocaleString('fr-FR') + ' F';
+
+    // Mettre à jour le récapitulatif
+    document.getElementById('label_taxe').textContent = isPublic ? 'TVA (18%)' : 'TPS (5%)';
+    document.getElementById('recap_taxe').textContent = totalTaxe.toLocaleString('fr-FR');
+    document.getElementById('recap_ttc').textContent = totalTTC.toLocaleString('fr-FR');
+
+    // Gérer l'AIB
+    if (aibChecked) {
+        const montantAIB = Math.round(totalTTC * 3 / 100);
+        const montantNet = totalTTC - montantAIB;
+        document.getElementById('ligne_aib').style.display = 'table-row';
+        document.getElementById('ligne_net').style.display = 'table-row';
+        document.getElementById('montant_aib').textContent = montantAIB.toLocaleString('fr-FR');
+        document.getElementById('montant_net').textContent = montantNet.toLocaleString('fr-FR');
+    } else {
+        document.getElementById('ligne_aib').style.display = 'none';
+        document.getElementById('ligne_net').style.display = 'none';
+    }
+}
+
+// Style badges
+const style = document.createElement('style');
+style.textContent = `
+    .groupe-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+`;
+document.head.appendChild(style);
+
+// Initialiser
+updateRecap();
+</script>
+{% endblock %}

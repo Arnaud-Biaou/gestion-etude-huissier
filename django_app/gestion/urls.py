@@ -24,7 +24,20 @@ urlpatterns = [
     path('acte-securise/<int:acte_id>/', views.acte_securise_detail, name='acte_securise_detail'),
     path('dossier/<int:dossier_id>/actes-securises/', views.liste_actes_securises, name='liste_actes_securises'),
 
+    # === ACTES DU DOSSIER ===
+    path('dossier/<int:dossier_id>/actes/', views.liste_actes_dossier, name='liste_actes_dossier'),
+    path('dossier/<int:dossier_id>/actes/ajouter/', views.ajouter_acte_dossier, name='ajouter_acte_dossier'),
+    path('acte-dossier/<int:acte_id>/modifier/', views.modifier_acte_dossier, name='modifier_acte_dossier'),
+    path('acte-dossier/<int:acte_id>/supprimer/', views.supprimer_acte_dossier, name='supprimer_acte_dossier'),
+    path('dossier/<int:dossier_id>/actes/facturer/', views.facturer_actes_dossier, name='facturer_actes_dossier'),
+
     path('facturation/', views.facturation, name='facturation'),
+
+    # === FACTURATION MULTI-DOSSIERS ===
+    path('facturation/nouvelle/', views.nouvelle_facture_actes, name='nouvelle_facture_actes'),
+    path('facturation/confirmer/', views.confirmer_facture_actes, name='confirmer_facture_actes'),
+    path('facture/<int:facture_id>/completer/', views.completer_facture, name='completer_facture'),
+
     path('memoires/', views.memoires, name='memoires'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
     path('drive/', views.drive, name='drive'),

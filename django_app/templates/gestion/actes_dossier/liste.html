@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Actes - {{ dossier.reference }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossiers' %}">Dossiers</a>
+        <span>/</span>
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <span>Actes et Débours</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>📋 Actes et Débours</h1>
+        <a href="{% url 'gestion:ajouter_acte_dossier' dossier.id %}" class="btn btn-primary">
+            + Ajouter un acte
+        </a>
+    </div>
+</div>
+
+<!-- Récapitulatif -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Non facturés</div>
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--warning);">{{ nb_non_factures }}</div>
+    </div>
+    <div class="card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Total non facturé HT</div>
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--danger);">{{ total_non_facture|floatformat:0 }} F</div>
+    </div>
+    <div class="card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--neutral-500); text-transform: uppercase;">Total facturé HT</div>
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--success);">{{ total_facture|floatformat:0 }} F</div>
+    </div>
+</div>
+
+<!-- Bouton facturation globale -->
+{% if nb_non_factures > 0 %}
+<div class="card" style="padding: 16px; margin-bottom: 24px; background: var(--warning-bg, #fff8e6);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <strong>{{ nb_non_factures }} acte(s) non facturé(s)</strong>
+            <span style="color: var(--neutral-600);">pour un total de {{ total_non_facture|floatformat:0 }} F HT</span>
+        </div>
+        <a href="{% url 'gestion:facturer_actes_dossier' dossier.id %}" class="btn btn-primary">
+            📄 Générer une facture
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Liste des actes -->
+<div class="card">
+    <div class="card-body">
+        {% if actes %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date(s)</th>
+                    <th>Type</th>
+                    <th>Libellé</th>
+                    <th style="text-align: right;">Honoraires</th>
+                    <th style="text-align: right;">Débours</th>
+                    <th style="text-align: right;">TPS (5%)</th>
+                    <th style="text-align: right;">Total TTC</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acte in actes %}
+                <tr>
+                    <td>{{ acte.dates_affichage }}</td>
+                    <td>
+                        {% if acte.type_ligne == 'acte' %}
+                        <span style="background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                            Acte
+                        </span>
+                        {% else %}
+                        <span style="background: var(--neutral-200); color: var(--neutral-700); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                            Débours
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ acte.libelle }}</strong>
+                        {% if acte.type_ligne == 'acte' %}
+                        <br><small style="color: var(--neutral-500);">
+                            {{ acte.nombre_feuillets }} feuillet(s)
+                            {% if acte.inclure_enregistrement %}+ enreg.{% endif %}
+                        </small>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if acte.type_ligne == 'acte' %}
+                        {{ acte.total_honoraires_ht|floatformat:0 }} F
+                        {% else %}-{% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if acte.type_ligne == 'acte' %}
+                        {{ acte.total_debours_fixes|floatformat:0 }} F
+                        {% else %}
+                        {{ acte.total_debours_variables|floatformat:0 }} F
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">{{ acte.montant_tva|floatformat:0 }} F</td>
+                    <td style="text-align: right;"><strong>{{ acte.total_ttc|floatformat:0 }} F</strong></td>
+                    <td>
+                        {% if acte.statut_facturation == 'non_facture' %}
+                        <span style="color: var(--warning);">⏳ Non facturé</span>
+                        {% elif acte.statut_facturation == 'facture' %}
+                        <span style="color: var(--success);">✅ Facturé</span>
+                        {% else %}
+                        <span style="color: var(--danger);">❌ Annulé</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 4px;">
+                            {% if acte.statut_facturation == 'non_facture' %}
+                            <a href="{% url 'gestion:modifier_acte_dossier' acte.id %}" class="btn btn-sm btn-secondary" title="Modifier">
+                                ✏️
+                            </a>
+                            <a href="{% url 'gestion:supprimer_acte_dossier' acte.id %}" class="btn btn-sm btn-danger" title="Supprimer">
+                                🗑️
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: var(--neutral-500);">
+            <p style="font-size: 1.25rem;">Aucun acte enregistré</p>
+            <a href="{% url 'gestion:ajouter_acte_dossier' dossier.id %}" class="btn btn-primary" style="margin-top: 16px;">
+                + Ajouter le premier acte
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div style="margin-top: 24px;">
+    <a href="{% url 'gestion:dossier_detail' dossier.id %}" class="btn btn-secondary">
+        ← Retour au dossier
+    </a>
+</div>
+{% endblock %}
