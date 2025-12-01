@@ -59,7 +59,10 @@ from .models import (
     AutoriteRequerante, Memoire, AffaireMemoire, DestinataireAffaire, ActeDestinataire,
     # Calendrier Saisie Immobilière
     CalendrierSaisieImmo,
+    # Actes sécurisés
+    ActeSecurise,
 )
+from .services.qr_service import QRCodeService, ActeSecuriseService
 
 
 # Donnees par defaut pour le contexte (simulant les donnees React)
@@ -6753,3 +6756,110 @@ def import_donnees_executer(request, session_id):
 
     messages.success(request, f"Import terminé : {importes} dossier(s) importé(s), {erreurs} erreur(s)")
     return redirect('gestion:import_analyser', session_id=session.pk)
+
+
+# =============================================================================
+# ACTES SÉCURISÉS - QR CODE
+# =============================================================================
+
+@login_required
+def securiser_acte(request, dossier_id):
+    """
+    Formulaire pour créer un acte sécurisé avec QR code.
+    """
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    if request.method == 'POST':
+        try:
+            # Récupérer les données du formulaire
+            type_acte = request.POST.get('type_acte')
+            titre_acte = request.POST.get('titre_acte')
+            date_acte = request.POST.get('date_acte')
+            parties_resume = request.POST.get('parties_resume')
+            contenu_acte = request.POST.get('contenu_acte', '')
+
+            # Validation basique
+            if not all([type_acte, titre_acte, date_acte, parties_resume]):
+                messages.error(request, "Tous les champs obligatoires doivent être remplis.")
+                return redirect('gestion:securiser_acte', dossier_id=dossier_id)
+
+            # Récupérer le collaborateur connecté
+            collaborateur = None
+            if hasattr(request.user, 'collaborateur'):
+                collaborateur = request.user.collaborateur
+
+            # Créer l'acte sécurisé
+            acte = ActeSecuriseService.creer_acte_securise(
+                dossier=dossier,
+                type_acte=type_acte,
+                titre_acte=titre_acte,
+                date_acte=date_acte,
+                parties_resume=parties_resume,
+                contenu_ou_fichier=contenu_acte or f"{type_acte}-{titre_acte}-{date_acte}",
+                cree_par=collaborateur,
+            )
+
+            messages.success(request, f"Acte sécurisé créé avec le code : {acte.code_verification}")
+            return redirect('gestion:acte_securise_detail', acte_id=acte.id)
+
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la création : {str(e)}")
+            return redirect('gestion:securiser_acte', dossier_id=dossier_id)
+
+    # GET - Afficher le formulaire
+    # Préremplir les parties si disponibles
+    parties_default = ""
+    demandeurs = dossier.demandeurs.all()
+    defendeurs = dossier.defendeurs.all()
+
+    if demandeurs and defendeurs:
+        d_nom = demandeurs[0].nom_complet if hasattr(demandeurs[0], 'nom_complet') else str(demandeurs[0])
+        def_nom = defendeurs[0].nom_complet if hasattr(defendeurs[0], 'nom_complet') else str(defendeurs[0])
+        parties_default = f"{d_nom} c/ {def_nom}"
+
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'parties_default': parties_default,
+        'types_acte': ActeSecurise.TYPE_ACTE_CHOICES,
+    })
+
+    return render(request, 'gestion/securiser_acte.html', context)
+
+
+@login_required
+def acte_securise_detail(request, acte_id):
+    """
+    Affiche le détail d'un acte sécurisé avec son QR code.
+    """
+    acte = get_object_or_404(ActeSecurise, id=acte_id)
+
+    # Générer le QR code
+    qr_data_uri = ActeSecuriseService.generer_qr_pour_acte(acte)
+
+    context = get_default_context(request)
+    context.update({
+        'acte': acte,
+        'dossier': acte.dossier,
+        'qr_code': qr_data_uri,
+        'qr_disponible': qr_data_uri is not None,
+    })
+
+    return render(request, 'gestion/acte_securise_detail.html', context)
+
+
+@login_required
+def liste_actes_securises(request, dossier_id):
+    """
+    Liste tous les actes sécurisés d'un dossier.
+    """
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+    actes = dossier.actes_securises.all().order_by('-cree_le')
+
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'actes': actes,
+    })
+
+    return render(request, 'gestion/liste_actes_securises.html', context)
