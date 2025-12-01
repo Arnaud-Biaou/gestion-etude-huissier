@@ -7181,3 +7181,251 @@ def facturer_actes_dossier(request, dossier_id):
         'client_ifu': client_ifu,
     })
     return render(request, 'gestion/actes_dossier/facturer.html', context)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FACTURATION MULTI-DOSSIERS
+# ════════════════════════════════════════════════════════════════════════════
+
+@login_required
+def nouvelle_facture_actes(request):
+    """
+    Crée une nouvelle facture en sélectionnant des actes de plusieurs dossiers.
+    """
+    # Récupérer tous les actes non facturés, groupés par dossier
+    actes_par_dossier = {}
+    tous_actes = ActeDossier.objects.filter(
+        statut_facturation='non_facture'
+    ).select_related('dossier').order_by('dossier__reference', '-date_debut')
+
+    for acte in tous_actes:
+        dossier_id = acte.dossier.id
+        if dossier_id not in actes_par_dossier:
+            actes_par_dossier[dossier_id] = {
+                'dossier': acte.dossier,
+                'actes': []
+            }
+        actes_par_dossier[dossier_id]['actes'].append(acte)
+
+    if request.method == 'POST':
+        # Récupérer les IDs des actes sélectionnés
+        actes_ids = request.POST.getlist('actes')
+
+        if not actes_ids:
+            messages.warning(request, "Veuillez sélectionner au moins un acte.")
+            return redirect('gestion:nouvelle_facture_actes')
+
+        # Récupérer les actes sélectionnés
+        actes_selectionnes = ActeDossier.objects.filter(
+            id__in=actes_ids,
+            statut_facturation='non_facture'
+        )
+
+        if not actes_selectionnes.exists():
+            messages.error(request, "Aucun acte valide sélectionné.")
+            return redirect('gestion:nouvelle_facture_actes')
+
+        # Stocker en session pour l'étape suivante
+        request.session['actes_a_facturer'] = list(actes_ids)
+        return redirect('gestion:confirmer_facture_actes')
+
+    context = get_default_context(request)
+    context.update({
+        'actes_par_dossier': actes_par_dossier,
+        'nb_total_actes': tous_actes.count(),
+    })
+    return render(request, 'gestion/facturation/selection_actes.html', context)
+
+
+@login_required
+def confirmer_facture_actes(request):
+    """
+    Confirme et crée la facture avec les actes sélectionnés.
+    """
+    actes_ids = request.session.get('actes_a_facturer', [])
+
+    if not actes_ids:
+        messages.warning(request, "Aucun acte sélectionné.")
+        return redirect('gestion:nouvelle_facture_actes')
+
+    actes = ActeDossier.objects.filter(
+        id__in=actes_ids,
+        statut_facturation='non_facture'
+    ).select_related('dossier')
+
+    if not actes.exists():
+        messages.error(request, "Les actes sélectionnés ne sont plus disponibles.")
+        return redirect('gestion:nouvelle_facture_actes')
+
+    # Calculer les totaux
+    actes_list = list(actes)
+    total_honoraires = sum(a.total_honoraires_ht for a in actes_list)
+    total_debours_fixes = sum(a.total_debours_fixes for a in actes_list)
+    total_debours_variables = sum(a.total_debours_variables for a in actes_list)
+    total_taxe = sum(a.montant_taxe for a in actes_list)
+    total_ht = total_honoraires + total_debours_fixes + total_debours_variables
+    total_ttc = total_ht + total_taxe
+
+    # Dossiers impliqués
+    dossiers = set(a.dossier for a in actes_list)
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Options fiscales
+                type_taxe = request.POST.get('type_taxe', 'tps')
+                client_soumis_aib = request.POST.get('client_soumis_aib') == 'on'
+                client_nom = request.POST.get('client_nom', '')
+                client_ifu = request.POST.get('client_ifu', '')
+
+                # Recalculer avec le bon taux
+                if type_taxe == 'tva':
+                    taux = Decimal('18')
+                    montant_taxe = (total_honoraires * taux) / 100
+                else:
+                    taux = Decimal('5')
+                    montant_taxe = total_taxe
+
+                montant_ttc = total_ht + montant_taxe
+
+                # Générer le numéro
+                numero = Facture.generer_numero()
+
+                # Lier à un dossier principal (le premier) ou None si multi-dossiers
+                dossier_principal = list(dossiers)[0] if len(dossiers) == 1 else None
+
+                # Créer la facture
+                facture = Facture.objects.create(
+                    numero=numero,
+                    dossier=dossier_principal,
+                    client=client_nom,
+                    ifu=client_ifu,
+                    montant_ht=total_ht,
+                    taux_tva=taux,
+                    montant_tva=montant_taxe,
+                    montant_ttc=montant_ttc,
+                    type_taxe=type_taxe,
+                    client_soumis_aib=client_soumis_aib,
+                    taux_aib=Decimal('3.00') if client_soumis_aib else Decimal('0'),
+                    statut='brouillon',
+                )
+
+                # Créer les lignes
+                for acte in actes_list:
+                    ligne = LigneFacture.objects.create(
+                        facture=facture,
+                        description=f"[{acte.dossier.reference}] {acte.libelle_facture}",
+                        quantite=acte.quantite,
+                        prix_unitaire=acte.total_ht,
+                    )
+                    acte.marquer_facture(ligne)
+
+                # Nettoyer la session
+                del request.session['actes_a_facturer']
+
+                messages.success(request, f"Facture {numero} créée avec {len(actes_list)} acte(s).")
+                return redirect('gestion:facturation')
+
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la création : {str(e)}")
+
+    context = get_default_context(request)
+    context.update({
+        'actes': actes_list,
+        'dossiers': dossiers,
+        'nb_dossiers': len(dossiers),
+        'totaux': {
+            'honoraires_ht': total_honoraires,
+            'debours_fixes': total_debours_fixes,
+            'debours_variables': total_debours_variables,
+            'taxe': total_taxe,
+            'total_ht': total_ht,
+            'total_ttc': total_ttc,
+        }
+    })
+    return render(request, 'gestion/facturation/confirmer_facture.html', context)
+
+
+@login_required
+def completer_facture(request, facture_id):
+    """
+    Ajoute des actes à une facture brouillon existante.
+    Impossible si la facture est déjà normalisée.
+    """
+    facture = get_object_or_404(Facture, id=facture_id)
+
+    # Vérifier que la facture est modifiable (brouillon ou attente)
+    if facture.statut not in ['brouillon', 'attente']:
+        messages.error(request, "Cette facture est déjà normalisée et ne peut plus être modifiée.")
+        return redirect('gestion:facturation')
+
+    # Récupérer les actes non facturés
+    actes_disponibles = ActeDossier.objects.filter(
+        statut_facturation='non_facture'
+    ).select_related('dossier').order_by('dossier__reference', '-date_debut')
+
+    # Grouper par dossier
+    actes_par_dossier = {}
+    for acte in actes_disponibles:
+        dossier_id = acte.dossier.id
+        if dossier_id not in actes_par_dossier:
+            actes_par_dossier[dossier_id] = {
+                'dossier': acte.dossier,
+                'actes': []
+            }
+        actes_par_dossier[dossier_id]['actes'].append(acte)
+
+    # Lignes actuelles de la facture
+    lignes_actuelles = facture.lignes.all()
+
+    if request.method == 'POST':
+        actes_ids = request.POST.getlist('actes')
+
+        if not actes_ids:
+            messages.warning(request, "Veuillez sélectionner au moins un acte.")
+            return redirect('gestion:completer_facture', facture_id=facture_id)
+
+        try:
+            with transaction.atomic():
+                actes = ActeDossier.objects.filter(
+                    id__in=actes_ids,
+                    statut_facturation='non_facture'
+                )
+
+                actes_list = list(actes)
+                for acte in actes_list:
+                    ligne = LigneFacture.objects.create(
+                        facture=facture,
+                        description=f"[{acte.dossier.reference}] {acte.libelle_facture}",
+                        quantite=acte.quantite,
+                        prix_unitaire=acte.total_ht,
+                    )
+                    acte.marquer_facture(ligne)
+
+                # Recalculer les totaux de la facture
+                nouveau_total_ht = sum(l.prix_unitaire * l.quantite for l in facture.lignes.all())
+
+                if facture.type_taxe == 'tva':
+                    taux = Decimal('18')
+                else:
+                    taux = Decimal('5')
+
+                facture.montant_ht = nouveau_total_ht
+                facture.montant_tva = (nouveau_total_ht * taux) / 100
+                facture.montant_ttc = nouveau_total_ht + facture.montant_tva
+                facture.save()
+
+                messages.success(request, f"{len(actes_list)} acte(s) ajouté(s) à la facture {facture.numero}.")
+                return redirect('gestion:facturation')
+
+        except Exception as e:
+            messages.error(request, f"Erreur : {str(e)}")
+
+    context = get_default_context(request)
+    context.update({
+        'facture': facture,
+        'lignes_actuelles': lignes_actuelles,
+        'actes_par_dossier': actes_par_dossier,
+        'nb_actes_disponibles': actes_disponibles.count(),
+    })
+    return render(request, 'gestion/facturation/completer_facture.html', context)

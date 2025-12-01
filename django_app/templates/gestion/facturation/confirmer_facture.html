@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmer la facture{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Confirmer la facture</h1>
+    <p>{{ actes|length }} acte(s) de {{ nb_dossiers }} dossier(s)</p>
+</div>
+
+<div class="card" style="max-width: 900px;">
+    <div class="card-body">
+
+        <!-- Actes sélectionnés -->
+        <h3 style="font-size: 1rem; margin-bottom: 12px;">Actes à facturer</h3>
+        <table class="table" style="margin-bottom: 24px;">
+            <thead>
+                <tr>
+                    <th>Dossier</th>
+                    <th>Désignation</th>
+                    <th style="text-align: right;">Total HT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acte in actes %}
+                <tr>
+                    <td><small>{{ acte.dossier.reference }}</small></td>
+                    <td>{{ acte.libelle_facture }}</td>
+                    <td style="text-align: right;">{{ acte.total_ht|floatformat:0 }} F</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Formulaire -->
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <!-- Informations client -->
+            <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Client</h3>
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Nom du client *</label>
+                        <input type="text" name="client_nom" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IFU</label>
+                        <input type="text" name="client_ifu" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options fiscales -->
+            <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Options fiscales</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div>
+                        <label style="font-weight: 600;">Type de taxe</label><br>
+                        <label style="display: block; margin-top: 8px; cursor: pointer;">
+                            <input type="radio" name="type_taxe" value="tps" checked onchange="updateRecap()"> TPS (5%)
+                        </label>
+                        <label style="display: block; margin-top: 4px; cursor: pointer;">
+                            <input type="radio" name="type_taxe" value="tva" onchange="updateRecap()"> TVA (18%)
+                        </label>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600;">AIB</label><br>
+                        <label style="display: block; margin-top: 8px; cursor: pointer;">
+                            <input type="checkbox" name="client_soumis_aib" id="aib_cb" onchange="updateRecap()"> Client soumis à l'AIB (3%)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Récapitulatif -->
+            <div style="background: var(--primary-light, #e6f0ff); padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Récapitulatif</h3>
+                <table style="width: 100%; max-width: 400px; margin-left: auto;">
+                    <tr>
+                        <td>Honoraires HT</td>
+                        <td style="text-align: right;">{{ totaux.honoraires_ht|floatformat:0 }} F</td>
+                    </tr>
+                    <tr>
+                        <td>Débours</td>
+                        <td style="text-align: right;">{{ totaux.debours_fixes|floatformat:0|add:totaux.debours_variables|floatformat:0 }} F</td>
+                    </tr>
+                    <tr style="border-top: 1px solid var(--neutral-300);">
+                        <td><strong>Total HT</strong></td>
+                        <td style="text-align: right;"><strong>{{ totaux.total_ht|floatformat:0 }} F</strong></td>
+                    </tr>
+                    <tr>
+                        <td><span id="label_taxe">TPS (5%)</span></td>
+                        <td style="text-align: right;"><span id="montant_taxe">{{ totaux.taxe|floatformat:0 }}</span> F</td>
+                    </tr>
+                    <tr style="border-top: 2px solid var(--neutral-400); font-size: 1.1rem;">
+                        <td><strong>TOTAL TTC</strong></td>
+                        <td style="text-align: right;"><strong><span id="montant_ttc">{{ totaux.total_ttc|floatformat:0 }}</span> F</strong></td>
+                    </tr>
+                    <tr id="ligne_aib" style="display: none; color: var(--danger);">
+                        <td>AIB retenu (3%)</td>
+                        <td style="text-align: right;">- <span id="montant_aib">0</span> F</td>
+                    </tr>
+                    <tr id="ligne_net" style="display: none; font-size: 1.25rem; border-top: 1px solid var(--neutral-300);">
+                        <td><strong>NET À PAYER</strong></td>
+                        <td style="text-align: right;"><strong><span id="montant_net">0</span> F</strong></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{% url 'gestion:nouvelle_facture_actes' %}" class="btn btn-secondary">← Retour</a>
+                <button type="submit" class="btn btn-primary">Créer la facture</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const honorairesHT = {{ totaux.honoraires_ht|default:0 }};
+const totalHT = {{ totaux.total_ht|default:0 }};
+
+function updateRecap() {
+    const typeTaxe = document.querySelector('input[name="type_taxe"]:checked').value;
+    const aibChecked = document.getElementById('aib_cb').checked;
+
+    let tauxTaxe = typeTaxe === 'tva' ? 18 : 5;
+    let montantTaxe = Math.round(honorairesHT * tauxTaxe / 100);
+    let montantTTC = totalHT + montantTaxe;
+
+    document.getElementById('label_taxe').textContent = typeTaxe === 'tva' ? 'TVA (18%)' : 'TPS (5%)';
+    document.getElementById('montant_taxe').textContent = montantTaxe.toLocaleString('fr-FR');
+    document.getElementById('montant_ttc').textContent = montantTTC.toLocaleString('fr-FR');
+
+    if (aibChecked) {
+        let montantAIB = Math.round(montantTTC * 3 / 100);
+        let montantNet = montantTTC - montantAIB;
+        document.getElementById('ligne_aib').style.display = 'table-row';
+        document.getElementById('ligne_net').style.display = 'table-row';
+        document.getElementById('montant_aib').textContent = montantAIB.toLocaleString('fr-FR');
+        document.getElementById('montant_net').textContent = montantNet.toLocaleString('fr-FR');
+    } else {
+        document.getElementById('ligne_aib').style.display = 'none';
+        document.getElementById('ligne_net').style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
