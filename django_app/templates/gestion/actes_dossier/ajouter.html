@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Ajouter un acte - {{ dossier.reference }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="{% url 'gestion:dossiers' %}">Dossiers</a>
+        <span>/</span>
+        <a href="{% url 'gestion:dossier_detail' dossier.id %}">{{ dossier.reference }}</a>
+        <span>/</span>
+        <a href="{% url 'gestion:liste_actes_dossier' dossier.id %}">Actes</a>
+        <span>/</span>
+        <span>Ajouter</span>
+    </div>
+    <h1>+ Ajouter un acte ou débours</h1>
+</div>
+
+<div class="card" style="max-width: 800px;">
+    <div class="card-body">
+        <form method="POST" action="" id="formActe">
+            {% csrf_token %}
+
+            <!-- Type de ligne -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Type de ligne *</label>
+                <div style="display: flex; gap: 16px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="type_ligne" value="acte" checked onchange="toggleTypeLigne()">
+                        <span>Acte (honoraires + débours fixes)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="type_ligne" value="debours" onchange="toggleTypeLigne()">
+                        <span>Débours variable</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Sélection depuis catalogue (pour actes) -->
+            <div id="bloc_catalogue" class="form-group" style="margin-bottom: 20px;">
+                <label for="type_acte" class="form-label">Type d'acte (catalogue)</label>
+                <select name="type_acte" id="type_acte" class="form-control" onchange="remplirDepuisCatalogue()">
+                    <option value="">-- Sélectionner ou saisir manuellement --</option>
+                    {% for acte in types_actes %}
+                    <option value="{{ acte.id }}" data-tarif="{{ acte.tarif }}" data-libelle="{{ acte.libelle }}">
+                        {{ acte.libelle }} - {{ acte.tarif|floatformat:0 }} F
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Libellé -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="libelle" class="form-label">Libellé / Description *</label>
+                <input type="text" name="libelle" id="libelle" class="form-control" required
+                       placeholder="Ex: Signification de jugement, Commandement de payer...">
+            </div>
+
+            <!-- Dates -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label for="date_debut" class="form-label">Date de réalisation *</label>
+                    <input type="date" name="date_debut" id="date_debut" class="form-control" required
+                           value="{% now 'Y-m-d' %}">
+                </div>
+                <div class="form-group">
+                    <label for="dates_supplementaires" class="form-label">Dates supplémentaires</label>
+                    <input type="text" name="dates_supplementaires" id="dates_supplementaires" class="form-control"
+                           placeholder="Ex: 29, 30/11/2025">
+                    <small style="color: var(--neutral-500);">Si signifié sur plusieurs jours</small>
+                </div>
+            </div>
+
+            <!-- BLOC ACTE : Honoraires + Débours fixes -->
+            <div id="bloc_acte">
+                <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 16px; font-size: 1rem;">Honoraires et débours fixes</h3>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="honoraires_ht" class="form-label">Honoraires HT (FCFA) *</label>
+                            <input type="number" name="honoraires_ht" id="honoraires_ht" class="form-control"
+                                   min="0" step="100" value="0">
+                            <small style="color: var(--neutral-500);">Taxable à 18%</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="nombre_feuillets" class="form-label">Nombre de feuillets</label>
+                            <input type="number" name="nombre_feuillets" id="nombre_feuillets" class="form-control"
+                                   min="1" value="1">
+                            <small style="color: var(--neutral-500);">Timbre : 1.200 F/feuillet</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="inclure_enregistrement" checked>
+                            <span>Inclure les frais d'enregistrement (2.500 F)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BLOC DÉBOURS : Montant variable -->
+            <div id="bloc_debours" style="display: none;">
+                <div style="background: var(--neutral-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 16px; font-size: 1rem;">Débours variable</h3>
+
+                    <div class="form-group">
+                        <label for="montant_debours" class="form-label">Montant (FCFA) *</label>
+                        <input type="number" name="montant_debours" id="montant_debours" class="form-control"
+                               min="0" step="100" value="0">
+                        <small style="color: var(--neutral-500);">Non taxable (TVA 0%)</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quantité et Notes -->
+            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label for="quantite" class="form-label">Quantité</label>
+                    <input type="number" name="quantite" id="quantite" class="form-control"
+                           min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="notes" class="form-label">Notes</label>
+                    <input type="text" name="notes" id="notes" class="form-control"
+                           placeholder="Observations...">
+                </div>
+            </div>
+
+            <!-- Boutons -->
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{% url 'gestion:liste_actes_dossier' dossier.id %}" class="btn btn-secondary">
+                    Annuler
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Enregistrer l'acte
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleTypeLigne() {
+    const typeLigne = document.querySelector('input[name="type_ligne"]:checked').value;
+    const blocActe = document.getElementById('bloc_acte');
+    const blocDebours = document.getElementById('bloc_debours');
+    const blocCatalogue = document.getElementById('bloc_catalogue');
+
+    if (typeLigne === 'acte') {
+        blocActe.style.display = 'block';
+        blocDebours.style.display = 'none';
+        blocCatalogue.style.display = 'block';
+    } else {
+        blocActe.style.display = 'none';
+        blocDebours.style.display = 'block';
+        blocCatalogue.style.display = 'none';
+    }
+}
+
+function remplirDepuisCatalogue() {
+    const select = document.getElementById('type_acte');
+    const option = select.options[select.selectedIndex];
+
+    if (option.value) {
+        document.getElementById('libelle').value = option.dataset.libelle || '';
+        document.getElementById('honoraires_ht').value = option.dataset.tarif || 0;
+    }
+}
+</script>
+{% endblock %}
