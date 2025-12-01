@@ -50,7 +50,7 @@ def admin_required(view_func):
     return wrapper
 
 from .models import (
-    Dossier, Facture, Collaborateur, Partie, ActeProcedure,
+    Dossier, Facture, Collaborateur, Partie, ActeProcedure, ActeDossier,
     HistoriqueCalcul, TauxLegal, Utilisateur, LigneFacture,
     Creancier, PortefeuilleCreancier, Encaissement, ImputationEncaissement,
     Reversement, BasculementAmiableForce, PointGlobalCreancier,
@@ -6863,3 +6863,193 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+# =====================================================
+# GESTION DES ACTES DU DOSSIER
+# =====================================================
+
+@login_required
+def liste_actes_dossier(request, dossier_id):
+    """
+    Liste tous les actes d'un dossier avec récapitulatif facturation.
+    """
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+    actes = dossier.actes_dossier.all().order_by('-date_realisation')
+
+    # Calculs récapitulatifs
+    actes_non_factures = actes.filter(statut_facturation='non_facture')
+    total_non_facture = sum(a.total_ht for a in actes_non_factures)
+    total_facture = sum(a.total_ht for a in actes.filter(statut_facturation='facture'))
+
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'actes': actes,
+        'actes_non_factures': actes_non_factures,
+        'total_non_facture': total_non_facture,
+        'total_facture': total_facture,
+        'nb_non_factures': actes_non_factures.count(),
+    })
+
+    return render(request, 'gestion/actes_dossier/liste.html', context)
+
+
+@login_required
+def ajouter_acte_dossier(request, dossier_id):
+    """
+    Formulaire pour ajouter un acte à un dossier.
+    """
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Récupérer les données
+                type_acte_id = request.POST.get('type_acte')
+                libelle = request.POST.get('libelle', '').strip()
+                date_realisation = request.POST.get('date_realisation')
+                montant_ht = request.POST.get('montant_ht', '0')
+                taux_tva = request.POST.get('taux_tva', '18')
+                quantite = request.POST.get('quantite', '1')
+                notes = request.POST.get('notes', '')
+
+                # Récupérer le type d'acte si sélectionné
+                type_acte = None
+                if type_acte_id:
+                    type_acte = ActeProcedure.objects.filter(id=type_acte_id).first()
+                    if type_acte and not libelle:
+                        libelle = type_acte.libelle
+                    if type_acte and not montant_ht:
+                        montant_ht = str(type_acte.tarif)
+
+                # Validation
+                if not libelle:
+                    messages.error(request, "Le libellé est obligatoire.")
+                    return redirect('gestion:ajouter_acte_dossier', dossier_id=dossier_id)
+
+                if not date_realisation:
+                    messages.error(request, "La date de réalisation est obligatoire.")
+                    return redirect('gestion:ajouter_acte_dossier', dossier_id=dossier_id)
+
+                # Convertir les valeurs
+                montant_ht = Decimal(montant_ht.replace(' ', '').replace(',', '.') or '0')
+                taux_tva = Decimal(taux_tva.replace(',', '.') or '18')
+                quantite = int(quantite or '1')
+
+                # Récupérer le collaborateur
+                collaborateur = None
+                if hasattr(request.user, 'collaborateur'):
+                    collaborateur = request.user.collaborateur
+
+                # Créer l'acte
+                acte = ActeDossier.objects.create(
+                    dossier=dossier,
+                    type_acte=type_acte,
+                    libelle=libelle,
+                    date_realisation=date_realisation,
+                    montant_ht=montant_ht,
+                    taux_tva=taux_tva,
+                    quantite=quantite,
+                    notes=notes,
+                    cree_par=collaborateur,
+                )
+
+                messages.success(request, f"Acte '{libelle}' ajouté avec succès.")
+                return redirect('gestion:liste_actes_dossier', dossier_id=dossier_id)
+
+        except Exception as e:
+            messages.error(request, f"Erreur lors de l'ajout : {str(e)}")
+            return redirect('gestion:ajouter_acte_dossier', dossier_id=dossier_id)
+
+    # GET - Afficher le formulaire
+    types_actes = ActeProcedure.objects.filter(actif=True).order_by('libelle')
+
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'types_actes': types_actes,
+    })
+
+    return render(request, 'gestion/actes_dossier/ajouter.html', context)
+
+
+@login_required
+def modifier_acte_dossier(request, acte_id):
+    """
+    Modifier un acte existant.
+    """
+    acte = get_object_or_404(ActeDossier, id=acte_id)
+    dossier = acte.dossier
+
+    # Vérifier que l'acte n'est pas déjà facturé
+    if acte.statut_facturation == 'facture':
+        messages.error(request, "Impossible de modifier un acte déjà facturé.")
+        return redirect('gestion:liste_actes_dossier', dossier_id=dossier.id)
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                acte.libelle = request.POST.get('libelle', acte.libelle)
+                acte.date_realisation = request.POST.get('date_realisation', acte.date_realisation)
+
+                montant_ht = request.POST.get('montant_ht', '')
+                if montant_ht:
+                    acte.montant_ht = Decimal(montant_ht.replace(' ', '').replace(',', '.'))
+
+                taux_tva = request.POST.get('taux_tva', '')
+                if taux_tva:
+                    acte.taux_tva = Decimal(taux_tva.replace(',', '.'))
+
+                quantite = request.POST.get('quantite', '')
+                if quantite:
+                    acte.quantite = int(quantite)
+
+                acte.notes = request.POST.get('notes', '')
+                acte.save()
+
+                messages.success(request, "Acte modifié avec succès.")
+                return redirect('gestion:liste_actes_dossier', dossier_id=dossier.id)
+
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la modification : {str(e)}")
+
+    # GET
+    types_actes = ActeProcedure.objects.filter(actif=True).order_by('libelle')
+
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'acte': acte,
+        'types_actes': types_actes,
+    })
+
+    return render(request, 'gestion/actes_dossier/modifier.html', context)
+
+
+@login_required
+def supprimer_acte_dossier(request, acte_id):
+    """
+    Supprimer un acte (uniquement si non facturé).
+    """
+    acte = get_object_or_404(ActeDossier, id=acte_id)
+    dossier = acte.dossier
+
+    if acte.statut_facturation == 'facture':
+        messages.error(request, "Impossible de supprimer un acte déjà facturé.")
+        return redirect('gestion:liste_actes_dossier', dossier_id=dossier.id)
+
+    if request.method == 'POST':
+        libelle = acte.libelle
+        acte.delete()
+        messages.success(request, f"Acte '{libelle}' supprimé.")
+        return redirect('gestion:liste_actes_dossier', dossier_id=dossier.id)
+
+    # GET - Confirmation
+    context = get_default_context(request)
+    context.update({
+        'dossier': dossier,
+        'acte': acte,
+    })
+
+    return render(request, 'gestion/actes_dossier/supprimer.html', context)

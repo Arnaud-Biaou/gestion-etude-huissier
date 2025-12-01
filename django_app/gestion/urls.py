@@ -24,6 +24,12 @@ urlpatterns = [
     path('acte-securise/<int:acte_id>/', views.acte_securise_detail, name='acte_securise_detail'),
     path('dossier/<int:dossier_id>/actes-securises/', views.liste_actes_securises, name='liste_actes_securises'),
 
+    # === ACTES DU DOSSIER ===
+    path('dossier/<int:dossier_id>/actes/', views.liste_actes_dossier, name='liste_actes_dossier'),
+    path('dossier/<int:dossier_id>/actes/ajouter/', views.ajouter_acte_dossier, name='ajouter_acte_dossier'),
+    path('acte-dossier/<int:acte_id>/modifier/', views.modifier_acte_dossier, name='modifier_acte_dossier'),
+    path('acte-dossier/<int:acte_id>/supprimer/', views.supprimer_acte_dossier, name='supprimer_acte_dossier'),
+
     path('facturation/', views.facturation, name='facturation'),
     path('memoires/', views.memoires, name='memoires'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
