@@ -111,6 +111,60 @@
             </tbody>
         </table>
     </div>
+
+    {# Contrôles de pagination #}
+    {% if is_paginated %}
+    <div class="pagination-controls" style="margin-top: 24px; padding: 16px; display: flex; justify-content: center; align-items: center; gap: 12px; border-top: 1px solid var(--neutral-200, #e5e7eb);">
+
+        {# Bouton Précédent #}
+        {% if page_obj.has_previous %}
+        <a href="?{% if request.GET.tab %}tab={{ request.GET.tab }}&{% endif %}page={{ page_obj.previous_page_number }}"
+           class="btn btn-secondary btn-sm"
+           style="display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Précédent
+        </a>
+        {% else %}
+        <span class="btn btn-secondary btn-sm disabled" style="opacity: 0.5; cursor: not-allowed;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Précédent
+        </span>
+        {% endif %}
+
+        {# Indicateur de page #}
+        <span style="padding: 8px 16px; background: var(--neutral-100, #f3f4f6); border-radius: 6px; font-size: 14px; color: var(--neutral-700, #374151);">
+            Page <strong>{{ page_obj.number }}</strong> sur <strong>{{ paginator.num_pages }}</strong>
+            <span style="color: var(--neutral-500, #6b7280); margin-left: 8px;">
+                ({{ paginator.count }} dossier{{ paginator.count|pluralize }})
+            </span>
+        </span>
+
+        {# Bouton Suivant #}
+        {% if page_obj.has_next %}
+        <a href="?{% if request.GET.tab %}tab={{ request.GET.tab }}&{% endif %}page={{ page_obj.next_page_number }}"
+           class="btn btn-secondary btn-sm"
+           style="display: inline-flex; align-items: center; gap: 4px;">
+            Suivant
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+        </a>
+        {% else %}
+        <span class="btn btn-secondary btn-sm disabled" style="opacity: 0.5; cursor: not-allowed;">
+            Suivant
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+        </span>
+        {% endif %}
+
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
 
