@@ -1009,8 +1009,8 @@ def facturation(request):
     context['nb_normalisees'] = nb_normalisees
     context['nb_non_normalisees'] = nb_non_normalisees
 
-    # Dossiers pour le select
-    context['dossiers'] = Dossier.objects.all().values('id', 'reference')[:100]
+    # Dossiers pour le select avec infos créancier pour auto-remplissage
+    context['dossiers'] = Dossier.objects.select_related('creancier').order_by('-date_ouverture')[:100]
 
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},

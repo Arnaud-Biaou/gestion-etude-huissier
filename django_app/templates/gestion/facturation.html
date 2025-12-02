@@ -305,10 +305,14 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Dossier lie (optionnel)</label>
-                    <select class="form-select" id="factureDossier" name="dossier">
+                    <select class="form-select" id="factureDossier" name="dossier" onchange="remplirDepuisDossier(this)">
                         <option value="">-- Aucun --</option>
                         {% for dossier in dossiers %}
-                        <option value="{{ dossier.id }}">{{ dossier.reference }}</option>
+                        <option value="{{ dossier.id }}"
+                                data-client="{{ dossier.creancier.nom|default:'' }}"
+                                data-ifu="{{ dossier.creancier.ifu|default:'' }}">
+                            {{ dossier.reference }} {% if dossier.creancier %}- {{ dossier.creancier.nom }}{% endif %}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -603,6 +607,25 @@
         const echeance = new Date();
         echeance.setDate(echeance.getDate() + 30);
         document.getElementById('factureEcheance').value = echeance.toISOString().split('T')[0];
+    }
+
+    // Auto-remplissage depuis le dossier sélectionné
+    function remplirDepuisDossier(selectElement) {
+        var selectedOption = selectElement.options[selectElement.selectedIndex];
+
+        if (selectedOption.value) {
+            // Récupérer les données du dossier depuis les attributs data-*
+            var clientNom = selectedOption.getAttribute('data-client');
+            var clientIfu = selectedOption.getAttribute('data-ifu');
+
+            // Remplir les champs du formulaire si les données existent
+            if (clientNom) {
+                document.getElementById('factureClient').value = clientNom;
+            }
+            if (clientIfu) {
+                document.getElementById('factureIFU').value = clientIfu;
+            }
+        }
     }
 
     function genererNumeroFacture() {
