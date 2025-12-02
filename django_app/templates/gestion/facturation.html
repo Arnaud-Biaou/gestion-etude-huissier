@@ -258,15 +258,15 @@
 
 {% block modal %}
 <!-- Modal Nouvelle Facture -->
-<div class="modal large" id="modalFacture" onclick="event.stopPropagation()">
+<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()">
     <div class="modal-header">
         <h3 class="modal-title" id="modalFactureTitle">Nouvelle facture</h3>
         <button class="modal-close" onclick="fermerModalFacture()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <div class="modal-body">
-        <form id="formFacture" onsubmit="sauvegarderFacture(event)">
+    <form id="formFacture" onsubmit="sauvegarderFacture(event)">
+        <div class="modal-body">
             <input type="hidden" id="factureId" name="id">
 
             <div class="form-grid">
@@ -366,19 +366,18 @@
             <div class="form-group">
                 <textarea class="form-input" id="factureObservations" name="observations" rows="3" placeholder="Notes ou observations..."></textarea>
             </div>
-
-            <!-- Boutons d'action -->
-            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--neutral-200);">
-                <a href="javascript:history.back()" class="btn btn-secondary" onclick="fermerModalFacture(); return false;">← Annuler</a>
-                <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
-                    <i data-lucide="save"></i> Enregistrer brouillon
-                </button>
-                <button type="submit" class="btn btn-primary">
-                    <i data-lucide="check"></i> Enregistrer la facture
-                </button>
-            </div>
-        </form>
-    </div>
+        </div>
+        <!-- Boutons d'action - footer fixe -->
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="fermerModalFacture()">← Annuler</button>
+            <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
+                <i data-lucide="save"></i> Enregistrer brouillon
+            </button>
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="check"></i> Enregistrer la facture
+            </button>
+        </div>
+    </form>
 </div>
 
 <!-- Modal Voir Facture -->
@@ -490,6 +489,33 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- CSS pour modal facture scrollable -->
+<style>
+    /* Modal facture avec scroll */
+    .modal-facture {
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-facture .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        max-height: calc(90vh - 140px);
+        padding: 20px;
+    }
+
+    .modal-facture .modal-footer {
+        flex-shrink: 0;
+        background: white;
+        padding: 16px 20px;
+        border-top: 1px solid var(--neutral-200);
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+</style>
+
 <!-- QRCode.js library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
