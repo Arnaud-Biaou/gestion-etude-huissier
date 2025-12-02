@@ -315,25 +315,50 @@
                 </div>
             </div>
 
-            <div class="form-section-title">Lignes de facture</div>
+            <!-- Régime fiscal et AIB -->
+            <div class="form-section-title">Régime fiscal</div>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Régime de taxation</label>
+                    <select class="form-select" id="factureRegime" name="regime" onchange="calculerTotauxHuissier()">
+                        <option value="tps" selected>TPS (5%) - Régime simplifié</option>
+                        <option value="tva">TVA (18%) - Régime normal</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="clientAIB" name="client_aib" onchange="calculerTotauxHuissier()" style="width: 18px; height: 18px;">
+                        <span>Client soumis à l'AIB (retenue 3%)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-section-title">Lignes de facture (Actes d'huissier)</div>
             <div id="lignesFacture">
                 <div class="ligne-facture" data-index="0">
-                    <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr auto;">
+                    <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr 1fr auto;">
                         <div class="form-group">
-                            <label class="form-label">Description</label>
-                            <input class="form-input ligne-description" type="text" placeholder="Ex: Commandement de payer">
+                            <label class="form-label">Description de l'acte</label>
+                            <input class="form-input ligne-description" type="text" placeholder="Ex: Signification du 28/11/2025">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Quantite</label>
-                            <input class="form-input ligne-quantite" type="number" value="1" min="1" onchange="calculerTotaux()" oninput="calculerTotaux()">
+                            <label class="form-label">Honoraires</label>
+                            <input class="form-input ligne-honoraires" type="number" placeholder="15000" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Prix unitaire</label>
-                            <input class="form-input ligne-prix" type="number" placeholder="15000" onchange="calculerTotaux()" oninput="calculerTotaux()">
+                            <label class="form-label">Feuillets</label>
+                            <input class="form-input ligne-feuillets" type="number" value="1" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Total</label>
-                            <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100);">
+                            <label class="form-label">Timbre</label>
+                            <input class="form-input ligne-timbre" type="text" readonly style="background: var(--neutral-100);" value="1 200">
+                        </div>
+                        <div class="form-group" style="display: flex; flex-direction: column;">
+                            <label class="form-label">Enreg.</label>
+                            <label style="display: flex; align-items: center; gap: 4px; height: 38px;">
+                                <input type="checkbox" class="ligne-enregistrement" checked onchange="calculerTotauxHuissier()">
+                                <span style="font-size: 12px;">2 500</span>
+                            </label>
                         </div>
                         <div class="form-group" style="align-self: flex-end;">
                             <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
@@ -347,20 +372,39 @@
                 <i data-lucide="plus"></i> Ajouter une ligne
             </button>
 
-            <div class="form-section-title">Totaux</div>
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
-                <div class="form-group">
-                    <label class="form-label">Total HT</label>
-                    <input class="form-input" type="text" id="factureMontantHT" readonly style="background: var(--neutral-100); font-weight: bold;">
+            <div class="form-section-title">Récapitulatif</div>
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Honoraires HT</label>
+                        <input class="form-input" type="text" id="totalHonoraires" readonly style="background: white; font-weight: 600;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;" id="labelTaxe">TPS (5%)</label>
+                        <input class="form-input" type="text" id="totalTaxe" readonly style="background: white;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Débours (Timbres + Enreg.)</label>
+                        <input class="form-input" type="text" id="totalDebours" readonly style="background: white;">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">TVA (18%)</label>
-                    <input class="form-input" type="text" id="factureTVA" readonly style="background: var(--neutral-100);">
+                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total TTC</label>
+                        <input class="form-input" type="text" id="factureTTC" readonly style="background: #1e3a5f; color: white; font-weight: bold;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;" id="groupAIB">
+                        <label class="form-label" style="font-size: 11px; color: #dc3545;">AIB à retenir (3%)</label>
+                        <input class="form-input" type="text" id="montantAIB" readonly style="background: #fff3cd; color: #856404; font-weight: 600;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px; color: #198754; font-weight: 600;">NET À PAYER</label>
+                        <input class="form-input" type="text" id="netAPayer" readonly style="background: #198754; color: white; font-weight: bold; font-size: 16px;">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Total TTC</label>
-                    <input class="form-input" type="text" id="factureTTC" readonly style="background: var(--primary); color: white; font-weight: bold;">
-                </div>
+                <!-- Champs cachés pour la sauvegarde -->
+                <input type="hidden" id="factureMontantHT" name="montant_ht">
+                <input type="hidden" id="factureTVA" name="montant_tva">
             </div>
 
             <div class="form-section-title">Observations</div>
@@ -425,33 +469,49 @@
             <table class="invoice-table">
                 <thead>
                     <tr>
-                        <th style="width: 50%;">Description</th>
-                        <th style="width: 15%; text-align: center;">Qte</th>
-                        <th style="width: 17%; text-align: right;">Prix Unit.</th>
-                        <th style="width: 18%; text-align: right;">Total</th>
+                        <th style="width: 40%;">Désignation</th>
+                        <th style="width: 15%; text-align: right;">Honoraires</th>
+                        <th style="width: 12%; text-align: right;">Timbre</th>
+                        <th style="width: 12%; text-align: right;">Enreg.</th>
+                        <th style="width: 15%; text-align: right;">Total</th>
                     </tr>
                 </thead>
                 <tbody id="voirLignes">
                 </tbody>
             </table>
 
-            <!-- Totaux -->
+            <!-- Récapitulatif des totaux -->
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                <div style="width: 280px;">
+                <div style="width: 320px;">
                     <div class="invoice-total-row">
-                        <span>Total HT:</span>
-                        <span id="voirHT"></span>
+                        <span>Total Honoraires HT:</span>
+                        <span id="voirHonoraires"></span>
+                    </div>
+                    <div class="invoice-total-row" id="voirTaxeRow">
+                        <span id="voirTaxeLabel">TPS (5%):</span>
+                        <span id="voirTaxe"></span>
                     </div>
                     <div class="invoice-total-row">
-                        <span>TVA (18%):</span>
-                        <span id="voirTVA"></span>
+                        <span>Total Débours:</span>
+                        <span id="voirDebours"></span>
                     </div>
-                    <div class="invoice-total-row invoice-final-total">
-                        <span>Total TTC:</span>
-                        <span id="voirTTC"></span>
+                    <div class="invoice-total-row" style="border-top: 2px solid #1e3a5f; padding-top: 8px; margin-top: 8px;">
+                        <span style="font-weight: 600;">Total TTC:</span>
+                        <span id="voirTTC" style="font-weight: 600;"></span>
+                    </div>
+                    <div class="invoice-total-row" id="voirAIBRow" style="display: none; color: #dc3545;">
+                        <span>AIB à retenir (3%):</span>
+                        <span id="voirAIB"></span>
+                    </div>
+                    <div class="invoice-total-row invoice-final-total" style="background: #198754 !important;">
+                        <span>NET À PAYER:</span>
+                        <span id="voirNetAPayer"></span>
                     </div>
                 </div>
             </div>
+            <!-- Champs cachés pour compatibilité -->
+            <span id="voirHT" style="display: none;"></span>
+            <span id="voirTVA" style="display: none;"></span>
 
             <!-- MECeF -->
             <div id="voirMECeF" style="display: none; margin-top: 30px; padding: 15px; border: 1px solid var(--neutral-200); border-radius: 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
@@ -678,23 +738,35 @@
         div.className = 'ligne-facture';
         div.dataset.index = ligneIndex++;
 
+        const honoraires = data ? data.prix_unitaire : '';
+        const feuillets = data ? (data.feuillets || 1) : 1;
+        const timbre = feuillets * 1200;
+        const enreg = data ? (data.enregistrement !== false) : true;
+
         div.innerHTML = `
-            <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr auto;">
+            <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr 1fr auto;">
                 <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <input class="form-input ligne-description" type="text" placeholder="Ex: Commandement de payer" value="${data ? data.description : ''}">
+                    <label class="form-label">Description de l'acte</label>
+                    <input class="form-input ligne-description" type="text" placeholder="Ex: Signification du 28/11/2025" value="${data ? data.description : ''}">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Quantite</label>
-                    <input class="form-input ligne-quantite" type="number" value="${data ? data.quantite : 1}" min="1" onchange="calculerTotaux()" oninput="calculerTotaux()">
+                    <label class="form-label">Honoraires</label>
+                    <input class="form-input ligne-honoraires" type="number" placeholder="15000" value="${honoraires}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Prix unitaire</label>
-                    <input class="form-input ligne-prix" type="number" placeholder="15000" value="${data ? data.prix_unitaire : ''}" onchange="calculerTotaux()" oninput="calculerTotaux()">
+                    <label class="form-label">Feuillets</label>
+                    <input class="form-input ligne-feuillets" type="number" value="${feuillets}" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Total</label>
-                    <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100);" value="${data ? formatMontant(data.quantite * data.prix_unitaire) : ''}">
+                    <label class="form-label">Timbre</label>
+                    <input class="form-input ligne-timbre" type="text" readonly style="background: var(--neutral-100);" value="${formatMontant(timbre).replace(' FCFA', '')}">
+                </div>
+                <div class="form-group" style="display: flex; flex-direction: column;">
+                    <label class="form-label">Enreg.</label>
+                    <label style="display: flex; align-items: center; gap: 4px; height: 38px;">
+                        <input type="checkbox" class="ligne-enregistrement" ${enreg ? 'checked' : ''} onchange="calculerTotauxHuissier()">
+                        <span style="font-size: 12px;">2 500</span>
+                    </label>
                 </div>
                 <div class="form-group" style="align-self: flex-end;">
                     <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
@@ -705,33 +777,97 @@
         `;
         container.appendChild(div);
         lucide.createIcons();
-        calculerTotaux();
+        calculerTotauxHuissier();
     }
 
     function supprimerLigne(btn) {
         const lignes = document.querySelectorAll('.ligne-facture');
         if (lignes.length > 1) {
             btn.closest('.ligne-facture').remove();
-            calculerTotaux();
+            calculerTotauxHuissier();
         }
     }
 
-    function calculerTotaux() {
-        let totalHT = 0;
+    // ============================================
+    // CALCULS FACTURATION HUISSIER BÉNIN
+    // Régime TPS (5%) avec timbres et enregistrement
+    // ============================================
+    function calculerTotauxHuissier() {
+        let totalHonoraires = 0;
+        let totalTimbres = 0;
+        let totalEnregistrement = 0;
+
         document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const qte = parseFloat(ligne.querySelector('.ligne-quantite').value) || 0;
-            const prix = parseFloat(ligne.querySelector('.ligne-prix').value) || 0;
-            const total = qte * prix;
-            ligne.querySelector('.ligne-total').value = formatMontant(total);
-            totalHT += total;
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+            const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+            const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+            const timbre = feuillets * 1200;
+            const enreg = hasEnreg ? 2500 : 0;
+
+            // Mettre à jour le champ timbre
+            const timbreInput = ligne.querySelector('.ligne-timbre');
+            if (timbreInput) {
+                timbreInput.value = formatMontant(timbre).replace(' FCFA', '');
+            }
+
+            totalHonoraires += honoraires;
+            totalTimbres += timbre;
+            totalEnregistrement += enreg;
         });
 
-        const tva = totalHT * 0.18;
-        const ttc = totalHT + tva;
+        // Calcul taxe selon régime
+        const regime = document.getElementById('factureRegime')?.value || 'tps';
+        const tauxTaxe = regime === 'tps' ? 0.05 : 0.18;
+        const labelTaxe = regime === 'tps' ? 'TPS (5%)' : 'TVA (18%)';
+        const taxe = totalHonoraires * tauxTaxe;
 
-        document.getElementById('factureMontantHT').value = formatMontant(totalHT);
-        document.getElementById('factureTVA').value = formatMontant(tva);
-        document.getElementById('factureTTC').value = formatMontant(ttc);
+        // Total débours (non taxables - groupe F)
+        const totalDebours = totalTimbres + totalEnregistrement;
+
+        // Total TTC
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+
+        // AIB (3%) si applicable
+        const clientAIB = document.getElementById('clientAIB')?.checked;
+        const montantAIB = clientAIB ? totalTTC * 0.03 : 0;
+        const netAPayer = totalTTC - montantAIB;
+
+        // Mettre à jour le label de la taxe
+        const labelTaxeEl = document.getElementById('labelTaxe');
+        if (labelTaxeEl) labelTaxeEl.textContent = labelTaxe;
+
+        // Afficher les totaux
+        const totalHonorairesEl = document.getElementById('totalHonoraires');
+        const totalTaxeEl = document.getElementById('totalTaxe');
+        const totalDeboursEl = document.getElementById('totalDebours');
+        const factureTTCEl = document.getElementById('factureTTC');
+        const montantAIBEl = document.getElementById('montantAIB');
+        const netAPayerEl = document.getElementById('netAPayer');
+
+        if (totalHonorairesEl) totalHonorairesEl.value = formatMontant(totalHonoraires);
+        if (totalTaxeEl) totalTaxeEl.value = formatMontant(taxe);
+        if (totalDeboursEl) totalDeboursEl.value = formatMontant(totalDebours);
+        if (factureTTCEl) factureTTCEl.value = formatMontant(totalTTC);
+        if (montantAIBEl) montantAIBEl.value = formatMontant(montantAIB);
+        if (netAPayerEl) netAPayerEl.value = formatMontant(netAPayer);
+
+        // Afficher/Masquer la ligne AIB
+        const groupAIB = document.getElementById('groupAIB');
+        if (groupAIB) {
+            groupAIB.style.opacity = clientAIB ? '1' : '0.4';
+        }
+
+        // Champs cachés pour sauvegarde
+        const factureMontantHTEl = document.getElementById('factureMontantHT');
+        const factureTVAEl = document.getElementById('factureTVA');
+        if (factureMontantHTEl) factureMontantHTEl.value = totalHonoraires;
+        if (factureTVAEl) factureTVAEl.value = taxe;
+    }
+
+    // Ancienne fonction pour compatibilité
+    function calculerTotaux() {
+        calculerTotauxHuissier();
     }
 
     function formatMontant(m) {
@@ -824,9 +960,56 @@
         document.getElementById('voirEcheance').textContent = formatDate(facture.date_echeance);
         document.getElementById('voirClient').textContent = facture.client;
         document.getElementById('voirClientIFU').textContent = facture.ifu ? 'IFU: ' + facture.ifu : '';
-        document.getElementById('voirHT').textContent = formatMontant(facture.montant_ht);
-        document.getElementById('voirTVA').textContent = formatMontant(facture.tva);
-        document.getElementById('voirTTC').textContent = formatMontant(facture.total);
+
+        // Calculer les totaux huissier depuis les lignes
+        let totalHonoraires = 0;
+        let totalTimbres = 0;
+        let totalEnreg = 0;
+
+        if (facture.lignes && facture.lignes.length > 0) {
+            facture.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+
+                totalHonoraires += honoraires;
+                totalTimbres += timbre;
+                totalEnreg += enreg;
+            });
+        }
+
+        // Régime TPS (5%) par défaut
+        const tauxTaxe = facture.regime === 'tva' ? 0.18 : 0.05;
+        const labelTaxe = facture.regime === 'tva' ? 'TVA (18%):' : 'TPS (5%):';
+        const taxe = totalHonoraires * tauxTaxe;
+        const totalDebours = totalTimbres + totalEnreg;
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+
+        // AIB si applicable
+        const aib = facture.client_aib ? totalTTC * 0.03 : 0;
+        const netAPayer = totalTTC - aib;
+
+        // Afficher les totaux
+        document.getElementById('voirHonoraires').textContent = formatMontant(totalHonoraires);
+        document.getElementById('voirTaxeLabel').textContent = labelTaxe;
+        document.getElementById('voirTaxe').textContent = formatMontant(taxe);
+        document.getElementById('voirDebours').textContent = formatMontant(totalDebours);
+        document.getElementById('voirTTC').textContent = formatMontant(totalTTC);
+        document.getElementById('voirNetAPayer').textContent = formatMontant(netAPayer);
+
+        // AIB
+        const aibRow = document.getElementById('voirAIBRow');
+        if (facture.client_aib && aib > 0) {
+            document.getElementById('voirAIB').textContent = formatMontant(aib);
+            aibRow.style.display = 'flex';
+        } else {
+            aibRow.style.display = 'none';
+        }
+
+        // Champs cachés pour compatibilité
+        document.getElementById('voirHT').textContent = formatMontant(totalHonoraires);
+        document.getElementById('voirTVA').textContent = formatMontant(taxe);
 
         // Statut
         const statutEl = document.getElementById('voirStatut');
@@ -864,17 +1047,24 @@
             document.getElementById('btnNormaliserVue').style.display = 'inline-flex';
         }
 
-        // Lignes
+        // Lignes - Structure huissier
         const tbody = document.getElementById('voirLignes');
         tbody.innerHTML = '';
         if (facture.lignes && facture.lignes.length > 0) {
             facture.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                const totalLigne = honoraires + timbre + enreg;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${ligne.description}</td>
-                    <td style="text-align: center;">${ligne.quantite}</td>
-                    <td style="text-align: right;">${formatMontant(ligne.prix_unitaire)}</td>
-                    <td style="text-align: right;">${formatMontant(ligne.quantite * ligne.prix_unitaire)}</td>
+                    <td style="text-align: right;">${formatMontant(honoraires)}</td>
+                    <td style="text-align: right;">${formatMontant(timbre)}</td>
+                    <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
+                    <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
                 `;
                 tbody.appendChild(tr);
             });
