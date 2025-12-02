@@ -489,30 +489,53 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- CSS pour modal facture scrollable -->
+<!-- CSS pour modal facture scrollable - FORCE avec !important -->
 <style>
-    /* Modal facture avec scroll */
+    /* Forcer scroll modal - solution radicale */
+    #modalFacture,
+    #modalFacture.modal-facture,
     .modal-facture {
-        max-height: 90vh;
-        display: flex;
-        flex-direction: column;
+        max-height: 90vh !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
 
+    #modalFacture .modal-body,
     .modal-facture .modal-body {
-        flex: 1;
-        overflow-y: auto;
-        max-height: calc(90vh - 140px);
-        padding: 20px;
+        flex: 1 1 auto !important;
+        overflow-y: scroll !important;
+        overflow-x: hidden !important;
+        max-height: 60vh !important;
+        padding: 20px !important;
     }
 
+    #modalFacture .modal-footer,
     .modal-facture .modal-footer {
-        flex-shrink: 0;
-        background: white;
-        padding: 16px 20px;
-        border-top: 1px solid var(--neutral-200);
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
+        flex-shrink: 0 !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        background: white !important;
+        padding: 16px 20px !important;
+        border-top: 1px solid #dee2e6 !important;
+        display: flex !important;
+        gap: 12px !important;
+        justify-content: flex-end !important;
+        z-index: 10 !important;
+    }
+
+    #modalFacture .modal-header,
+    .modal-facture .modal-header {
+        flex-shrink: 0 !important;
+    }
+
+    #modalFacture form,
+    .modal-facture form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        max-height: calc(90vh - 60px) !important;
     }
 </style>
 
@@ -937,5 +960,66 @@
     function exporterFactures() {
         window.open('{% url "gestion:api_exporter_factures" %}?format=csv', '_blank');
     }
+
+    // ============================================
+    // FORCER SCROLL MODAL - Solution radicale
+    // ============================================
+    function forcerScrollModal() {
+        var modal = document.getElementById('modalFacture');
+        var modalBody = modal ? modal.querySelector('.modal-body') : null;
+        var modalFooter = modal ? modal.querySelector('.modal-footer') : null;
+        var form = modal ? modal.querySelector('form') : null;
+
+        if (modal) {
+            modal.style.maxHeight = '90vh';
+            modal.style.overflow = 'hidden';
+            modal.style.display = 'flex';
+            modal.style.flexDirection = 'column';
+        }
+
+        if (form) {
+            form.style.display = 'flex';
+            form.style.flexDirection = 'column';
+            form.style.flex = '1';
+            form.style.overflow = 'hidden';
+            form.style.maxHeight = 'calc(90vh - 60px)';
+        }
+
+        if (modalBody) {
+            modalBody.style.flex = '1';
+            modalBody.style.overflowY = 'scroll';
+            modalBody.style.maxHeight = '60vh';
+            modalBody.style.padding = '20px';
+        }
+
+        if (modalFooter) {
+            modalFooter.style.flexShrink = '0';
+            modalFooter.style.position = 'sticky';
+            modalFooter.style.bottom = '0';
+            modalFooter.style.background = 'white';
+            modalFooter.style.zIndex = '10';
+        }
+    }
+
+    // Appliquer au chargement et quand le modal s'ouvre
+    document.addEventListener('DOMContentLoaded', forcerScrollModal);
+
+    // Observer les changements sur le modal
+    var modalObserver = new MutationObserver(function(mutations) {
+        forcerScrollModal();
+    });
+
+    var modalEl = document.getElementById('modalFacture');
+    if (modalEl) {
+        modalObserver.observe(modalEl, { attributes: true, childList: true, subtree: true });
+    }
+
+    // Surcharger ouvrirModalFacture pour forcer le scroll
+    var _ouvrirModalFactureOriginal = ouvrirModalFacture;
+    ouvrirModalFacture = function(facture) {
+        _ouvrirModalFactureOriginal(facture);
+        setTimeout(forcerScrollModal, 100);
+        setTimeout(forcerScrollModal, 300);
+    };
 </script>
 {% endblock %}
