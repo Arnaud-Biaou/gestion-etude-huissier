@@ -85,7 +85,6 @@ def get_default_context(request):
     modules = [
         {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'home', 'category': 'main', 'url': 'gestion:dashboard'},
         {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers', 'badge': 14},
-        {'id': 'proformas', 'label': 'Proformas', 'icon': 'file-edit', 'category': 'main', 'url': 'gestion:proformas'},
         {'id': 'facturation', 'label': 'Facturation & MECeF', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
         {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
         {'id': 'creanciers', 'label': 'Recouvrement Créances', 'icon': 'landmark', 'category': 'main', 'url': 'gestion:creanciers'},
