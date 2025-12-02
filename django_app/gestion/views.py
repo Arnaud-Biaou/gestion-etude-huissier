@@ -63,6 +63,8 @@ from .models import (
     ActeSecurise,
     # Proformas
     Proforma, LigneProforma,
+    # Types d'actes et débours
+    TypeActe, TypeDebours,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -1080,6 +1082,18 @@ def facturation(request):
     context['nb_proformas_brouillon'] = nb_proformas_brouillon
     context['nb_proformas_convertie'] = nb_proformas_convertie
     context['nb_proformas_total'] = len(proformas_list)
+
+    # Types d'actes et débours pour les sélecteurs
+    types_actes = list(TypeActe.objects.filter(actif=True).values(
+        'id', 'nom', 'honoraires_defaut', 'est_timbre_defaut', 'est_enregistre_defaut'
+    ))
+    types_debours = list(TypeDebours.objects.filter(actif=True).values(
+        'id', 'nom', 'montant_defaut'
+    ))
+    context['types_actes'] = types_actes
+    context['types_debours'] = types_debours
+    context['types_actes_json'] = json.dumps(types_actes)
+    context['types_debours_json'] = json.dumps(types_debours)
 
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},
@@ -7288,6 +7302,91 @@ def api_convertir_proforma(request):
             'facture_id': facture.id,
             'facture_numero': facture.numero,
             'message': f'Proforma convertie en facture {facture.numero}'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# =============================================================================
+# API TYPES D'ACTES ET DÉBOURS
+# =============================================================================
+
+@require_GET
+def api_types_actes(request):
+    """Liste des types d'actes actifs"""
+    actes = TypeActe.objects.filter(actif=True).values(
+        'id', 'nom', 'description', 'honoraires_defaut',
+        'est_timbre_defaut', 'est_enregistre_defaut'
+    )
+    return JsonResponse({'success': True, 'actes': list(actes)})
+
+
+@require_POST
+def api_creer_type_acte(request):
+    """Créer un nouveau type d'acte"""
+    try:
+        data = json.loads(request.body)
+        nom = data.get('nom', '').strip()
+        honoraires = data.get('honoraires_defaut', 0)
+        est_timbre = data.get('est_timbre_defaut', True)
+        est_enregistre = data.get('est_enregistre_defaut', True)
+
+        if not nom:
+            return JsonResponse({'success': False, 'error': 'Le nom est obligatoire'}, status=400)
+
+        if TypeActe.objects.filter(nom__iexact=nom).exists():
+            return JsonResponse({'success': False, 'error': 'Cet acte existe déjà'}, status=400)
+
+        acte = TypeActe.objects.create(
+            nom=nom,
+            honoraires_defaut=honoraires,
+            est_timbre_defaut=est_timbre,
+            est_enregistre_defaut=est_enregistre
+        )
+        return JsonResponse({
+            'success': True,
+            'id': acte.id,
+            'nom': acte.nom,
+            'message': f'Type d\'acte "{nom}" créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_types_debours(request):
+    """Liste des types de débours actifs"""
+    debours = TypeDebours.objects.filter(actif=True).values(
+        'id', 'nom', 'montant_defaut'
+    )
+    return JsonResponse({'success': True, 'debours': list(debours)})
+
+
+@require_POST
+def api_creer_type_debours(request):
+    """Créer un nouveau type de débours"""
+    try:
+        data = json.loads(request.body)
+        nom = data.get('nom', '').strip()
+        montant = data.get('montant_defaut', 0)
+
+        if not nom:
+            return JsonResponse({'success': False, 'error': 'Le nom est obligatoire'}, status=400)
+
+        if TypeDebours.objects.filter(nom__iexact=nom).exists():
+            return JsonResponse({'success': False, 'error': 'Ce débours existe déjà'}, status=400)
+
+        debours = TypeDebours.objects.create(
+            nom=nom,
+            montant_defaut=montant
+        )
+        return JsonResponse({
+            'success': True,
+            'id': debours.id,
+            'nom': debours.nom,
+            'message': f'Type de débours "{nom}" créé avec succès'
         })
 
     except Exception as e:

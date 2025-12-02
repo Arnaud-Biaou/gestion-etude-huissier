@@ -4211,5 +4211,60 @@ class LigneProforma(models.Model):
         return self.prix_unitaire + self.timbre + self.montant_enregistrement
 
 
+# =============================================================================
+# TYPES D'ACTES ET DÉBOURS PRÉDÉFINIS
+# =============================================================================
+
+class TypeActe(models.Model):
+    """Types d'actes d'huissier (exploits) prédéfinis"""
+    nom = models.CharField(max_length=200, unique=True, verbose_name="Nom de l'acte")
+    description = models.TextField(blank=True, verbose_name="Description")
+    honoraires_defaut = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Honoraires par défaut",
+        help_text="Montant des honoraires par défaut en FCFA"
+    )
+    est_timbre_defaut = models.BooleanField(
+        default=True,
+        verbose_name="Timbre par défaut",
+        help_text="Timbre fiscal appliqué par défaut"
+    )
+    est_enregistre_defaut = models.BooleanField(
+        default=True,
+        verbose_name="Enregistrement par défaut",
+        help_text="Enregistrement appliqué par défaut"
+    )
+    actif = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nom']
+        verbose_name = "Type d'acte"
+        verbose_name_plural = "Types d'actes"
+
+    def __str__(self):
+        return self.nom
+
+
+class TypeDebours(models.Model):
+    """Types de débours (frais non taxables) prédéfinis"""
+    nom = models.CharField(max_length=200, unique=True, verbose_name="Nom du débours")
+    montant_defaut = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant par défaut",
+        help_text="Montant par défaut en FCFA"
+    )
+    actif = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nom']
+        verbose_name = "Type de débours"
+        verbose_name_plural = "Types de débours"
+
+    def __str__(self):
+        return self.nom
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp

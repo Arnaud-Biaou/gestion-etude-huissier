@@ -702,6 +702,10 @@
     let ligneIndex = 1;
     let typeDocumentEnCours = 'facture'; // 'facture' ou 'proforma'
 
+    // Types d'actes et débours prédéfinis
+    let typesActes = {{ types_actes_json|safe }};
+    let typesDebours = {{ types_debours_json|safe }};
+
     // ============================================
     // GESTION DU MODAL FACTURE/PROFORMA
     // ============================================
@@ -885,45 +889,117 @@
     // ============================================
     // GESTION DES LIGNES
     // ============================================
+    // Générer les options des types d'actes
+    function genererOptionsActes() {
+        let options = '<option value="">-- Sélectionner un acte --</option>';
+        typesActes.forEach(acte => {
+            options += `<option value="${acte.id}"
+                data-honoraires="${acte.honoraires_defaut}"
+                data-timbre="${acte.est_timbre_defaut}"
+                data-enregistrement="${acte.est_enregistre_defaut}">${acte.nom}</option>`;
+        });
+        options += '<option value="autre">-- Autre (saisie libre) --</option>';
+        return options;
+    }
+
+    // Générer les options des types de débours
+    function genererOptionsDebours() {
+        let options = '<option value="">-- Sélectionner --</option>';
+        typesDebours.forEach(d => {
+            options += `<option value="${d.id}" data-montant="${d.montant_defaut}">${d.nom}</option>`;
+        });
+        options += '<option value="autre">-- Autre --</option>';
+        return options;
+    }
+
     function ajouterLigne(data = null) {
         const container = document.getElementById('lignesFacture');
         const div = document.createElement('div');
         div.className = 'ligne-facture';
         div.dataset.index = ligneIndex++;
+        div.dataset.typeLigne = data?.type_ligne || 'acte';
 
         const honoraires = data ? data.prix_unitaire : '';
         const feuillets = data ? (data.feuillets || 1) : 1;
         const timbre = feuillets * 1200;
-        const enreg = data ? (data.enregistrement !== false) : true;
+        const hasTimbre = data ? (data.has_timbre !== false) : true;
+        const hasEnreg = data ? (data.enregistrement !== false) : true;
+        const description = data ? data.description : '';
+        const typeLigne = data?.type_ligne || 'acte';
+        const montantDebours = data?.montant_debours || 0;
 
         div.innerHTML = `
-            <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr 1fr auto;">
-                <div class="form-group">
-                    <label class="form-label">Description de l'acte</label>
-                    <input class="form-input ligne-description" type="text" placeholder="Ex: Signification du 28/11/2025" value="${data ? data.description : ''}">
+            <div style="display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; padding: 12px; background: var(--neutral-50); border-radius: 8px; margin-bottom: 8px;">
+                <!-- Type de ligne -->
+                <div class="form-group" style="min-width: 120px;">
+                    <label class="form-label" style="font-size: 11px;">Type</label>
+                    <select class="form-select ligne-type" onchange="changerTypeLigne(this)" style="padding: 6px 8px;">
+                        <option value="acte" ${typeLigne === 'acte' ? 'selected' : ''}>Acte</option>
+                        <option value="debours" ${typeLigne === 'debours' ? 'selected' : ''}>Débours</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Honoraires</label>
-                    <input class="form-input ligne-honoraires" type="number" placeholder="15000" value="${honoraires}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
+
+                <!-- Section ACTE -->
+                <div class="section-acte" style="display: ${typeLigne === 'acte' ? 'contents' : 'none'};">
+                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                        <label class="form-label" style="font-size: 11px;">Acte</label>
+                        <select class="form-select ligne-acte-select" onchange="remplirActe(this)" style="padding: 6px 8px;">
+                            ${genererOptionsActes()}
+                        </select>
+                    </div>
+                    <div class="form-group saisie-libre" style="min-width: 180px; flex: 1; display: none;">
+                        <label class="form-label" style="font-size: 11px;">Description libre</label>
+                        <input class="form-input ligne-description-libre" type="text" placeholder="Intitulé" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="width: 100px;">
+                        <label class="form-label" style="font-size: 11px;">Honoraires</label>
+                        <input class="form-input ligne-honoraires" type="number" placeholder="0" value="${honoraires}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="width: 70px;">
+                        <label class="form-label" style="font-size: 11px;">Feuillets</label>
+                        <input class="form-input ligne-feuillets" type="number" value="${feuillets}" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 100px;">
+                        <label class="form-label" style="font-size: 11px;">Timbre</label>
+                        <label style="display: flex; align-items: center; gap: 4px; height: 32px;">
+                            <input type="checkbox" class="ligne-timbre-check" ${hasTimbre ? 'checked' : ''} onchange="calculerTotauxHuissier()">
+                            <span class="ligne-timbre-montant" style="font-size: 11px;">${formatMontant(timbre)}</span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 80px;">
+                        <label class="form-label" style="font-size: 11px;">Enreg.</label>
+                        <label style="display: flex; align-items: center; gap: 4px; height: 32px;">
+                            <input type="checkbox" class="ligne-enregistrement" ${hasEnreg ? 'checked' : ''} onchange="calculerTotauxHuissier()">
+                            <span style="font-size: 11px;">2 500</span>
+                        </label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Feuillets</label>
-                    <input class="form-input ligne-feuillets" type="number" value="${feuillets}" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
+
+                <!-- Section DÉBOURS -->
+                <div class="section-debours" style="display: ${typeLigne === 'debours' ? 'contents' : 'none'};">
+                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                        <label class="form-label" style="font-size: 11px;">Débours</label>
+                        <select class="form-select ligne-debours-select" onchange="remplirDebours(this)" style="padding: 6px 8px;">
+                            ${genererOptionsDebours()}
+                        </select>
+                    </div>
+                    <div class="form-group saisie-libre-debours" style="min-width: 180px; flex: 1; display: none;">
+                        <label class="form-label" style="font-size: 11px;">Description</label>
+                        <input class="form-input ligne-debours-description" type="text" placeholder="Autre débours" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="width: 120px;">
+                        <label class="form-label" style="font-size: 11px;">Montant</label>
+                        <input class="form-input ligne-debours-montant" type="number" placeholder="0" value="${montantDebours}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Timbre</label>
-                    <input class="form-input ligne-timbre" type="text" readonly style="background: var(--neutral-100);" value="${formatMontant(timbre).replace(' FCFA', '')}">
-                </div>
-                <div class="form-group" style="display: flex; flex-direction: column;">
-                    <label class="form-label">Enreg.</label>
-                    <label style="display: flex; align-items: center; gap: 4px; height: 38px;">
-                        <input type="checkbox" class="ligne-enregistrement" ${enreg ? 'checked' : ''} onchange="calculerTotauxHuissier()">
-                        <span style="font-size: 12px;">2 500</span>
-                    </label>
-                </div>
+
+                <!-- Description (champ caché pour stocker) -->
+                <input type="hidden" class="ligne-description" value="${description}">
+
+                <!-- Bouton supprimer -->
                 <div class="form-group" style="align-self: flex-end;">
-                    <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
-                        <i data-lucide="trash-2"></i>
+                    <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="padding: 6px; margin-bottom: 2px;">
+                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                     </button>
                 </div>
             </div>
@@ -931,6 +1007,109 @@
         container.appendChild(div);
         lucide.createIcons();
         calculerTotauxHuissier();
+    }
+
+    // Changer le type de ligne (acte vs débours)
+    function changerTypeLigne(select) {
+        const ligne = select.closest('.ligne-facture');
+        const type = select.value;
+        ligne.dataset.typeLigne = type;
+
+        const sectionActe = ligne.querySelector('.section-acte');
+        const sectionDebours = ligne.querySelector('.section-debours');
+
+        if (type === 'acte') {
+            sectionActe.style.display = 'contents';
+            sectionDebours.style.display = 'none';
+        } else {
+            sectionActe.style.display = 'none';
+            sectionDebours.style.display = 'contents';
+        }
+        calculerTotauxHuissier();
+    }
+
+    // Remplir les champs depuis un acte prédéfini
+    function remplirActe(select) {
+        const ligne = select.closest('.ligne-facture');
+        const option = select.options[select.selectedIndex];
+        const saisiLibre = ligne.querySelector('.saisie-libre');
+
+        if (select.value === 'autre') {
+            saisiLibre.style.display = 'block';
+            ligne.querySelector('.ligne-description').value = '';
+            return;
+        }
+
+        saisiLibre.style.display = 'none';
+
+        if (select.value && option.dataset.honoraires) {
+            ligne.querySelector('.ligne-honoraires').value = option.dataset.honoraires;
+            ligne.querySelector('.ligne-timbre-check').checked = option.dataset.timbre === 'true' || option.dataset.timbre === 'True';
+            ligne.querySelector('.ligne-enregistrement').checked = option.dataset.enregistrement === 'true' || option.dataset.enregistrement === 'True';
+            ligne.querySelector('.ligne-description').value = option.text;
+        }
+        calculerTotauxHuissier();
+    }
+
+    // Remplir les champs depuis un débours prédéfini
+    function remplirDebours(select) {
+        const ligne = select.closest('.ligne-facture');
+        const option = select.options[select.selectedIndex];
+        const saisiLibre = ligne.querySelector('.saisie-libre-debours');
+
+        if (select.value === 'autre') {
+            saisiLibre.style.display = 'block';
+            ligne.querySelector('.ligne-description').value = '';
+            return;
+        }
+
+        saisiLibre.style.display = 'none';
+
+        if (select.value && option.dataset.montant) {
+            ligne.querySelector('.ligne-debours-montant').value = option.dataset.montant;
+            ligne.querySelector('.ligne-description').value = option.text;
+        }
+        calculerTotauxHuissier();
+    }
+
+    // Sauvegarder un nouvel acte
+    function sauvegarderNouvelActe(btn) {
+        const ligne = btn.closest('.ligne-facture');
+        const nom = ligne.querySelector('.ligne-description-libre').value.trim();
+        const honoraires = ligne.querySelector('.ligne-honoraires').value || 0;
+
+        if (!nom) {
+            alert('Veuillez saisir un intitulé');
+            return;
+        }
+
+        fetch('{% url "gestion:api_creer_type_acte" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                nom: nom,
+                honoraires_defaut: honoraires,
+                est_timbre_defaut: ligne.querySelector('.ligne-timbre-check').checked,
+                est_enregistre_defaut: ligne.querySelector('.ligne-enregistrement').checked
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Acte "' + nom + '" ajouté à la liste !');
+                // Ajouter l'option au select
+                typesActes.push({id: data.id, nom: nom, honoraires_defaut: honoraires});
+                // Rafraîchir les selects
+                document.querySelectorAll('.ligne-acte-select').forEach(sel => {
+                    sel.innerHTML = genererOptionsActes();
+                });
+            } else {
+                alert(data.error || 'Erreur');
+            }
+        });
     }
 
     function supprimerLigne(btn) {
@@ -946,27 +1125,39 @@
     // Groupes: A=Exonéré, B=TVA18%, E=TPS, F=Timbres/Enreg
     // ============================================
     function calculerTotauxHuissier() {
-        let totalHonoraires = 0;
-        let totalTimbres = 0;
-        let totalEnregistrement = 0;
+        let totalHonoraires = 0;      // Honoraires des actes (taxables)
+        let totalTimbres = 0;         // Timbres des actes (non taxables - Groupe F)
+        let totalEnregistrement = 0;  // Enregistrement des actes (non taxables - Groupe F)
+        let totalDeboursAutres = 0;   // Débours purs (non taxables)
 
         document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
-            const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
-            const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+            const typeLigne = ligne.dataset.typeLigne || ligne.querySelector('.ligne-type')?.value || 'acte';
 
-            const timbre = feuillets * 1200;
-            const enreg = hasEnreg ? 2500 : 0;
+            if (typeLigne === 'acte') {
+                // Ligne ACTE - honoraires taxables + timbres/enreg optionnels
+                const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+                const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+                const hasTimbre = ligne.querySelector('.ligne-timbre-check')?.checked;
+                const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
 
-            // Mettre à jour le champ timbre
-            const timbreInput = ligne.querySelector('.ligne-timbre');
-            if (timbreInput) {
-                timbreInput.value = formatMontant(timbre).replace(' FCFA', '');
+                const timbre = hasTimbre ? feuillets * 1200 : 0;
+                const enreg = hasEnreg ? 2500 : 0;
+
+                // Mettre à jour l'affichage du timbre
+                const timbreMontantEl = ligne.querySelector('.ligne-timbre-montant');
+                if (timbreMontantEl) {
+                    timbreMontantEl.textContent = hasTimbre ? formatMontant(timbre) : '0 FCFA';
+                }
+
+                totalHonoraires += honoraires;
+                totalTimbres += timbre;
+                totalEnregistrement += enreg;
+
+            } else {
+                // Ligne DÉBOURS - montant non taxable
+                const montantDebours = parseFloat(ligne.querySelector('.ligne-debours-montant')?.value) || 0;
+                totalDeboursAutres += montantDebours;
             }
-
-            totalHonoraires += honoraires;
-            totalTimbres += timbre;
-            totalEnregistrement += enreg;
         });
 
         // Récupérer régime et type de client
@@ -1007,8 +1198,8 @@
             }
         }
 
-        // Total débours (non taxables - Groupe F)
-        const totalDebours = totalTimbres + totalEnregistrement;
+        // Total débours (non taxables - Groupe F) = timbres + enregistrement + débours purs
+        const totalDebours = totalTimbres + totalEnregistrement + totalDeboursAutres;
 
         // Total TTC (montant facture MECeF)
         const totalTTC = totalHonoraires + taxe + totalDebours;
@@ -1097,28 +1288,70 @@
         // Collecter les lignes avec la structure huissier
         const lignes = [];
         document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const description = ligne.querySelector('.ligne-description')?.value || '';
-            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
-            const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
-            const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+            const typeLigne = ligne.dataset.typeLigne || ligne.querySelector('.ligne-type')?.value || 'acte';
 
-            // Calculer les montants
-            const timbre = feuillets * 1200;
-            const enregistrement = hasEnreg ? 2500 : 0;
-            const totalLigne = honoraires + timbre + enregistrement;
+            if (typeLigne === 'acte') {
+                // Ligne ACTE
+                let description = ligne.querySelector('.ligne-description')?.value || '';
+                // Si description vide, prendre du select ou de la saisie libre
+                if (!description) {
+                    const selectActe = ligne.querySelector('.ligne-acte-select');
+                    if (selectActe && selectActe.value && selectActe.value !== 'autre') {
+                        description = selectActe.options[selectActe.selectedIndex].text;
+                    } else {
+                        description = ligne.querySelector('.ligne-description-libre')?.value || '';
+                    }
+                }
 
-            if (description && (honoraires > 0 || timbre > 0)) {
-                lignes.push({
-                    description: description,
-                    quantite: 1,
-                    prix_unitaire: honoraires, // Honoraires comme prix unitaire pour le modèle
-                    // Données additionnelles huissier
-                    honoraires: honoraires,
-                    feuillets: feuillets,
-                    timbre: timbre,
-                    enregistrement: hasEnreg, // Booléen true/false, pas le montant
-                    total_ligne: totalLigne
-                });
+                const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+                const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+                const hasTimbre = ligne.querySelector('.ligne-timbre-check')?.checked;
+                const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+                const timbre = hasTimbre ? feuillets * 1200 : 0;
+                const totalLigne = honoraires + timbre + (hasEnreg ? 2500 : 0);
+
+                if (description || honoraires > 0) {
+                    lignes.push({
+                        type_ligne: 'acte',
+                        description: description,
+                        quantite: 1,
+                        prix_unitaire: honoraires,
+                        honoraires: honoraires,
+                        feuillets: feuillets,
+                        has_timbre: hasTimbre,
+                        enregistrement: hasEnreg,
+                        total_ligne: totalLigne
+                    });
+                }
+            } else {
+                // Ligne DÉBOURS
+                let description = ligne.querySelector('.ligne-description')?.value || '';
+                if (!description) {
+                    const selectDebours = ligne.querySelector('.ligne-debours-select');
+                    if (selectDebours && selectDebours.value && selectDebours.value !== 'autre') {
+                        description = selectDebours.options[selectDebours.selectedIndex].text;
+                    } else {
+                        description = ligne.querySelector('.ligne-debours-description')?.value || '';
+                    }
+                }
+
+                const montant = parseFloat(ligne.querySelector('.ligne-debours-montant')?.value) || 0;
+
+                if (description || montant > 0) {
+                    lignes.push({
+                        type_ligne: 'debours',
+                        description: description,
+                        quantite: 1,
+                        prix_unitaire: montant,
+                        honoraires: 0,
+                        feuillets: 1,
+                        has_timbre: false,
+                        enregistrement: false,
+                        montant_debours: montant,
+                        total_ligne: montant
+                    });
+                }
             }
         });
 

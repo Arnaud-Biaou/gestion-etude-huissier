@@ -61,6 +61,12 @@ urlpatterns = [
     path('api/supprimer-proforma/', views.api_supprimer_proforma, name='api_supprimer_proforma'),
     path('api/convertir-proforma/', views.api_convertir_proforma, name='api_convertir_proforma'),
 
+    # API endpoints - Types d'actes et débours
+    path('api/types-actes/', views.api_types_actes, name='api_types_actes'),
+    path('api/creer-type-acte/', views.api_creer_type_acte, name='api_creer_type_acte'),
+    path('api/types-debours/', views.api_types_debours, name='api_types_debours'),
+    path('api/creer-type-debours/', views.api_creer_type_debours, name='api_creer_type_debours'),
+
     # API endpoints - Calcul Recouvrement
     path('api/calculer-interets/', views.api_calculer_interets, name='api_calculer_interets'),
     path('api/calculer-emoluments/', views.api_calculer_emoluments, name='api_calculer_emoluments'),
