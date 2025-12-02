@@ -414,11 +414,11 @@
                 </div>
             </div>
 
-            <!-- Client -->
-            <div style="margin-bottom: 20px; padding: 15px; background: var(--neutral-50); border-radius: 8px;">
-                <div style="font-size: 10px; text-transform: uppercase; color: var(--neutral-500); margin-bottom: 5px;">Facture a</div>
-                <strong id="voirClient"></strong><br>
-                <span id="voirClientIFU" style="font-size: 11px; color: var(--neutral-600);"></span>
+            <!-- Client / Destinataire -->
+            <div class="client-block" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #1e3a5f;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; font-weight: 600;">Facture a</div>
+                <div id="voirClient" style="font-size: 16px; font-weight: 600; color: #1e3a5f; margin-bottom: 4px;"></div>
+                <div id="voirClientIFU" style="font-size: 12px; color: #4b5563;"></div>
             </div>
 
             <!-- Tableau des lignes -->
@@ -1047,6 +1047,26 @@
                         border-radius: 4px;
                         font-weight: bold;
                         font-size: 14px;
+                    }
+
+                    /* Bloc Client/Destinataire */
+                    .client-block {
+                        background: #f8f9fa !important;
+                        padding: 15px !important;
+                        border-radius: 8px !important;
+                        border-left: 4px solid #1e3a5f !important;
+                        margin-bottom: 20px !important;
+                    }
+
+                    #voirClient {
+                        font-size: 14px !important;
+                        font-weight: 600 !important;
+                        color: #1e3a5f !important;
+                    }
+
+                    #voirClientIFU {
+                        font-size: 11px !important;
+                        color: #4b5563 !important;
                     }
 
                     /* Section MECeF */
