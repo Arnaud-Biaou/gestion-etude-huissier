@@ -7005,79 +7005,8 @@ def liste_actes_securises(request, dossier_id):
 
 @login_required
 def proformas(request):
-    """Vue principale pour la gestion des proformas"""
-    context = get_default_context(request)
-    context['active_module'] = 'proformas'
-
-    # Récupérer les dossiers pour le formulaire
-    dossiers = Dossier.objects.all().order_by('-date_ouverture')[:100]
-    dossiers_list = [
-        {
-            'id': d.id,
-            'numero': d.reference,
-            'client': d.parties.filter(qualite='demandeur').first().nom if d.parties.filter(qualite='demandeur').exists() else 'N/A',
-            'ifu': d.parties.filter(qualite='demandeur').first().ifu if d.parties.filter(qualite='demandeur').exists() and hasattr(d.parties.filter(qualite='demandeur').first(), 'ifu') else '',
-        }
-        for d in dossiers
-    ]
-
-    # Charger les proformas depuis la base de données
-    proformas_qs = Proforma.objects.all().select_related('dossier', 'facture_generee').prefetch_related('lignes').order_by('-date_creation')
-
-    proformas_list = []
-    total_en_cours = 0
-    nb_brouillon = 0
-    nb_convertie = 0
-
-    for p in proformas_qs:
-        lignes = [{
-            'description': l.description,
-            'quantite': l.quantite,
-            'prix_unitaire': float(l.prix_unitaire),
-            'feuillets': l.feuillets,
-            'enregistrement': l.enregistrement
-        } for l in p.lignes.all()]
-
-        proforma_data = {
-            'id': p.id,
-            'numero': p.numero,
-            'client': p.client,
-            'ifu': p.ifu,
-            'montant_ht': float(p.montant_ht),
-            'tva': float(p.montant_tva),
-            'total': float(p.montant_ttc),
-            'date': p.date_creation.strftime('%d/%m/%Y'),
-            'date_creation': p.date_creation.strftime('%Y-%m-%d'),
-            'date_validite': p.date_validite.strftime('%Y-%m-%d') if p.date_validite else '',
-            'statut': p.statut,
-            'dossier': p.dossier_id,
-            'description_dossier': p.description_dossier,
-            'observations': p.observations,
-            'regime': p.regime,
-            'type_client': p.type_client,
-            'client_aib': p.client_aib,
-            'facture_generee_id': p.facture_generee_id,
-            'facture_generee_numero': p.facture_generee.numero if p.facture_generee else None,
-            'lignes': lignes
-        }
-        proformas_list.append(proforma_data)
-
-        # Statistiques (2 statuts seulement)
-        if p.statut == 'brouillon':
-            nb_brouillon += 1
-            total_en_cours += float(p.montant_ttc)
-        elif p.statut == 'convertie':
-            nb_convertie += 1
-
-    context['proformas'] = proformas_list
-    context['proformas_json'] = json.dumps(proformas_list)
-    context['dossiers'] = dossiers_list
-    context['dossiers_json'] = json.dumps(dossiers_list)
-    context['total_en_cours'] = total_en_cours
-    context['nb_brouillon'] = nb_brouillon
-    context['nb_convertie'] = nb_convertie
-
-    return render(request, 'gestion/proformas.html', context)
+    """Redirection vers la vue Facturation (onglet Proformas intégré)"""
+    return redirect('gestion:facturation')
 
 
 def generer_numero_proforma_unique():
