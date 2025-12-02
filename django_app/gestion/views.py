@@ -7068,27 +7068,38 @@ def proformas(request):
     return render(request, 'gestion/proformas.html', context)
 
 
+def generer_numero_proforma_unique():
+    """Génère un numéro de proforma unique PRO-YYYY-XXXX"""
+    annee = timezone.now().year
+    prefix = f"PRO-{annee}-"
+
+    # Trouver le dernier numéro
+    derniere = Proforma.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+
+    if derniere:
+        try:
+            dernier_num = int(derniere.numero.split('-')[-1])
+            nouveau_num = dernier_num + 1
+        except (ValueError, IndexError):
+            nouveau_num = 1
+    else:
+        nouveau_num = 1
+
+    numero = f"{prefix}{nouveau_num:04d}"
+
+    # Boucle de sécurité pour garantir l'unicité
+    while Proforma.objects.filter(numero=numero).exists():
+        nouveau_num += 1
+        numero = f"{prefix}{nouveau_num:04d}"
+
+    return numero
+
+
 @require_POST
 def api_generer_numero_proforma(request):
     """Génère un nouveau numéro de proforma PRO-YYYY-XXXX"""
     try:
-        annee = timezone.now().year
-        prefix = f"PRO-{annee}-"
-
-        # Trouver le dernier numéro
-        derniere = Proforma.objects.filter(numero__startswith=prefix).order_by('-numero').first()
-
-        if derniere:
-            try:
-                dernier_num = int(derniere.numero.split('-')[-1])
-                nouveau_num = dernier_num + 1
-            except (ValueError, IndexError):
-                nouveau_num = 1
-        else:
-            nouveau_num = 1
-
-        numero = f"{prefix}{nouveau_num:04d}"
-
+        numero = generer_numero_proforma_unique()
         return JsonResponse({'success': True, 'numero': numero})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -7162,9 +7173,10 @@ def api_sauvegarder_proforma(request):
             # Supprimer les anciennes lignes et recréer
             proforma.lignes.all().delete()
         else:
-            # Création
+            # Création - générer un numéro unique (ignorer celui du frontend)
+            numero_unique = generer_numero_proforma_unique()
             proforma = Proforma.objects.create(
-                numero=numero,
+                numero=numero_unique,
                 date_creation=date_creation,
                 date_validite=date_validite,
                 statut=statut,
