@@ -255,15 +255,15 @@
 
 {% block modal %}
 <!-- Modal Nouvelle Facture -->
-<div class="modal large" id="modalFacture" onclick="event.stopPropagation()">
-    <div class="modal-header">
+<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title" id="modalFactureTitle">Nouvelle facture</h3>
         <button class="modal-close" onclick="fermerModalFacture()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <div class="modal-body">
-        <form id="formFacture" onsubmit="sauvegarderFacture(event)">
+    <form id="formFacture" onsubmit="sauvegarderFacture(event)" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
             <input type="hidden" id="factureId" name="id">
 
             <div class="form-grid">
@@ -302,10 +302,14 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Dossier lie (optionnel)</label>
-                    <select class="form-select" id="factureDossier" name="dossier">
+                    <select class="form-select" id="factureDossier" name="dossier" onchange="remplirDepuisDossier(this)">
                         <option value="">-- Aucun --</option>
                         {% for dossier in dossiers %}
-                        <option value="{{ dossier.id }}">{{ dossier.reference }}</option>
+                        <option value="{{ dossier.id }}"
+                                data-client="{{ dossier.client_nom }}"
+                                data-ifu="{{ dossier.client_ifu }}">
+                            {{ dossier.reference }}{% if dossier.client_nom %} - {{ dossier.client_nom }}{% endif %}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -321,11 +325,11 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Quantite</label>
-                            <input class="form-input ligne-quantite" type="number" value="1" min="1" onchange="calculerTotaux()">
+                            <input class="form-input ligne-quantite" type="number" value="1" min="1" onchange="calculerTotaux()" oninput="calculerTotaux()">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Prix unitaire</label>
-                            <input class="form-input ligne-prix" type="number" placeholder="15000" onchange="calculerTotaux()">
+                            <input class="form-input ligne-prix" type="number" placeholder="15000" onchange="calculerTotaux()" oninput="calculerTotaux()">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Total</label>
@@ -363,30 +367,29 @@
             <div class="form-group">
                 <textarea class="form-input" id="factureObservations" name="observations" rows="3" placeholder="Notes ou observations..."></textarea>
             </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="fermerModalFacture()">Annuler</button>
-        <div class="flex gap-2">
-            <button class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
+        </div>
+        <!-- Boutons d'action - footer fixe -->
+        <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="fermerModalFacture()">← Annuler</button>
+            <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
                 <i data-lucide="save"></i> Enregistrer brouillon
             </button>
-            <button class="btn btn-primary" onclick="sauvegarderFacture(event)">
-                <i data-lucide="check"></i> Valider la facture
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="check"></i> Enregistrer la facture
             </button>
         </div>
-    </div>
+    </form>
 </div>
 
 <!-- Modal Voir Facture -->
-<div class="modal large" id="modalVoirFacture" onclick="event.stopPropagation()" style="display: none;">
-    <div class="modal-header">
+<div class="modal large modal-voir-facture" id="modalVoirFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title">Facture <span id="voirNumero"></span></h3>
         <button class="modal-close" onclick="fermerModalVoir()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px; max-height: calc(90vh - 140px);">
         <div class="invoice-paper" id="facturePrint">
             <!-- En-tete -->
             <div class="invoice-header">
@@ -472,7 +475,7 @@
             </div>
         </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
         <button class="btn btn-secondary" onclick="fermerModalVoir()">Fermer</button>
         <div class="flex gap-2">
             <button class="btn btn-accent" onclick="imprimerFactureDirecte()">
@@ -487,6 +490,64 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- CSS pour tous les modals scrollables -->
+<style>
+    /* Styles de base pour les modals - PAS de display !important */
+    #modalFacture,
+    #modalVoirFacture,
+    .modal.large {
+        max-height: 90vh;
+        overflow: hidden;
+        flex-direction: column;
+    }
+
+    #modalFacture .modal-body,
+    .modal-facture .modal-body,
+    #modalVoirFacture .modal-body,
+    .modal-voir-facture .modal-body,
+    .modal.large .modal-body {
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        max-height: calc(90vh - 140px) !important;
+        padding: 20px !important;
+    }
+
+    #modalFacture .modal-footer,
+    .modal-facture .modal-footer,
+    #modalVoirFacture .modal-footer,
+    .modal-voir-facture .modal-footer,
+    .modal.large .modal-footer {
+        flex-shrink: 0 !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        background: white !important;
+        padding: 16px 20px !important;
+        border-top: 1px solid #dee2e6 !important;
+        display: flex !important;
+        gap: 12px !important;
+        justify-content: flex-end !important;
+        z-index: 10 !important;
+    }
+
+    #modalFacture .modal-header,
+    .modal-facture .modal-header,
+    #modalVoirFacture .modal-header,
+    .modal-voir-facture .modal-header,
+    .modal.large .modal-header {
+        flex-shrink: 0 !important;
+    }
+
+    #modalFacture form,
+    .modal-facture form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        max-height: calc(90vh - 60px) !important;
+    }
+</style>
+
 <!-- QRCode.js library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -501,9 +562,12 @@
     // GESTION DU MODAL FACTURE
     // ============================================
     function ouvrirModalFacture(facture = null) {
-        factureEnCours = facture;
-        document.getElementById('modalFacture').style.display = 'block';
+        // TOUJOURS cacher le modal de visualisation d'abord
         document.getElementById('modalVoirFacture').style.display = 'none';
+
+        // Ouvrir le modal de création
+        factureEnCours = facture;
+        document.getElementById('modalFacture').style.display = 'flex';
         document.getElementById('modalOverlay').classList.add('open');
 
         if (facture) {
@@ -514,6 +578,9 @@
             reinitialiserFormulaire();
             genererNumeroFacture();
         }
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalFacture');
         lucide.createIcons();
     }
 
@@ -537,6 +604,30 @@
         const echeance = new Date();
         echeance.setDate(echeance.getDate() + 30);
         document.getElementById('factureEcheance').value = echeance.toISOString().split('T')[0];
+    }
+
+    // Auto-remplissage depuis le dossier sélectionné
+    function remplirDepuisDossier(selectElement) {
+        var selectedOption = selectElement.options[selectElement.selectedIndex];
+        console.log('Dossier sélectionné:', selectedOption.value);
+        console.log('data-client:', selectedOption.getAttribute('data-client'));
+        console.log('data-ifu:', selectedOption.getAttribute('data-ifu'));
+
+        if (selectedOption.value) {
+            // Récupérer les données du dossier depuis les attributs data-*
+            var clientNom = selectedOption.getAttribute('data-client');
+            var clientIfu = selectedOption.getAttribute('data-ifu');
+
+            // Remplir les champs du formulaire si les données existent
+            if (clientNom) {
+                document.getElementById('factureClient').value = clientNom;
+                console.log('Client rempli:', clientNom);
+            }
+            if (clientIfu) {
+                document.getElementById('factureIFU').value = clientIfu;
+                console.log('IFU rempli:', clientIfu);
+            }
+        }
     }
 
     function genererNumeroFacture() {
@@ -595,11 +686,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Quantite</label>
-                    <input class="form-input ligne-quantite" type="number" value="${data ? data.quantite : 1}" min="1" onchange="calculerTotaux()">
+                    <input class="form-input ligne-quantite" type="number" value="${data ? data.quantite : 1}" min="1" onchange="calculerTotaux()" oninput="calculerTotaux()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Prix unitaire</label>
-                    <input class="form-input ligne-prix" type="number" placeholder="15000" value="${data ? data.prix_unitaire : ''}" onchange="calculerTotaux()">
+                    <input class="form-input ligne-prix" type="number" placeholder="15000" value="${data ? data.prix_unitaire : ''}" onchange="calculerTotaux()" oninput="calculerTotaux()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Total</label>
@@ -717,9 +808,15 @@
         const facture = factures.find(f => f.id == id);
         if (!facture) return;
 
+        // TOUJOURS cacher le modal de création d'abord
         document.getElementById('modalFacture').style.display = 'none';
-        document.getElementById('modalVoirFacture').style.display = 'block';
+
+        // Ouvrir le modal de visualisation
+        document.getElementById('modalVoirFacture').style.display = 'flex';
         document.getElementById('modalOverlay').classList.add('open');
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalVoirFacture');
 
         document.getElementById('voirNumero').textContent = facture.numero;
         document.getElementById('voirNumeroDetail').textContent = facture.numero;
@@ -835,12 +932,148 @@
             <html>
             <head>
                 <title>Facture - ${factureEnCours ? factureEnCours.numero : ''}</title>
-                <link rel="stylesheet" href="{% static 'css/styles.css' %}">
                 <style>
-                    body { background: white; padding: 20px; }
-                    .invoice-paper { box-shadow: none; }
+                    /* ═══════════════════════════════════════════════════════════════
+                       STYLES D'IMPRESSION POUR FACTURES PROFESSIONNELLES
+                       ═══════════════════════════════════════════════════════════════ */
+
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: white;
+                        padding: 20px;
+                        font-size: 12pt;
+                        line-height: 1.4;
+                        color: #333;
+                    }
+
+                    .invoice-paper {
+                        max-width: 210mm;
+                        margin: 0 auto;
+                        background: white;
+                        box-shadow: none;
+                    }
+
+                    /* En-tête */
+                    .invoice-header {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 30px;
+                        padding-bottom: 20px;
+                        border-bottom: 2px solid #1e3a5f;
+                    }
+
+                    .invoice-logo {
+                        width: 80px;
+                        height: 80px;
+                        background: linear-gradient(135deg, #b8960c 0%, #d4af37 100%) !important;
+                        color: white !important;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 24px;
+                        font-weight: bold;
+                        border-radius: 8px;
+                    }
+
+                    .invoice-title {
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #1e3a5f;
+                        text-transform: uppercase;
+                    }
+
+                    .invoice-status {
+                        display: inline-block;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        margin-top: 10px;
+                    }
+
+                    .invoice-status:contains("NON") {
+                        border: 2px dashed #dc3545;
+                        color: #dc3545;
+                    }
+
+                    /* Tableau des lignes */
+                    .invoice-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }
+
+                    .invoice-table th {
+                        background: #1e3a5f !important;
+                        color: white !important;
+                        padding: 12px 10px;
+                        text-align: left;
+                        font-weight: 600;
+                        font-size: 11px;
+                        text-transform: uppercase;
+                    }
+
+                    .invoice-table td {
+                        padding: 10px;
+                        border-bottom: 1px solid #e5e5e5;
+                        font-size: 11px;
+                    }
+
+                    .invoice-table tr:nth-child(even) {
+                        background: #f9f9f9 !important;
+                    }
+
+                    /* Totaux */
+                    .invoice-total-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e5e5e5;
+                    }
+
+                    .invoice-final-total {
+                        background: #1e3a5f !important;
+                        color: white !important;
+                        padding: 12px !important;
+                        margin-top: 10px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        font-size: 14px;
+                    }
+
+                    /* Section MECeF */
+                    #voirMECeF {
+                        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
+                        border: 1px solid #22c55e !important;
+                    }
+
+                    /* Styles d'impression */
                     @media print {
-                        body { padding: 0; }
+                        body {
+                            padding: 0;
+                        }
+
+                        @page {
+                            size: A4;
+                            margin: 15mm;
+                        }
+
+                        .invoice-paper {
+                            page-break-inside: avoid;
+                        }
+
+                        .invoice-table,
+                        tr {
+                            page-break-inside: avoid;
+                        }
                     }
                 </style>
             </head>
@@ -907,6 +1140,45 @@
 
     function exporterFactures() {
         window.open('{% url "gestion:api_exporter_factures" %}?format=csv', '_blank');
+    }
+
+    // ============================================
+    // FORCER SCROLL MODAL - Ne modifie PAS le display
+    // ============================================
+    function appliquerStylesScroll(modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        // Ne PAS toucher au display ! Juste les styles de scroll
+        var modalBody = modal.querySelector('.modal-body');
+        var modalFooter = modal.querySelector('.modal-footer');
+        var form = modal.querySelector('form');
+
+        modal.style.maxHeight = '90vh';
+        modal.style.overflow = 'hidden';
+        modal.style.flexDirection = 'column';
+
+        if (form) {
+            form.style.flexDirection = 'column';
+            form.style.flex = '1';
+            form.style.overflow = 'hidden';
+            form.style.maxHeight = 'calc(90vh - 60px)';
+        }
+
+        if (modalBody) {
+            modalBody.style.flex = '1';
+            modalBody.style.overflowY = 'auto';
+            modalBody.style.maxHeight = 'calc(90vh - 140px)';
+            modalBody.style.padding = '20px';
+        }
+
+        if (modalFooter) {
+            modalFooter.style.flexShrink = '0';
+            modalFooter.style.position = 'sticky';
+            modalFooter.style.bottom = '0';
+            modalFooter.style.background = 'white';
+            modalFooter.style.zIndex = '10';
+        }
     }
 </script>
 {% endblock %}
