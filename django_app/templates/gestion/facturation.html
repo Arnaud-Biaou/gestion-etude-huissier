@@ -566,7 +566,7 @@
     // ============================================
     function ouvrirModalFacture(facture = null) {
         factureEnCours = facture;
-        document.getElementById('modalFacture').style.display = 'block';
+        document.getElementById('modalFacture').style.display = 'flex';
         document.getElementById('modalVoirFacture').style.display = 'none';
         document.getElementById('modalOverlay').classList.add('open');
 
@@ -782,7 +782,7 @@
         if (!facture) return;
 
         document.getElementById('modalFacture').style.display = 'none';
-        document.getElementById('modalVoirFacture').style.display = 'block';
+        document.getElementById('modalVoirFacture').style.display = 'flex';
         document.getElementById('modalOverlay').classList.add('open');
 
         document.getElementById('voirNumero').textContent = facture.numero;
