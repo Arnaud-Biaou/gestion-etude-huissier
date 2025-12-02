@@ -393,7 +393,7 @@
                         <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Honoraires HT</label>
                         <input class="form-input" type="text" id="totalHonoraires" readonly style="background: white; font-weight: 600;">
                     </div>
-                    <div class="form-group" style="margin-bottom: 8px;">
+                    <div id="ligneTaxe" class="form-group" style="margin-bottom: 8px;">
                         <label class="form-label" style="font-size: 11px; color: #6b7280;" id="labelTaxe">TPS (0%)</label>
                         <input class="form-input" type="text" id="totalTaxe" readonly style="background: white;">
                     </div>
@@ -921,6 +921,18 @@
         const labelTaxeEl = document.getElementById('labelTaxe');
         if (labelTaxeEl) labelTaxeEl.textContent = labelTaxe;
 
+        // Masquer la ligne taxe si TPS + Client privé (conformité MECeF)
+        const ligneTaxeEl = document.getElementById('ligneTaxe');
+        if (ligneTaxeEl) {
+            if (regime === 'tps' && typeClient === 'prive') {
+                // TPS + Client privé = pas de ligne taxe affichée
+                ligneTaxeEl.style.display = 'none';
+            } else {
+                // TVA ou TPS+Public = afficher la ligne taxe
+                ligneTaxeEl.style.display = 'block';
+            }
+        }
+
         // Afficher les totaux
         const totalHonorairesEl = document.getElementById('totalHonoraires');
         const totalTaxeEl = document.getElementById('totalTaxe');
@@ -1139,6 +1151,16 @@
         document.getElementById('voirDebours').textContent = formatMontant(totalDebours);
         document.getElementById('voirTTC').textContent = formatMontant(totalTTC);
         document.getElementById('voirNetAPayer').textContent = formatMontant(netAPayer);
+
+        // Masquer la ligne taxe si TPS + Client privé (conformité MECeF)
+        const voirTaxeRow = document.getElementById('voirTaxeRow');
+        if (voirTaxeRow) {
+            if (regime === 'tps' && typeClient === 'prive') {
+                voirTaxeRow.style.display = 'none';
+            } else {
+                voirTaxeRow.style.display = 'flex';
+            }
+        }
 
         // AIB
         const aibRow = document.getElementById('voirAIBRow');
