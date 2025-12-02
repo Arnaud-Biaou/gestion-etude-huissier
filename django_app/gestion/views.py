@@ -1084,12 +1084,19 @@ def facturation(request):
     context['nb_proformas_total'] = len(proformas_list)
 
     # Types d'actes et débours pour les sélecteurs
+    # Convertir les Decimal en float pour JSON
     types_actes = list(TypeActe.objects.filter(actif=True).values(
         'id', 'nom', 'honoraires_defaut', 'est_timbre_defaut', 'est_enregistre_defaut'
     ))
+    for acte in types_actes:
+        acte['honoraires_defaut'] = float(acte['honoraires_defaut'])
+
     types_debours = list(TypeDebours.objects.filter(actif=True).values(
         'id', 'nom', 'montant_defaut'
     ))
+    for debours in types_debours:
+        debours['montant_defaut'] = float(debours['montant_defaut'])
+
     context['types_actes'] = types_actes
     context['types_debours'] = types_debours
     context['types_actes_json'] = json.dumps(types_actes)
@@ -7315,11 +7322,16 @@ def api_convertir_proforma(request):
 @require_GET
 def api_types_actes(request):
     """Liste des types d'actes actifs"""
-    actes = TypeActe.objects.filter(actif=True).values(
-        'id', 'nom', 'description', 'honoraires_defaut',
-        'est_timbre_defaut', 'est_enregistre_defaut'
-    )
-    return JsonResponse({'success': True, 'actes': list(actes)})
+    actes = TypeActe.objects.filter(actif=True)
+    data = [{
+        'id': a.id,
+        'nom': a.nom,
+        'description': a.description,
+        'honoraires_defaut': float(a.honoraires_defaut),
+        'est_timbre_defaut': a.est_timbre_defaut,
+        'est_enregistre_defaut': a.est_enregistre_defaut,
+    } for a in actes]
+    return JsonResponse({'success': True, 'actes': data})
 
 
 @require_POST
@@ -7358,10 +7370,13 @@ def api_creer_type_acte(request):
 @require_GET
 def api_types_debours(request):
     """Liste des types de débours actifs"""
-    debours = TypeDebours.objects.filter(actif=True).values(
-        'id', 'nom', 'montant_defaut'
-    )
-    return JsonResponse({'success': True, 'debours': list(debours)})
+    debours = TypeDebours.objects.filter(actif=True)
+    data = [{
+        'id': d.id,
+        'nom': d.nom,
+        'montant_defaut': float(d.montant_defaut),
+    } for d in debours]
+    return JsonResponse({'success': True, 'debours': data})
 
 
 @require_POST
