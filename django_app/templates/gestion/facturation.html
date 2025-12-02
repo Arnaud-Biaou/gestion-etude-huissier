@@ -489,27 +489,15 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- CSS pour tous les modals scrollables - FORCE avec !important -->
+<!-- CSS pour tous les modals scrollables -->
 <style>
-    /* Forcer scroll modal - solution radicale pour TOUS les modals */
-    /* Note: Ne PAS utiliser display: flex !important ici car cela empêche de cacher les modals */
+    /* Styles de base pour les modals - PAS de display !important */
     #modalFacture,
-    #modalFacture.modal-facture,
-    .modal-facture,
     #modalVoirFacture,
-    .modal-voir-facture,
     .modal.large {
-        max-height: 90vh !important;
-        overflow: hidden !important;
-        flex-direction: column !important;
-    }
-
-    /* Afficher le modal en flex seulement quand il est visible (pas display:none) */
-    #modalFacture:not([style*="display: none"]):not([style*="display:none"]) {
-        display: flex !important;
-    }
-    #modalVoirFacture:not([style*="display: none"]):not([style*="display:none"]) {
-        display: flex !important;
+        max-height: 90vh;
+        overflow: hidden;
+        flex-direction: column;
     }
 
     #modalFacture .modal-body,
@@ -573,9 +561,12 @@
     // GESTION DU MODAL FACTURE
     // ============================================
     function ouvrirModalFacture(facture = null) {
+        // TOUJOURS cacher le modal de visualisation d'abord
+        document.getElementById('modalVoirFacture').style.display = 'none';
+
+        // Ouvrir le modal de création
         factureEnCours = facture;
         document.getElementById('modalFacture').style.display = 'flex';
-        document.getElementById('modalVoirFacture').style.display = 'none';
         document.getElementById('modalOverlay').classList.add('open');
 
         if (facture) {
@@ -586,6 +577,9 @@
             reinitialiserFormulaire();
             genererNumeroFacture();
         }
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalFacture');
         lucide.createIcons();
     }
 
@@ -789,9 +783,15 @@
         const facture = factures.find(f => f.id == id);
         if (!facture) return;
 
+        // TOUJOURS cacher le modal de création d'abord
         document.getElementById('modalFacture').style.display = 'none';
+
+        // Ouvrir le modal de visualisation
         document.getElementById('modalVoirFacture').style.display = 'flex';
         document.getElementById('modalOverlay').classList.add('open');
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalVoirFacture');
 
         document.getElementById('voirNumero').textContent = facture.numero;
         document.getElementById('voirNumeroDetail').textContent = facture.numero;
@@ -1118,23 +1118,22 @@
     }
 
     // ============================================
-    // FORCER SCROLL MODAL - Solution radicale pour TOUS les modals
+    // FORCER SCROLL MODAL - Ne modifie PAS le display
     // ============================================
-    function forcerScrollModalElement(modalId) {
+    function appliquerStylesScroll(modalId) {
         var modal = document.getElementById(modalId);
         if (!modal) return;
 
+        // Ne PAS toucher au display ! Juste les styles de scroll
         var modalBody = modal.querySelector('.modal-body');
         var modalFooter = modal.querySelector('.modal-footer');
         var form = modal.querySelector('form');
 
         modal.style.maxHeight = '90vh';
         modal.style.overflow = 'hidden';
-        modal.style.display = 'flex';
         modal.style.flexDirection = 'column';
 
         if (form) {
-            form.style.display = 'flex';
             form.style.flexDirection = 'column';
             form.style.flex = '1';
             form.style.overflow = 'hidden';
@@ -1156,40 +1155,5 @@
             modalFooter.style.zIndex = '10';
         }
     }
-
-    function forcerScrollTousModals() {
-        forcerScrollModalElement('modalFacture');
-        forcerScrollModalElement('modalVoirFacture');
-    }
-
-    // Appliquer au chargement
-    document.addEventListener('DOMContentLoaded', forcerScrollTousModals);
-
-    // Observer les changements sur les modals
-    ['modalFacture', 'modalVoirFacture'].forEach(function(modalId) {
-        var modalEl = document.getElementById(modalId);
-        if (modalEl) {
-            var observer = new MutationObserver(function() {
-                forcerScrollModalElement(modalId);
-            });
-            observer.observe(modalEl, { attributes: true, childList: true, subtree: true });
-        }
-    });
-
-    // Surcharger ouvrirModalFacture pour forcer le scroll
-    var _ouvrirModalFactureOriginal = ouvrirModalFacture;
-    ouvrirModalFacture = function(facture) {
-        _ouvrirModalFactureOriginal(facture);
-        setTimeout(function() { forcerScrollModalElement('modalFacture'); }, 100);
-        setTimeout(function() { forcerScrollModalElement('modalFacture'); }, 300);
-    };
-
-    // Surcharger voirFacture pour forcer le scroll
-    var _voirFactureOriginal = voirFacture;
-    voirFacture = function(facture) {
-        _voirFactureOriginal(facture);
-        setTimeout(function() { forcerScrollModalElement('modalVoirFacture'); }, 100);
-        setTimeout(function() { forcerScrollModalElement('modalVoirFacture'); }, 300);
-    };
 </script>
 {% endblock %}
