@@ -1869,18 +1869,27 @@ def api_sauvegarder_facture(request):
         debours = Decimal('0')
 
         for l in lignes:
-            # Honoraires
-            honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
-            montant_ht += honoraires
+            type_ligne = l.get('type_ligne', 'acte')
 
-            # Timbres (1200 FCFA × feuillets)
-            feuillets = int(l.get('feuillets', 1))
-            timbre = Decimal(str(feuillets * 1200))
-            debours += timbre
+            if type_ligne == 'debours':
+                # Ligne DÉBOURS - montant non taxable
+                montant_debours = Decimal(str(l.get('montant_debours', l.get('prix_unitaire', 0))))
+                debours += montant_debours
+            else:
+                # Ligne ACTE - honoraires taxables + timbres/enreg optionnels
+                # Honoraires
+                honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
+                montant_ht += honoraires
 
-            # Enregistrement (2500 FCFA si coché)
-            if l.get('enregistrement', True):
-                debours += Decimal('2500')
+                # Timbres (1200 FCFA × feuillets) si coché
+                if l.get('has_timbre', True):
+                    feuillets = int(l.get('feuillets', 1))
+                    timbre = Decimal(str(feuillets * 1200))
+                    debours += timbre
+
+                # Enregistrement (2500 FCFA si coché)
+                if l.get('enregistrement', True):
+                    debours += Decimal('2500')
 
         # TVA selon régime et type de client (conformité MECeF)
         if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
@@ -7136,15 +7145,26 @@ def api_sauvegarder_proforma(request):
         debours = Decimal('0')
 
         for l in lignes:
-            honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
-            montant_ht += honoraires
+            type_ligne = l.get('type_ligne', 'acte')
 
-            feuillets = int(l.get('feuillets', 1))
-            timbre = Decimal(str(feuillets * 1200))
-            debours += timbre
+            if type_ligne == 'debours':
+                # Ligne DÉBOURS - montant non taxable
+                montant_debours = Decimal(str(l.get('montant_debours', l.get('prix_unitaire', 0))))
+                debours += montant_debours
+            else:
+                # Ligne ACTE - honoraires taxables + timbres/enreg optionnels
+                honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
+                montant_ht += honoraires
 
-            if l.get('enregistrement', True):
-                debours += Decimal('2500')
+                # Timbres si coché
+                if l.get('has_timbre', True):
+                    feuillets = int(l.get('feuillets', 1))
+                    timbre = Decimal(str(feuillets * 1200))
+                    debours += timbre
+
+                # Enregistrement si coché
+                if l.get('enregistrement', True):
+                    debours += Decimal('2500')
 
         # TVA selon régime et type de client
         if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
