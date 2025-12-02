@@ -511,8 +511,8 @@
             <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
                 <i data-lucide="save"></i> Enregistrer brouillon
             </button>
-            <button type="submit" class="btn btn-primary">
-                <i data-lucide="check"></i> Enregistrer la facture
+            <button type="submit" class="btn btn-primary" id="btnEnregistrerDoc">
+                <i data-lucide="check"></i> <span id="labelBtnEnregistrer">Enregistrer la facture</span>
             </button>
         </div>
     </form>
@@ -734,6 +734,12 @@
         }
 
         typeDocumentEnCours = type;
+
+        // Mettre à jour le libellé du bouton d'enregistrement
+        const labelBtn = document.getElementById('labelBtnEnregistrer');
+        if (labelBtn) {
+            labelBtn.textContent = type === 'proforma' ? 'Enregistrer la proforma' : 'Enregistrer la facture';
+        }
 
         // Ouvrir le modal de création
         factureEnCours = document_data;
@@ -1122,7 +1128,7 @@
                     honoraires: honoraires,
                     feuillets: feuillets,
                     timbre: timbre,
-                    enregistrement: enregistrement,
+                    enregistrement: hasEnreg, // Booléen true/false, pas le montant
                     total_ligne: totalLigne
                 });
             }
