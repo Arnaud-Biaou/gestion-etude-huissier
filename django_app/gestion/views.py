@@ -1028,6 +1028,67 @@ def facturation(request):
         })
     context['dossiers'] = dossiers_list
 
+    # Charger les proformas
+    proformas_qs = Proforma.objects.all().select_related('dossier', 'facture_generee').prefetch_related('lignes').order_by('-date_creation')
+
+    proformas_list = []
+    nb_proformas_brouillon = 0
+    nb_proformas_envoyee = 0
+    nb_proformas_acceptee = 0
+    nb_proformas_convertie = 0
+
+    for p in proformas_qs:
+        lignes = [{
+            'description': l.description,
+            'quantite': l.quantite,
+            'prix_unitaire': float(l.prix_unitaire),
+            'feuillets': l.feuillets,
+            'enregistrement': l.enregistrement
+        } for l in p.lignes.all()]
+
+        proforma_data = {
+            'id': p.id,
+            'numero': p.numero,
+            'client': p.client,
+            'ifu': p.ifu,
+            'montant_ht': float(p.montant_ht),
+            'tva': float(p.montant_tva),
+            'total': float(p.montant_ttc),
+            'date': p.date_creation.strftime('%d/%m/%Y'),
+            'date_creation': p.date_creation.strftime('%Y-%m-%d'),
+            'date_validite': p.date_validite.strftime('%Y-%m-%d') if p.date_validite else '',
+            'statut': p.statut,
+            'dossier': p.dossier_id,
+            'description_dossier': p.description_dossier,
+            'observations': p.observations,
+            'regime': p.regime,
+            'type_client': p.type_client,
+            'client_aib': p.client_aib,
+            'facture_generee_id': p.facture_generee_id,
+            'facture_generee_numero': p.facture_generee.numero if p.facture_generee else None,
+            'lignes': lignes,
+            'type_document': 'proforma'
+        }
+        proformas_list.append(proforma_data)
+
+        # Statistiques proformas
+        if p.statut == 'brouillon':
+            nb_proformas_brouillon += 1
+        elif p.statut == 'envoyee':
+            nb_proformas_envoyee += 1
+        elif p.statut == 'acceptee':
+            nb_proformas_acceptee += 1
+        elif p.statut == 'convertie':
+            nb_proformas_convertie += 1
+
+    context['proformas'] = proformas_list
+    context['proformas_json'] = json.dumps(proformas_list)
+    context['nb_proformas_brouillon'] = nb_proformas_brouillon
+    context['nb_proformas_envoyee'] = nb_proformas_envoyee
+    context['nb_proformas_acceptee'] = nb_proformas_acceptee
+    context['nb_proformas_convertie'] = nb_proformas_convertie
+    context['nb_proformas_total'] = len(proformas_list)
+
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},
         {'id': 'memoires', 'label': 'Memoires'},
@@ -6927,11 +6988,11 @@ def proformas(request):
     context['active_module'] = 'proformas'
 
     # Récupérer les dossiers pour le formulaire
-    dossiers = Dossier.objects.all().order_by('-date_creation')[:100]
+    dossiers = Dossier.objects.all().order_by('-date_ouverture')[:100]
     dossiers_list = [
         {
             'id': d.id,
-            'numero': d.numero_rg,
+            'numero': d.reference,
             'client': d.parties.filter(qualite='demandeur').first().nom if d.parties.filter(qualite='demandeur').exists() else 'N/A',
             'ifu': d.parties.filter(qualite='demandeur').first().ifu if d.parties.filter(qualite='demandeur').exists() and hasattr(d.parties.filter(qualite='demandeur').first(), 'ifu') else '',
         }
