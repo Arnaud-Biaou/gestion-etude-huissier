@@ -941,32 +941,43 @@
 
                 <!-- Section ACTE -->
                 <div class="section-acte" style="display: ${typeLigne === 'acte' ? 'contents' : 'none'};">
-                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                    <div class="form-group" style="min-width: 180px; flex: 1;">
                         <label class="form-label" style="font-size: 11px;">Acte</label>
                         <select class="form-select ligne-acte-select" onchange="remplirActe(this)" style="padding: 6px 8px;">
                             ${genererOptionsActes()}
                         </select>
                     </div>
-                    <div class="form-group saisie-libre" style="min-width: 180px; flex: 1; display: none;">
-                        <label class="form-label" style="font-size: 11px;">Description libre</label>
-                        <input class="form-input ligne-description-libre" type="text" placeholder="Intitulé" style="padding: 6px 8px;">
+                    <div class="form-group saisie-libre" style="min-width: 160px; flex: 1; display: none;">
+                        <label class="form-label" style="font-size: 11px;">Nouvel acte</label>
+                        <div style="display: flex; gap: 4px;">
+                            <input class="form-input ligne-description-libre" type="text" placeholder="Intitulé" oninput="construireIntituleActe(this.closest('.ligne-facture'))" style="padding: 6px 8px; flex: 1;">
+                            <button type="button" class="btn btn-success btn-sm" onclick="ajouterNouvelActe(this)" title="Ajouter à la liste" style="padding: 4px 8px; font-size: 11px;">+</button>
+                        </div>
                     </div>
-                    <div class="form-group" style="width: 100px;">
+                    <div class="form-group" style="min-width: 140px; flex: 1;">
+                        <label class="form-label" style="font-size: 11px;">Date(s) de l'acte</label>
+                        <input class="form-input ligne-acte-dates" type="text" placeholder="Ex: 28/11/2025" oninput="construireIntituleActe(this.closest('.ligne-facture'))" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                        <label class="form-label" style="font-size: 11px;">Intitulé final</label>
+                        <input class="form-input ligne-intitule-final" type="text" readonly style="padding: 6px 8px; background: #f0f0f0; color: #333;">
+                    </div>
+                    <div class="form-group" style="width: 90px;">
                         <label class="form-label" style="font-size: 11px;">Honoraires</label>
                         <input class="form-input ligne-honoraires" type="number" placeholder="0" value="${honoraires}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
                     </div>
-                    <div class="form-group" style="width: 70px;">
-                        <label class="form-label" style="font-size: 11px;">Feuillets</label>
+                    <div class="form-group" style="width: 60px;">
+                        <label class="form-label" style="font-size: 11px;">Feuill.</label>
                         <input class="form-input ligne-feuillets" type="number" value="${feuillets}" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
                     </div>
-                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 100px;">
+                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 90px;">
                         <label class="form-label" style="font-size: 11px;">Timbre</label>
                         <label style="display: flex; align-items: center; gap: 4px; height: 32px;">
                             <input type="checkbox" class="ligne-timbre-check" ${hasTimbre ? 'checked' : ''} onchange="calculerTotauxHuissier()">
                             <span class="ligne-timbre-montant" style="font-size: 11px;">${formatMontant(timbre)}</span>
                         </label>
                     </div>
-                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 80px;">
+                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 70px;">
                         <label class="form-label" style="font-size: 11px;">Enreg.</label>
                         <label style="display: flex; align-items: center; gap: 4px; height: 32px;">
                             <input type="checkbox" class="ligne-enregistrement" ${hasEnreg ? 'checked' : ''} onchange="calculerTotauxHuissier()">
@@ -1028,6 +1039,46 @@
         calculerTotauxHuissier();
     }
 
+    // Construire l'intitulé final de l'acte avec les dates
+    function construireIntituleActe(ligne) {
+        const selectActe = ligne.querySelector('.ligne-acte-select');
+        const inputDates = ligne.querySelector('.ligne-acte-dates');
+        const inputNouvel = ligne.querySelector('.ligne-description-libre');
+        const inputFinal = ligne.querySelector('.ligne-intitule-final');
+        const inputDescription = ligne.querySelector('.ligne-description');
+
+        // Récupérer le nom de l'acte
+        let nomActe = '';
+        if (selectActe.value === 'autre') {
+            nomActe = inputNouvel ? inputNouvel.value.trim() : '';
+        } else if (selectActe.value) {
+            const option = selectActe.options[selectActe.selectedIndex];
+            nomActe = option.dataset.nom || option.textContent.trim();
+        }
+
+        // Récupérer les dates
+        const dates = inputDates ? inputDates.value.trim() : '';
+
+        // Construire l'intitulé final
+        let intituleFinal = nomActe;
+        if (dates && nomActe) {
+            // Détecter si c'est une seule date ou plusieurs
+            const hasMultipleDates = dates.includes(',') || dates.includes(' et ') || dates.includes('-') || dates.includes('/') && dates.split('/').length > 3;
+            const preposition = hasMultipleDates ? ' des ' : ' du ';
+            intituleFinal = nomActe + preposition + dates;
+        }
+
+        // Mettre à jour les champs
+        if (inputFinal) {
+            inputFinal.value = intituleFinal;
+        }
+        if (inputDescription) {
+            inputDescription.value = intituleFinal;
+        }
+
+        return intituleFinal;
+    }
+
     // Remplir les champs depuis un acte prédéfini
     function remplirActe(select) {
         const ligne = select.closest('.ligne-facture');
@@ -1037,6 +1088,9 @@
         if (select.value === 'autre') {
             saisiLibre.style.display = 'block';
             ligne.querySelector('.ligne-description').value = '';
+            ligne.querySelector('.ligne-intitule-final').value = '';
+            construireIntituleActe(ligne);
+            calculerTotauxHuissier();
             return;
         }
 
@@ -1046,8 +1100,10 @@
             ligne.querySelector('.ligne-honoraires').value = option.dataset.honoraires;
             ligne.querySelector('.ligne-timbre-check').checked = option.dataset.timbre === 'true' || option.dataset.timbre === 'True';
             ligne.querySelector('.ligne-enregistrement').checked = option.dataset.enregistrement === 'true' || option.dataset.enregistrement === 'True';
-            ligne.querySelector('.ligne-description').value = option.text;
         }
+
+        // Construire l'intitulé final avec les dates
+        construireIntituleActe(ligne);
         calculerTotauxHuissier();
     }
 
@@ -1072,14 +1128,16 @@
         calculerTotauxHuissier();
     }
 
-    // Sauvegarder un nouvel acte
-    function sauvegarderNouvelActe(btn) {
+    // Ajouter un nouvel acte à la liste
+    function ajouterNouvelActe(btn) {
         const ligne = btn.closest('.ligne-facture');
         const nom = ligne.querySelector('.ligne-description-libre').value.trim();
-        const honoraires = ligne.querySelector('.ligne-honoraires').value || 0;
+        const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires').value) || 0;
+        const estTimbre = ligne.querySelector('.ligne-timbre-check').checked;
+        const estEnreg = ligne.querySelector('.ligne-enregistrement').checked;
 
         if (!nom) {
-            alert('Veuillez saisir un intitulé');
+            alert('Veuillez saisir un intitulé pour l\'acte');
             return;
         }
 
@@ -1092,23 +1150,50 @@
             body: JSON.stringify({
                 nom: nom,
                 honoraires_defaut: honoraires,
-                est_timbre_defaut: ligne.querySelector('.ligne-timbre-check').checked,
-                est_enregistre_defaut: ligne.querySelector('.ligne-enregistrement').checked
+                est_timbre_defaut: estTimbre,
+                est_enregistre_defaut: estEnreg
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 alert('Acte "' + nom + '" ajouté à la liste !');
-                // Ajouter l'option au select
-                typesActes.push({id: data.id, nom: nom, honoraires_defaut: honoraires});
-                // Rafraîchir les selects
-                document.querySelectorAll('.ligne-acte-select').forEach(sel => {
-                    sel.innerHTML = genererOptionsActes();
+
+                // Ajouter au tableau local
+                typesActes.push({
+                    id: data.id,
+                    nom: nom,
+                    honoraires_defaut: honoraires,
+                    est_timbre_defaut: estTimbre,
+                    est_enregistre_defaut: estEnreg
                 });
+
+                // Ajouter l'option à tous les sélecteurs d'actes
+                document.querySelectorAll('.ligne-acte-select').forEach(select => {
+                    const optionAutre = select.querySelector('option[value="autre"]');
+                    const newOption = document.createElement('option');
+                    newOption.value = data.id;
+                    newOption.dataset.nom = nom;
+                    newOption.dataset.honoraires = honoraires;
+                    newOption.dataset.timbre = estTimbre;
+                    newOption.dataset.enregistrement = estEnreg;
+                    newOption.textContent = nom;
+                    select.insertBefore(newOption, optionAutre);
+                });
+
+                // Sélectionner le nouvel acte dans cette ligne
+                const selectActe = ligne.querySelector('.ligne-acte-select');
+                selectActe.value = data.id;
+                ligne.querySelector('.saisie-libre').style.display = 'none';
+
+                // Mettre à jour l'intitulé final
+                construireIntituleActe(ligne);
             } else {
-                alert(data.error || 'Erreur');
+                alert('Erreur : ' + (data.error || 'Impossible d\'ajouter l\'acte'));
             }
+        })
+        .catch(error => {
+            alert('Erreur réseau : ' + error);
         });
     }
 
@@ -1291,9 +1376,13 @@
             const typeLigne = ligne.dataset.typeLigne || ligne.querySelector('.ligne-type')?.value || 'acte';
 
             if (typeLigne === 'acte') {
-                // Ligne ACTE
-                let description = ligne.querySelector('.ligne-description')?.value || '';
-                // Si description vide, prendre du select ou de la saisie libre
+                // Ligne ACTE - Utiliser l'intitulé final (avec dates)
+                let description = ligne.querySelector('.ligne-intitule-final')?.value || '';
+                // Si intitulé final vide, construire ou récupérer
+                if (!description) {
+                    description = construireIntituleActe(ligne);
+                }
+                // Dernier recours: prendre du select ou de la saisie libre
                 if (!description) {
                     const selectActe = ligne.querySelector('.ligne-acte-select');
                     if (selectActe && selectActe.value && selectActe.value !== 'autre') {
