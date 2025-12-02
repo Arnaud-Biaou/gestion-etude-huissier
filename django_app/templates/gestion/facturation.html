@@ -653,8 +653,15 @@
         document.getElementById('formFacture').reset();
         document.getElementById('factureId').value = '';
         document.getElementById('lignesFacture').innerHTML = '';
+
+        // Réinitialiser régime fiscal et AIB
+        const regimeEl = document.getElementById('factureRegime');
+        const aibEl = document.getElementById('clientAIB');
+        if (regimeEl) regimeEl.value = 'tps';
+        if (aibEl) aibEl.checked = false;
+
         ajouterLigne();
-        calculerTotaux();
+        calculerTotauxHuissier();
 
         // Date du jour
         const today = new Date().toISOString().split('T')[0];
@@ -717,6 +724,12 @@
         document.getElementById('factureDossier').value = facture.dossier || '';
         document.getElementById('factureObservations').value = facture.observations || '';
 
+        // Régime fiscal et AIB
+        const regimeEl = document.getElementById('factureRegime');
+        const aibEl = document.getElementById('clientAIB');
+        if (regimeEl) regimeEl.value = facture.regime || 'tps';
+        if (aibEl) aibEl.checked = facture.client_aib || false;
+
         // Lignes
         document.getElementById('lignesFacture').innerHTML = '';
         if (facture.lignes && facture.lignes.length > 0) {
@@ -726,7 +739,7 @@
         } else {
             ajouterLigne();
         }
-        calculerTotaux();
+        calculerTotauxHuissier();
     }
 
     // ============================================
@@ -886,14 +899,31 @@
     function sauvegarderFacture(event, brouillon = false) {
         event.preventDefault();
 
-        // Collecter les lignes
+        // Collecter les lignes avec la structure huissier
         const lignes = [];
         document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const description = ligne.querySelector('.ligne-description').value;
-            const quantite = parseFloat(ligne.querySelector('.ligne-quantite').value) || 0;
-            const prix = parseFloat(ligne.querySelector('.ligne-prix').value) || 0;
-            if (description && prix > 0) {
-                lignes.push({ description, quantite, prix_unitaire: prix });
+            const description = ligne.querySelector('.ligne-description')?.value || '';
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+            const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+            const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+            // Calculer les montants
+            const timbre = feuillets * 1200;
+            const enregistrement = hasEnreg ? 2500 : 0;
+            const totalLigne = honoraires + timbre + enregistrement;
+
+            if (description && (honoraires > 0 || timbre > 0)) {
+                lignes.push({
+                    description: description,
+                    quantite: 1,
+                    prix_unitaire: honoraires, // Honoraires comme prix unitaire pour le modèle
+                    // Données additionnelles huissier
+                    honoraires: honoraires,
+                    feuillets: feuillets,
+                    timbre: timbre,
+                    enregistrement: enregistrement,
+                    total_ligne: totalLigne
+                });
             }
         });
 
@@ -901,6 +931,10 @@
             alert('Veuillez ajouter au moins une ligne a la facture');
             return;
         }
+
+        // Récupérer le régime fiscal et AIB
+        const regime = document.getElementById('factureRegime')?.value || 'tps';
+        const clientAIB = document.getElementById('clientAIB')?.checked || false;
 
         const data = {
             id: document.getElementById('factureId').value || null,
@@ -912,6 +946,8 @@
             ifu: document.getElementById('factureIFU').value,
             dossier: document.getElementById('factureDossier').value,
             observations: document.getElementById('factureObservations').value,
+            regime: regime,
+            client_aib: clientAIB,
             lignes: lignes
         };
 
