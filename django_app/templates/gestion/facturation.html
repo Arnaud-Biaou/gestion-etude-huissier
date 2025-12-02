@@ -315,23 +315,32 @@
                 </div>
             </div>
 
-            <!-- Régime fiscal et AIB -->
-            <div class="form-section-title">Régime fiscal</div>
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+            <!-- Régime fiscal et Type de client -->
+            <div class="form-section-title">Régime fiscal et Client</div>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
                 <div class="form-group">
                     <label class="form-label">Régime de taxation</label>
                     <select class="form-select" id="factureRegime" name="regime" onchange="calculerTotauxHuissier()">
-                        <option value="tps" selected>TPS (5%) - Régime simplifié</option>
+                        <option value="tps" selected>TPS - Régime simplifié</option>
                         <option value="tva">TVA (18%) - Régime normal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type de client</label>
+                    <select class="form-select" id="typeClient" name="type_client" onchange="calculerTotauxHuissier()">
+                        <option value="prive" selected>Client privé (particulier, entreprise)</option>
+                        <option value="public">Client public (État, mairie, ministère)</option>
                     </select>
                 </div>
                 <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="clientAIB" name="client_aib" onchange="calculerTotauxHuissier()" style="width: 18px; height: 18px;">
-                        <span>Client soumis à l'AIB (retenue 3%)</span>
+                        <span style="font-size: 12px;">AIB (3%) - suivi interne</span>
                     </label>
                 </div>
             </div>
+            <!-- Champ caché pour le groupe de taxation MECeF -->
+            <input type="hidden" id="groupeTaxation" name="groupe_taxation" value="E">
 
             <div class="form-section-title">Lignes de facture (Actes d'huissier)</div>
             <div id="lignesFacture">
@@ -372,34 +381,51 @@
                 <i data-lucide="plus"></i> Ajouter une ligne
             </button>
 
-            <div class="form-section-title">Récapitulatif</div>
+            <div class="form-section-title">Récapitulatif MECeF</div>
             <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+                <!-- Groupe MECeF affiché -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #dee2e6;">
+                    <span style="font-size: 11px; color: #6b7280;">Groupe de taxation MECeF:</span>
+                    <span id="affichageGroupeMECeF" style="font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #e0f2fe; color: #0369a1;">E - TPS Client privé</span>
+                </div>
                 <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
                     <div class="form-group" style="margin-bottom: 8px;">
                         <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Honoraires HT</label>
                         <input class="form-input" type="text" id="totalHonoraires" readonly style="background: white; font-weight: 600;">
                     </div>
                     <div class="form-group" style="margin-bottom: 8px;">
-                        <label class="form-label" style="font-size: 11px; color: #6b7280;" id="labelTaxe">TPS (5%)</label>
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;" id="labelTaxe">TPS (0%)</label>
                         <input class="form-input" type="text" id="totalTaxe" readonly style="background: white;">
                     </div>
                     <div class="form-group" style="margin-bottom: 8px;">
-                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Débours (Timbres + Enreg.)</label>
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Débours (Groupe F)</label>
                         <input class="form-input" type="text" id="totalDebours" readonly style="background: white;">
                     </div>
                 </div>
-                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px;">
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total TTC</label>
-                        <input class="form-input" type="text" id="factureTTC" readonly style="background: #1e3a5f; color: white; font-weight: bold;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;" id="groupAIB">
-                        <label class="form-label" style="font-size: 11px; color: #dc3545;">AIB à retenir (3%)</label>
-                        <input class="form-input" type="text" id="montantAIB" readonly style="background: #fff3cd; color: #856404; font-weight: 600;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total TTC (Facture MECeF)</label>
+                        <input class="form-input" type="text" id="factureTTC" readonly style="background: #1e3a5f; color: white; font-weight: bold; font-size: 16px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label" style="font-size: 11px; color: #198754; font-weight: 600;">NET À PAYER</label>
                         <input class="form-input" type="text" id="netAPayer" readonly style="background: #198754; color: white; font-weight: bold; font-size: 16px;">
+                    </div>
+                </div>
+                <!-- Section AIB - Suivi interne uniquement -->
+                <div id="sectionAIB" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #adb5bd;">
+                    <div style="font-size: 10px; color: #6c757d; margin-bottom: 6px; font-style: italic;">
+                        ⚠️ Suivi interne uniquement (non inclus sur facture MECeF)
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 11px; color: #dc3545;">AIB retenu par client (3%)</label>
+                            <input class="form-input" type="text" id="montantAIB" readonly style="background: #fff3cd; color: #856404; font-weight: 600;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 11px; color: #0d6efd;">Net à percevoir (après AIB)</label>
+                            <input class="form-input" type="text" id="netAPercevoir" readonly style="background: #cfe2ff; color: #084298; font-weight: 600;">
+                        </div>
                     </div>
                 </div>
                 <!-- Champs cachés pour la sauvegarde -->
@@ -654,10 +680,12 @@
         document.getElementById('factureId').value = '';
         document.getElementById('lignesFacture').innerHTML = '';
 
-        // Réinitialiser régime fiscal et AIB
+        // Réinitialiser régime fiscal, type client et AIB
         const regimeEl = document.getElementById('factureRegime');
+        const typeClientEl = document.getElementById('typeClient');
         const aibEl = document.getElementById('clientAIB');
         if (regimeEl) regimeEl.value = 'tps';
+        if (typeClientEl) typeClientEl.value = 'prive';
         if (aibEl) aibEl.checked = false;
 
         ajouterLigne();
@@ -724,10 +752,12 @@
         document.getElementById('factureDossier').value = facture.dossier || '';
         document.getElementById('factureObservations').value = facture.observations || '';
 
-        // Régime fiscal et AIB
+        // Régime fiscal, type client et AIB
         const regimeEl = document.getElementById('factureRegime');
+        const typeClientEl = document.getElementById('typeClient');
         const aibEl = document.getElementById('clientAIB');
         if (regimeEl) regimeEl.value = facture.regime || 'tps';
+        if (typeClientEl) typeClientEl.value = facture.type_client || 'prive';
         if (aibEl) aibEl.checked = facture.client_aib || false;
 
         // Lignes
@@ -802,8 +832,8 @@
     }
 
     // ============================================
-    // CALCULS FACTURATION HUISSIER BÉNIN
-    // Régime TPS (5%) avec timbres et enregistrement
+    // CALCULS FACTURATION HUISSIER BÉNIN - MECeF
+    // Groupes: A=Exonéré, B=TVA18%, E=TPS, F=Timbres/Enreg
     // ============================================
     function calculerTotauxHuissier() {
         let totalHonoraires = 0;
@@ -829,22 +859,63 @@
             totalEnregistrement += enreg;
         });
 
-        // Calcul taxe selon régime
+        // Récupérer régime et type de client
         const regime = document.getElementById('factureRegime')?.value || 'tps';
-        const tauxTaxe = regime === 'tps' ? 0.05 : 0.18;
-        const labelTaxe = regime === 'tps' ? 'TPS (5%)' : 'TVA (18%)';
-        const taxe = totalHonoraires * tauxTaxe;
+        const typeClient = document.getElementById('typeClient')?.value || 'prive';
+        const clientAIB = document.getElementById('clientAIB')?.checked;
 
-        // Total débours (non taxables - groupe F)
+        // Déterminer le groupe MECeF et la taxe selon les règles
+        let taxe = 0;
+        let groupeTaxation = 'E';
+        let labelTaxe = 'TPS (0%)';
+        let labelGroupe = 'E - TPS Client privé';
+        let couleurGroupe = '#e0f2fe'; // bleu clair
+
+        if (regime === 'tva') {
+            // Régime TVA normal → Groupe B, TVA 18%
+            taxe = totalHonoraires * 0.18;
+            groupeTaxation = 'B';
+            labelTaxe = 'TVA (18%)';
+            labelGroupe = 'B - TVA 18%';
+            couleurGroupe = '#fef3c7'; // jaune
+        } else {
+            // Régime TPS
+            if (typeClient === 'public') {
+                // TPS + Client public → Groupe B, TVA 18% (retenue État)
+                taxe = totalHonoraires * 0.18;
+                groupeTaxation = 'B';
+                labelTaxe = 'TVA (18%) - Retenue État';
+                labelGroupe = 'B - TVA Client public';
+                couleurGroupe = '#fef3c7'; // jaune
+            } else {
+                // TPS + Client privé → Groupe E, pas de TVA
+                taxe = 0;
+                groupeTaxation = 'E';
+                labelTaxe = 'TPS (0%)';
+                labelGroupe = 'E - TPS Client privé';
+                couleurGroupe = '#e0f2fe'; // bleu clair
+            }
+        }
+
+        // Total débours (non taxables - Groupe F)
         const totalDebours = totalTimbres + totalEnregistrement;
 
-        // Total TTC
+        // Total TTC (montant facture MECeF)
         const totalTTC = totalHonoraires + taxe + totalDebours;
 
-        // AIB (3%) si applicable
-        const clientAIB = document.getElementById('clientAIB')?.checked;
+        // AIB (3%) - suivi interne uniquement, pas sur facture MECeF
         const montantAIB = clientAIB ? totalTTC * 0.03 : 0;
-        const netAPayer = totalTTC - montantAIB;
+        const netAPayer = totalTTC; // Net à payer = TTC (AIB est juste suivi interne)
+        const netAPercevoir = totalTTC - montantAIB; // Ce que l'étude perçoit réellement
+
+        // Mettre à jour le groupe MECeF
+        const groupeTaxationEl = document.getElementById('groupeTaxation');
+        const affichageGroupeEl = document.getElementById('affichageGroupeMECeF');
+        if (groupeTaxationEl) groupeTaxationEl.value = groupeTaxation;
+        if (affichageGroupeEl) {
+            affichageGroupeEl.textContent = labelGroupe;
+            affichageGroupeEl.style.background = couleurGroupe;
+        }
 
         // Mettre à jour le label de la taxe
         const labelTaxeEl = document.getElementById('labelTaxe');
@@ -855,20 +926,22 @@
         const totalTaxeEl = document.getElementById('totalTaxe');
         const totalDeboursEl = document.getElementById('totalDebours');
         const factureTTCEl = document.getElementById('factureTTC');
-        const montantAIBEl = document.getElementById('montantAIB');
         const netAPayerEl = document.getElementById('netAPayer');
+        const montantAIBEl = document.getElementById('montantAIB');
+        const netAPercevoirEl = document.getElementById('netAPercevoir');
 
         if (totalHonorairesEl) totalHonorairesEl.value = formatMontant(totalHonoraires);
         if (totalTaxeEl) totalTaxeEl.value = formatMontant(taxe);
         if (totalDeboursEl) totalDeboursEl.value = formatMontant(totalDebours);
         if (factureTTCEl) factureTTCEl.value = formatMontant(totalTTC);
-        if (montantAIBEl) montantAIBEl.value = formatMontant(montantAIB);
         if (netAPayerEl) netAPayerEl.value = formatMontant(netAPayer);
+        if (montantAIBEl) montantAIBEl.value = formatMontant(montantAIB);
+        if (netAPercevoirEl) netAPercevoirEl.value = formatMontant(netAPercevoir);
 
-        // Afficher/Masquer la ligne AIB
-        const groupAIB = document.getElementById('groupAIB');
-        if (groupAIB) {
-            groupAIB.style.opacity = clientAIB ? '1' : '0.4';
+        // Afficher/Masquer la section AIB (suivi interne)
+        const sectionAIB = document.getElementById('sectionAIB');
+        if (sectionAIB) {
+            sectionAIB.style.display = clientAIB ? 'block' : 'none';
         }
 
         // Champs cachés pour sauvegarde
@@ -932,9 +1005,15 @@
             return;
         }
 
-        // Récupérer le régime fiscal et AIB
+        // Récupérer le régime fiscal, type de client et AIB
         const regime = document.getElementById('factureRegime')?.value || 'tps';
+        const typeClient = document.getElementById('typeClient')?.value || 'prive';
+        const groupeTaxation = document.getElementById('groupeTaxation')?.value || 'E';
         const clientAIB = document.getElementById('clientAIB')?.checked || false;
+
+        // Calculer le montant AIB si applicable
+        const montantHT = parseFloat(document.getElementById('totalHonoraires')?.textContent.replace(/[^\d]/g, '')) || 0;
+        const montantAIB = clientAIB ? Math.round(montantHT * 0.03) : 0;
 
         const data = {
             id: document.getElementById('factureId').value || null,
@@ -947,7 +1026,10 @@
             dossier: document.getElementById('factureDossier').value,
             observations: document.getElementById('factureObservations').value,
             regime: regime,
+            type_client: typeClient,
+            groupe_taxation: groupeTaxation,
             client_aib: clientAIB,
+            montant_aib: montantAIB,
             lignes: lignes
         };
 
@@ -1015,15 +1097,39 @@
             });
         }
 
-        // Régime TPS (5%) par défaut
-        const tauxTaxe = facture.regime === 'tva' ? 0.18 : 0.05;
-        const labelTaxe = facture.regime === 'tva' ? 'TVA (18%):' : 'TPS (5%):';
-        const taxe = totalHonoraires * tauxTaxe;
+        // Calcul des taxes selon la logique MECeF
+        const regime = facture.regime || 'tps';
+        const typeClient = facture.type_client || 'prive';
+
+        let taxe = 0;
+        let labelTaxe = 'TPS (0%):';
+        let groupeMECeF = 'E - TPS Client privé';
+
+        if (regime === 'tva') {
+            // Régime TVA normal → Groupe B, TVA 18%
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%):';
+            groupeMECeF = 'B - TVA 18%';
+        } else {
+            // Régime TPS
+            if (typeClient === 'public') {
+                // TPS + Client public → Groupe B, TVA 18% (retenue État)
+                taxe = totalHonoraires * 0.18;
+                labelTaxe = 'TVA (18%) - Retenue État:';
+                groupeMECeF = 'B - TVA Client public';
+            } else {
+                // TPS + Client privé → Groupe E, pas de TVA
+                taxe = 0;
+                labelTaxe = 'TPS (0%):';
+                groupeMECeF = 'E - TPS Client privé';
+            }
+        }
+
         const totalDebours = totalTimbres + totalEnreg;
         const totalTTC = totalHonoraires + taxe + totalDebours;
 
-        // AIB si applicable
-        const aib = facture.client_aib ? totalTTC * 0.03 : 0;
+        // AIB si applicable (suivi interne uniquement)
+        const aib = facture.client_aib ? totalHonoraires * 0.03 : 0;
         const netAPayer = totalTTC - aib;
 
         // Afficher les totaux
