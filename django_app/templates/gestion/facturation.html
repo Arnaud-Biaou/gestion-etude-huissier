@@ -125,10 +125,8 @@
         <div class="flex gap-2">
             <select class="form-select" style="width: auto; padding: 6px 10px;" id="filtreStatut" onchange="filtrerFactures()">
                 <option value="">Tous les statuts</option>
+                <option value="normalise">Normalise</option>
                 <option value="brouillon">Brouillon</option>
-                <option value="attente">En attente</option>
-                <option value="payee">Payee</option>
-                <option value="annulee">Annulee</option>
             </select>
             <input type="text" class="form-input" placeholder="Rechercher..." id="rechercheFacture" style="width: 200px; padding: 6px 10px;" oninput="filtrerFactures()">
         </div>
@@ -150,7 +148,7 @@
             </thead>
             <tbody id="factureListe">
                 {% for facture in factures %}
-                <tr data-id="{{ facture.id }}" data-client="{{ facture.client }}" data-statut="{{ facture.statut }}">
+                <tr data-id="{{ facture.id }}" data-client="{{ facture.client }}" data-statut="{% if facture.mecef_numero %}normalise{% else %}brouillon{% endif %}">
                     <td style="font-weight: 600; color: var(--primary);">{{ facture.numero }}</td>
                     <td>{{ facture.client }}</td>
                     <td>{{ facture.montant_ht|floatformat:0 }} F</td>
@@ -158,12 +156,11 @@
                     <td style="font-weight: 600;">{{ facture.total|floatformat:0 }} F</td>
                     <td>{{ facture.date }}</td>
                     <td>
-                        <span class="status-badge {{ facture.statut }}">
-                            {% if facture.statut == 'payee' %}Payee
-                            {% elif facture.statut == 'attente' %}En attente
-                            {% elif facture.statut == 'brouillon' %}Brouillon
-                            {% else %}Annulee{% endif %}
-                        </span>
+                        {% if facture.mecef_numero %}
+                        <span class="status-badge active">Normalise</span>
+                        {% else %}
+                        <span class="status-badge brouillon">Brouillon</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if facture.mecef_numero %}
