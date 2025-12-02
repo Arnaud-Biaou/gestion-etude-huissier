@@ -258,15 +258,15 @@
 
 {% block modal %}
 <!-- Modal Nouvelle Facture -->
-<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()">
-    <div class="modal-header">
+<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()" style="max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title" id="modalFactureTitle">Nouvelle facture</h3>
         <button class="modal-close" onclick="fermerModalFacture()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <form id="formFacture" onsubmit="sauvegarderFacture(event)">
-        <div class="modal-body">
+    <form id="formFacture" onsubmit="sauvegarderFacture(event)" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
             <input type="hidden" id="factureId" name="id">
 
             <div class="form-grid">
@@ -368,7 +368,7 @@
             </div>
         </div>
         <!-- Boutons d'action - footer fixe -->
-        <div class="modal-footer">
+        <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
             <button type="button" class="btn btn-secondary" onclick="fermerModalFacture()">← Annuler</button>
             <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
                 <i data-lucide="save"></i> Enregistrer brouillon
