@@ -258,7 +258,7 @@
 
 {% block modal %}
 <!-- Modal Nouvelle Facture -->
-<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()" style="max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; flex-direction: column; overflow: hidden;">
     <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title" id="modalFactureTitle">Nouvelle facture</h3>
         <button class="modal-close" onclick="fermerModalFacture()">
@@ -492,6 +492,7 @@
 <!-- CSS pour tous les modals scrollables - FORCE avec !important -->
 <style>
     /* Forcer scroll modal - solution radicale pour TOUS les modals */
+    /* Note: Ne PAS utiliser display: flex !important ici car cela empêche de cacher les modals */
     #modalFacture,
     #modalFacture.modal-facture,
     .modal-facture,
@@ -500,8 +501,15 @@
     .modal.large {
         max-height: 90vh !important;
         overflow: hidden !important;
-        display: flex !important;
         flex-direction: column !important;
+    }
+
+    /* Afficher le modal en flex seulement quand il est visible (pas display:none) */
+    #modalFacture:not([style*="display: none"]):not([style*="display:none"]) {
+        display: flex !important;
+    }
+    #modalVoirFacture:not([style*="display: none"]):not([style*="display:none"]) {
+        display: flex !important;
     }
 
     #modalFacture .modal-body,
