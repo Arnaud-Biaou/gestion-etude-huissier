@@ -1785,10 +1785,36 @@ def api_sauvegarder_facture(request):
         client_aib = data.get('client_aib', False)
         lignes = data.get('lignes', [])
 
-        # Calculer les totaux
-        montant_ht = sum(l.get('quantite', 1) * l.get('prix_unitaire', 0) for l in lignes)
-        montant_tva = montant_ht * Decimal('0.18')
-        montant_ttc = montant_ht + montant_tva
+        # Calculer les totaux avec la structure huissier
+        # Honoraires = montant HT taxable
+        montant_ht = Decimal('0')
+        # Débours = timbres + enregistrement (non taxables, Groupe F MECeF)
+        debours = Decimal('0')
+
+        for l in lignes:
+            # Honoraires
+            honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
+            montant_ht += honoraires
+
+            # Timbres (1200 FCFA × feuillets)
+            feuillets = int(l.get('feuillets', 1))
+            timbre = Decimal(str(feuillets * 1200))
+            debours += timbre
+
+            # Enregistrement (2500 FCFA si coché)
+            if l.get('enregistrement', True):
+                debours += Decimal('2500')
+
+        # TVA selon régime et type de client (conformité MECeF)
+        if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
+            # TVA 18% pour régime TVA ou TPS avec client public
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            # TPS avec client privé = pas de TVA
+            montant_tva = Decimal('0')
+
+        # TTC = HT + TVA + Débours
+        montant_ttc = montant_ht + montant_tva + debours
 
         if facture_id:
             # Modification

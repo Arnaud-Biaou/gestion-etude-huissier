@@ -1187,11 +1187,11 @@
             document.getElementById('voirMECeFNumero').textContent = facture.mecef_numero;
             document.getElementById('voirNIM').textContent = facture.nim || 'N/A';
             document.getElementById('voirDateMECeF').textContent = facture.date_mecef || '-';
-            document.getElementById('voirMECeFMontant').textContent = formatMontant(facture.total);
+            document.getElementById('voirMECeFMontant').textContent = formatMontant(totalTTC);
             document.getElementById('btnNormaliserVue').style.display = 'none';
 
             // Generer le QR Code MECeF
-            const qrData = `MECeF|NIM:${facture.nim || 'N/A'}|NUM:${facture.mecef_numero}|TTC:${Math.round(facture.total)}|DATE:${facture.date_mecef || '-'}|CLIENT:${facture.client}`;
+            const qrData = `MECeF|NIM:${facture.nim || 'N/A'}|NUM:${facture.mecef_numero}|TTC:${Math.round(totalTTC)}|DATE:${facture.date_mecef || '-'}|CLIENT:${facture.client}`;
             try {
                 new QRCode(qrContainer, {
                     text: qrData,
