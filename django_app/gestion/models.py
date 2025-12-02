@@ -3893,9 +3893,10 @@ class ActeSecurise(models.Model):
 
     # Métadonnées de création
     cree_par = models.ForeignKey(
-        'hr.Collaborateur',
+        Utilisateur,
         on_delete=models.SET_NULL,
         null=True,
+        related_name='actes_securises_crees',
         verbose_name="Créé par"
     )
     cree_le = models.DateTimeField(
