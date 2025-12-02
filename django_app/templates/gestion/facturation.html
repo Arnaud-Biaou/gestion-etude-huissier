@@ -121,8 +121,8 @@
 {% else %}
 <!-- Contenu Liste des factures (onglet par defaut) -->
 
-<!-- Statistiques proformas -->
-<div class="stats-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px;">
+<!-- Statistiques documents -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
     <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="filtrerDocuments('tous')">
         <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Tous les documents</div>
         <div style="font-size: 24px; font-weight: 700; color: #1e3a5f;">{{ factures|length }} + {{ nb_proformas_total }}</div>
@@ -138,10 +138,6 @@
     <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb;">
         <div style="font-size: 12px; color: #10b981; margin-bottom: 4px;">Normalisées MECeF</div>
         <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ nb_normalisees }}</div>
-    </div>
-    <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb;">
-        <div style="font-size: 12px; color: #f59e0b; margin-bottom: 4px;">Proformas acceptées</div>
-        <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">{{ nb_proformas_acceptee }}</div>
     </div>
 </div>
 
@@ -159,8 +155,6 @@
                 <option value="">Tous les statuts</option>
                 <option value="normalise">Normalisé (MECeF)</option>
                 <option value="brouillon">Brouillon</option>
-                <option value="envoyee">Proforma envoyée</option>
-                <option value="acceptee">Proforma acceptée</option>
                 <option value="convertie">Proforma convertie</option>
             </select>
             <input type="text" class="form-input" placeholder="Rechercher..." id="rechercheFacture" style="width: 200px; padding: 6px 10px;" oninput="filtrerDocuments()">
@@ -228,14 +222,8 @@
                     <td>
                         {% if proforma.statut == 'brouillon' %}
                         <span class="status-badge" style="background: #f3f4f6; color: #6b7280;">Brouillon</span>
-                        {% elif proforma.statut == 'envoyee' %}
-                        <span class="status-badge" style="background: #dbeafe; color: #1d4ed8;">Envoyée</span>
-                        {% elif proforma.statut == 'acceptee' %}
-                        <span class="status-badge" style="background: #d1fae5; color: #059669;">Acceptée</span>
-                        {% elif proforma.statut == 'refusee' %}
-                        <span class="status-badge" style="background: #fee2e2; color: #dc2626;">Refusée</span>
                         {% elif proforma.statut == 'convertie' %}
-                        <span class="status-badge" style="background: #ede9fe; color: #7c3aed;">→ {{ proforma.facture_generee_numero }}</span>
+                        <span class="status-badge" style="background: #d1fae5; color: #059669;">→ {{ proforma.facture_generee_numero }}</span>
                         {% endif %}
                     </td>
                     <td>

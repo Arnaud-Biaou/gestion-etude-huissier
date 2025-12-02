@@ -1033,8 +1033,6 @@ def facturation(request):
 
     proformas_list = []
     nb_proformas_brouillon = 0
-    nb_proformas_envoyee = 0
-    nb_proformas_acceptee = 0
     nb_proformas_convertie = 0
 
     for p in proformas_qs:
@@ -1071,21 +1069,15 @@ def facturation(request):
         }
         proformas_list.append(proforma_data)
 
-        # Statistiques proformas
+        # Statistiques proformas (2 statuts seulement)
         if p.statut == 'brouillon':
             nb_proformas_brouillon += 1
-        elif p.statut == 'envoyee':
-            nb_proformas_envoyee += 1
-        elif p.statut == 'acceptee':
-            nb_proformas_acceptee += 1
         elif p.statut == 'convertie':
             nb_proformas_convertie += 1
 
     context['proformas'] = proformas_list
     context['proformas_json'] = json.dumps(proformas_list)
     context['nb_proformas_brouillon'] = nb_proformas_brouillon
-    context['nb_proformas_envoyee'] = nb_proformas_envoyee
-    context['nb_proformas_acceptee'] = nb_proformas_acceptee
     context['nb_proformas_convertie'] = nb_proformas_convertie
     context['nb_proformas_total'] = len(proformas_list)
 
@@ -7005,8 +6997,6 @@ def proformas(request):
     proformas_list = []
     total_en_cours = 0
     nb_brouillon = 0
-    nb_envoyee = 0
-    nb_acceptee = 0
     nb_convertie = 0
 
     for p in proformas_qs:
@@ -7042,15 +7032,9 @@ def proformas(request):
         }
         proformas_list.append(proforma_data)
 
-        # Statistiques
+        # Statistiques (2 statuts seulement)
         if p.statut == 'brouillon':
             nb_brouillon += 1
-            total_en_cours += float(p.montant_ttc)
-        elif p.statut == 'envoyee':
-            nb_envoyee += 1
-            total_en_cours += float(p.montant_ttc)
-        elif p.statut == 'acceptee':
-            nb_acceptee += 1
             total_en_cours += float(p.montant_ttc)
         elif p.statut == 'convertie':
             nb_convertie += 1
@@ -7061,8 +7045,6 @@ def proformas(request):
     context['dossiers_json'] = json.dumps(dossiers_list)
     context['total_en_cours'] = total_en_cours
     context['nb_brouillon'] = nb_brouillon
-    context['nb_envoyee'] = nb_envoyee
-    context['nb_acceptee'] = nb_acceptee
     context['nb_convertie'] = nb_convertie
 
     return render(request, 'gestion/proformas.html', context)
@@ -7252,12 +7234,6 @@ def api_convertir_proforma(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Cette proforma a déjà été convertie en facture'
-            }, status=400)
-
-        if proforma.statut == 'refusee':
-            return JsonResponse({
-                'success': False,
-                'error': 'Impossible de convertir une proforma refusée'
             }, status=400)
 
         # Générer un nouveau numéro de facture

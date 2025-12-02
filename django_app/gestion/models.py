@@ -4029,10 +4029,6 @@ class Proforma(models.Model):
 
     STATUT_CHOICES = [
         ('brouillon', 'Brouillon'),
-        ('envoyee', 'Envoyée au client'),
-        ('acceptee', 'Acceptée'),
-        ('refusee', 'Refusée'),
-        ('expiree', 'Expirée'),
         ('convertie', 'Convertie en facture'),
     ]
 
