@@ -4012,5 +4012,208 @@ class ActeSecurise(models.Model):
         self.save(update_fields=['nombre_verifications', 'derniere_verification'])
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROFORMAS (FACTURES PRO FORMA / DEVIS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class Proforma(models.Model):
+    """
+    Factures pro forma (devis/estimations).
+
+    Une proforma :
+    - N'est PAS normalisée MECeF
+    - Peut concerner un dossier existant OU un dossier pas encore créé
+    - Peut être convertie en facture définitive plus tard
+    - A la même structure qu'une facture (honoraires, timbres, enregistrement, TVA/TPS, AIB)
+    """
+
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('envoyee', 'Envoyée au client'),
+        ('acceptee', 'Acceptée'),
+        ('refusee', 'Refusée'),
+        ('expiree', 'Expirée'),
+        ('convertie', 'Convertie en facture'),
+    ]
+
+    REGIME_CHOICES = [
+        ('tps', 'TPS - Régime simplifié'),
+        ('tva', 'TVA (18%) - Régime normal'),
+    ]
+
+    TYPE_CLIENT_CHOICES = [
+        ('prive', 'Client privé (particulier, entreprise)'),
+        ('public', 'Client public (État, mairie, ministère)'),
+    ]
+
+    # Numéro unique PRO-YYYY-XXXX
+    numero = models.CharField(max_length=20, unique=True, verbose_name='Numéro proforma')
+
+    # Informations client
+    client = models.CharField(max_length=200, verbose_name='Nom du client')
+    ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
+
+    # Dossier optionnel (peut ne pas exister encore)
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proformas',
+        verbose_name='Dossier associé'
+    )
+
+    # Description du dossier si pas encore créé
+    description_dossier = models.TextField(
+        blank=True,
+        verbose_name='Description du dossier',
+        help_text='Description du dossier si celui-ci n\'est pas encore créé'
+    )
+
+    # Régime fiscal et type de client
+    regime = models.CharField(
+        max_length=10,
+        choices=REGIME_CHOICES,
+        default='tps',
+        verbose_name='Régime fiscal'
+    )
+
+    type_client = models.CharField(
+        max_length=10,
+        choices=TYPE_CLIENT_CHOICES,
+        default='prive',
+        verbose_name='Type de client'
+    )
+
+    client_aib = models.BooleanField(
+        default=False,
+        verbose_name='Client soumis à l\'AIB',
+        help_text='Acompte sur Impôt sur les Bénéfices (3%)'
+    )
+
+    # Montants calculés
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name='Montant HT (Honoraires)'
+    )
+
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name='Montant TVA/TPS'
+    )
+
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name='Montant TTC'
+    )
+
+    # Dates
+    date_creation = models.DateField(
+        default=timezone.now,
+        verbose_name='Date de création'
+    )
+
+    date_validite = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date de validité',
+        help_text='Date jusqu\'à laquelle la proforma est valide'
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='brouillon',
+        verbose_name='Statut'
+    )
+
+    observations = models.TextField(blank=True, verbose_name='Observations')
+
+    # Lien vers facture si convertie
+    facture_generee = models.ForeignKey(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proforma_origine',
+        verbose_name='Facture générée'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date_creation', '-numero']
+        verbose_name = 'Proforma'
+        verbose_name_plural = 'Proformas'
+
+    def __str__(self):
+        return f"{self.numero} - {self.client}"
+
+    @property
+    def est_valide(self):
+        """Vérifie si la proforma est encore valide"""
+        if self.date_validite:
+            return timezone.now().date() <= self.date_validite
+        return True
+
+    @property
+    def peut_etre_convertie(self):
+        """Vérifie si la proforma peut être convertie en facture"""
+        return self.statut in ['brouillon', 'envoyee', 'acceptee'] and self.est_valide
+
+
+class LigneProforma(models.Model):
+    """Lignes de proforma"""
+
+    proforma = models.ForeignKey(
+        Proforma,
+        on_delete=models.CASCADE,
+        related_name='lignes'
+    )
+
+    description = models.CharField(max_length=500, verbose_name='Description')
+    quantite = models.IntegerField(default=1, verbose_name='Quantité')
+    prix_unitaire = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        verbose_name='Prix unitaire (Honoraires)'
+    )
+
+    # Détails structure huissier (stockés pour référence)
+    feuillets = models.IntegerField(default=1, verbose_name='Nombre de feuillets')
+    enregistrement = models.BooleanField(default=True, verbose_name='Avec enregistrement')
+
+    class Meta:
+        verbose_name = 'Ligne de proforma'
+        verbose_name_plural = 'Lignes de proforma'
+
+    def __str__(self):
+        return f"{self.description} - {self.prix_unitaire} FCFA"
+
+    @property
+    def timbre(self):
+        """Calcule le montant des timbres (1200 FCFA × feuillets)"""
+        return self.feuillets * 1200
+
+    @property
+    def montant_enregistrement(self):
+        """Montant de l'enregistrement (2500 FCFA si coché)"""
+        return 2500 if self.enregistrement else 0
+
+    @property
+    def total(self):
+        """Total de la ligne = honoraires + timbres + enregistrement"""
+        return self.prix_unitaire + self.timbre + self.montant_enregistrement
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp

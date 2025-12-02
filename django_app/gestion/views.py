@@ -61,6 +61,8 @@ from .models import (
     CalendrierSaisieImmo,
     # Actes sécurisés
     ActeSecurise,
+    # Proformas
+    Proforma, LigneProforma,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -81,6 +83,7 @@ def get_default_context(request):
     modules = [
         {'id': 'dashboard', 'label': 'Tableau de bord', 'icon': 'home', 'category': 'main', 'url': 'gestion:dashboard'},
         {'id': 'dossiers', 'label': 'Dossiers', 'icon': 'folder-open', 'category': 'main', 'url': 'gestion:dossiers', 'badge': 14},
+        {'id': 'proformas', 'label': 'Proformas', 'icon': 'file-edit', 'category': 'main', 'url': 'gestion:proformas'},
         {'id': 'facturation', 'label': 'Facturation & MECeF', 'icon': 'file-text', 'category': 'main', 'url': 'gestion:facturation'},
         {'id': 'calcul', 'label': 'Calcul Recouvrement', 'icon': 'calculator', 'category': 'main', 'url': 'gestion:calcul'},
         {'id': 'creanciers', 'label': 'Recouvrement Créances', 'icon': 'landmark', 'category': 'main', 'url': 'gestion:creanciers'},
@@ -6911,3 +6914,328 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+# =============================================================================
+# PROFORMAS (FACTURES PRO FORMA / DEVIS)
+# =============================================================================
+
+@login_required
+def proformas(request):
+    """Vue principale pour la gestion des proformas"""
+    context = get_default_context(request)
+    context['active_module'] = 'proformas'
+
+    # Récupérer les dossiers pour le formulaire
+    dossiers = Dossier.objects.all().order_by('-date_creation')[:100]
+    dossiers_list = [
+        {
+            'id': d.id,
+            'numero': d.numero_rg,
+            'client': d.parties.filter(qualite='demandeur').first().nom if d.parties.filter(qualite='demandeur').exists() else 'N/A',
+            'ifu': d.parties.filter(qualite='demandeur').first().ifu if d.parties.filter(qualite='demandeur').exists() and hasattr(d.parties.filter(qualite='demandeur').first(), 'ifu') else '',
+        }
+        for d in dossiers
+    ]
+
+    # Charger les proformas depuis la base de données
+    proformas_qs = Proforma.objects.all().select_related('dossier', 'facture_generee').prefetch_related('lignes').order_by('-date_creation')
+
+    proformas_list = []
+    total_en_cours = 0
+    nb_brouillon = 0
+    nb_envoyee = 0
+    nb_acceptee = 0
+    nb_convertie = 0
+
+    for p in proformas_qs:
+        lignes = [{
+            'description': l.description,
+            'quantite': l.quantite,
+            'prix_unitaire': float(l.prix_unitaire),
+            'feuillets': l.feuillets,
+            'enregistrement': l.enregistrement
+        } for l in p.lignes.all()]
+
+        proforma_data = {
+            'id': p.id,
+            'numero': p.numero,
+            'client': p.client,
+            'ifu': p.ifu,
+            'montant_ht': float(p.montant_ht),
+            'tva': float(p.montant_tva),
+            'total': float(p.montant_ttc),
+            'date': p.date_creation.strftime('%d/%m/%Y'),
+            'date_creation': p.date_creation.strftime('%Y-%m-%d'),
+            'date_validite': p.date_validite.strftime('%Y-%m-%d') if p.date_validite else '',
+            'statut': p.statut,
+            'dossier': p.dossier_id,
+            'description_dossier': p.description_dossier,
+            'observations': p.observations,
+            'regime': p.regime,
+            'type_client': p.type_client,
+            'client_aib': p.client_aib,
+            'facture_generee_id': p.facture_generee_id,
+            'facture_generee_numero': p.facture_generee.numero if p.facture_generee else None,
+            'lignes': lignes
+        }
+        proformas_list.append(proforma_data)
+
+        # Statistiques
+        if p.statut == 'brouillon':
+            nb_brouillon += 1
+            total_en_cours += float(p.montant_ttc)
+        elif p.statut == 'envoyee':
+            nb_envoyee += 1
+            total_en_cours += float(p.montant_ttc)
+        elif p.statut == 'acceptee':
+            nb_acceptee += 1
+            total_en_cours += float(p.montant_ttc)
+        elif p.statut == 'convertie':
+            nb_convertie += 1
+
+    context['proformas'] = proformas_list
+    context['proformas_json'] = json.dumps(proformas_list)
+    context['dossiers'] = dossiers_list
+    context['dossiers_json'] = json.dumps(dossiers_list)
+    context['total_en_cours'] = total_en_cours
+    context['nb_brouillon'] = nb_brouillon
+    context['nb_envoyee'] = nb_envoyee
+    context['nb_acceptee'] = nb_acceptee
+    context['nb_convertie'] = nb_convertie
+
+    return render(request, 'gestion/proformas.html', context)
+
+
+@require_POST
+def api_generer_numero_proforma(request):
+    """Génère un nouveau numéro de proforma PRO-YYYY-XXXX"""
+    try:
+        annee = timezone.now().year
+        prefix = f"PRO-{annee}-"
+
+        # Trouver le dernier numéro
+        derniere = Proforma.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+
+        if derniere:
+            try:
+                dernier_num = int(derniere.numero.split('-')[-1])
+                nouveau_num = dernier_num + 1
+            except (ValueError, IndexError):
+                nouveau_num = 1
+        else:
+            nouveau_num = 1
+
+        numero = f"{prefix}{nouveau_num:04d}"
+
+        return JsonResponse({'success': True, 'numero': numero})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_sauvegarder_proforma(request):
+    """API pour créer ou modifier une proforma"""
+    try:
+        data = json.loads(request.body)
+
+        proforma_id = data.get('id')
+        numero = data.get('numero')
+        date_creation = datetime.strptime(data.get('date_creation'), '%Y-%m-%d').date()
+        date_validite = None
+        if data.get('date_validite'):
+            date_validite = datetime.strptime(data.get('date_validite'), '%Y-%m-%d').date()
+        statut = data.get('statut', 'brouillon')
+        client = data.get('client')
+        ifu = data.get('ifu', '')
+        dossier_id = data.get('dossier') or None
+        description_dossier = data.get('description_dossier', '')
+        observations = data.get('observations', '')
+        regime = data.get('regime', 'tps')
+        type_client = data.get('type_client', 'prive')
+        client_aib = data.get('client_aib', False)
+        lignes = data.get('lignes', [])
+
+        # Calculer les totaux avec la structure huissier
+        montant_ht = Decimal('0')
+        debours = Decimal('0')
+
+        for l in lignes:
+            honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
+            montant_ht += honoraires
+
+            feuillets = int(l.get('feuillets', 1))
+            timbre = Decimal(str(feuillets * 1200))
+            debours += timbre
+
+            if l.get('enregistrement', True):
+                debours += Decimal('2500')
+
+        # TVA selon régime et type de client
+        if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            montant_tva = Decimal('0')
+
+        montant_ttc = montant_ht + montant_tva + debours
+
+        if proforma_id:
+            # Modification
+            proforma = get_object_or_404(Proforma, id=proforma_id)
+            proforma.date_creation = date_creation
+            proforma.date_validite = date_validite
+            proforma.statut = statut
+            proforma.client = client
+            proforma.ifu = ifu
+            proforma.dossier_id = dossier_id
+            proforma.description_dossier = description_dossier
+            proforma.observations = observations
+            proforma.regime = regime
+            proforma.type_client = type_client
+            proforma.client_aib = client_aib
+            proforma.montant_ht = montant_ht
+            proforma.montant_tva = montant_tva
+            proforma.montant_ttc = montant_ttc
+            proforma.save()
+
+            # Supprimer les anciennes lignes et recréer
+            proforma.lignes.all().delete()
+        else:
+            # Création
+            proforma = Proforma.objects.create(
+                numero=numero,
+                date_creation=date_creation,
+                date_validite=date_validite,
+                statut=statut,
+                client=client,
+                ifu=ifu,
+                dossier_id=dossier_id,
+                description_dossier=description_dossier,
+                observations=observations,
+                regime=regime,
+                type_client=type_client,
+                client_aib=client_aib,
+                montant_ht=montant_ht,
+                montant_tva=montant_tva,
+                montant_ttc=montant_ttc,
+            )
+
+        # Créer les lignes
+        for ligne in lignes:
+            LigneProforma.objects.create(
+                proforma=proforma,
+                description=ligne.get('description', ''),
+                quantite=ligne.get('quantite', 1),
+                prix_unitaire=ligne.get('prix_unitaire', 0),
+                feuillets=ligne.get('feuillets', 1),
+                enregistrement=ligne.get('enregistrement', True)
+            )
+
+        return JsonResponse({
+            'success': True,
+            'proforma_id': proforma.id,
+            'numero': proforma.numero
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_supprimer_proforma(request):
+    """API pour supprimer une proforma"""
+    try:
+        data = json.loads(request.body)
+        proforma_id = data.get('id')
+
+        proforma = get_object_or_404(Proforma, id=proforma_id)
+
+        # Ne pas supprimer si déjà convertie
+        if proforma.statut == 'convertie':
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de supprimer une proforma déjà convertie en facture'
+            }, status=400)
+
+        proforma.delete()
+
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_convertir_proforma(request, proforma_id):
+    """Convertir une proforma en facture définitive"""
+    try:
+        proforma = get_object_or_404(Proforma, id=proforma_id)
+
+        # Vérifier si la proforma peut être convertie
+        if proforma.statut == 'convertie':
+            return JsonResponse({
+                'success': False,
+                'error': 'Cette proforma a déjà été convertie en facture'
+            }, status=400)
+
+        if proforma.statut == 'refusee':
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de convertir une proforma refusée'
+            }, status=400)
+
+        # Générer un nouveau numéro de facture
+        annee = timezone.now().year
+        prefix = f"FAC-{annee}-"
+        derniere_facture = Facture.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+
+        if derniere_facture:
+            try:
+                dernier_num = int(derniere_facture.numero.split('-')[-1])
+                nouveau_num = dernier_num + 1
+            except (ValueError, IndexError):
+                nouveau_num = 1
+        else:
+            nouveau_num = 1
+
+        numero_facture = f"{prefix}{nouveau_num:04d}"
+
+        # Créer la facture à partir de la proforma
+        facture = Facture.objects.create(
+            numero=numero_facture,
+            client=proforma.client,
+            ifu=proforma.ifu,
+            dossier=proforma.dossier,
+            regime=proforma.regime,
+            type_client=proforma.type_client,
+            client_aib=proforma.client_aib,
+            montant_ht=proforma.montant_ht,
+            montant_tva=proforma.montant_tva,
+            montant_ttc=proforma.montant_ttc,
+            observations=f"Généré depuis proforma {proforma.numero}. {proforma.observations}",
+            statut='attente',
+            date_emission=timezone.now().date()
+        )
+
+        # Copier les lignes
+        for ligne_pro in proforma.lignes.all():
+            LigneFacture.objects.create(
+                facture=facture,
+                description=ligne_pro.description,
+                quantite=ligne_pro.quantite,
+                prix_unitaire=ligne_pro.prix_unitaire
+            )
+
+        # Marquer la proforma comme convertie
+        proforma.statut = 'convertie'
+        proforma.facture_generee = facture
+        proforma.save()
+
+        return JsonResponse({
+            'success': True,
+            'facture_id': facture.id,
+            'facture_numero': facture.numero,
+            'message': f'Proforma convertie en facture {facture.numero}'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

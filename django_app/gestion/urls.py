@@ -25,6 +25,7 @@ urlpatterns = [
     path('dossier/<int:dossier_id>/actes-securises/', views.liste_actes_securises, name='liste_actes_securises'),
 
     path('facturation/', views.facturation, name='facturation'),
+    path('proformas/', views.proformas, name='proformas'),
     path('memoires/', views.memoires, name='memoires'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
     path('drive/', views.drive, name='drive'),
@@ -53,6 +54,12 @@ urlpatterns = [
     path('api/supprimer-facture/', views.api_supprimer_facture, name='api_supprimer_facture'),
     path('api/normaliser-mecef/', views.api_normaliser_mecef, name='api_normaliser_mecef'),
     path('api/exporter-factures/', views.api_exporter_factures, name='api_exporter_factures'),
+
+    # API endpoints - Proformas
+    path('api/generer-numero-proforma/', views.api_generer_numero_proforma, name='api_generer_numero_proforma'),
+    path('api/sauvegarder-proforma/', views.api_sauvegarder_proforma, name='api_sauvegarder_proforma'),
+    path('api/supprimer-proforma/', views.api_supprimer_proforma, name='api_supprimer_proforma'),
+    path('api/convertir-proforma/<int:proforma_id>/', views.api_convertir_proforma, name='api_convertir_proforma'),
 
     # API endpoints - Calcul Recouvrement
     path('api/calculer-interets/', views.api_calculer_interets, name='api_calculer_interets'),
