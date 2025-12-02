@@ -59,7 +59,7 @@ urlpatterns = [
     path('api/generer-numero-proforma/', views.api_generer_numero_proforma, name='api_generer_numero_proforma'),
     path('api/sauvegarder-proforma/', views.api_sauvegarder_proforma, name='api_sauvegarder_proforma'),
     path('api/supprimer-proforma/', views.api_supprimer_proforma, name='api_supprimer_proforma'),
-    path('api/convertir-proforma/<int:proforma_id>/', views.api_convertir_proforma, name='api_convertir_proforma'),
+    path('api/convertir-proforma/', views.api_convertir_proforma, name='api_convertir_proforma'),
 
     # API endpoints - Calcul Recouvrement
     path('api/calculer-interets/', views.api_calculer_interets, name='api_calculer_interets'),

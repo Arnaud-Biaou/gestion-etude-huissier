@@ -7226,9 +7226,13 @@ def api_supprimer_proforma(request):
 
 
 @require_POST
-def api_convertir_proforma(request, proforma_id):
+def api_convertir_proforma(request):
     """Convertir une proforma en facture définitive"""
     try:
+        data = json.loads(request.body)
+        proforma_id = data.get('id')
+        if not proforma_id:
+            return JsonResponse({'success': False, 'error': 'ID proforma manquant'}, status=400)
         proforma = get_object_or_404(Proforma, id=proforma_id)
 
         # Vérifier si la proforma peut être convertie
