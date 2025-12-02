@@ -988,6 +988,9 @@ def facturation(request):
             'date_mecef': f.date_mecef.strftime('%d/%m/%Y') if hasattr(f, 'date_mecef') and f.date_mecef else '',
             'dossier': f.dossier_id,
             'observations': f.observations if hasattr(f, 'observations') else '',
+            'regime': f.regime if hasattr(f, 'regime') else 'tps',
+            'type_client': f.type_client if hasattr(f, 'type_client') else 'prive',
+            'client_aib': f.client_aib if hasattr(f, 'client_aib') else False,
             'lignes': lignes
         }
         factures_list.append(facture_data)
@@ -1777,6 +1780,9 @@ def api_sauvegarder_facture(request):
         ifu = data.get('ifu', '')
         dossier_id = data.get('dossier') or None
         observations = data.get('observations', '')
+        regime = data.get('regime', 'tps')
+        type_client = data.get('type_client', 'prive')
+        client_aib = data.get('client_aib', False)
         lignes = data.get('lignes', [])
 
         # Calculer les totaux
@@ -1794,6 +1800,9 @@ def api_sauvegarder_facture(request):
             facture.ifu = ifu
             facture.dossier_id = dossier_id
             facture.observations = observations
+            facture.regime = regime
+            facture.type_client = type_client
+            facture.client_aib = client_aib
             facture.montant_ht = montant_ht
             facture.montant_tva = montant_tva
             facture.montant_ttc = montant_ttc
@@ -1812,6 +1821,9 @@ def api_sauvegarder_facture(request):
                 ifu=ifu,
                 dossier_id=dossier_id,
                 observations=observations,
+                regime=regime,
+                type_client=type_client,
+                client_aib=client_aib,
                 montant_ht=montant_ht,
                 montant_tva=montant_tva,
                 montant_ttc=montant_ttc,

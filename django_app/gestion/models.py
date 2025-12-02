@@ -535,6 +535,40 @@ class Facture(models.Model):
     date_mecef = models.DateTimeField(null=True, blank=True, verbose_name='Date normalisation MECeF')
 
     # ═══════════════════════════════════════════════════════════════
+    # RÉGIME FISCAL ET TYPE DE CLIENT (CONFORMITÉ MECeF)
+    # ═══════════════════════════════════════════════════════════════
+
+    REGIME_CHOICES = [
+        ('tps', 'TPS - Régime simplifié'),
+        ('tva', 'TVA (18%) - Régime normal'),
+    ]
+
+    TYPE_CLIENT_CHOICES = [
+        ('prive', 'Client privé (particulier, entreprise)'),
+        ('public', 'Client public (État, mairie, ministère)'),
+    ]
+
+    regime = models.CharField(
+        max_length=10,
+        choices=REGIME_CHOICES,
+        default='tps',
+        verbose_name="Régime fiscal"
+    )
+
+    type_client = models.CharField(
+        max_length=10,
+        choices=TYPE_CLIENT_CHOICES,
+        default='prive',
+        verbose_name="Type de client"
+    )
+
+    client_aib = models.BooleanField(
+        default=False,
+        verbose_name="Client soumis à l'AIB",
+        help_text="Acompte sur Impôt sur les Bénéfices (3%) - Suivi interne uniquement"
+    )
+
+    # ═══════════════════════════════════════════════════════════════
     # CHAMPS AVOIR ET FACTURES CORRECTIVES
     # ═══════════════════════════════════════════════════════════════
 
