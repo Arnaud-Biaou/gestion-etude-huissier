@@ -1009,8 +1009,18 @@ def facturation(request):
     context['nb_normalisees'] = nb_normalisees
     context['nb_non_normalisees'] = nb_non_normalisees
 
-    # Dossiers pour le select avec infos créancier pour auto-remplissage
-    context['dossiers'] = Dossier.objects.select_related('creancier').order_by('-date_ouverture')[:100]
+    # Dossiers pour le select avec infos client (demandeur) pour auto-remplissage
+    dossiers_qs = Dossier.objects.prefetch_related('demandeurs').order_by('-date_ouverture')[:100]
+    dossiers_list = []
+    for d in dossiers_qs:
+        demandeur = d.demandeurs.first()
+        dossiers_list.append({
+            'id': d.id,
+            'reference': d.reference,
+            'client_nom': demandeur.get_nom_complet() if demandeur else '',
+            'client_ifu': demandeur.ifu if demandeur else '',
+        })
+    context['dossiers'] = dossiers_list
 
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},

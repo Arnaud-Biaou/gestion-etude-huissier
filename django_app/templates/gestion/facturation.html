@@ -309,9 +309,9 @@
                         <option value="">-- Aucun --</option>
                         {% for dossier in dossiers %}
                         <option value="{{ dossier.id }}"
-                                data-client="{{ dossier.creancier.nom|default:'' }}"
-                                data-ifu="{{ dossier.creancier.ifu|default:'' }}">
-                            {{ dossier.reference }} {% if dossier.creancier %}- {{ dossier.creancier.nom }}{% endif %}
+                                data-client="{{ dossier.client_nom }}"
+                                data-ifu="{{ dossier.client_ifu }}">
+                            {{ dossier.reference }}{% if dossier.client_nom %} - {{ dossier.client_nom }}{% endif %}
                         </option>
                         {% endfor %}
                     </select>
@@ -612,6 +612,9 @@
     // Auto-remplissage depuis le dossier sélectionné
     function remplirDepuisDossier(selectElement) {
         var selectedOption = selectElement.options[selectElement.selectedIndex];
+        console.log('Dossier sélectionné:', selectedOption.value);
+        console.log('data-client:', selectedOption.getAttribute('data-client'));
+        console.log('data-ifu:', selectedOption.getAttribute('data-ifu'));
 
         if (selectedOption.value) {
             // Récupérer les données du dossier depuis les attributs data-*
@@ -621,9 +624,11 @@
             // Remplir les champs du formulaire si les données existent
             if (clientNom) {
                 document.getElementById('factureClient').value = clientNom;
+                console.log('Client rempli:', clientNom);
             }
             if (clientIfu) {
                 document.getElementById('factureIFU').value = clientIfu;
+                console.log('IFU rempli:', clientIfu);
             }
         }
     }
