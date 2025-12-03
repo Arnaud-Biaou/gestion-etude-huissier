@@ -986,7 +986,7 @@ def facturation(request):
     nb_non_normalisees = 0
 
     for f in factures_qs:
-        lignes = [{'description': l.description, 'quantite': l.quantite, 'prix_unitaire': float(l.prix_unitaire)} for l in f.lignes.all()]
+        lignes = [{'description': l.description, 'quantite': l.quantite, 'prix_unitaire': float(l.prix_unitaire), 'type_ligne': l.type_ligne} for l in f.lignes.all()]
         facture_data = {
             'id': f.id,
             'numero': f.numero,

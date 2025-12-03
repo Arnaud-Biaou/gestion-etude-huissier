@@ -1754,21 +1754,28 @@
         let totalHonoraires = 0;
         let totalTimbres = 0;
         let totalEnreg = 0;
+        let totalDeboursAutonomes = 0;
 
         if (facture.lignes && facture.lignes.length > 0) {
             facture.lignes.forEach(ligne => {
-                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
-                const feuillets = parseInt(ligne.feuillets) || 1;
-                const timbre = feuillets * 1200;
-                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                if (ligne.type_ligne === 'debours') {
+                    // Débours autonome: juste le montant, pas de timbre/enreg
+                    totalDeboursAutonomes += parseFloat(ligne.prix_unitaire) || 0;
+                } else {
+                    // Acte: honoraires + timbre + enregistrement
+                    const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                    const feuillets = parseInt(ligne.feuillets) || 1;
+                    const timbre = feuillets * 1200;
+                    const enreg = ligne.enregistrement !== false ? 2500 : 0;
 
-                totalHonoraires += honoraires;
-                totalTimbres += timbre;
-                totalEnreg += enreg;
+                    totalHonoraires += honoraires;
+                    totalTimbres += timbre;
+                    totalEnreg += enreg;
+                }
             });
         }
 
-        // Calcul des taxes selon la logique MECeF
+        // Calcul des taxes selon la logique MECeF (TVA sur honoraires uniquement)
         const regime = facture.regime || 'tps';
         const typeClient = facture.type_client || 'prive';
 
@@ -1796,7 +1803,8 @@
             }
         }
 
-        const totalDebours = totalTimbres + totalEnreg;
+        // Total débours = débours actes (timbre + enreg) + débours autonomes
+        const totalDebours = totalTimbres + totalEnreg + totalDeboursAutonomes;
         const totalTTC = totalHonoraires + taxe + totalDebours;
 
         // AIB si applicable (suivi interne uniquement)
@@ -1885,20 +1893,34 @@
         tbody.innerHTML = '';
         if (facture.lignes && facture.lignes.length > 0) {
             facture.lignes.forEach(ligne => {
-                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
-                const feuillets = parseInt(ligne.feuillets) || 1;
-                const timbre = feuillets * 1200;
-                const enreg = ligne.enregistrement !== false ? 2500 : 0;
-                const totalLigne = honoraires + timbre + enreg;
-
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${ligne.description}</td>
-                    <td style="text-align: right;">${formatMontant(honoraires)}</td>
-                    <td style="text-align: right;">${formatMontant(timbre)}</td>
-                    <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
-                    <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
-                `;
+
+                // Vérifier si c'est un débours autonome
+                if (ligne.type_ligne === 'debours') {
+                    // Débours : juste le montant, sans décomposition
+                    const montant = parseFloat(ligne.prix_unitaire) || 0;
+                    tr.style.backgroundColor = '#fffbeb';
+                    tr.innerHTML = `
+                        <td>${ligne.description} <span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:5px;">Débours</span></td>
+                        <td colspan="3" style="text-align: center; color: #888;">-</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMontant(montant)}</td>
+                    `;
+                } else {
+                    // Acte : avec honoraires, timbre, enregistrement
+                    const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                    const feuillets = parseInt(ligne.feuillets) || 1;
+                    const timbre = feuillets * 1200;
+                    const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                    const totalLigne = honoraires + timbre + enreg;
+
+                    tr.innerHTML = `
+                        <td>${ligne.description}</td>
+                        <td style="text-align: right;">${formatMontant(honoraires)}</td>
+                        <td style="text-align: right;">${formatMontant(timbre)}</td>
+                        <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
+                    `;
+                }
                 tbody.appendChild(tr);
             });
         }
@@ -1971,21 +1993,28 @@
         let totalHonoraires = 0;
         let totalTimbres = 0;
         let totalEnreg = 0;
+        let totalDeboursAutonomes = 0;
 
         if (proforma.lignes && proforma.lignes.length > 0) {
             proforma.lignes.forEach(ligne => {
-                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
-                const feuillets = parseInt(ligne.feuillets) || 1;
-                const timbre = feuillets * 1200;
-                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                if (ligne.type_ligne === 'debours') {
+                    // Débours autonome: juste le montant, pas de timbre/enreg
+                    totalDeboursAutonomes += parseFloat(ligne.prix_unitaire) || 0;
+                } else {
+                    // Acte: honoraires + timbre + enregistrement
+                    const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                    const feuillets = parseInt(ligne.feuillets) || 1;
+                    const timbre = feuillets * 1200;
+                    const enreg = ligne.enregistrement !== false ? 2500 : 0;
 
-                totalHonoraires += honoraires;
-                totalTimbres += timbre;
-                totalEnreg += enreg;
+                    totalHonoraires += honoraires;
+                    totalTimbres += timbre;
+                    totalEnreg += enreg;
+                }
             });
         }
 
-        // Calcul des taxes selon la logique MECeF
+        // Calcul des taxes selon la logique MECeF (TVA sur honoraires uniquement)
         const regime = proforma.regime || 'tps';
         const typeClient = proforma.type_client || 'prive';
 
@@ -2005,7 +2034,8 @@
             }
         }
 
-        const totalDebours = totalTimbres + totalEnreg;
+        // Total débours = débours actes (timbre + enreg) + débours autonomes
+        const totalDebours = totalTimbres + totalEnreg + totalDeboursAutonomes;
         const totalTTC = totalHonoraires + taxe + totalDebours;
 
         // AIB si applicable
@@ -2057,20 +2087,34 @@
         tbody.innerHTML = '';
         if (proforma.lignes && proforma.lignes.length > 0) {
             proforma.lignes.forEach(ligne => {
-                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
-                const feuillets = parseInt(ligne.feuillets) || 1;
-                const timbre = feuillets * 1200;
-                const enreg = ligne.enregistrement !== false ? 2500 : 0;
-                const totalLigne = honoraires + timbre + enreg;
-
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${ligne.description}</td>
-                    <td style="text-align: right;">${formatMontant(honoraires)}</td>
-                    <td style="text-align: right;">${formatMontant(timbre)}</td>
-                    <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
-                    <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
-                `;
+
+                // Vérifier si c'est un débours autonome
+                if (ligne.type_ligne === 'debours') {
+                    // Débours : juste le montant, sans décomposition
+                    const montant = parseFloat(ligne.prix_unitaire) || 0;
+                    tr.style.backgroundColor = '#fffbeb';
+                    tr.innerHTML = `
+                        <td>${ligne.description} <span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:5px;">Débours</span></td>
+                        <td colspan="3" style="text-align: center; color: #888;">-</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMontant(montant)}</td>
+                    `;
+                } else {
+                    // Acte : avec honoraires, timbre, enregistrement
+                    const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                    const feuillets = parseInt(ligne.feuillets) || 1;
+                    const timbre = feuillets * 1200;
+                    const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                    const totalLigne = honoraires + timbre + enreg;
+
+                    tr.innerHTML = `
+                        <td>${ligne.description}</td>
+                        <td style="text-align: right;">${formatMontant(honoraires)}</td>
+                        <td style="text-align: right;">${formatMontant(timbre)}</td>
+                        <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
+                    `;
+                }
                 tbody.appendChild(tr);
             });
         }
