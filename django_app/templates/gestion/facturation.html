@@ -748,8 +748,9 @@
     // GESTION DU MODAL FACTURE/PROFORMA
     // ============================================
     function ouvrirModalFacture(typeOuDocument = 'facture') {
-        // TOUJOURS cacher le modal de visualisation d'abord
+        // TOUJOURS cacher les autres modaux d'abord
         document.getElementById('modalVoirFacture').style.display = 'none';
+        document.getElementById('modalFusion').style.display = 'none';
 
         // Déterminer si c'est un document existant ou un type pour création
         let document_data = null;
@@ -1564,8 +1565,9 @@
         const facture = factures.find(f => f.id == id);
         if (!facture) return;
 
-        // TOUJOURS cacher le modal de création d'abord
+        // TOUJOURS cacher les autres modaux d'abord
         document.getElementById('modalFacture').style.display = 'none';
+        document.getElementById('modalFusion').style.display = 'none';
 
         // Ouvrir le modal de visualisation
         document.getElementById('modalVoirFacture').style.display = 'flex';
@@ -2268,13 +2270,19 @@
     let brouillonsData = [];
 
     function ouvrirModalFusion() {
+        // Fermer les autres modaux d'abord
+        document.getElementById('modalFacture').style.display = 'none';
+        document.getElementById('modalVoirFacture').style.display = 'none';
+        // Ouvrir le modal de fusion
         document.getElementById('modalFusion').style.display = 'flex';
+        document.getElementById('modalOverlay').classList.add('open');
         chargerClientsAvecBrouillons();
         lucide.createIcons();
     }
 
     function fermerModalFusion() {
         document.getElementById('modalFusion').style.display = 'none';
+        document.getElementById('modalOverlay').classList.remove('open');
         document.getElementById('fusionClient').innerHTML = '<option value="">-- Sélectionner un client --</option>';
         document.getElementById('listeBrouillonsFusion').innerHTML = '<p style="color: #6b7280;">Sélectionnez un client pour voir ses factures brouillon.</p>';
         document.getElementById('resumeFusion').style.display = 'none';
