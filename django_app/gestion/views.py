@@ -6904,8 +6904,12 @@ def import_donnees_executer(request, session_id):
 @login_required
 def securiser_acte(request, dossier_id):
     """
-    Formulaire pour créer un acte sécurisé avec QR code.
+    Formulaire pour créer un acte sécurisé avec QR code incrusté sur le PDF.
     """
+    from django.core.files.base import ContentFile
+    from .services.pdf_qr_service import PDFQRService
+    import hashlib
+
     dossier = get_object_or_404(Dossier, id=dossier_id)
 
     if request.method == 'POST':
@@ -6915,7 +6919,8 @@ def securiser_acte(request, dossier_id):
             titre_acte = request.POST.get('titre_acte')
             date_acte = request.POST.get('date_acte')
             parties_resume = request.POST.get('parties_resume')
-            contenu_acte = request.POST.get('contenu_acte', '')
+            pdf_file = request.FILES.get('pdf_acte')
+            position_qr = request.POST.get('position_qr', 'bottom-right')
 
             # Validation basique
             if not all([type_acte, titre_acte, date_acte, parties_resume]):
@@ -6924,21 +6929,71 @@ def securiser_acte(request, dossier_id):
 
             # Récupérer le collaborateur connecté
             collaborateur = None
-            if hasattr(request.user, 'collaborateur'):
-                collaborateur = request.user.collaborateur
+            try:
+                from hr.models import Collaborateur
+                collaborateur = Collaborateur.objects.filter(utilisateur=request.user).first()
+            except:
+                pass
+
+            # Générer le code de vérification
+            code_verification = ActeSecurise.generer_code_verification()
+
+            # Calculer le hash du contenu
+            if pdf_file:
+                pdf_bytes = pdf_file.read()
+                pdf_file.seek(0)  # Remettre au début pour save
+
+                # Valider le PDF
+                is_valid, error_msg, page_count = PDFQRService.valider_pdf(pdf_bytes)
+                if not is_valid:
+                    messages.error(request, f"Fichier PDF invalide : {error_msg}")
+                    return redirect('gestion:securiser_acte', dossier_id=dossier_id)
+
+                hash_contenu = hashlib.sha256(pdf_bytes).hexdigest()
+            else:
+                # Si pas de PDF, utiliser un hash basé sur les métadonnées
+                hash_contenu = hashlib.sha256(
+                    f"{type_acte}-{titre_acte}-{date_acte}-{parties_resume}".encode()
+                ).hexdigest()
 
             # Créer l'acte sécurisé
-            acte = ActeSecuriseService.creer_acte_securise(
+            acte = ActeSecurise.objects.create(
+                code_verification=code_verification,
                 dossier=dossier,
                 type_acte=type_acte,
                 titre_acte=titre_acte,
                 date_acte=date_acte,
                 parties_resume=parties_resume,
-                contenu_ou_fichier=contenu_acte or f"{type_acte}-{titre_acte}-{date_acte}",
+                hash_contenu=hash_contenu,
                 cree_par=collaborateur,
             )
 
-            messages.success(request, f"Acte sécurisé créé avec le code : {acte.code_verification}")
+            # Traiter le PDF si uploadé
+            if pdf_file:
+                # Sauvegarder le PDF original
+                acte.pdf_original.save(
+                    f"original_{code_verification}.pdf",
+                    ContentFile(pdf_bytes)
+                )
+
+                # Générer le PDF avec QR code incrusté
+                url_verification = acte.get_qr_data()
+                pdf_avec_qr = PDFQRService.incruster_qr_sur_pdf(
+                    pdf_bytes,
+                    code_verification,
+                    url_verification,
+                    type_document='ORIGINAL',
+                    position=position_qr,
+                    page='last'
+                )
+
+                acte.pdf_avec_qr.save(
+                    f"securise_{code_verification}.pdf",
+                    ContentFile(pdf_avec_qr)
+                )
+                acte.save()
+
+            messages.success(request, f"Acte sécurisé créé avec le code : {code_verification}")
             return redirect('gestion:acte_securise_detail', acte_id=acte.id)
 
         except Exception as e:
@@ -7002,6 +7057,63 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+@login_required
+def telecharger_acte_securise(request, acte_id, version='original'):
+    """
+    Télécharge une version de l'acte avec QR code incrusté.
+
+    Args:
+        acte_id: ID de l'acte sécurisé
+        version: 'original', 'second_original', ou 'copie'
+    """
+    from django.http import FileResponse
+    from django.core.files.base import ContentFile
+    from .services.pdf_qr_service import PDFQRService
+    import io
+
+    acte = get_object_or_404(ActeSecurise, id=acte_id)
+
+    # Vérifier qu'il y a un PDF original
+    if not acte.pdf_original:
+        messages.error(request, "Aucun PDF original disponible pour cet acte.")
+        return redirect('gestion:acte_securise_detail', acte_id=acte_id)
+
+    # Lire le PDF original
+    acte.pdf_original.seek(0)
+    pdf_bytes = acte.pdf_original.read()
+    url_verification = acte.get_qr_data()
+
+    # Déterminer le type de document
+    types_document = {
+        'original': 'ORIGINAL',
+        'second_original': 'SECOND ORIGINAL',
+        'copie': 'COPIE'
+    }
+    type_doc = types_document.get(version, 'ORIGINAL')
+
+    # Générer le PDF avec le bon type de document
+    pdf_avec_qr = PDFQRService.incruster_qr_sur_pdf(
+        pdf_bytes,
+        acte.code_verification,
+        url_verification,
+        type_document=type_doc,
+        position='bottom-right',
+        page='last'
+    )
+
+    # Préparer le nom du fichier
+    filename = f"{acte.code_verification}_{version}.pdf"
+
+    # Retourner le fichier en téléchargement
+    response = FileResponse(
+        io.BytesIO(pdf_avec_qr),
+        content_type='application/pdf',
+        as_attachment=True,
+        filename=filename
+    )
+    return response
 
 
 # =============================================================================

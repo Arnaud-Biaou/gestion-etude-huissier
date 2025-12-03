@@ -23,6 +23,8 @@ urlpatterns = [
     path('dossier/<int:dossier_id>/securiser/', views.securiser_acte, name='securiser_acte'),
     path('acte-securise/<int:acte_id>/', views.acte_securise_detail, name='acte_securise_detail'),
     path('dossier/<int:dossier_id>/actes-securises/', views.liste_actes_securises, name='liste_actes_securises'),
+    path('acte-securise/<int:acte_id>/telecharger/', views.telecharger_acte_securise, name='telecharger_acte_securise'),
+    path('acte-securise/<int:acte_id>/telecharger/<str:version>/', views.telecharger_acte_securise, name='telecharger_acte_securise_version'),
 
     path('facturation/', views.facturation, name='facturation'),
     path('proformas/', views.proformas, name='proformas'),

@@ -3982,6 +3982,22 @@ class ActeSecurise(models.Model):
         help_text="Décocher pour invalider un acte (erreur, annulation)"
     )
 
+    # Fichiers PDF
+    pdf_original = models.FileField(
+        upload_to='actes/originaux/',
+        null=True,
+        blank=True,
+        verbose_name="PDF original",
+        help_text="Le PDF de l'acte tel qu'uploadé"
+    )
+    pdf_avec_qr = models.FileField(
+        upload_to='actes/securises/',
+        null=True,
+        blank=True,
+        verbose_name="PDF avec QR code",
+        help_text="Le PDF avec QR code incrusté (version Original)"
+    )
+
     class Meta:
         verbose_name = "Acte sécurisé"
         verbose_name_plural = "Actes sécurisés"

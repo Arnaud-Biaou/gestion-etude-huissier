@@ -11,9 +11,9 @@
         <span>/</span>
         <span>Sécuriser un acte</span>
     </div>
-    <h1>Sécuriser un Acte</h1>
+    <h1>Sécuriser un Acte avec QR Code</h1>
     <p style="color: var(--neutral-600);">
-        Générer un QR code de vérification pour un acte du dossier {{ dossier.reference }}
+        Uploadez votre PDF et le QR code de vérification sera automatiquement incrusté sur le document.
     </p>
 </div>
 
@@ -22,7 +22,7 @@
         <h2>Informations de l'acte</h2>
     </div>
     <div class="card-body">
-        <form method="POST" action="">
+        <form method="POST" action="" enctype="multipart/form-data">
             {% csrf_token %}
 
             <div class="form-group" style="margin-bottom: 20px;">
@@ -53,9 +53,6 @@
                        class="form-control"
                        value="{% now 'Y-m-d' %}"
                        required>
-                <small style="color: var(--neutral-500);">
-                    Pour les significations, indiquez la date prévue ou laissez la date du jour.
-                </small>
             </div>
 
             <div class="form-group" style="margin-bottom: 20px;">
@@ -69,24 +66,51 @@
                        required>
             </div>
 
+            <!-- Upload PDF -->
             <div class="form-group" style="margin-bottom: 20px;">
-                <label for="contenu_acte" class="form-label">Contenu ou description (optionnel)</label>
-                <textarea name="contenu_acte"
-                          id="contenu_acte"
-                          class="form-control"
-                          rows="4"
-                          placeholder="Résumé du contenu de l'acte pour le hash de sécurité..."></textarea>
+                <label for="pdf_acte" class="form-label">Document PDF de l'acte</label>
+                <input type="file"
+                       name="pdf_acte"
+                       id="pdf_acte"
+                       class="form-control"
+                       accept=".pdf"
+                       style="padding: 10px;">
                 <small style="color: var(--neutral-500);">
-                    Ce contenu sera utilisé pour générer l'empreinte de sécurité (hash SHA-256).
+                    Le QR code sera automatiquement incrusté sur la dernière page du PDF.
+                    Si aucun PDF n'est fourni, seul le code de vérification sera généré.
                 </small>
+            </div>
+
+            <!-- Position du QR -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Position du QR code</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid var(--neutral-200); border-radius: 6px;">
+                        <input type="radio" name="position_qr" value="bottom-right" checked>
+                        <span>Bas droite (recommandé)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid var(--neutral-200); border-radius: 6px;">
+                        <input type="radio" name="position_qr" value="bottom-left">
+                        <span>Bas gauche</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid var(--neutral-200); border-radius: 6px;">
+                        <input type="radio" name="position_qr" value="top-right">
+                        <span>Haut droite</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid var(--neutral-200); border-radius: 6px;">
+                        <input type="radio" name="position_qr" value="top-left">
+                        <span>Haut gauche</span>
+                    </label>
+                </div>
             </div>
 
             <div style="background: var(--info-bg, #e7f3ff); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
                 <p style="font-size: 0.875rem; color: var(--info-text, #0066cc); margin: 0;">
-                    <strong>Information</strong><br>
-                    Un code de vérification unique sera généré. Ce code apparaîtra sous forme de QR code
-                    à intégrer dans votre acte. Toute personne pourra scanner ce QR pour vérifier
-                    l'authenticité du document.
+                    <strong>Comment ça fonctionne</strong><br>
+                    1. Uploadez votre PDF d'acte<br>
+                    2. Le système génère un code de vérification unique<br>
+                    3. Le QR code est automatiquement incrusté sur le PDF<br>
+                    4. Téléchargez les versions : <strong>Original</strong>, <strong>Second Original</strong>, <strong>Copie</strong>
                 </p>
             </div>
 
@@ -95,7 +119,7 @@
                     Annuler
                 </a>
                 <button type="submit" class="btn btn-primary">
-                    Générer le QR de sécurité
+                    <i data-lucide="shield-check"></i> Sécuriser l'acte
                 </button>
             </div>
         </form>
