@@ -6966,6 +6966,7 @@ def securiser_acte(request, dossier_id):
                 parties_resume=parties_resume,
                 hash_contenu=hash_contenu,
                 cree_par=collaborateur,
+                position_qr=position_qr,
             )
 
             # Traiter le PDF si uploadé
@@ -7094,12 +7095,13 @@ def telecharger_acte_securise(request, acte_id, version='original'):
     type_doc = types_document.get(version, 'ORIGINAL')
 
     # Générer le PDF avec le bon type de document
+    # Utiliser la position sauvegardée lors de la création
     pdf_avec_qr = PDFQRService.incruster_qr_sur_pdf(
         pdf_bytes,
         acte.code_verification,
         url_verification,
         type_document=type_doc,
-        position='bottom-right',
+        position=acte.position_qr,
         page='all'
     )
 

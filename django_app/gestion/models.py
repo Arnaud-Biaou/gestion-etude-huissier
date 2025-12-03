@@ -3998,6 +3998,20 @@ class ActeSecurise(models.Model):
         help_text="Le PDF avec QR code incrusté (version Original)"
     )
 
+    # Position du QR code choisie par l'utilisateur
+    POSITION_QR_CHOICES = [
+        ('bottom-right', 'Bas droite'),
+        ('bottom-left', 'Bas gauche'),
+        ('top-right', 'Haut droite'),
+        ('top-left', 'Haut gauche'),
+    ]
+    position_qr = models.CharField(
+        max_length=20,
+        choices=POSITION_QR_CHOICES,
+        default='bottom-right',
+        verbose_name="Position du QR code"
+    )
+
     class Meta:
         verbose_name = "Acte sécurisé"
         verbose_name_plural = "Actes sécurisés"
