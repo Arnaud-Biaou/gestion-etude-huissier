@@ -545,7 +545,7 @@ class Facture(models.Model):
     client = models.CharField(max_length=200)
     ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
     montant_ht = models.DecimalField(max_digits=15, decimal_places=0)
-    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
+    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('18.00'))
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
     date_emission = models.DateField(default=timezone.now)
@@ -651,9 +651,10 @@ class Facture(models.Model):
         return f"{self.numero} - {self.client}"
 
     def save(self, *args, **kwargs):
-        if not self.montant_tva:
-            self.montant_tva = self.montant_ht * self.taux_tva / 100
-        if not self.montant_ttc:
+        # Calculer TVA seulement si non défini (None), pas si = 0
+        if self.montant_tva is None:
+            self.montant_tva = self.montant_ht * Decimal(str(self.taux_tva)) / Decimal('100')
+        if self.montant_ttc is None:
             self.montant_ttc = self.montant_ht + self.montant_tva
         super().save(*args, **kwargs)
 
