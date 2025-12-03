@@ -987,6 +987,8 @@ def facturation(request):
             'nim': f.nim if hasattr(f, 'nim') else '',
             'date_mecef': f.date_mecef.strftime('%d/%m/%Y') if hasattr(f, 'date_mecef') and f.date_mecef else '',
             'dossier': f.dossier_id,
+            'dossier_reference': f.dossier.reference if f.dossier else None,
+            'dossier_intitule_affaire': f.dossier.intitule_affaire if f.dossier else None,
             'observations': f.observations if hasattr(f, 'observations') else '',
             'lignes': lignes
         }
@@ -1009,8 +1011,15 @@ def facturation(request):
     context['nb_normalisees'] = nb_normalisees
     context['nb_non_normalisees'] = nb_non_normalisees
 
-    # Dossiers pour le select
-    context['dossiers'] = Dossier.objects.all().values('id', 'reference')[:100]
+    # Dossiers pour le select (avec intitulé de l'affaire)
+    dossiers_list = []
+    for d in Dossier.objects.all().select_related().prefetch_related('demandeurs', 'defendeurs')[:100]:
+        dossiers_list.append({
+            'id': d.id,
+            'reference': d.reference,
+            'intitule_affaire': d.intitule_affaire
+        })
+    context['dossiers'] = dossiers_list
 
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},
@@ -5982,8 +5991,10 @@ def point_factures_par_dossier(request):
     date_fin = request.GET.get('date_fin')
     statut = request.GET.get('statut')
 
-    # Base queryset
-    factures = Facture.objects.select_related('dossier').all()
+    # Base queryset (avec prefetch des parties pour l'intitulé de l'affaire)
+    factures = Facture.objects.select_related('dossier').prefetch_related(
+        'dossier__demandeurs', 'dossier__defendeurs'
+    ).all()
 
     # Appliquer les filtres
     if date_debut:

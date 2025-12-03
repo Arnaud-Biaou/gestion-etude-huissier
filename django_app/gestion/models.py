@@ -327,6 +327,7 @@ class Dossier(models.Model):
         return f"{self.reference} - {self.get_intitule()}"
 
     def get_intitule(self):
+        """Retourne l'intitulé de l'affaire au format 'Demandeur C/ Défendeur'"""
         demandeur = self.demandeurs.first()
         defendeur = self.defendeurs.first()
         if self.is_contentieux and demandeur and defendeur:
@@ -334,6 +335,16 @@ class Dossier(models.Model):
         elif demandeur:
             return demandeur.get_nom_complet()
         return "Sans parties"
+
+    @property
+    def intitule_affaire(self):
+        """Propriété pour accéder à l'intitulé de l'affaire (alias de get_intitule)"""
+        return self.get_intitule()
+
+    @property
+    def numero_dossier(self):
+        """Propriété pour accéder à la référence du dossier"""
+        return self.reference
 
     def get_montant_total_du(self):
         """Calcule le montant total dû sur le dossier"""

@@ -308,7 +308,7 @@
                     <select class="form-select" id="factureDossier" name="dossier">
                         <option value="">-- Aucun --</option>
                         {% for dossier in dossiers %}
-                        <option value="{{ dossier.id }}">{{ dossier.reference }}</option>
+                        <option value="{{ dossier.id }}">{{ dossier.reference }} - {{ dossier.intitule_affaire }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -412,6 +412,13 @@
                         <strong>Echeance:</strong> <span id="voirEcheance"></span>
                     </div>
                 </div>
+            </div>
+
+            <!-- Affaire (si dossier lié) -->
+            <div id="voirAffaireSection" style="display: none; margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 8px; border-left: 4px solid var(--primary);">
+                <div style="font-size: 10px; text-transform: uppercase; color: var(--neutral-500); margin-bottom: 5px;">Affaire</div>
+                <strong id="voirAffaire" style="font-size: 14px; color: var(--primary-dark);"></strong><br>
+                <span id="voirDossierRef" style="font-size: 12px; color: var(--neutral-600);"></span>
             </div>
 
             <!-- Client -->
@@ -733,6 +740,16 @@
         document.getElementById('voirHT').textContent = formatMontant(facture.montant_ht);
         document.getElementById('voirTVA').textContent = formatMontant(facture.tva);
         document.getElementById('voirTTC').textContent = formatMontant(facture.total);
+
+        // Affichage de l'affaire et du dossier lié
+        const affaireSection = document.getElementById('voirAffaireSection');
+        if (facture.dossier && facture.dossier_intitule_affaire) {
+            affaireSection.style.display = 'block';
+            document.getElementById('voirAffaire').textContent = 'Aff: ' + facture.dossier_intitule_affaire;
+            document.getElementById('voirDossierRef').textContent = 'Réf: ' + facture.dossier_reference;
+        } else {
+            affaireSection.style.display = 'none';
+        }
 
         // Statut
         const statutEl = document.getElementById('voirStatut');

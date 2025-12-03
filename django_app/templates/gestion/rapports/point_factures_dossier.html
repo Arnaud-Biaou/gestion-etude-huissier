@@ -90,7 +90,7 @@
             <a href="{% url 'gestion:dossier_detail' data.dossier.id %}" style="color: var(--primary);">
                 {{ data.dossier.reference }}
             </a>
-            - {{ data.dossier.description|default:"Sans description"|truncatechars:50 }}
+            - <span style="font-weight: 500;">{{ data.dossier.intitule_affaire|default:data.dossier.description|default:"Sans affaire"|truncatechars:50 }}</span>
         </h3>
         <div class="flex gap-2">
             <span class="status-badge info">{{ data.factures|length }} facture{{ data.factures|length|pluralize }}</span>
