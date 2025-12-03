@@ -969,7 +969,16 @@ def facturation(request):
     nb_non_normalisees = 0
 
     for f in factures_qs:
-        lignes = [{'description': l.description, 'quantite': l.quantite, 'prix_unitaire': float(l.prix_unitaire)} for l in f.lignes.all()]
+        lignes = [{
+            'description': l.description,
+            'quantite': l.quantite,
+            'prix_unitaire': float(l.prix_unitaire),
+            'type_ligne': l.type_ligne,
+            'honoraires': float(l.honoraires) if l.honoraires else None,
+            'timbre': float(l.timbre) if l.timbre else None,
+            'enregistrement': float(l.enregistrement) if l.enregistrement else None,
+            'montant_ht': float(l.montant_ht) if l.montant_ht else float(l.quantite * l.prix_unitaire)
+        } for l in f.lignes.all()]
         facture_data = {
             'id': f.id,
             'numero': f.numero,
@@ -1809,12 +1818,51 @@ def api_sauvegarder_facture(request):
 
         # Creer les lignes
         for ligne in lignes:
-            LigneFacture.objects.create(
-                facture=facture,
-                description=ligne.get('description', ''),
-                quantite=ligne.get('quantite', 1),
-                prix_unitaire=ligne.get('prix_unitaire', 0)
-            )
+            type_ligne = ligne.get('type_ligne', 'acte')
+
+            if type_ligne == 'debours':
+                # Pour les débours : juste le montant, pas de décomposition
+                LigneFacture.objects.create(
+                    facture=facture,
+                    description=ligne.get('description', ''),
+                    quantite=1,
+                    prix_unitaire=ligne.get('prix_unitaire', 0),
+                    type_ligne='debours',
+                    montant_ht=ligne.get('prix_unitaire', 0)
+                )
+            else:
+                # Pour les actes : avec décomposition honoraires/timbre/enregistrement
+                honoraires = ligne.get('honoraires')
+                timbre = ligne.get('timbre')
+                enregistrement = ligne.get('enregistrement')
+
+                # Si les champs détaillés sont fournis, les utiliser
+                if honoraires is not None:
+                    h = Decimal(str(honoraires)) if honoraires else Decimal('0')
+                    t = Decimal(str(timbre)) if timbre else Decimal('0')
+                    e = Decimal(str(enregistrement)) if enregistrement else Decimal('0')
+                    montant_ht = h + t + e
+
+                    LigneFacture.objects.create(
+                        facture=facture,
+                        description=ligne.get('description', ''),
+                        quantite=ligne.get('quantite', 1),
+                        prix_unitaire=h,  # Prix unitaire = honoraires
+                        type_ligne='acte',
+                        honoraires=h,
+                        timbre=t,
+                        enregistrement=e,
+                        montant_ht=montant_ht
+                    )
+                else:
+                    # Mode simple : juste prix unitaire
+                    LigneFacture.objects.create(
+                        facture=facture,
+                        description=ligne.get('description', ''),
+                        quantite=ligne.get('quantite', 1),
+                        prix_unitaire=ligne.get('prix_unitaire', 0),
+                        type_ligne='acte'
+                    )
 
         return JsonResponse({
             'success': True,

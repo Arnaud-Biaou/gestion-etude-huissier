@@ -683,10 +683,45 @@ class Facture(models.Model):
 
 class LigneFacture(models.Model):
     """Lignes de facture"""
+    TYPE_LIGNE_CHOICES = [
+        ('acte', 'Acte'),
+        ('debours', 'Débours'),
+    ]
+
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
     description = models.CharField(max_length=500)
     quantite = models.IntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # Type de ligne : acte ou débours
+    type_ligne = models.CharField(
+        max_length=20,
+        choices=TYPE_LIGNE_CHOICES,
+        default='acte',
+        verbose_name='Type de ligne'
+    )
+
+    # Champs spécifiques aux actes (décomposition)
+    honoraires = models.DecimalField(
+        max_digits=15, decimal_places=0,
+        null=True, blank=True,
+        verbose_name='Honoraires'
+    )
+    timbre = models.DecimalField(
+        max_digits=15, decimal_places=0,
+        null=True, blank=True,
+        verbose_name='Timbre'
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15, decimal_places=0,
+        null=True, blank=True,
+        verbose_name='Enregistrement'
+    )
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=0,
+        null=True, blank=True,
+        verbose_name='Montant HT'
+    )
 
     class Meta:
         verbose_name = 'Ligne de facture'
@@ -697,7 +732,29 @@ class LigneFacture(models.Model):
 
     @property
     def total(self):
+        # Pour les débours, retourne juste le prix_unitaire (montant fixe)
+        if self.type_ligne == 'debours':
+            return self.prix_unitaire
+        # Pour les actes, utilise montant_ht si disponible, sinon calcul classique
+        if self.montant_ht:
+            return self.montant_ht
         return self.quantite * self.prix_unitaire
+
+    def save(self, *args, **kwargs):
+        # Pour les débours, le montant_ht = prix_unitaire (pas de décomposition)
+        if self.type_ligne == 'debours':
+            self.montant_ht = self.prix_unitaire
+            self.honoraires = None
+            self.timbre = None
+            self.enregistrement = None
+        # Pour les actes, calculer montant_ht si honoraires/timbre/enreg sont fournis
+        elif self.honoraires is not None:
+            h = self.honoraires or 0
+            t = self.timbre or 0
+            e = self.enregistrement or 0
+            self.montant_ht = h + t + e
+            self.prix_unitaire = h  # Prix unitaire = honoraires pour compatibilité
+        super().save(*args, **kwargs)
 
 
 class ActeProcedure(models.Model):

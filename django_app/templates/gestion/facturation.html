@@ -316,35 +316,16 @@
 
             <div class="form-section-title">Lignes de facture</div>
             <div id="lignesFacture">
-                <div class="ligne-facture" data-index="0">
-                    <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr auto;">
-                        <div class="form-group">
-                            <label class="form-label">Description</label>
-                            <input class="form-input ligne-description" type="text" placeholder="Ex: Commandement de payer">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Quantite</label>
-                            <input class="form-input ligne-quantite" type="number" value="1" min="1" onchange="calculerTotaux()">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Prix unitaire</label>
-                            <input class="form-input ligne-prix" type="number" placeholder="15000" onchange="calculerTotaux()">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Total</label>
-                            <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100);">
-                        </div>
-                        <div class="form-group" style="align-self: flex-end;">
-                            <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
-                                <i data-lucide="trash-2"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <!-- Les lignes seront ajoutées dynamiquement ici -->
             </div>
-            <button type="button" class="btn btn-secondary mt-2" onclick="ajouterLigne()">
-                <i data-lucide="plus"></i> Ajouter une ligne
-            </button>
+            <div class="flex gap-2 mt-2">
+                <button type="button" class="btn btn-secondary" onclick="ajouterLigneActe()">
+                    <i data-lucide="plus"></i> Ajouter un acte
+                </button>
+                <button type="button" class="btn btn-accent" onclick="ajouterLigneDebours()" style="background: #fef3c7; color: #92400e; border-color: #f59e0b;">
+                    <i data-lucide="plus"></i> Ajouter un debours
+                </button>
+            </div>
 
             <div class="form-section-title">Totaux</div>
             <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
@@ -425,10 +406,11 @@
             <table class="invoice-table">
                 <thead>
                     <tr>
-                        <th style="width: 50%;">Description</th>
-                        <th style="width: 15%; text-align: center;">Qte</th>
-                        <th style="width: 17%; text-align: right;">Prix Unit.</th>
-                        <th style="width: 18%; text-align: right;">Total</th>
+                        <th style="width: 40%;">Designation</th>
+                        <th style="width: 15%; text-align: right;">Honoraires</th>
+                        <th style="width: 12%; text-align: right;">Timbre</th>
+                        <th style="width: 13%; text-align: right;">Enreg.</th>
+                        <th style="width: 20%; text-align: right;">Total</th>
                     </tr>
                 </thead>
                 <tbody id="voirLignes">
@@ -584,29 +566,43 @@
     // ============================================
     // GESTION DES LIGNES
     // ============================================
-    function ajouterLigne(data = null) {
+
+    // Ajouter une ligne pour un acte (avec honoraires, timbre, enregistrement)
+    function ajouterLigneActe(data = null) {
         const container = document.getElementById('lignesFacture');
         const div = document.createElement('div');
-        div.className = 'ligne-facture';
+        div.className = 'ligne-facture ligne-acte';
         div.dataset.index = ligneIndex++;
+        div.dataset.type = 'acte';
+
+        const honoraires = data ? (data.honoraires || data.prix_unitaire || '') : '';
+        const timbre = data ? (data.timbre || '') : '';
+        const enregistrement = data ? (data.enregistrement || '') : '';
 
         div.innerHTML = `
-            <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr auto;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--primary); background: var(--primary-light); padding: 2px 8px; border-radius: 4px;">ACTE</span>
+            </div>
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;">
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <input class="form-input ligne-description" type="text" placeholder="Ex: Commandement de payer" value="${data ? data.description : ''}">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Quantite</label>
-                    <input class="form-input ligne-quantite" type="number" value="${data ? data.quantite : 1}" min="1" onchange="calculerTotaux()">
+                    <label class="form-label">Honoraires</label>
+                    <input class="form-input ligne-honoraires" type="number" placeholder="56000" value="${honoraires}" onchange="calculerTotaux()">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Prix unitaire</label>
-                    <input class="form-input ligne-prix" type="number" placeholder="15000" value="${data ? data.prix_unitaire : ''}" onchange="calculerTotaux()">
+                    <label class="form-label">Timbre</label>
+                    <input class="form-input ligne-timbre" type="number" placeholder="1200" value="${timbre}" onchange="calculerTotaux()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Enreg.</label>
+                    <input class="form-input ligne-enreg" type="number" placeholder="2500" value="${enregistrement}" onchange="calculerTotaux()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Total</label>
-                    <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100);" value="${data ? formatMontant(data.quantite * data.prix_unitaire) : ''}">
+                    <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100); font-weight: 600;">
                 </div>
                 <div class="form-group" style="align-self: flex-end;">
                     <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
@@ -620,25 +616,82 @@
         calculerTotaux();
     }
 
+    // Ajouter une ligne pour un débours (montant fixe uniquement)
+    function ajouterLigneDebours(data = null) {
+        const container = document.getElementById('lignesFacture');
+        const div = document.createElement('div');
+        div.className = 'ligne-facture ligne-debours';
+        div.dataset.index = ligneIndex++;
+        div.dataset.type = 'debours';
+
+        const montant = data ? (data.montant_ht || data.prix_unitaire || '') : '';
+
+        div.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; padding: 2px 8px; border-radius: 4px;">DEBOURS</span>
+            </div>
+            <div class="form-grid" style="grid-template-columns: 3fr 1fr auto; background: #fffbeb; padding: 12px; border-radius: 8px; border: 1px dashed #f59e0b;">
+                <div class="form-group">
+                    <label class="form-label">Description du debours</label>
+                    <input class="form-input ligne-description" type="text" placeholder="Ex: Frais d'ordonnance d'injonction de payer" value="${data ? data.description : ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Montant</label>
+                    <input class="form-input ligne-montant-debours" type="number" placeholder="7000" value="${montant}" onchange="calculerTotaux()" style="font-weight: 600;">
+                </div>
+                <div class="form-group" style="align-self: flex-end;">
+                    <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+        lucide.createIcons();
+        calculerTotaux();
+    }
+
+    // Fonction de compatibilité pour l'ancien code
+    function ajouterLigne(data = null) {
+        if (data && data.type_ligne === 'debours') {
+            ajouterLigneDebours(data);
+        } else {
+            ajouterLigneActe(data);
+        }
+    }
+
     function supprimerLigne(btn) {
         const lignes = document.querySelectorAll('.ligne-facture');
-        if (lignes.length > 1) {
+        if (lignes.length > 0) {
             btn.closest('.ligne-facture').remove();
             calculerTotaux();
         }
     }
 
     function calculerTotaux() {
-        let totalHT = 0;
-        document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const qte = parseFloat(ligne.querySelector('.ligne-quantite').value) || 0;
-            const prix = parseFloat(ligne.querySelector('.ligne-prix').value) || 0;
-            const total = qte * prix;
-            ligne.querySelector('.ligne-total').value = formatMontant(total);
-            totalHT += total;
+        let totalHonoaires = 0;
+        let totalDebours = 0;
+
+        // Calculer pour les lignes acte
+        document.querySelectorAll('.ligne-acte').forEach(ligne => {
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+            const timbre = parseFloat(ligne.querySelector('.ligne-timbre')?.value) || 0;
+            const enreg = parseFloat(ligne.querySelector('.ligne-enreg')?.value) || 0;
+            const total = honoraires + timbre + enreg;
+            const totalField = ligne.querySelector('.ligne-total');
+            if (totalField) totalField.value = formatMontant(total);
+            totalHonoaires += honoraires;
+            totalDebours += timbre + enreg;
         });
 
-        const tva = totalHT * 0.18;
+        // Calculer pour les lignes debours
+        document.querySelectorAll('.ligne-debours').forEach(ligne => {
+            const montant = parseFloat(ligne.querySelector('.ligne-montant-debours')?.value) || 0;
+            totalDebours += montant;
+        });
+
+        const totalHT = totalHonoaires + totalDebours;
+        const tva = totalHonoaires * 0.18;  // TVA uniquement sur les honoraires
         const ttc = totalHT + tva;
 
         document.getElementById('factureMontantHT').value = formatMontant(totalHT);
@@ -664,12 +717,37 @@
 
         // Collecter les lignes
         const lignes = [];
-        document.querySelectorAll('.ligne-facture').forEach(ligne => {
+
+        // Collecter les lignes acte
+        document.querySelectorAll('.ligne-acte').forEach(ligne => {
             const description = ligne.querySelector('.ligne-description').value;
-            const quantite = parseFloat(ligne.querySelector('.ligne-quantite').value) || 0;
-            const prix = parseFloat(ligne.querySelector('.ligne-prix').value) || 0;
-            if (description && prix > 0) {
-                lignes.push({ description, quantite, prix_unitaire: prix });
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires').value) || 0;
+            const timbre = parseFloat(ligne.querySelector('.ligne-timbre').value) || 0;
+            const enregistrement = parseFloat(ligne.querySelector('.ligne-enreg').value) || 0;
+            if (description && (honoraires > 0 || timbre > 0 || enregistrement > 0)) {
+                lignes.push({
+                    description,
+                    quantite: 1,
+                    prix_unitaire: honoraires,
+                    type_ligne: 'acte',
+                    honoraires: honoraires,
+                    timbre: timbre,
+                    enregistrement: enregistrement
+                });
+            }
+        });
+
+        // Collecter les lignes debours
+        document.querySelectorAll('.ligne-debours').forEach(ligne => {
+            const description = ligne.querySelector('.ligne-description').value;
+            const montant = parseFloat(ligne.querySelector('.ligne-montant-debours').value) || 0;
+            if (description && montant > 0) {
+                lignes.push({
+                    description,
+                    quantite: 1,
+                    prix_unitaire: montant,
+                    type_ligne: 'debours'
+                });
             }
         });
 
@@ -776,12 +854,33 @@
         if (facture.lignes && facture.lignes.length > 0) {
             facture.lignes.forEach(ligne => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${ligne.description}</td>
-                    <td style="text-align: center;">${ligne.quantite}</td>
-                    <td style="text-align: right;">${formatMontant(ligne.prix_unitaire)}</td>
-                    <td style="text-align: right;">${formatMontant(ligne.quantite * ligne.prix_unitaire)}</td>
-                `;
+
+                if (ligne.type_ligne === 'debours') {
+                    // Ligne débours : affichage simplifié avec badge
+                    tr.style.background = '#fffbeb';
+                    tr.innerHTML = `
+                        <td>
+                            ${ligne.description}
+                            <span style="display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #fef3c7; color: #92400e;">Debours</span>
+                        </td>
+                        <td colspan="3" style="text-align: center; color: #888;">-</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMontant(ligne.montant_ht || ligne.prix_unitaire)}</td>
+                    `;
+                } else {
+                    // Ligne acte : avec décomposition honoraires/timbre/enregistrement
+                    const honoraires = ligne.honoraires || ligne.prix_unitaire;
+                    const timbre = ligne.timbre || 0;
+                    const enregistrement = ligne.enregistrement || 0;
+                    const total = ligne.montant_ht || (honoraires + timbre + enregistrement);
+
+                    tr.innerHTML = `
+                        <td>${ligne.description}</td>
+                        <td style="text-align: right;">${formatMontant(honoraires)}</td>
+                        <td style="text-align: right;">${formatMontant(timbre)}</td>
+                        <td style="text-align: right;">${formatMontant(enregistrement)}</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMontant(total)}</td>
+                    `;
+                }
                 tbody.appendChild(tr);
             });
         }
