@@ -26,9 +26,6 @@
         <button class="btn btn-accent" onclick="ouvrirModalFacture('proforma')">
             <i data-lucide="file-edit"></i> Nouvelle proforma
         </button>
-        <button class="btn btn-success" onclick="ouvrirModalFacturerActes()" title="Facturer des actes de dossiers">
-            <i data-lucide="file-plus"></i> Facturer actes
-        </button>
         <button class="btn btn-primary" onclick="ouvrirModalFacture('facture')">
             <i data-lucide="plus"></i> Nouvelle facture
         </button>
@@ -315,7 +312,7 @@
 {% endblock %}
 
 {% block modal %}
-<!-- Modal Nouvelle Facture -->
+<!-- Modal Nouvelle Facture (fusionné avec Facturer Actes) -->
 <div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; flex-direction: column; overflow: hidden;">
     <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title" id="modalFactureTitle">Nouvelle facture</h3>
@@ -323,11 +320,99 @@
             <i data-lucide="x"></i>
         </button>
     </div>
-    <form id="formFacture" onsubmit="sauvegarderFacture(event)" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
-            <input type="hidden" id="factureId" name="id">
 
-            <div class="form-grid">
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+        <!-- Choix du mode de création (affiché uniquement pour nouvelle facture) -->
+        <div id="choixModeFacture" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Mode de création</label>
+            <div style="display: flex; gap: 15px;">
+                <div class="mode-option" id="modeActesOption" onclick="selectionnerModeFacture('actes')"
+                     style="flex: 1; padding: 20px; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                    <i data-lucide="list-checks" style="width: 36px; height: 36px; color: #22c55e;"></i>
+                    <h5 style="margin: 10px 0 5px; font-size: 14px;">Facturer des actes</h5>
+                    <small style="color: #6b7280; font-size: 12px;">Sélectionner des actes déjà enregistrés dans les dossiers</small>
+                </div>
+                <div class="mode-option" id="modeLibreOption" onclick="selectionnerModeFacture('libre')"
+                     style="flex: 1; padding: 20px; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                    <i data-lucide="edit" style="width: 36px; height: 36px; color: #3b82f6;"></i>
+                    <h5 style="margin: 10px 0 5px; font-size: 14px;">Facture libre</h5>
+                    <small style="color: #6b7280; font-size: 12px;">Saisir manuellement les lignes (cas exceptionnels)</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODE ACTES ===== -->
+        <div id="modeActesContent" style="display: none;">
+            <!-- Sélection client -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">1. Sélectionner le client ayant des actes non facturés</label>
+                <select id="factActesClient" class="form-select" onchange="chargerActesNonFacturesClient()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="">-- Chargement des clients... --</option>
+                </select>
+            </div>
+
+            <!-- Info client -->
+            <div id="factActesClientInfo" style="display: none; margin: 15px 0; padding: 12px; background: #e0f2fe; border-radius: 6px; border-left: 4px solid #0284c7;">
+                <strong id="factActesClientNom"></strong> -
+                <span id="factActesClientStats" style="color: #0369a1;"></span>
+            </div>
+
+            <!-- Liste des actes -->
+            <div id="factActesListe" style="margin-top: 15px;">
+                <p style="color: #6b7280;">Sélectionnez un client pour voir ses actes non facturés.</p>
+            </div>
+
+            <!-- Récapitulatif -->
+            <div id="factActesRecap" style="display: none; margin-top: 20px; padding: 16px; background: #f0fdf4; border-radius: 8px; border: 2px solid #22c55e;">
+                <h5 style="margin: 0 0 12px 0; color: #15803d;">Récapitulatif de la facture</h5>
+                <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                    <div>
+                        <small style="color: #6b7280;">Actes sélectionnés</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesNbSelectionnes">0</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total Honoraires</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalHT">0 F</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total Débours</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalDebours">0 F</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total TTC</small>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #16a34a;" id="factActesTotalTTC">0 F</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options fiscales -->
+            <div id="factActesOptions" style="display: none; margin-top: 20px;">
+                <h5 style="margin: 0 0 12px 0;">Options de facturation</h5>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Régime fiscal</label>
+                        <select id="factActesRegime" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="tps">TPS (5%)</option>
+                            <option value="tva">TVA (18%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Type de client</label>
+                        <select id="factActesTypeClient" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="prive">Privé</option>
+                            <option value="public">Public</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODE LIBRE (formulaire existant) ===== -->
+        <div id="modeLibreContent" style="display: none;">
+            <form id="formFacture" onsubmit="sauvegarderFacture(event)" style="display: flex; flex-direction: column;">
+                <input type="hidden" id="factureId" name="id">
+
+                <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Numero de facture</label>
                     <input class="form-input" type="text" id="factureNumero" name="numero" readonly style="background: var(--neutral-100);">
@@ -498,18 +583,33 @@
             <div class="form-group">
                 <textarea class="form-input" id="factureObservations" name="observations" rows="3" placeholder="Notes ou observations..."></textarea>
             </div>
+            </form>
         </div>
-        <!-- Boutons d'action - footer fixe -->
-        <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
-            <button type="button" class="btn btn-secondary" onclick="fermerModalFacture()">← Annuler</button>
+        <!-- Fin modeLibreContent -->
+    </div>
+    <!-- Fin modal-body -->
+
+    <!-- Boutons d'action - footer fixe -->
+    <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="fermerModalFacture()">← Annuler</button>
+
+        <!-- Boutons mode actes -->
+        <div id="btnsModeActes" style="display: none;">
+            <button type="button" class="btn btn-success" id="btnCreerFactureActes" onclick="creerFactureDepuisActes()" disabled>
+                <i data-lucide="check"></i> Créer la facture
+            </button>
+        </div>
+
+        <!-- Boutons mode libre -->
+        <div id="btnsModeLibre" style="display: none;">
             <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
                 <i data-lucide="save"></i> Enregistrer brouillon
             </button>
-            <button type="submit" class="btn btn-primary" id="btnEnregistrerDoc">
+            <button type="button" class="btn btn-primary" id="btnEnregistrerDoc" onclick="sauvegarderFacture(event)">
                 <i data-lucide="check"></i> <span id="labelBtnEnregistrer">Enregistrer la facture</span>
             </button>
         </div>
-    </form>
+    </div>
 </div>
 
 <!-- Modal Voir Facture -->
@@ -669,86 +769,6 @@
         </div>
     </div>
 </div>
-
-<!-- Modal Facturer Actes -->
-<div class="modal" id="modalFacturerActes" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: white; border-radius: 12px; max-width: 950px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
-        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 18px;"><i data-lucide="file-plus" style="width: 20px; height: 20px; vertical-align: middle;"></i> Facturer des actes de dossiers</h3>
-            <button onclick="fermerModalFacturerActes()" style="background: none; border: none; cursor: pointer; font-size: 20px;">&times;</button>
-        </div>
-        <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
-            <!-- Étape 1 : Sélectionner le client -->
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 600; display: block; margin-bottom: 8px;">1. Sélectionner le client ayant des actes non facturés</label>
-                <select id="factActesClient" class="form-select" onchange="chargerActesNonFacturesClient()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
-                    <option value="">-- Chargement des clients... --</option>
-                </select>
-            </div>
-
-            <!-- Info client sélectionné -->
-            <div id="factActesClientInfo" style="display: none; margin: 15px 0; padding: 12px; background: #e0f2fe; border-radius: 6px; border-left: 4px solid #0284c7;">
-                <strong id="factActesClientNom"></strong> -
-                <span id="factActesClientStats" style="color: #0369a1;"></span>
-            </div>
-
-            <!-- Étape 2 : Liste des actes non facturés -->
-            <div id="factActesListe" style="margin-top: 20px;">
-                <p style="color: #6b7280;">Sélectionnez un client pour voir ses actes non facturés.</p>
-            </div>
-
-            <!-- Récapitulatif -->
-            <div id="factActesRecap" style="display: none; margin-top: 20px; padding: 16px; background: #f0fdf4; border-radius: 8px; border: 2px solid #22c55e;">
-                <h5 style="margin: 0 0 12px 0; color: #15803d;">Récapitulatif de la facture</h5>
-                <div style="display: flex; gap: 30px; flex-wrap: wrap;">
-                    <div>
-                        <small style="color: #6b7280;">Actes sélectionnés</small>
-                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesNbSelectionnes">0</div>
-                    </div>
-                    <div>
-                        <small style="color: #6b7280;">Total Honoraires</small>
-                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalHT">0 F</div>
-                    </div>
-                    <div>
-                        <small style="color: #6b7280;">Total Débours</small>
-                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalDebours">0 F</div>
-                    </div>
-                    <div>
-                        <small style="color: #6b7280;">Total TTC</small>
-                        <div style="font-size: 1.5em; font-weight: bold; color: #16a34a;" id="factActesTotalTTC">0 F</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Options de facturation -->
-            <div id="factActesOptions" style="display: none; margin-top: 20px;">
-                <h5 style="margin: 0 0 12px 0;">Options de facturation</h5>
-                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                    <div class="form-group" style="flex: 1; min-width: 200px;">
-                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Régime fiscal</label>
-                        <select id="factActesRegime" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
-                            <option value="tps">TPS (5%)</option>
-                            <option value="tva">TVA (18%)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1; min-width: 200px;">
-                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Type de client</label>
-                        <select id="factActesTypeClient" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
-                            <option value="prive">Privé</option>
-                            <option value="public">Public</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
-            <button class="btn btn-secondary" onclick="fermerModalFacturerActes()">Annuler</button>
-            <button class="btn btn-success" id="btnCreerFactureActes" onclick="creerFactureDepuisActes()" disabled>
-                <i data-lucide="check"></i> Créer la facture
-            </button>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -830,6 +850,8 @@
     // ============================================
     // GESTION DU MODAL FACTURE/PROFORMA
     // ============================================
+    var modeFactureActuel = null;
+
     function ouvrirModalFacture(typeOuDocument = 'facture') {
         // TOUJOURS cacher les autres modaux d'abord
         document.getElementById('modalVoirFacture').style.display = 'none';
@@ -861,26 +883,82 @@
         document.getElementById('modalOverlay').classList.add('open');
 
         if (document_data) {
+            // Mode modification: cacher le choix et afficher directement le mode libre
             if (type === 'proforma') {
                 document.getElementById('modalFactureTitle').textContent = 'Modifier la proforma';
             } else {
                 document.getElementById('modalFactureTitle').textContent = 'Modifier la facture';
             }
+            document.getElementById('choixModeFacture').style.display = 'none';
+            document.getElementById('modeActesContent').style.display = 'none';
+            document.getElementById('modeLibreContent').style.display = 'block';
+            document.getElementById('btnsModeActes').style.display = 'none';
+            document.getElementById('btnsModeLibre').style.display = 'block';
+            modeFactureActuel = 'libre';
             remplirFormulaire(document_data);
         } else {
+            // Mode création: afficher le choix entre actes et libre
             if (type === 'proforma') {
                 document.getElementById('modalFactureTitle').textContent = 'Nouvelle proforma';
+                // Pour proforma, directement en mode libre
+                document.getElementById('choixModeFacture').style.display = 'none';
+                document.getElementById('modeActesContent').style.display = 'none';
+                document.getElementById('modeLibreContent').style.display = 'block';
+                document.getElementById('btnsModeActes').style.display = 'none';
+                document.getElementById('btnsModeLibre').style.display = 'block';
+                modeFactureActuel = 'libre';
                 reinitialiserFormulaire();
                 genererNumeroProforma();
             } else {
                 document.getElementById('modalFactureTitle').textContent = 'Nouvelle facture';
+                // Pour facture, afficher le choix de mode
+                resetModeSelection();
                 reinitialiserFormulaire();
-                genererNumeroFacture();
             }
         }
 
         // Appliquer les styles de scroll
         appliquerStylesScroll('modalFacture');
+        lucide.createIcons();
+    }
+
+    function resetModeSelection() {
+        modeFactureActuel = null;
+        document.getElementById('choixModeFacture').style.display = 'block';
+        document.getElementById('modeActesOption').style.borderColor = '#dee2e6';
+        document.getElementById('modeActesOption').style.background = 'white';
+        document.getElementById('modeLibreOption').style.borderColor = '#dee2e6';
+        document.getElementById('modeLibreOption').style.background = 'white';
+        document.getElementById('modeActesContent').style.display = 'none';
+        document.getElementById('modeLibreContent').style.display = 'none';
+        document.getElementById('btnsModeActes').style.display = 'none';
+        document.getElementById('btnsModeLibre').style.display = 'none';
+    }
+
+    function selectionnerModeFacture(mode) {
+        modeFactureActuel = mode;
+
+        // Mettre à jour les styles des options
+        document.getElementById('modeActesOption').style.borderColor = mode === 'actes' ? '#22c55e' : '#dee2e6';
+        document.getElementById('modeActesOption').style.background = mode === 'actes' ? '#f0fdf4' : 'white';
+        document.getElementById('modeLibreOption').style.borderColor = mode === 'libre' ? '#3b82f6' : '#dee2e6';
+        document.getElementById('modeLibreOption').style.background = mode === 'libre' ? '#eff6ff' : 'white';
+
+        // Afficher le contenu approprié
+        document.getElementById('modeActesContent').style.display = mode === 'actes' ? 'block' : 'none';
+        document.getElementById('modeLibreContent').style.display = mode === 'libre' ? 'block' : 'none';
+
+        // Afficher les bons boutons
+        document.getElementById('btnsModeActes').style.display = mode === 'actes' ? 'inline-block' : 'none';
+        document.getElementById('btnsModeLibre').style.display = mode === 'libre' ? 'inline-block' : 'none';
+
+        // Charger les données si nécessaire
+        if (mode === 'actes') {
+            chargerClientsAvecActes();
+        } else if (mode === 'libre') {
+            genererNumeroFacture();
+        }
+
         lucide.createIcons();
     }
 
@@ -2491,19 +2569,6 @@
 
     // ===== FACTURATION DES ACTES DE DOSSIERS =====
 
-    function ouvrirModalFacturerActes() {
-        // Fermer les autres modals
-        fermerModalFacture();
-        fermerModalFusion();
-
-        document.getElementById('modalFacturerActes').style.display = 'flex';
-        chargerClientsAvecActes();
-    }
-
-    function fermerModalFacturerActes() {
-        document.getElementById('modalFacturerActes').style.display = 'none';
-    }
-
     function chargerClientsAvecActes() {
         var select = document.getElementById('factActesClient');
         select.innerHTML = '<option value="">-- Chargement... --</option>';
@@ -2682,7 +2747,7 @@
         .then(data => {
             if (data.success) {
                 alert('Facture ' + data.numero + ' créée avec succès !\nMontant TTC : ' + Number(data.montant_ttc).toLocaleString('fr-FR') + ' FCFA');
-                fermerModalFacturerActes();
+                fermerModalFacture();
                 location.reload();
             } else {
                 alert('Erreur : ' + (data.error || 'Erreur inconnue'));
