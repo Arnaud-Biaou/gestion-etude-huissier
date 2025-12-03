@@ -367,22 +367,17 @@
                 <h5 style="margin: 0 0 12px 0; color: #15803d;">Récapitulatif de la facture</h5>
                 <div style="display: flex; gap: 30px; flex-wrap: wrap;">
                     <div>
-                        <small style="color: #6b7280;">Actes sélectionnés</small>
+                        <small style="color: #6b7280;">Éléments sélectionnés</small>
                         <div style="font-size: 1.5em; font-weight: bold;" id="factActesNbSelectionnes">0</div>
                     </div>
                     <div>
-                        <small style="color: #6b7280;">Total Honoraires</small>
-                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalHT">0 F</div>
-                    </div>
-                    <div>
-                        <small style="color: #6b7280;">Total Débours</small>
-                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalDebours">0 F</div>
-                    </div>
-                    <div>
-                        <small style="color: #6b7280;">Total TTC</small>
-                        <div style="font-size: 1.5em; font-weight: bold; color: #16a34a;" id="factActesTotalTTC">0 F</div>
+                        <small style="color: #6b7280;">Total HT</small>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #16a34a;" id="factActesTotalHT">0 F</div>
                     </div>
                 </div>
+                <p style="margin: 10px 0 0; font-size: 12px; color: #6b7280;">
+                    <i>Note: La TVA sera calculée selon le régime fiscal et le type de client sélectionnés.</i>
+                </p>
             </div>
 
             <!-- Options fiscales -->
@@ -2606,8 +2601,13 @@
                     option.dataset.nom = client.nom;
                     option.dataset.ifu = client.ifu || '';
                     option.dataset.nbActes = client.nb_actes;
+                    option.dataset.nbDebours = client.nb_debours || 0;
                     option.dataset.totalHt = client.total_ht;
-                    option.textContent = client.nom + ' (' + client.nb_actes + ' actes - ' + Number(client.total_ht).toLocaleString('fr-FR') + ' F)';
+                    // Construire le texte descriptif
+                    var descParts = [];
+                    if (client.nb_actes > 0) descParts.push(client.nb_actes + ' acte' + (client.nb_actes > 1 ? 's' : ''));
+                    if (client.nb_debours > 0) descParts.push(client.nb_debours + ' débours');
+                    option.textContent = client.nom + ' (' + descParts.join(', ') + ' - ' + Number(client.total_ht).toLocaleString('fr-FR') + ' F)';
                     select.appendChild(option);
                 });
             })
@@ -2637,48 +2637,69 @@
 
         var option = select.options[select.selectedIndex];
         document.getElementById('factActesClientNom').textContent = option.dataset.nom;
-        document.getElementById('factActesClientStats').textContent = option.dataset.nbActes + ' actes non facturés';
+        var statsText = [];
+        if (parseInt(option.dataset.nbActes) > 0) statsText.push(option.dataset.nbActes + ' acte(s)');
+        if (parseInt(option.dataset.nbDebours) > 0) statsText.push(option.dataset.nbDebours + ' débours');
+        document.getElementById('factActesClientStats').textContent = statsText.join(' + ') + ' non facturés';
         infoDiv.style.display = 'block';
 
-        listeDiv.innerHTML = '<p style="color: #6b7280;">Chargement des actes...</p>';
+        listeDiv.innerHTML = '<p style="color: #6b7280;">Chargement des éléments...</p>';
 
         fetch('/api/actes-non-factures-client/?client_id=' + clientId)
             .then(response => response.json())
             .then(data => {
-                if (!data.actes || data.actes.length === 0) {
-                    listeDiv.innerHTML = '<p style="color: #6b7280;">Aucun acte non facturé pour ce client.</p>';
+                var hasActes = data.actes && data.actes.length > 0;
+                var hasDebours = data.debours && data.debours.length > 0;
+
+                if (!hasActes && !hasDebours) {
+                    listeDiv.innerHTML = '<p style="color: #6b7280;">Aucun élément non facturé pour ce client.</p>';
                     recapDiv.style.display = 'none';
                     optionsDiv.style.display = 'none';
                     return;
                 }
 
-                var html = '<label style="font-weight: 600; display: block; margin-bottom: 8px;">2. Sélectionner les actes à facturer</label>';
+                var html = '<label style="font-weight: 600; display: block; margin-bottom: 8px;">2. Sélectionner les éléments à facturer</label>';
                 html += '<div style="margin: 10px 0;"><label style="cursor: pointer;"><input type="checkbox" id="factActesSelectAll" onchange="toggleTousActes(this)"> Tout sélectionner</label></div>';
                 html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><thead><tr style="background: #f3f4f6;">';
                 html += '<th style="padding: 10px 8px; text-align: left; width: 40px;"></th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Type</th>';
                 html += '<th style="padding: 10px 8px; text-align: left;">Dossier</th>';
-                html += '<th style="padding: 10px 8px; text-align: left;">Acte</th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Description</th>';
                 html += '<th style="padding: 10px 8px; text-align: left;">Date</th>';
-                html += '<th style="padding: 10px 8px; text-align: right;">Honoraires</th>';
-                html += '<th style="padding: 10px 8px; text-align: right;">Débours</th>';
-                html += '<th style="padding: 10px 8px; text-align: right;">Total</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Montant</th>';
                 html += '</tr></thead><tbody>';
 
-                data.actes.forEach(function(acte) {
-                    html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
-                    html += '<td style="padding: 10px 8px;"><input type="checkbox" class="acte-facturer-check" value="' + acte.id + '" ';
-                    html += 'data-honoraires="' + acte.honoraires + '" ';
-                    html += 'data-debours="' + acte.total_debours + '" ';
-                    html += 'data-ttc="' + acte.total_ttc + '" ';
-                    html += 'onchange="majRecapFactureActes()"></td>';
-                    html += '<td style="padding: 10px 8px;"><small style="color: #6b7280;">' + acte.dossier_reference + '</small></td>';
-                    html += '<td style="padding: 10px 8px;">' + acte.intitule + '</td>';
-                    html += '<td style="padding: 10px 8px;">' + acte.date_acte + '</td>';
-                    html += '<td style="padding: 10px 8px; text-align: right;">' + Number(acte.honoraires).toLocaleString('fr-FR') + '</td>';
-                    html += '<td style="padding: 10px 8px; text-align: right;">' + Number(acte.total_debours).toLocaleString('fr-FR') + '</td>';
-                    html += '<td style="padding: 10px 8px; text-align: right; font-weight: 600;">' + Number(acte.total_ttc).toLocaleString('fr-FR') + '</td>';
-                    html += '</tr>';
-                });
+                // Afficher les actes
+                if (hasActes) {
+                    data.actes.forEach(function(acte) {
+                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                        html += '<td style="padding: 10px 8px;"><input type="checkbox" class="item-facturer-check" data-type="acte" value="' + acte.id + '" ';
+                        html += 'data-montant="' + acte.honoraires + '" ';
+                        html += 'onchange="majRecapFactureActes()"></td>';
+                        html += '<td style="padding: 10px 8px;"><span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Acte</span></td>';
+                        html += '<td style="padding: 10px 8px;"><small style="color: #6b7280;">' + acte.dossier_reference + '</small></td>';
+                        html += '<td style="padding: 10px 8px;">' + acte.intitule + '</td>';
+                        html += '<td style="padding: 10px 8px;">' + acte.date_acte + '</td>';
+                        html += '<td style="padding: 10px 8px; text-align: right; font-weight: 600;">' + Number(acte.honoraires).toLocaleString('fr-FR') + ' F</td>';
+                        html += '</tr>';
+                    });
+                }
+
+                // Afficher les débours autonomes
+                if (hasDebours) {
+                    data.debours.forEach(function(debours) {
+                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                        html += '<td style="padding: 10px 8px;"><input type="checkbox" class="item-facturer-check" data-type="debours" value="' + debours.id + '" ';
+                        html += 'data-montant="' + debours.montant + '" ';
+                        html += 'onchange="majRecapFactureActes()"></td>';
+                        html += '<td style="padding: 10px 8px;"><span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Débours</span></td>';
+                        html += '<td style="padding: 10px 8px;"><small style="color: #6b7280;">' + debours.dossier_reference + '</small></td>';
+                        html += '<td style="padding: 10px 8px;">' + debours.intitule + '</td>';
+                        html += '<td style="padding: 10px 8px;">' + debours.date_debours + '</td>';
+                        html += '<td style="padding: 10px 8px; text-align: right; font-weight: 600;">' + Number(debours.montant).toLocaleString('fr-FR') + ' F</td>';
+                        html += '</tr>';
+                    });
+                }
 
                 html += '</tbody></table></div>';
                 listeDiv.innerHTML = html;
@@ -2694,29 +2715,34 @@
     }
 
     function toggleTousActes(masterCheckbox) {
-        document.querySelectorAll('.acte-facturer-check').forEach(function(cb) {
+        document.querySelectorAll('.item-facturer-check').forEach(function(cb) {
             cb.checked = masterCheckbox.checked;
         });
         majRecapFactureActes();
     }
 
     function majRecapFactureActes() {
-        var checkboxes = document.querySelectorAll('.acte-facturer-check:checked');
+        var checkboxes = document.querySelectorAll('.item-facturer-check:checked');
         var nbSelectionnes = checkboxes.length;
-        var totalHT = 0;
-        var totalDebours = 0;
-        var totalTTC = 0;
+        var nbActes = 0;
+        var nbDebours = 0;
+        var totalMontant = 0;
 
         checkboxes.forEach(function(cb) {
-            totalHT += parseFloat(cb.dataset.honoraires) || 0;
-            totalDebours += parseFloat(cb.dataset.debours) || 0;
-            totalTTC += parseFloat(cb.dataset.ttc) || 0;
+            if (cb.dataset.type === 'acte') {
+                nbActes++;
+            } else {
+                nbDebours++;
+            }
+            totalMontant += parseFloat(cb.dataset.montant) || 0;
         });
 
-        document.getElementById('factActesNbSelectionnes').textContent = nbSelectionnes;
-        document.getElementById('factActesTotalHT').textContent = totalHT.toLocaleString('fr-FR') + ' F';
-        document.getElementById('factActesTotalDebours').textContent = totalDebours.toLocaleString('fr-FR') + ' F';
-        document.getElementById('factActesTotalTTC').textContent = totalTTC.toLocaleString('fr-FR') + ' F';
+        // Construire le texte descriptif
+        var descParts = [];
+        if (nbActes > 0) descParts.push(nbActes + ' acte' + (nbActes > 1 ? 's' : ''));
+        if (nbDebours > 0) descParts.push(nbDebours + ' débours');
+        document.getElementById('factActesNbSelectionnes').textContent = descParts.length > 0 ? descParts.join(' + ') : '0';
+        document.getElementById('factActesTotalHT').textContent = totalMontant.toLocaleString('fr-FR') + ' F';
 
         document.getElementById('btnCreerFactureActes').disabled = nbSelectionnes === 0;
     }
@@ -2726,19 +2752,28 @@
         var option = select.options[select.selectedIndex];
 
         var acteIds = [];
-        document.querySelectorAll('.acte-facturer-check:checked').forEach(function(cb) {
-            acteIds.push(parseInt(cb.value));
+        var deboursIds = [];
+        document.querySelectorAll('.item-facturer-check:checked').forEach(function(cb) {
+            if (cb.dataset.type === 'acte') {
+                acteIds.push(parseInt(cb.value));
+            } else {
+                deboursIds.push(parseInt(cb.value));
+            }
         });
 
-        if (acteIds.length === 0) {
-            alert('Veuillez sélectionner au moins un acte à facturer');
+        if (acteIds.length === 0 && deboursIds.length === 0) {
+            alert('Veuillez sélectionner au moins un élément à facturer');
             return;
         }
 
         var regime = document.getElementById('factActesRegime').value;
         var typeClient = document.getElementById('factActesTypeClient').value;
 
-        if (!confirm('Créer une facture avec ' + acteIds.length + ' acte(s) ?')) {
+        // Construire le message de confirmation
+        var msgParts = [];
+        if (acteIds.length > 0) msgParts.push(acteIds.length + ' acte(s)');
+        if (deboursIds.length > 0) msgParts.push(deboursIds.length + ' débours');
+        if (!confirm('Créer une facture avec ' + msgParts.join(' et ') + ' ?')) {
             return;
         }
 
@@ -2754,6 +2789,7 @@
             },
             body: JSON.stringify({
                 acte_ids: acteIds,
+                debours_ids: deboursIds,
                 client_nom: option.dataset.nom,
                 client_ifu: option.dataset.ifu,
                 regime: regime,

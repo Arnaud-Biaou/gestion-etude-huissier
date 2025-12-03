@@ -7886,16 +7886,24 @@ def api_supprimer_debours_dossier(request, debours_id):
 
 @login_required
 def api_clients_avec_actes_non_factures(request):
-    """Liste des clients (demandeurs) ayant des actes non facturés"""
+    """Liste des clients (demandeurs) ayant des actes ou débours non facturés"""
 
     # Trouver les dossiers avec actes non facturés
     dossiers_avec_actes = Dossier.objects.filter(
         actes_realises__est_facture=False
     ).distinct()
 
+    # Trouver les dossiers avec débours non facturés
+    dossiers_avec_debours = Dossier.objects.filter(
+        debours_autonomes__est_facture=False
+    ).distinct()
+
+    # Union des deux ensembles
+    tous_dossiers = (dossiers_avec_actes | dossiers_avec_debours).distinct()
+
     # Grouper par client (demandeur)
     clients = {}
-    for dossier in dossiers_avec_actes:
+    for dossier in tous_dossiers:
         for demandeur in dossier.demandeurs.all():
             key = demandeur.id
             if key not in clients:
@@ -7906,21 +7914,30 @@ def api_clients_avec_actes_non_factures(request):
                     'telephone': getattr(demandeur, 'telephone', '') or '',
                     'dossiers': [],
                     'nb_actes': 0,
+                    'nb_debours': 0,
                     'total_ht': 0,
                 }
-            # Ajouter le dossier
+            # Compter les actes non facturés
             actes_dossier = ActeDossier.objects.filter(dossier=dossier, est_facture=False)
             nb_actes = actes_dossier.count()
-            total_ht = sum(float(a.honoraires) for a in actes_dossier)
+            total_actes = sum(float(a.honoraires) for a in actes_dossier)
 
-            clients[key]['dossiers'].append({
-                'id': dossier.id,
-                'reference': dossier.reference,
-                'nb_actes': nb_actes,
-                'total_ht': total_ht,
-            })
-            clients[key]['nb_actes'] += nb_actes
-            clients[key]['total_ht'] += total_ht
+            # Compter les débours non facturés
+            debours_dossier = DeboursDossier.objects.filter(dossier=dossier, est_facture=False)
+            nb_debours = debours_dossier.count()
+            total_debours = sum(float(d.montant) for d in debours_dossier)
+
+            if nb_actes > 0 or nb_debours > 0:
+                clients[key]['dossiers'].append({
+                    'id': dossier.id,
+                    'reference': dossier.reference,
+                    'nb_actes': nb_actes,
+                    'nb_debours': nb_debours,
+                    'total_ht': total_actes + total_debours,
+                })
+                clients[key]['nb_actes'] += nb_actes
+                clients[key]['nb_debours'] += nb_debours
+                clients[key]['total_ht'] += total_actes + total_debours
 
     # Convertir en liste et trier
     result = sorted(clients.values(), key=lambda x: x['nom'])
@@ -7930,11 +7947,11 @@ def api_clients_avec_actes_non_factures(request):
 
 @login_required
 def api_actes_non_factures_client(request):
-    """Liste des actes non facturés d'un client (via ses dossiers)"""
+    """Liste des actes et débours non facturés d'un client (via ses dossiers)"""
     client_id = request.GET.get('client_id')
 
     if not client_id:
-        return JsonResponse({'actes': []})
+        return JsonResponse({'actes': [], 'debours': []})
 
     # Trouver les dossiers du client
     dossiers = Dossier.objects.filter(demandeurs__id=client_id)
@@ -7945,8 +7962,9 @@ def api_actes_non_factures_client(request):
         est_facture=False
     ).order_by('dossier__reference', '-date_acte')
 
-    data = [{
+    actes_data = [{
         'id': a.id,
+        'type': 'acte',
         'dossier_id': a.dossier.id,
         'dossier_reference': a.dossier.reference,
         'intitule': a.intitule,
@@ -7956,7 +7974,23 @@ def api_actes_non_factures_client(request):
         'total_ttc': float(a.total_ttc),
     } for a in actes]
 
-    return JsonResponse({'actes': data})
+    # Récupérer les débours autonomes non facturés
+    debours = DeboursDossier.objects.filter(
+        dossier__in=dossiers,
+        est_facture=False
+    ).order_by('dossier__reference', '-date_debours')
+
+    debours_data = [{
+        'id': d.id,
+        'type': 'debours',
+        'dossier_id': d.dossier.id,
+        'dossier_reference': d.dossier.reference,
+        'intitule': d.intitule,
+        'date_debours': d.date_debours.strftime('%d/%m/%Y'),
+        'montant': float(d.montant),
+    } for d in debours]
+
+    return JsonResponse({'actes': actes_data, 'debours': debours_data})
 
 
 @login_required
