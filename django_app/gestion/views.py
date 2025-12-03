@@ -65,6 +65,8 @@ from .models import (
     Proforma, LigneProforma,
     # Types d'actes et débours
     TypeActe, TypeDebours,
+    # Actes réalisés sur dossier
+    ActeDossier,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -808,6 +810,9 @@ def dossier_detail(request, pk):
     except Exception:
         pass
     context['mouvements_dossier'] = mouvements_dossier
+
+    # Types d'actes pour le formulaire d'ajout
+    context['types_actes'] = TypeActe.objects.filter(actif=True).order_by('nom')
 
     return render(request, 'gestion/dossier_detail.html', context)
 
@@ -7640,6 +7645,297 @@ def api_fusionner_brouillons(request):
             'success': True,
             'id': nouvelle_facture.id,
             'numero': nouvelle_facture.numero
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# =============================================================================
+# ACTES RÉALISÉS SUR DOSSIER (POUR FACTURATION)
+# =============================================================================
+
+@login_required
+def api_actes_dossier(request, dossier_id):
+    """Liste des actes d'un dossier"""
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    actes = ActeDossier.objects.filter(dossier=dossier).order_by('-date_acte')
+
+    data = [{
+        'id': a.id,
+        'intitule': a.intitule,
+        'date_acte': a.date_acte.strftime('%d/%m/%Y'),
+        'type_acte': a.type_acte.nom if a.type_acte else None,
+        'honoraires': float(a.honoraires),
+        'feuillets': a.feuillets,
+        'timbre': float(a.timbre),
+        'enregistrement': float(a.enregistrement),
+        'debours_divers': float(a.debours_divers),
+        'total_debours': float(a.total_debours),
+        'total_ttc': float(a.total_ttc),
+        'est_facture': a.est_facture,
+        'facture_numero': a.ligne_facture.facture.numero if a.ligne_facture else None,
+    } for a in actes]
+
+    # Calculer les totaux
+    total_honoraires = sum(float(a.honoraires) for a in actes)
+    total_debours = sum(float(a.total_debours) for a in actes)
+    total_ttc = sum(float(a.total_ttc) for a in actes)
+    non_factures = actes.filter(est_facture=False).count()
+
+    return JsonResponse({
+        'actes': data,
+        'totaux': {
+            'honoraires': total_honoraires,
+            'debours': total_debours,
+            'ttc': total_ttc,
+            'non_factures': non_factures,
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_ajouter_acte_dossier(request, dossier_id):
+    """Ajouter un acte à un dossier"""
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    try:
+        data = json.loads(request.body)
+
+        # Récupérer le type d'acte si fourni
+        type_acte_id = data.get('type_acte_id')
+        type_acte = None
+        if type_acte_id:
+            type_acte = TypeActe.objects.filter(id=type_acte_id).first()
+
+        # Calculer timbre
+        feuillets = int(data.get('feuillets', 1))
+        has_timbre = data.get('has_timbre', True)
+        timbre = Decimal(str(feuillets * 1200)) if has_timbre else Decimal('0')
+
+        # Enregistrement
+        has_enregistrement = data.get('has_enregistrement', True)
+        enregistrement = Decimal('2500') if has_enregistrement else Decimal('0')
+
+        acte = ActeDossier.objects.create(
+            dossier=dossier,
+            type_acte=type_acte,
+            intitule=data.get('intitule', ''),
+            date_acte=data.get('date_acte'),
+            honoraires=Decimal(str(data.get('honoraires', 0))),
+            feuillets=feuillets,
+            timbre=timbre,
+            enregistrement=enregistrement,
+            debours_divers=Decimal(str(data.get('debours_divers', 0))),
+            cree_par=request.user,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'id': acte.id,
+            'message': f'Acte "{acte.intitule}" ajouté au dossier'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def api_supprimer_acte_dossier(request, acte_id):
+    """Supprimer un acte (seulement si non facturé)"""
+    acte = get_object_or_404(ActeDossier, id=acte_id)
+
+    if acte.est_facture:
+        return JsonResponse({
+            'success': False,
+            'error': 'Impossible de supprimer un acte déjà facturé'
+        })
+
+    intitule = acte.intitule
+    acte.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Acte "{intitule}" supprimé'
+    })
+
+
+# =============================================================================
+# FACTURATION MULTI-DOSSIERS
+# =============================================================================
+
+@login_required
+def api_clients_avec_actes_non_factures(request):
+    """Liste des clients (demandeurs) ayant des actes non facturés"""
+
+    # Trouver les dossiers avec actes non facturés
+    dossiers_avec_actes = Dossier.objects.filter(
+        actes_realises__est_facture=False
+    ).distinct()
+
+    # Grouper par client (demandeur)
+    clients = {}
+    for dossier in dossiers_avec_actes:
+        for demandeur in dossier.demandeurs.all():
+            key = demandeur.id
+            if key not in clients:
+                clients[key] = {
+                    'id': demandeur.id,
+                    'nom': demandeur.get_nom_complet() if hasattr(demandeur, 'get_nom_complet') else str(demandeur),
+                    'ifu': getattr(demandeur, 'ifu', '') or '',
+                    'telephone': getattr(demandeur, 'telephone', '') or '',
+                    'dossiers': [],
+                    'nb_actes': 0,
+                    'total_ht': 0,
+                }
+            # Ajouter le dossier
+            actes_dossier = ActeDossier.objects.filter(dossier=dossier, est_facture=False)
+            nb_actes = actes_dossier.count()
+            total_ht = sum(float(a.honoraires) for a in actes_dossier)
+
+            clients[key]['dossiers'].append({
+                'id': dossier.id,
+                'reference': dossier.reference,
+                'nb_actes': nb_actes,
+                'total_ht': total_ht,
+            })
+            clients[key]['nb_actes'] += nb_actes
+            clients[key]['total_ht'] += total_ht
+
+    # Convertir en liste et trier
+    result = sorted(clients.values(), key=lambda x: x['nom'])
+
+    return JsonResponse({'clients': result})
+
+
+@login_required
+def api_actes_non_factures_client(request):
+    """Liste des actes non facturés d'un client (via ses dossiers)"""
+    client_id = request.GET.get('client_id')
+
+    if not client_id:
+        return JsonResponse({'actes': []})
+
+    # Trouver les dossiers du client
+    dossiers = Dossier.objects.filter(demandeurs__id=client_id)
+
+    # Récupérer les actes non facturés
+    actes = ActeDossier.objects.filter(
+        dossier__in=dossiers,
+        est_facture=False
+    ).order_by('dossier__reference', '-date_acte')
+
+    data = [{
+        'id': a.id,
+        'dossier_id': a.dossier.id,
+        'dossier_reference': a.dossier.reference,
+        'intitule': a.intitule,
+        'date_acte': a.date_acte.strftime('%d/%m/%Y'),
+        'honoraires': float(a.honoraires),
+        'total_debours': float(a.total_debours),
+        'total_ttc': float(a.total_ttc),
+    } for a in actes]
+
+    return JsonResponse({'actes': data})
+
+
+@login_required
+@require_POST
+def api_creer_facture_multi_dossiers(request):
+    """Créer une facture à partir d'actes de plusieurs dossiers"""
+    try:
+        data = json.loads(request.body)
+        acte_ids = data.get('acte_ids', [])
+        client_nom = data.get('client_nom', '')
+        client_ifu = data.get('client_ifu', '')
+        regime = data.get('regime', 'tps')
+        type_client = data.get('type_client', 'prive')
+        client_aib = data.get('client_aib', False)
+
+        if not acte_ids:
+            return JsonResponse({'success': False, 'error': 'Aucun acte sélectionné'})
+
+        if not client_nom:
+            return JsonResponse({'success': False, 'error': 'Nom du client requis'})
+
+        # Récupérer les actes
+        actes = ActeDossier.objects.filter(id__in=acte_ids, est_facture=False)
+
+        if actes.count() == 0:
+            return JsonResponse({'success': False, 'error': 'Aucun acte non facturé trouvé'})
+
+        # Calculer les totaux
+        montant_ht = sum(a.honoraires for a in actes)
+        debours_total = sum(a.total_debours for a in actes)
+
+        # Calculer TVA
+        if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            montant_tva = Decimal('0')
+
+        montant_ttc = montant_ht + montant_tva + debours_total
+
+        # Générer le numéro de facture
+        from datetime import date
+        today = date.today()
+        annee = today.year
+        prefix = f"FAC-{annee}-"
+
+        last_facture = Facture.objects.filter(
+            numero__startswith=prefix
+        ).order_by('-numero').first()
+
+        if last_facture:
+            try:
+                last_num = int(last_facture.numero.split('-')[-1])
+                new_num = last_num + 1
+            except:
+                new_num = 1
+        else:
+            new_num = 1
+
+        numero = f"{prefix}{new_num:04d}"
+
+        # Créer la facture
+        facture = Facture.objects.create(
+            numero=numero,
+            client=client_nom,
+            ifu=client_ifu,
+            regime=regime,
+            type_client=type_client,
+            client_aib=client_aib,
+            date_emission=timezone.now().date(),
+            montant_ht=montant_ht,
+            montant_tva=montant_tva,
+            montant_ttc=montant_ttc,
+            statut='attente',
+        )
+
+        # Créer les lignes et marquer les actes comme facturés
+        for acte in actes:
+            description = f"{acte.intitule}"
+            if acte.dossier:
+                description += f" (Dossier {acte.dossier.reference})"
+
+            ligne = LigneFacture.objects.create(
+                facture=facture,
+                description=description,
+                quantite=1,
+                prix_unitaire=acte.honoraires,
+            )
+
+            # Marquer l'acte comme facturé
+            acte.marquer_facture(ligne)
+
+        return JsonResponse({
+            'success': True,
+            'id': facture.id,
+            'numero': facture.numero,
+            'montant_ttc': float(montant_ttc)
         })
 
     except Exception as e:

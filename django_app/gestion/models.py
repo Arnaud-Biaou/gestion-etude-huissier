@@ -4323,5 +4323,143 @@ class TypeDebours(models.Model):
         return self.nom
 
 
+# =============================================================================
+# ACTES RÉALISÉS SUR UN DOSSIER (POUR FACTURATION)
+# =============================================================================
+
+class ActeDossier(models.Model):
+    """
+    Acte réalisé sur un dossier.
+    Permet de tracer les actes effectués et leur facturation.
+    """
+
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='actes_realises',
+        verbose_name='Dossier'
+    )
+
+    type_acte = models.ForeignKey(
+        'TypeActe',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Type d'acte"
+    )
+
+    # Description de l'acte
+    intitule = models.CharField(
+        max_length=500,
+        verbose_name="Intitulé de l'acte",
+        help_text="Ex: Commandement de payer du 03/12/2025"
+    )
+    date_acte = models.DateField(verbose_name="Date de l'acte")
+
+    # Montants
+    honoraires = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Honoraires (FCFA)"
+    )
+    feuillets = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Nombre de feuillets"
+    )
+    timbre = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Timbre fiscal",
+        help_text="1200 FCFA par feuillet"
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Droit d'enregistrement",
+        help_text="2500 FCFA si applicable"
+    )
+    debours_divers = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Débours divers"
+    )
+
+    # Lien optionnel avec ActeSecurise (si l'acte a été sécurisé avec QR)
+    acte_securise = models.ForeignKey(
+        'ActeSecurise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acte_dossier',
+        verbose_name="Acte sécurisé associé"
+    )
+
+    # Traçabilité facturation
+    est_facture = models.BooleanField(
+        default=False,
+        verbose_name="Facturé"
+    )
+    ligne_facture = models.ForeignKey(
+        'LigneFacture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes_origine',
+        verbose_name="Ligne de facture"
+    )
+    date_facturation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date de facturation"
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date_acte', '-date_creation']
+        verbose_name = "Acte réalisé"
+        verbose_name_plural = "Actes réalisés"
+
+    def __str__(self):
+        return f"{self.intitule} - {self.date_acte}"
+
+    @property
+    def total_debours(self):
+        """Total des débours (timbre + enregistrement + divers)"""
+        return self.timbre + self.enregistrement + self.debours_divers
+
+    @property
+    def total_ttc(self):
+        """Total TTC (honoraires + débours)"""
+        return self.honoraires + self.total_debours
+
+    def marquer_facture(self, ligne_facture):
+        """Marque l'acte comme facturé"""
+        self.est_facture = True
+        self.ligne_facture = ligne_facture
+        self.date_facturation = timezone.now().date()
+        self.save()
+
+    def annuler_facturation(self):
+        """Annule la facturation de l'acte (en cas d'avoir)"""
+        self.est_facture = False
+        self.ligne_facture = None
+        self.date_facturation = None
+        self.save()
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp

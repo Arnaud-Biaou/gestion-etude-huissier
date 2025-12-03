@@ -523,6 +523,106 @@
     </div>
 </div>
 
+<!-- Section Actes Réalisés (pour facturation) -->
+<div class="card mb-4">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="card-title"><i data-lucide="file-signature" style="width: 18px; height: 18px;"></i> Actes réalisés</h3>
+        <button type="button" class="btn btn-primary btn-sm" onclick="ouvrirModalAjoutActe()">
+            + Ajouter un acte
+        </button>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div id="actes-realises-container">
+            <div style="padding: 20px; text-align: center; color: var(--neutral-500);">
+                <i data-lucide="loader" class="spin" style="width: 24px; height: 24px;"></i>
+                Chargement...
+            </div>
+        </div>
+    </div>
+    <div id="actes-totaux" class="card-footer" style="display: none; padding: 12px 16px; background: var(--neutral-50); border-top: 1px solid var(--neutral-200);">
+        <div class="flex justify-between" style="font-size: 13px;">
+            <span><strong>Total honoraires:</strong> <span id="total-honoraires">0</span> F</span>
+            <span><strong>Total débours:</strong> <span id="total-debours">0</span> F</span>
+            <span style="color: var(--primary);"><strong>Total TTC:</strong> <span id="total-ttc">0</span> F</span>
+            <span><strong>Non facturés:</strong> <span id="total-non-factures">0</span> F</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout Acte -->
+<div id="modal-ajout-acte" class="modal" style="display: none;">
+    <div class="modal-backdrop" onclick="fermerModalAjoutActe()"></div>
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Ajouter un acte réalisé</h3>
+            <button type="button" class="modal-close" onclick="fermerModalAjoutActe()">&times;</button>
+        </div>
+        <form id="form-ajout-acte" onsubmit="sauvegarderActeDossier(event)">
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="acte-type">Type d'acte</label>
+                    <select id="acte-type" name="type_acte" class="form-control">
+                        <option value="">-- Sélectionner un type --</option>
+                        {% for type in types_actes %}
+                        <option value="{{ type.id }}" data-honoraires="{{ type.tarif_base|default:0 }}" data-feuillets="{{ type.feuillets_defaut|default:1 }}">
+                            {{ type.nom }} {% if type.tarif_base %}({{ type.tarif_base|floatformat:0 }} F){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="acte-intitule">Intitulé de l'acte *</label>
+                    <input type="text" id="acte-intitule" name="intitule" class="form-control" required placeholder="Ex: Commandement de payer du 03/12/2025">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group mb-3">
+                        <label for="acte-date">Date de l'acte *</label>
+                        <input type="date" id="acte-date" name="date_acte" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="acte-honoraires">Honoraires (FCFA) *</label>
+                        <input type="number" id="acte-honoraires" name="honoraires" class="form-control" min="0" value="0" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="form-group mb-3">
+                        <label for="acte-feuillets">Nombre de feuillets</label>
+                        <input type="number" id="acte-feuillets" name="feuillets" class="form-control" min="1" value="1">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="acte-timbre">Timbre fiscal</label>
+                        <input type="number" id="acte-timbre" name="timbre" class="form-control" min="0" value="0">
+                        <small style="color: var(--neutral-500); font-size: 11px;">1200 F/feuillet</small>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="acte-enregistrement">Enregistrement</label>
+                        <input type="number" id="acte-enregistrement" name="enregistrement" class="form-control" min="0" value="0">
+                        <small style="color: var(--neutral-500); font-size: 11px;">2500 F si applicable</small>
+                    </div>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="acte-debours">Débours divers</label>
+                    <input type="number" id="acte-debours" name="debours_divers" class="form-control" min="0" value="0">
+                </div>
+                <div class="flex gap-3 mb-3">
+                    <label class="flex items-center gap-2" style="cursor: pointer;">
+                        <input type="checkbox" id="calc-timbre" onchange="calculerTimbreAuto()">
+                        <span style="font-size: 13px;">Calculer timbre automatiquement</span>
+                    </label>
+                    <label class="flex items-center gap-2" style="cursor: pointer;">
+                        <input type="checkbox" id="add-enregistrement" onchange="ajouterEnregistrement()">
+                        <span style="font-size: 13px;">Ajouter droit d'enregistrement (2500 F)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fermerModalAjoutActe()">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Historique des basculements (si phase forcée) -->
 {% if dossier.phase == 'force' and basculements %}
 <div class="card mb-4">
@@ -571,6 +671,315 @@
 
 {% block extra_js %}
 <script>
+    const DOSSIER_ID = {{ dossier.id }};
+
+    // Charger les actes au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        chargerActesDossier();
+        // Définir la date du jour par défaut
+        document.getElementById('acte-date').valueAsDate = new Date();
+    });
+
+    // Charger la liste des actes réalisés
+    async function chargerActesDossier() {
+        try {
+            const response = await fetch(`/gestion/api/dossier/${DOSSIER_ID}/actes/`);
+            const data = await response.json();
+
+            const container = document.getElementById('actes-realises-container');
+            const totauxDiv = document.getElementById('actes-totaux');
+
+            if (data.actes && data.actes.length > 0) {
+                let html = `
+                    <table class="w-full">
+                        <thead>
+                            <tr style="background: var(--neutral-50);">
+                                <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
+                                <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Intitulé</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Honoraires</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Débours</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Total</th>
+                                <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Statut</th>
+                                <th style="padding: 8px 12px; text-align: center; font-size: 12px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.actes.forEach(acte => {
+                    const statutClass = acte.est_facture ? 'actif' : 'urgent';
+                    const statutText = acte.est_facture ? 'Facturé' : 'Non facturé';
+                    const deleteBtn = acte.est_facture ? '' : `
+                        <button type="button" class="btn btn-sm" style="padding: 4px 8px; background: var(--danger-light); color: var(--danger);"
+                                onclick="supprimerActeDossier(${acte.id})" title="Supprimer">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    `;
+
+                    html += `
+                        <tr style="border-bottom: 1px solid var(--neutral-100);">
+                            <td style="padding: 8px 12px; font-size: 13px;">${acte.date_acte}</td>
+                            <td style="padding: 8px 12px; font-size: 13px;" title="${acte.intitule}">
+                                ${acte.intitule.length > 35 ? acte.intitule.substring(0, 35) + '...' : acte.intitule}
+                                ${acte.type_acte ? `<br><small style="color: var(--neutral-500);">${acte.type_acte}</small>` : ''}
+                            </td>
+                            <td style="padding: 8px 12px; font-size: 13px; text-align: right;">${formatMontant(acte.honoraires)} F</td>
+                            <td style="padding: 8px 12px; font-size: 13px; text-align: right;">${formatMontant(acte.total_debours)} F</td>
+                            <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600;">${formatMontant(acte.total_ttc)} F</td>
+                            <td style="padding: 8px 12px; text-align: center;">
+                                <span class="status-badge ${statutClass}">${statutText}</span>
+                            </td>
+                            <td style="padding: 8px 12px; text-align: center;">
+                                ${deleteBtn}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+
+                // Mettre à jour les totaux
+                document.getElementById('total-honoraires').textContent = formatMontant(data.totaux.total_honoraires);
+                document.getElementById('total-debours').textContent = formatMontant(data.totaux.total_debours);
+                document.getElementById('total-ttc').textContent = formatMontant(data.totaux.total_ttc);
+                document.getElementById('total-non-factures').textContent = formatMontant(data.totaux.total_non_factures);
+                totauxDiv.style.display = 'block';
+
+                // Réinitialiser les icônes Lucide
+                lucide.createIcons();
+            } else {
+                container.innerHTML = `
+                    <p style="padding: 20px; color: var(--neutral-500); font-style: italic; text-align: center;">
+                        Aucun acte réalisé pour ce dossier. Cliquez sur "+ Ajouter un acte" pour enregistrer les actes effectués.
+                    </p>
+                `;
+                totauxDiv.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Erreur chargement actes:', error);
+            document.getElementById('actes-realises-container').innerHTML = `
+                <p style="padding: 20px; color: var(--danger); text-align: center;">
+                    Erreur lors du chargement des actes
+                </p>
+            `;
+        }
+    }
+
+    // Formater un montant avec séparateurs de milliers
+    function formatMontant(montant) {
+        return new Intl.NumberFormat('fr-FR').format(Math.round(montant));
+    }
+
+    // Ouvrir le modal d'ajout d'acte
+    function ouvrirModalAjoutActe() {
+        document.getElementById('modal-ajout-acte').style.display = 'flex';
+        document.getElementById('form-ajout-acte').reset();
+        document.getElementById('acte-date').valueAsDate = new Date();
+    }
+
+    // Fermer le modal
+    function fermerModalAjoutActe() {
+        document.getElementById('modal-ajout-acte').style.display = 'none';
+    }
+
+    // Pré-remplir les champs quand un type d'acte est sélectionné
+    document.getElementById('acte-type').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            const honoraires = selectedOption.dataset.honoraires || 0;
+            const feuillets = selectedOption.dataset.feuillets || 1;
+            document.getElementById('acte-honoraires').value = honoraires;
+            document.getElementById('acte-feuillets').value = feuillets;
+
+            // Générer l'intitulé automatiquement
+            const typeName = selectedOption.text.split('(')[0].trim();
+            const today = new Date().toLocaleDateString('fr-FR');
+            document.getElementById('acte-intitule').value = `${typeName} du ${today}`;
+
+            // Recalculer le timbre si coché
+            if (document.getElementById('calc-timbre').checked) {
+                calculerTimbreAuto();
+            }
+        }
+    });
+
+    // Calculer le timbre automatiquement
+    function calculerTimbreAuto() {
+        if (document.getElementById('calc-timbre').checked) {
+            const feuillets = parseInt(document.getElementById('acte-feuillets').value) || 1;
+            document.getElementById('acte-timbre').value = feuillets * 1200;
+        }
+    }
+
+    // Recalculer quand le nombre de feuillets change
+    document.getElementById('acte-feuillets').addEventListener('change', function() {
+        if (document.getElementById('calc-timbre').checked) {
+            calculerTimbreAuto();
+        }
+    });
+
+    // Ajouter le droit d'enregistrement
+    function ajouterEnregistrement() {
+        if (document.getElementById('add-enregistrement').checked) {
+            document.getElementById('acte-enregistrement').value = 2500;
+        } else {
+            document.getElementById('acte-enregistrement').value = 0;
+        }
+    }
+
+    // Sauvegarder un acte
+    async function sauvegarderActeDossier(event) {
+        event.preventDefault();
+
+        const formData = {
+            type_acte: document.getElementById('acte-type').value || null,
+            intitule: document.getElementById('acte-intitule').value,
+            date_acte: document.getElementById('acte-date').value,
+            honoraires: parseInt(document.getElementById('acte-honoraires').value) || 0,
+            feuillets: parseInt(document.getElementById('acte-feuillets').value) || 1,
+            timbre: parseInt(document.getElementById('acte-timbre').value) || 0,
+            enregistrement: parseInt(document.getElementById('acte-enregistrement').value) || 0,
+            debours_divers: parseInt(document.getElementById('acte-debours').value) || 0
+        };
+
+        try {
+            const response = await fetch(`/gestion/api/dossier/${DOSSIER_ID}/ajouter-acte/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                fermerModalAjoutActe();
+                chargerActesDossier();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible d\'ajouter l\'acte'));
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de l\'enregistrement');
+        }
+    }
+
+    // Supprimer un acte
+    async function supprimerActeDossier(acteId) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cet acte ?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/gestion/api/acte-dossier/${acteId}/supprimer/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                chargerActesDossier();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de supprimer l\'acte'));
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la suppression');
+        }
+    }
+
+    // Utilitaire pour récupérer le cookie CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
     lucide.createIcons();
 </script>
+
+<style>
+    /* Style pour le modal */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-backdrop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+    }
+    .modal-content {
+        position: relative;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        max-height: 90vh;
+        overflow-y: auto;
+        width: 90%;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+    .modal-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--neutral-500);
+    }
+    .modal-body {
+        padding: 20px;
+    }
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 16px 20px;
+        border-top: 1px solid var(--neutral-200);
+    }
+
+    /* Animation de chargement */
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
 {% endblock %}

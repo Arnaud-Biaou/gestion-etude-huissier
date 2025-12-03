@@ -189,4 +189,14 @@ urlpatterns = [
     path('import/<int:session_id>/analyser/', views.import_donnees_analyser, name='import_analyser'),
     path('import/<int:session_id>/valider/', views.import_donnees_valider, name='import_valider'),
     path('import/<int:session_id>/executer/', views.import_donnees_executer, name='import_executer'),
+
+    # API Actes réalisés sur dossier
+    path('api/dossier/<int:dossier_id>/actes/', views.api_actes_dossier, name='api_actes_dossier'),
+    path('api/dossier/<int:dossier_id>/ajouter-acte/', views.api_ajouter_acte_dossier, name='api_ajouter_acte_dossier'),
+    path('api/acte-dossier/<int:acte_id>/supprimer/', views.api_supprimer_acte_dossier, name='api_supprimer_acte_dossier'),
+
+    # API Facturation multi-dossiers
+    path('api/clients-avec-actes/', views.api_clients_avec_actes_non_factures, name='api_clients_avec_actes'),
+    path('api/actes-non-factures-client/', views.api_actes_non_factures_client, name='api_actes_non_factures_client'),
+    path('api/creer-facture-multi-dossiers/', views.api_creer_facture_multi_dossiers, name='api_creer_facture_multi_dossiers'),
 ]
