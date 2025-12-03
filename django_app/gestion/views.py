@@ -7565,7 +7565,7 @@ def api_fusionner_brouillons(request):
             return JsonResponse({'success': False, 'error': 'Sélectionnez au moins 2 factures'})
 
         # Récupérer les factures
-        factures = list(Facture.objects.filter(id__in=facture_ids))
+        factures = list(Facture.objects.filter(id__in=facture_ids).select_related('dossier'))
 
         if len(factures) != len(facture_ids):
             return JsonResponse({'success': False, 'error': 'Certaines factures n\'existent plus'})
@@ -7586,6 +7586,13 @@ def api_fusionner_brouillons(request):
                 'error': 'Les factures doivent être du même client'
             })
 
+        # Déterminer si plusieurs dossiers différents
+        dossiers_uniques = set()
+        for f in factures:
+            if f.dossier_id:
+                dossiers_uniques.add(f.dossier_id)
+        plusieurs_dossiers = len(dossiers_uniques) > 1
+
         # Générer un nouveau numéro de facture unique
         nouveau_numero = Facture.generer_numero()
 
@@ -7604,15 +7611,21 @@ def api_fusionner_brouillons(request):
             montant_ttc=Decimal('0'),
         )
 
+        # Si un seul dossier, associer ce dossier à la facture fusionnée
+        if not plusieurs_dossiers and dossiers_uniques:
+            dossier_id = list(dossiers_uniques)[0]
+            nouvelle_facture.dossier_id = dossier_id
+
         # Copier toutes les lignes et calculer les totaux
         montant_ht = Decimal('0')
         debours = Decimal('0')
 
         for facture in factures:
             for ligne in facture.lignes.all():
-                # Construire la description avec référence dossier si disponible
                 description = ligne.description
-                if facture.dossier:
+
+                # Préfixer SEULEMENT si plusieurs dossiers différents
+                if plusieurs_dossiers and facture.dossier:
                     ref_dossier = facture.dossier.reference
                     # Préfixer avec la référence du dossier si pas déjà présent
                     if not description.startswith(f"[{ref_dossier}]"):
@@ -7869,10 +7882,17 @@ def api_creer_facture_multi_dossiers(request):
             return JsonResponse({'success': False, 'error': 'Nom du client requis'})
 
         # Récupérer les actes
-        actes = ActeDossier.objects.filter(id__in=acte_ids, est_facture=False)
+        actes = list(ActeDossier.objects.filter(id__in=acte_ids, est_facture=False).select_related('dossier'))
 
-        if actes.count() == 0:
+        if len(actes) == 0:
             return JsonResponse({'success': False, 'error': 'Aucun acte non facturé trouvé'})
+
+        # Déterminer si plusieurs dossiers différents
+        dossiers_uniques = set()
+        for acte in actes:
+            if acte.dossier_id:
+                dossiers_uniques.add(acte.dossier_id)
+        plusieurs_dossiers = len(dossiers_uniques) > 1
 
         # Calculer les totaux
         montant_ht = sum(a.honoraires for a in actes)
@@ -7904,10 +7924,15 @@ def api_creer_facture_multi_dossiers(request):
             statut='attente',
         )
 
+        # Si un seul dossier, associer ce dossier à la facture
+        if not plusieurs_dossiers and actes and actes[0].dossier:
+            facture.dossier = actes[0].dossier
+            facture.save()
+
         # Créer les lignes et marquer les actes comme facturés
         for acte in actes:
-            # Construire la description avec référence dossier en préfixe
-            if acte.dossier:
+            # Préfixer avec la référence du dossier SEULEMENT si plusieurs dossiers
+            if plusieurs_dossiers and acte.dossier:
                 description = f"[{acte.dossier.reference}] {acte.intitule}"
             else:
                 description = acte.intitule
