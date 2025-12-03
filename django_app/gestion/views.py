@@ -6460,9 +6460,9 @@ def api_autocomplete_parties(request):
     """
     API d'autocomplétion pour la sélection des parties existantes.
     Utilisé dans les formulaires de création de dossier.
+    Retourne tous les champs pour remplir automatiquement le formulaire.
     """
     from django.http import JsonResponse
-    from gestion.services.suggestions_parties import rechercher_parties_similaires
 
     query = request.GET.get('q', '').strip()
     type_partie = request.GET.get('type', '')  # 'physique', 'morale', ou vide pour tous
@@ -6472,37 +6472,58 @@ def api_autocomplete_parties(request):
         return JsonResponse({'resultats': []})
 
     # Filtrer par type si spécifié
+    from django.db.models import Q
     parties_qs = Partie.objects.all()
     if type_partie == 'physique':
-        parties_qs = parties_qs.filter(est_personne_morale=False)
+        parties_qs = parties_qs.filter(type_personne='physique')
     elif type_partie == 'morale':
-        parties_qs = parties_qs.filter(est_personne_morale=True)
+        parties_qs = parties_qs.filter(type_personne='morale')
 
-    # Recherche simple par contenu
-    from django.db.models import Q
+    # Recherche par nom, prénoms ou dénomination
     parties = parties_qs.filter(
         Q(nom__icontains=query) |
-        Q(prenom__icontains=query) |
-        Q(raison_sociale__icontains=query) |
-        Q(email__icontains=query)
+        Q(prenoms__icontains=query) |
+        Q(denomination__icontains=query) |
+        Q(ifu__icontains=query)
     )[:limite]
 
     resultats = []
     for p in parties:
-        if p.est_personne_morale:
-            label = p.raison_sociale or p.nom
+        if p.type_personne == 'morale':
+            label = p.denomination or p.nom
             if p.forme_juridique:
                 label = f"{label} ({p.forme_juridique})"
         else:
-            label = f"{p.nom} {p.prenom or ''}".strip()
+            label = f"{p.nom} {p.prenoms or ''}".strip()
+            if p.est_commercant and p.nom_commercial:
+                label = f"{label} - {p.nom_commercial}"
 
         resultats.append({
             'id': p.pk,
             'label': label,
-            'type': 'morale' if p.est_personne_morale else 'physique',
-            'email': p.email or '',
+            'type': p.type_personne,
+            # Champs personne physique
+            'nom': p.nom or '',
+            'prenoms': p.prenoms or '',
+            'nationalite': p.nationalite or '',
+            'profession': p.profession or '',
+            'domicile': p.domicile or '',
+            # Champs commerçant
+            'estCommercant': p.est_commercant,
+            'nomCommercial': p.nom_commercial or '',
+            'enseigne': p.enseigne or '',
+            'activiteCommerciale': p.activite_commerciale or '',
+            # Champs personne morale
+            'denomination': p.denomination or '',
+            'formeJuridique': p.forme_juridique or '',
+            'capitalSocial': str(p.capital_social) if p.capital_social else '',
+            'siegeSocial': p.siege_social or '',
+            'representant': p.representant or '',
+            'qualiteRepresentant': p.qualite_representant or '',
+            # Champs communs
             'telephone': p.telephone or '',
-            'adresse': p.adresse or '',
+            'ifu': p.ifu or '',
+            'rccm': p.rccm or '',
         })
 
     return JsonResponse({'resultats': resultats})

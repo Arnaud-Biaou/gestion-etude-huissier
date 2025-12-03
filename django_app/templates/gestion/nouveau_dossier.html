@@ -640,5 +640,168 @@
             sectionIfuNormal.style.display = checked ? 'none' : 'contents';
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // AUTO-COMPLÉTION DES PARTIES EXISTANTES
+    // ═══════════════════════════════════════════════════════════════
+
+    function setupAutocomplete(inputElement, type, index) {
+        if (!inputElement) return;
+
+        // Créer le conteneur de suggestions
+        let suggestionsDiv = inputElement.parentElement.querySelector('.autocomplete-suggestions');
+        if (!suggestionsDiv) {
+            suggestionsDiv = document.createElement('div');
+            suggestionsDiv.className = 'autocomplete-suggestions';
+            suggestionsDiv.style.cssText = 'position: absolute; background: white; border: 1px solid var(--neutral-300); border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 1000; width: 100%; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 2px;';
+            inputElement.parentElement.style.position = 'relative';
+            inputElement.parentElement.appendChild(suggestionsDiv);
+        }
+
+        let debounceTimer;
+
+        inputElement.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const query = this.value.trim();
+            const arr = type === 'demandeur' ? demandeurs : defendeurs;
+            const typePersonne = arr[index]?.typePersonne || 'physique';
+
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(function() {
+                fetch(`/api/parties/autocomplete/?q=${encodeURIComponent(query)}&type=${typePersonne}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.resultats || data.resultats.length === 0) {
+                            suggestionsDiv.style.display = 'none';
+                            return;
+                        }
+
+                        suggestionsDiv.innerHTML = '';
+                        data.resultats.forEach(function(partie) {
+                            const div = document.createElement('div');
+                            div.style.cssText = 'padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--neutral-100); transition: background 0.15s;';
+
+                            let html = `<div style="font-weight: 600; color: var(--neutral-800);">${partie.label}</div>`;
+                            if (partie.ifu) {
+                                html += `<div style="font-size: 12px; color: var(--neutral-500);">IFU: ${partie.ifu}</div>`;
+                            }
+                            if (partie.telephone) {
+                                html += `<div style="font-size: 12px; color: var(--neutral-500);">Tél: ${partie.telephone}</div>`;
+                            }
+                            div.innerHTML = html;
+
+                            div.addEventListener('mouseover', function() {
+                                this.style.background = 'var(--primary-light, #e7f3ff)';
+                            });
+                            div.addEventListener('mouseout', function() {
+                                this.style.background = 'white';
+                            });
+                            div.addEventListener('click', function() {
+                                remplirPartieSuggestion(type, index, partie);
+                                suggestionsDiv.style.display = 'none';
+                            });
+
+                            suggestionsDiv.appendChild(div);
+                        });
+                        suggestionsDiv.style.display = 'block';
+                    })
+                    .catch(err => {
+                        console.error('Erreur autocomplete:', err);
+                        suggestionsDiv.style.display = 'none';
+                    });
+            }, 300);
+        });
+
+        // Fermer les suggestions si on clique ailleurs
+        document.addEventListener('click', function(e) {
+            if (!inputElement.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+    }
+
+    function remplirPartieSuggestion(type, index, partie) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+
+        // Mettre à jour l'objet partie avec toutes les données
+        if (partie.type === 'physique') {
+            arr[index] = {
+                typePersonne: 'physique',
+                partieId: partie.id,
+                nom: partie.nom,
+                prenoms: partie.prenoms,
+                nationalite: partie.nationalite,
+                profession: partie.profession,
+                domicile: partie.domicile,
+                telephone: partie.telephone,
+                ifu: partie.ifu,
+                estCommercant: partie.estCommercant,
+                nomCommercial: partie.nomCommercial,
+                enseigne: partie.enseigne,
+                rccm: partie.rccm,
+                activiteCommerciale: partie.activiteCommerciale
+            };
+        } else {
+            arr[index] = {
+                typePersonne: 'morale',
+                partieId: partie.id,
+                denomination: partie.denomination,
+                formeJuridique: partie.formeJuridique,
+                capitalSocial: partie.capitalSocial,
+                rccm: partie.rccm,
+                ifu: partie.ifu,
+                siegeSocial: partie.siegeSocial,
+                representant: partie.representant,
+                qualiteRepresentant: partie.qualiteRepresentant,
+                telephone: partie.telephone
+            };
+        }
+
+        // Re-render la partie pour afficher les données
+        renderPartie(type, index);
+
+        // Afficher un message de confirmation
+        showToast(`Partie "${partie.label}" sélectionnée`, 'success');
+    }
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
+            background: ${type === 'success' ? 'var(--success, #28a745)' : 'var(--info, #0066cc)'};
+            color: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 9999; animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Initialiser l'autocomplete après le rendu d'une partie
+    function initAutocompleteForPartie(type, index) {
+        const arr = type === 'demandeur' ? demandeurs : defendeurs;
+        const partie = arr[index];
+        const container = document.getElementById(`${type}_${index}_fields`);
+
+        if (!container) return;
+
+        // Trouver le premier champ de saisie (nom ou dénomination)
+        const inputs = container.querySelectorAll('input.form-input');
+        if (inputs.length > 0) {
+            setupAutocomplete(inputs[0], type, index);
+        }
+    }
+
+    // Override renderPartie pour ajouter l'autocomplete
+    const originalRenderPartie = renderPartie;
+    renderPartie = function(type, index) {
+        originalRenderPartie(type, index);
+        // Initialiser l'autocomplete après un court délai pour laisser le DOM se mettre à jour
+        setTimeout(() => initAutocompleteForPartie(type, index), 100);
+    };
 </script>
 {% endblock %}
