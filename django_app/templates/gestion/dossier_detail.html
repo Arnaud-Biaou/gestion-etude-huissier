@@ -683,7 +683,7 @@
     // Charger la liste des actes réalisés
     async function chargerActesDossier() {
         try {
-            const response = await fetch(`/gestion/api/dossier/${DOSSIER_ID}/actes/`);
+            const response = await fetch(`/api/dossier/${DOSSIER_ID}/actes/`);
             const data = await response.json();
 
             const container = document.getElementById('actes-realises-container');
@@ -844,7 +844,7 @@
         };
 
         try {
-            const response = await fetch(`/gestion/api/dossier/${DOSSIER_ID}/ajouter-acte/`, {
+            const response = await fetch(`/api/dossier/${DOSSIER_ID}/ajouter-acte/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -874,7 +874,7 @@
         }
 
         try {
-            const response = await fetch(`/gestion/api/acte-dossier/${acteId}/supprimer/`, {
+            const response = await fetch(`/api/acte-dossier/${acteId}/supprimer/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken')
