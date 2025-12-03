@@ -468,18 +468,43 @@ class Dossier(models.Model):
 
     @classmethod
     def generer_reference(cls):
+        """Génère un numéro de dossier unique au format NNN_MMYY_MAB"""
         now = timezone.now()
-        prefix = 175  # Numero de la loi
+        prefix_base = 175  # Numero de la loi (point de départ)
         mois = str(now.month).zfill(2)
         annee = str(now.year)[-2:]
-        suffix = "MAB"  # Initiales de l'huissier
+        suffix = f"_{mois}{annee}_MAB"  # Format: _1224_MAB
 
-        # Trouver le prochain numero
-        derniers = cls.objects.filter(
-            reference__startswith=f"{prefix}_{mois}{annee}"
-        ).count()
+        # Chercher le dernier numéro existant avec ce suffixe de mois/année
+        derniers_dossiers = cls.objects.filter(
+            reference__endswith=suffix
+        ).order_by('-reference')
 
-        return f"{prefix + derniers}_{mois}{annee}_{suffix}"
+        # Trouver le plus grand numéro séquentiel
+        max_numero = prefix_base - 1  # Commencer à 175
+        for dossier in derniers_dossiers:
+            try:
+                # Extraire le numéro au début de la référence (avant le premier _)
+                numero_str = dossier.reference.split('_')[0]
+                numero = int(numero_str)
+                if numero > max_numero:
+                    max_numero = numero
+            except (ValueError, IndexError):
+                continue
+
+        # Incrémenter pour le nouveau dossier
+        nouveau_numero = max_numero + 1
+
+        # Boucle de sécurité pour garantir l'unicité
+        for _ in range(100):
+            reference = f"{nouveau_numero}{suffix}"
+            if not cls.objects.filter(reference=reference).exists():
+                return reference
+            nouveau_numero += 1
+
+        # Fallback avec timestamp si vraiment nécessaire
+        import time
+        return f"{int(time.time())}{suffix}"
 
 
 class Facture(models.Model):

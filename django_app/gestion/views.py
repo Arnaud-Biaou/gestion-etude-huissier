@@ -630,7 +630,13 @@ def nouveau_dossier(request):
 
         try:
             # Recuperer les donnees du formulaire
-            reference = data.get('reference', '') or Dossier.generer_reference()
+            reference = data.get('reference', '')
+
+            # Vérifier si la référence existe déjà ou si elle est vide
+            # Si oui, en générer une nouvelle unique
+            if not reference or Dossier.objects.filter(reference=reference).exists():
+                reference = Dossier.generer_reference()
+
             type_dossier = data.get('type_dossier', '')
             is_contentieux = data.get('is_contentieux', 'false') == 'true'
             description = data.get('description', '')
