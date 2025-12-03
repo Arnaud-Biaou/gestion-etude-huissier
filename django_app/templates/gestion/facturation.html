@@ -363,14 +363,14 @@
 </div>
 
 <!-- Modal Voir Facture -->
-<div class="modal large" id="modalVoirFacture" onclick="event.stopPropagation()" style="display: none;">
+<div class="modal large" id="modalVoirFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; display: flex; flex-direction: column;">
     <div class="modal-header">
         <h3 class="modal-title">Facture <span id="voirNumero"></span></h3>
         <button class="modal-close" onclick="fermerModalVoir()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="overflow-y: auto; flex: 1;">
         <div class="invoice-paper" id="facturePrint">
             <!-- En-tete -->
             <div class="invoice-header">
