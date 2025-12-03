@@ -26,6 +26,9 @@
         <button class="btn btn-accent" onclick="ouvrirModalFacture('proforma')">
             <i data-lucide="file-edit"></i> Nouvelle proforma
         </button>
+        <button class="btn btn-success" onclick="ouvrirModalFacturerActes()" title="Facturer des actes de dossiers">
+            <i data-lucide="file-plus"></i> Facturer actes
+        </button>
         <button class="btn btn-primary" onclick="ouvrirModalFacture('facture')">
             <i data-lucide="plus"></i> Nouvelle facture
         </button>
@@ -662,6 +665,86 @@
             <button class="btn btn-secondary" onclick="fermerModalFusion()">Annuler</button>
             <button class="btn btn-primary" onclick="executerFusion()" id="btnFusionner" disabled>
                 <i data-lucide="git-merge"></i> Fusionner en une facture
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Facturer Actes -->
+<div class="modal" id="modalFacturerActes" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; max-width: 950px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 18px;"><i data-lucide="file-plus" style="width: 20px; height: 20px; vertical-align: middle;"></i> Facturer des actes de dossiers</h3>
+            <button onclick="fermerModalFacturerActes()" style="background: none; border: none; cursor: pointer; font-size: 20px;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <!-- Étape 1 : Sélectionner le client -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">1. Sélectionner le client ayant des actes non facturés</label>
+                <select id="factActesClient" class="form-select" onchange="chargerActesNonFacturesClient()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="">-- Chargement des clients... --</option>
+                </select>
+            </div>
+
+            <!-- Info client sélectionné -->
+            <div id="factActesClientInfo" style="display: none; margin: 15px 0; padding: 12px; background: #e0f2fe; border-radius: 6px; border-left: 4px solid #0284c7;">
+                <strong id="factActesClientNom"></strong> -
+                <span id="factActesClientStats" style="color: #0369a1;"></span>
+            </div>
+
+            <!-- Étape 2 : Liste des actes non facturés -->
+            <div id="factActesListe" style="margin-top: 20px;">
+                <p style="color: #6b7280;">Sélectionnez un client pour voir ses actes non facturés.</p>
+            </div>
+
+            <!-- Récapitulatif -->
+            <div id="factActesRecap" style="display: none; margin-top: 20px; padding: 16px; background: #f0fdf4; border-radius: 8px; border: 2px solid #22c55e;">
+                <h5 style="margin: 0 0 12px 0; color: #15803d;">Récapitulatif de la facture</h5>
+                <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                    <div>
+                        <small style="color: #6b7280;">Actes sélectionnés</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesNbSelectionnes">0</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total Honoraires</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalHT">0 F</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total Débours</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalDebours">0 F</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total TTC</small>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #16a34a;" id="factActesTotalTTC">0 F</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options de facturation -->
+            <div id="factActesOptions" style="display: none; margin-top: 20px;">
+                <h5 style="margin: 0 0 12px 0;">Options de facturation</h5>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Régime fiscal</label>
+                        <select id="factActesRegime" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="tps">TPS (5%)</option>
+                            <option value="tva">TVA (18%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Type de client</label>
+                        <select id="factActesTypeClient" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="prive">Privé</option>
+                            <option value="public">Public</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="fermerModalFacturerActes()">Annuler</button>
+            <button class="btn btn-success" id="btnCreerFactureActes" onclick="creerFactureDepuisActes()" disabled>
+                <i data-lucide="check"></i> Créer la facture
             </button>
         </div>
     </div>
@@ -2403,6 +2486,217 @@
         })
         .catch(error => {
             alert('Erreur réseau : ' + error);
+        });
+    }
+
+    // ===== FACTURATION DES ACTES DE DOSSIERS =====
+
+    function ouvrirModalFacturerActes() {
+        // Fermer les autres modals
+        fermerModalFacture();
+        fermerModalFusion();
+
+        document.getElementById('modalFacturerActes').style.display = 'flex';
+        chargerClientsAvecActes();
+    }
+
+    function fermerModalFacturerActes() {
+        document.getElementById('modalFacturerActes').style.display = 'none';
+    }
+
+    function chargerClientsAvecActes() {
+        var select = document.getElementById('factActesClient');
+        select.innerHTML = '<option value="">-- Chargement... --</option>';
+
+        fetch('/api/clients-avec-actes/')
+            .then(response => response.json())
+            .then(data => {
+                select.innerHTML = '<option value="">-- Sélectionner un client --</option>';
+
+                if (!data.clients || data.clients.length === 0) {
+                    select.innerHTML = '<option value="">Aucun client avec actes non facturés</option>';
+                    return;
+                }
+
+                data.clients.forEach(function(client) {
+                    var option = document.createElement('option');
+                    option.value = client.id;
+                    option.dataset.nom = client.nom;
+                    option.dataset.ifu = client.ifu || '';
+                    option.dataset.nbActes = client.nb_actes;
+                    option.dataset.totalHt = client.total_ht;
+                    option.textContent = client.nom + ' (' + client.nb_actes + ' actes - ' + Number(client.total_ht).toLocaleString('fr-FR') + ' F)';
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => {
+                console.error('Erreur chargement clients:', err);
+                select.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+    }
+
+    function chargerActesNonFacturesClient() {
+        var select = document.getElementById('factActesClient');
+        var clientId = select.value;
+
+        var infoDiv = document.getElementById('factActesClientInfo');
+        var listeDiv = document.getElementById('factActesListe');
+        var recapDiv = document.getElementById('factActesRecap');
+        var optionsDiv = document.getElementById('factActesOptions');
+
+        if (!clientId) {
+            infoDiv.style.display = 'none';
+            listeDiv.innerHTML = '<p style="color: #6b7280;">Sélectionnez un client pour voir ses actes non facturés.</p>';
+            recapDiv.style.display = 'none';
+            optionsDiv.style.display = 'none';
+            document.getElementById('btnCreerFactureActes').disabled = true;
+            return;
+        }
+
+        var option = select.options[select.selectedIndex];
+        document.getElementById('factActesClientNom').textContent = option.dataset.nom;
+        document.getElementById('factActesClientStats').textContent = option.dataset.nbActes + ' actes non facturés';
+        infoDiv.style.display = 'block';
+
+        listeDiv.innerHTML = '<p style="color: #6b7280;">Chargement des actes...</p>';
+
+        fetch('/api/actes-non-factures-client/?client_id=' + clientId)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.actes || data.actes.length === 0) {
+                    listeDiv.innerHTML = '<p style="color: #6b7280;">Aucun acte non facturé pour ce client.</p>';
+                    recapDiv.style.display = 'none';
+                    optionsDiv.style.display = 'none';
+                    return;
+                }
+
+                var html = '<label style="font-weight: 600; display: block; margin-bottom: 8px;">2. Sélectionner les actes à facturer</label>';
+                html += '<div style="margin: 10px 0;"><label style="cursor: pointer;"><input type="checkbox" id="factActesSelectAll" onchange="toggleTousActes(this)"> Tout sélectionner</label></div>';
+                html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><thead><tr style="background: #f3f4f6;">';
+                html += '<th style="padding: 10px 8px; text-align: left; width: 40px;"></th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Dossier</th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Acte</th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Date</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Honoraires</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Débours</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Total</th>';
+                html += '</tr></thead><tbody>';
+
+                data.actes.forEach(function(acte) {
+                    html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                    html += '<td style="padding: 10px 8px;"><input type="checkbox" class="acte-facturer-check" value="' + acte.id + '" ';
+                    html += 'data-honoraires="' + acte.honoraires + '" ';
+                    html += 'data-debours="' + acte.total_debours + '" ';
+                    html += 'data-ttc="' + acte.total_ttc + '" ';
+                    html += 'onchange="majRecapFactureActes()"></td>';
+                    html += '<td style="padding: 10px 8px;"><small style="color: #6b7280;">' + acte.dossier_reference + '</small></td>';
+                    html += '<td style="padding: 10px 8px;">' + acte.intitule + '</td>';
+                    html += '<td style="padding: 10px 8px;">' + acte.date_acte + '</td>';
+                    html += '<td style="padding: 10px 8px; text-align: right;">' + Number(acte.honoraires).toLocaleString('fr-FR') + '</td>';
+                    html += '<td style="padding: 10px 8px; text-align: right;">' + Number(acte.total_debours).toLocaleString('fr-FR') + '</td>';
+                    html += '<td style="padding: 10px 8px; text-align: right; font-weight: 600;">' + Number(acte.total_ttc).toLocaleString('fr-FR') + '</td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                listeDiv.innerHTML = html;
+
+                recapDiv.style.display = 'block';
+                optionsDiv.style.display = 'block';
+                majRecapFactureActes();
+            })
+            .catch(err => {
+                console.error('Erreur chargement actes:', err);
+                listeDiv.innerHTML = '<p style="color: #ef4444;">Erreur lors du chargement des actes.</p>';
+            });
+    }
+
+    function toggleTousActes(masterCheckbox) {
+        document.querySelectorAll('.acte-facturer-check').forEach(function(cb) {
+            cb.checked = masterCheckbox.checked;
+        });
+        majRecapFactureActes();
+    }
+
+    function majRecapFactureActes() {
+        var checkboxes = document.querySelectorAll('.acte-facturer-check:checked');
+        var nbSelectionnes = checkboxes.length;
+        var totalHT = 0;
+        var totalDebours = 0;
+        var totalTTC = 0;
+
+        checkboxes.forEach(function(cb) {
+            totalHT += parseFloat(cb.dataset.honoraires) || 0;
+            totalDebours += parseFloat(cb.dataset.debours) || 0;
+            totalTTC += parseFloat(cb.dataset.ttc) || 0;
+        });
+
+        document.getElementById('factActesNbSelectionnes').textContent = nbSelectionnes;
+        document.getElementById('factActesTotalHT').textContent = totalHT.toLocaleString('fr-FR') + ' F';
+        document.getElementById('factActesTotalDebours').textContent = totalDebours.toLocaleString('fr-FR') + ' F';
+        document.getElementById('factActesTotalTTC').textContent = totalTTC.toLocaleString('fr-FR') + ' F';
+
+        document.getElementById('btnCreerFactureActes').disabled = nbSelectionnes === 0;
+    }
+
+    function creerFactureDepuisActes() {
+        var select = document.getElementById('factActesClient');
+        var option = select.options[select.selectedIndex];
+
+        var acteIds = [];
+        document.querySelectorAll('.acte-facturer-check:checked').forEach(function(cb) {
+            acteIds.push(parseInt(cb.value));
+        });
+
+        if (acteIds.length === 0) {
+            alert('Veuillez sélectionner au moins un acte à facturer');
+            return;
+        }
+
+        var regime = document.getElementById('factActesRegime').value;
+        var typeClient = document.getElementById('factActesTypeClient').value;
+
+        if (!confirm('Créer une facture avec ' + acteIds.length + ' acte(s) ?')) {
+            return;
+        }
+
+        var btn = document.getElementById('btnCreerFactureActes');
+        btn.disabled = true;
+        btn.textContent = 'Création en cours...';
+
+        fetch('/api/creer-facture-multi-dossiers/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                acte_ids: acteIds,
+                client_nom: option.dataset.nom,
+                client_ifu: option.dataset.ifu,
+                regime: regime,
+                type_client: typeClient
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Facture ' + data.numero + ' créée avec succès !\nMontant TTC : ' + Number(data.montant_ttc).toLocaleString('fr-FR') + ' FCFA');
+                fermerModalFacturerActes();
+                location.reload();
+            } else {
+                alert('Erreur : ' + (data.error || 'Erreur inconnue'));
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check"></i> Créer la facture';
+                lucide.createIcons();
+            }
+        })
+        .catch(err => {
+            console.error('Erreur:', err);
+            alert('Erreur lors de la création de la facture');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="check"></i> Créer la facture';
+            lucide.createIcons();
         });
     }
 </script>
