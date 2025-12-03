@@ -143,7 +143,7 @@ class PDFQRService:
     @classmethod
     def incruster_qr_sur_pdf(cls, pdf_bytes, code_verification, url_verification,
                               type_document='ORIGINAL', position='bottom-right',
-                              page='last'):
+                              page='all'):
         """
         Incruste le QR code sur le PDF.
 
@@ -205,7 +205,7 @@ class PDFQRService:
 
     @classmethod
     def generer_toutes_versions(cls, pdf_bytes, code_verification, url_verification,
-                                 position='bottom-right', page='last'):
+                                 position='bottom-right', page='all'):
         """
         Génère les 3 versions du document : Original, Second Original, Copie.
 

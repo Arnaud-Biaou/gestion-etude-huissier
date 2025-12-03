@@ -6984,7 +6984,7 @@ def securiser_acte(request, dossier_id):
                     url_verification,
                     type_document='ORIGINAL',
                     position=position_qr,
-                    page='last'
+                    page='all'
                 )
 
                 acte.pdf_avec_qr.save(
@@ -7100,7 +7100,7 @@ def telecharger_acte_securise(request, acte_id, version='original'):
         url_verification,
         type_document=type_doc,
         position='bottom-right',
-        page='last'
+        page='all'
     )
 
     # Préparer le nom du fichier
