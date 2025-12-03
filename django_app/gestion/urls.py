@@ -23,8 +23,11 @@ urlpatterns = [
     path('dossier/<int:dossier_id>/securiser/', views.securiser_acte, name='securiser_acte'),
     path('acte-securise/<int:acte_id>/', views.acte_securise_detail, name='acte_securise_detail'),
     path('dossier/<int:dossier_id>/actes-securises/', views.liste_actes_securises, name='liste_actes_securises'),
+    path('acte-securise/<int:acte_id>/telecharger/', views.telecharger_acte_securise, name='telecharger_acte_securise'),
+    path('acte-securise/<int:acte_id>/telecharger/<str:version>/', views.telecharger_acte_securise, name='telecharger_acte_securise_version'),
 
     path('facturation/', views.facturation, name='facturation'),
+    path('proformas/', views.proformas, name='proformas'),
     path('memoires/', views.memoires, name='memoires'),
     path('calcul/', views.calcul_recouvrement, name='calcul'),
     path('drive/', views.drive, name='drive'),
@@ -53,6 +56,23 @@ urlpatterns = [
     path('api/supprimer-facture/', views.api_supprimer_facture, name='api_supprimer_facture'),
     path('api/normaliser-mecef/', views.api_normaliser_mecef, name='api_normaliser_mecef'),
     path('api/exporter-factures/', views.api_exporter_factures, name='api_exporter_factures'),
+
+    # API endpoints - Proformas
+    path('api/generer-numero-proforma/', views.api_generer_numero_proforma, name='api_generer_numero_proforma'),
+    path('api/sauvegarder-proforma/', views.api_sauvegarder_proforma, name='api_sauvegarder_proforma'),
+    path('api/supprimer-proforma/', views.api_supprimer_proforma, name='api_supprimer_proforma'),
+    path('api/convertir-proforma/', views.api_convertir_proforma, name='api_convertir_proforma'),
+
+    # API endpoints - Types d'actes et débours
+    path('api/types-actes/', views.api_types_actes, name='api_types_actes'),
+    path('api/creer-type-acte/', views.api_creer_type_acte, name='api_creer_type_acte'),
+    path('api/types-debours/', views.api_types_debours, name='api_types_debours'),
+    path('api/creer-type-debours/', views.api_creer_type_debours, name='api_creer_type_debours'),
+
+    # API endpoints - Fusion de brouillons
+    path('api/clients-avec-brouillons/', views.api_clients_avec_brouillons, name='api_clients_avec_brouillons'),
+    path('api/brouillons-client/', views.api_brouillons_client, name='api_brouillons_client'),
+    path('api/fusionner-brouillons/', views.api_fusionner_brouillons, name='api_fusionner_brouillons'),
 
     # API endpoints - Calcul Recouvrement
     path('api/calculer-interets/', views.api_calculer_interets, name='api_calculer_interets'),
@@ -169,4 +189,14 @@ urlpatterns = [
     path('import/<int:session_id>/analyser/', views.import_donnees_analyser, name='import_analyser'),
     path('import/<int:session_id>/valider/', views.import_donnees_valider, name='import_valider'),
     path('import/<int:session_id>/executer/', views.import_donnees_executer, name='import_executer'),
+
+    # API Actes réalisés sur dossier
+    path('api/dossier/<int:dossier_id>/actes/', views.api_actes_dossier, name='api_actes_dossier'),
+    path('api/dossier/<int:dossier_id>/ajouter-acte/', views.api_ajouter_acte_dossier, name='api_ajouter_acte_dossier'),
+    path('api/acte-dossier/<int:acte_id>/supprimer/', views.api_supprimer_acte_dossier, name='api_supprimer_acte_dossier'),
+
+    # API Facturation multi-dossiers
+    path('api/clients-avec-actes/', views.api_clients_avec_actes_non_factures, name='api_clients_avec_actes'),
+    path('api/actes-non-factures-client/', views.api_actes_non_factures_client, name='api_actes_non_factures_client'),
+    path('api/creer-facture-multi-dossiers/', views.api_creer_facture_multi_dossiers, name='api_creer_facture_multi_dossiers'),
 ]

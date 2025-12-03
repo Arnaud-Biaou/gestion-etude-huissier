@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from decimal import Decimal
 import json
 
 
@@ -480,18 +481,43 @@ class Dossier(models.Model):
 
     @classmethod
     def generer_reference(cls):
+        """Génère un numéro de dossier unique au format NNN_MMYY_MAB"""
         now = timezone.now()
-        prefix = 175  # Numero de la loi
+        prefix_base = 175  # Numero de la loi (point de départ)
         mois = str(now.month).zfill(2)
         annee = str(now.year)[-2:]
-        suffix = "MAB"  # Initiales de l'huissier
+        suffix = f"_{mois}{annee}_MAB"  # Format: _1224_MAB
 
-        # Trouver le prochain numero
-        derniers = cls.objects.filter(
-            reference__startswith=f"{prefix}_{mois}{annee}"
-        ).count()
+        # Chercher le dernier numéro existant avec ce suffixe de mois/année
+        derniers_dossiers = cls.objects.filter(
+            reference__endswith=suffix
+        ).order_by('-reference')
 
-        return f"{prefix + derniers}_{mois}{annee}_{suffix}"
+        # Trouver le plus grand numéro séquentiel
+        max_numero = prefix_base - 1  # Commencer à 175
+        for dossier in derniers_dossiers:
+            try:
+                # Extraire le numéro au début de la référence (avant le premier _)
+                numero_str = dossier.reference.split('_')[0]
+                numero = int(numero_str)
+                if numero > max_numero:
+                    max_numero = numero
+            except (ValueError, IndexError):
+                continue
+
+        # Incrémenter pour le nouveau dossier
+        nouveau_numero = max_numero + 1
+
+        # Boucle de sécurité pour garantir l'unicité
+        for _ in range(100):
+            reference = f"{nouveau_numero}{suffix}"
+            if not cls.objects.filter(reference=reference).exists():
+                return reference
+            nouveau_numero += 1
+
+        # Fallback avec timestamp si vraiment nécessaire
+        import time
+        return f"{int(time.time())}{suffix}"
 
 
 class Facture(models.Model):
@@ -532,7 +558,7 @@ class Facture(models.Model):
     client = models.CharField(max_length=200)
     ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
     montant_ht = models.DecimalField(max_digits=15, decimal_places=0)
-    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
+    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('18.00'))
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
     date_emission = models.DateField(default=timezone.now)
@@ -545,6 +571,40 @@ class Facture(models.Model):
     mecef_numero = models.CharField(max_length=50, blank=True, verbose_name='Numero MECeF')
     nim = models.CharField(max_length=20, blank=True, verbose_name='NIM')
     date_mecef = models.DateTimeField(null=True, blank=True, verbose_name='Date normalisation MECeF')
+
+    # ═══════════════════════════════════════════════════════════════
+    # RÉGIME FISCAL ET TYPE DE CLIENT (CONFORMITÉ MECeF)
+    # ═══════════════════════════════════════════════════════════════
+
+    REGIME_CHOICES = [
+        ('tps', 'TPS - Régime simplifié'),
+        ('tva', 'TVA (18%) - Régime normal'),
+    ]
+
+    TYPE_CLIENT_CHOICES = [
+        ('prive', 'Client privé (particulier, entreprise)'),
+        ('public', 'Client public (État, mairie, ministère)'),
+    ]
+
+    regime = models.CharField(
+        max_length=10,
+        choices=REGIME_CHOICES,
+        default='tps',
+        verbose_name="Régime fiscal"
+    )
+
+    type_client = models.CharField(
+        max_length=10,
+        choices=TYPE_CLIENT_CHOICES,
+        default='prive',
+        verbose_name="Type de client"
+    )
+
+    client_aib = models.BooleanField(
+        default=False,
+        verbose_name="Client soumis à l'AIB",
+        help_text="Acompte sur Impôt sur les Bénéfices (3%) - Suivi interne uniquement"
+    )
 
     # ═══════════════════════════════════════════════════════════════
     # CHAMPS AVOIR ET FACTURES CORRECTIVES
@@ -604,17 +664,41 @@ class Facture(models.Model):
         return f"{self.numero} - {self.client}"
 
     def save(self, *args, **kwargs):
-        if not self.montant_tva:
-            self.montant_tva = self.montant_ht * self.taux_tva / 100
-        if not self.montant_ttc:
+        # Calculer TVA seulement si non défini (None), pas si = 0
+        if self.montant_tva is None:
+            self.montant_tva = self.montant_ht * Decimal(str(self.taux_tva)) / Decimal('100')
+        if self.montant_ttc is None:
             self.montant_ttc = self.montant_ht + self.montant_tva
         super().save(*args, **kwargs)
 
     @classmethod
     def generer_numero(cls):
+        """Génère un numéro de facture unique au format FAC-YYYY-XXXX"""
+        import time
         now = timezone.now()
-        count = cls.objects.filter(date_emission__year=now.year).count() + 1
-        return f"FAC-{now.year}-{str(count).zfill(3)}"
+        annee = now.year
+        prefix = f"FAC-{annee}-"
+
+        # Chercher le dernier numéro de cette année
+        derniere = cls.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+        if derniere and derniere.numero:
+            try:
+                dernier_num = int(derniere.numero.split('-')[-1])
+            except (ValueError, IndexError):
+                dernier_num = 0
+        else:
+            dernier_num = 0
+
+        # Boucle de sécurité pour garantir l'unicité
+        nouveau_num = dernier_num + 1
+        for _ in range(100):
+            numero_candidat = f"{prefix}{str(nouveau_num).zfill(4)}"
+            if not cls.objects.filter(numero=numero_candidat).exists():
+                return numero_candidat
+            nouveau_num += 1
+
+        # Fallback avec timestamp
+        return f"{prefix}{int(time.time())}"
 
     # ═══════════════════════════════════════════════════════════════
     # MÉTHODES AVOIR ET FACTURES CORRECTIVES
@@ -3933,6 +4017,36 @@ class ActeSecurise(models.Model):
         help_text="Décocher pour invalider un acte (erreur, annulation)"
     )
 
+    # Fichiers PDF
+    pdf_original = models.FileField(
+        upload_to='actes/originaux/',
+        null=True,
+        blank=True,
+        verbose_name="PDF original",
+        help_text="Le PDF de l'acte tel qu'uploadé"
+    )
+    pdf_avec_qr = models.FileField(
+        upload_to='actes/securises/',
+        null=True,
+        blank=True,
+        verbose_name="PDF avec QR code",
+        help_text="Le PDF avec QR code incrusté (version Original)"
+    )
+
+    # Position du QR code choisie par l'utilisateur
+    POSITION_QR_CHOICES = [
+        ('bottom-right', 'Bas droite'),
+        ('bottom-left', 'Bas gauche'),
+        ('top-right', 'Haut droite'),
+        ('top-left', 'Haut gauche'),
+    ]
+    position_qr = models.CharField(
+        max_length=20,
+        choices=POSITION_QR_CHOICES,
+        default='bottom-right',
+        verbose_name="Position du QR code"
+    )
+
     class Meta:
         verbose_name = "Acte sécurisé"
         verbose_name_plural = "Actes sécurisés"
@@ -3988,6 +4102,398 @@ class ActeSecurise(models.Model):
         self.nombre_verifications += 1
         self.derniere_verification = timezone.now()
         self.save(update_fields=['nombre_verifications', 'derniere_verification'])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROFORMAS (FACTURES PRO FORMA / DEVIS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class Proforma(models.Model):
+    """
+    Factures pro forma (devis/estimations).
+
+    Une proforma :
+    - N'est PAS normalisée MECeF
+    - Peut concerner un dossier existant OU un dossier pas encore créé
+    - Peut être convertie en facture définitive plus tard
+    - A la même structure qu'une facture (honoraires, timbres, enregistrement, TVA/TPS, AIB)
+    """
+
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('convertie', 'Convertie en facture'),
+    ]
+
+    REGIME_CHOICES = [
+        ('tps', 'TPS - Régime simplifié'),
+        ('tva', 'TVA (18%) - Régime normal'),
+    ]
+
+    TYPE_CLIENT_CHOICES = [
+        ('prive', 'Client privé (particulier, entreprise)'),
+        ('public', 'Client public (État, mairie, ministère)'),
+    ]
+
+    # Numéro unique PRO-YYYY-XXXX
+    numero = models.CharField(max_length=20, unique=True, verbose_name='Numéro proforma')
+
+    # Informations client
+    client = models.CharField(max_length=200, verbose_name='Nom du client')
+    ifu = models.CharField(max_length=20, blank=True, verbose_name='IFU Client')
+
+    # Dossier optionnel (peut ne pas exister encore)
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proformas',
+        verbose_name='Dossier associé'
+    )
+
+    # Description du dossier si pas encore créé
+    description_dossier = models.TextField(
+        blank=True,
+        verbose_name='Description du dossier',
+        help_text='Description du dossier si celui-ci n\'est pas encore créé'
+    )
+
+    # Régime fiscal et type de client
+    regime = models.CharField(
+        max_length=10,
+        choices=REGIME_CHOICES,
+        default='tps',
+        verbose_name='Régime fiscal'
+    )
+
+    type_client = models.CharField(
+        max_length=10,
+        choices=TYPE_CLIENT_CHOICES,
+        default='prive',
+        verbose_name='Type de client'
+    )
+
+    client_aib = models.BooleanField(
+        default=False,
+        verbose_name='Client soumis à l\'AIB',
+        help_text='Acompte sur Impôt sur les Bénéfices (3%)'
+    )
+
+    # Montants calculés
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name='Montant HT (Honoraires)'
+    )
+
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name='Montant TVA/TPS'
+    )
+
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name='Montant TTC'
+    )
+
+    # Dates
+    date_creation = models.DateField(
+        default=timezone.now,
+        verbose_name='Date de création'
+    )
+
+    date_validite = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date de validité',
+        help_text='Date jusqu\'à laquelle la proforma est valide'
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='brouillon',
+        verbose_name='Statut'
+    )
+
+    observations = models.TextField(blank=True, verbose_name='Observations')
+
+    # Lien vers facture si convertie
+    facture_generee = models.ForeignKey(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proforma_origine',
+        verbose_name='Facture générée'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date_creation', '-numero']
+        verbose_name = 'Proforma'
+        verbose_name_plural = 'Proformas'
+
+    def __str__(self):
+        return f"{self.numero} - {self.client}"
+
+    @property
+    def est_valide(self):
+        """Vérifie si la proforma est encore valide"""
+        if self.date_validite:
+            return timezone.now().date() <= self.date_validite
+        return True
+
+    @property
+    def peut_etre_convertie(self):
+        """Vérifie si la proforma peut être convertie en facture"""
+        return self.statut in ['brouillon', 'envoyee', 'acceptee'] and self.est_valide
+
+
+class LigneProforma(models.Model):
+    """Lignes de proforma"""
+
+    proforma = models.ForeignKey(
+        Proforma,
+        on_delete=models.CASCADE,
+        related_name='lignes'
+    )
+
+    description = models.CharField(max_length=500, verbose_name='Description')
+    quantite = models.IntegerField(default=1, verbose_name='Quantité')
+    prix_unitaire = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        verbose_name='Prix unitaire (Honoraires)'
+    )
+
+    # Détails structure huissier (stockés pour référence)
+    feuillets = models.IntegerField(default=1, verbose_name='Nombre de feuillets')
+    enregistrement = models.BooleanField(default=True, verbose_name='Avec enregistrement')
+
+    class Meta:
+        verbose_name = 'Ligne de proforma'
+        verbose_name_plural = 'Lignes de proforma'
+
+    def __str__(self):
+        return f"{self.description} - {self.prix_unitaire} FCFA"
+
+    @property
+    def timbre(self):
+        """Calcule le montant des timbres (1200 FCFA × feuillets)"""
+        return self.feuillets * 1200
+
+    @property
+    def montant_enregistrement(self):
+        """Montant de l'enregistrement (2500 FCFA si coché)"""
+        return 2500 if self.enregistrement else 0
+
+    @property
+    def total(self):
+        """Total de la ligne = honoraires + timbres + enregistrement"""
+        return self.prix_unitaire + self.timbre + self.montant_enregistrement
+
+
+# =============================================================================
+# TYPES D'ACTES ET DÉBOURS PRÉDÉFINIS
+# =============================================================================
+
+class TypeActe(models.Model):
+    """Types d'actes d'huissier (exploits) prédéfinis"""
+    nom = models.CharField(max_length=200, unique=True, verbose_name="Nom de l'acte")
+    description = models.TextField(blank=True, verbose_name="Description")
+    honoraires_defaut = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Honoraires par défaut",
+        help_text="Montant des honoraires par défaut en FCFA"
+    )
+    est_timbre_defaut = models.BooleanField(
+        default=True,
+        verbose_name="Timbre par défaut",
+        help_text="Timbre fiscal appliqué par défaut"
+    )
+    est_enregistre_defaut = models.BooleanField(
+        default=True,
+        verbose_name="Enregistrement par défaut",
+        help_text="Enregistrement appliqué par défaut"
+    )
+    actif = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nom']
+        verbose_name = "Type d'acte"
+        verbose_name_plural = "Types d'actes"
+
+    def __str__(self):
+        return self.nom
+
+
+class TypeDebours(models.Model):
+    """Types de débours (frais non taxables) prédéfinis"""
+    nom = models.CharField(max_length=200, unique=True, verbose_name="Nom du débours")
+    montant_defaut = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant par défaut",
+        help_text="Montant par défaut en FCFA"
+    )
+    actif = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nom']
+        verbose_name = "Type de débours"
+        verbose_name_plural = "Types de débours"
+
+    def __str__(self):
+        return self.nom
+
+
+# =============================================================================
+# ACTES RÉALISÉS SUR UN DOSSIER (POUR FACTURATION)
+# =============================================================================
+
+class ActeDossier(models.Model):
+    """
+    Acte réalisé sur un dossier.
+    Permet de tracer les actes effectués et leur facturation.
+    """
+
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='actes_realises',
+        verbose_name='Dossier'
+    )
+
+    type_acte = models.ForeignKey(
+        'TypeActe',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Type d'acte"
+    )
+
+    # Description de l'acte
+    intitule = models.CharField(
+        max_length=500,
+        verbose_name="Intitulé de l'acte",
+        help_text="Ex: Commandement de payer du 03/12/2025"
+    )
+    date_acte = models.DateField(verbose_name="Date de l'acte")
+
+    # Montants
+    honoraires = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Honoraires (FCFA)"
+    )
+    feuillets = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Nombre de feuillets"
+    )
+    timbre = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Timbre fiscal",
+        help_text="1200 FCFA par feuillet"
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Droit d'enregistrement",
+        help_text="2500 FCFA si applicable"
+    )
+    debours_divers = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        default=0,
+        verbose_name="Débours divers"
+    )
+
+    # Lien optionnel avec ActeSecurise (si l'acte a été sécurisé avec QR)
+    acte_securise = models.ForeignKey(
+        'ActeSecurise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acte_dossier',
+        verbose_name="Acte sécurisé associé"
+    )
+
+    # Traçabilité facturation
+    est_facture = models.BooleanField(
+        default=False,
+        verbose_name="Facturé"
+    )
+    ligne_facture = models.ForeignKey(
+        'LigneFacture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actes_origine',
+        verbose_name="Ligne de facture"
+    )
+    date_facturation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date de facturation"
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date_acte', '-date_creation']
+        verbose_name = "Acte réalisé"
+        verbose_name_plural = "Actes réalisés"
+
+    def __str__(self):
+        return f"{self.intitule} - {self.date_acte}"
+
+    @property
+    def total_debours(self):
+        """Total des débours (timbre + enregistrement + divers)"""
+        return self.timbre + self.enregistrement + self.debours_divers
+
+    @property
+    def total_ttc(self):
+        """Total TTC (honoraires + débours)"""
+        return self.honoraires + self.total_debours
+
+    def marquer_facture(self, ligne_facture):
+        """Marque l'acte comme facturé"""
+        self.est_facture = True
+        self.ligne_facture = ligne_facture
+        self.date_facturation = timezone.now().date()
+        self.save()
+
+    def annuler_facturation(self):
+        """Annule la facturation de l'acte (en cas d'avoir)"""
+        self.est_facture = False
+        self.ligne_facture = None
+        self.date_facturation = None
+        self.save()
 
 
 # Import des modèles d'import (pour les inclure dans les migrations)

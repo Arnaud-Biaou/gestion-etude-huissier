@@ -108,7 +108,48 @@
     </div>
 </div>
 
-<!-- Instructions -->
+<!-- Téléchargement des versions PDF -->
+{% if acte.pdf_avec_qr %}
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2><i data-lucide="download"></i> Télécharger l'acte avec QR code</h2>
+    </div>
+    <div class="card-body">
+        <p style="color: var(--neutral-600); margin-bottom: 20px;">
+            Le QR code de vérification a été automatiquement incrusté sur votre document PDF.
+            Sélectionnez la version à télécharger :
+        </p>
+
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <label for="versionActe" style="font-weight: 500;">Version :</label>
+            <select id="versionActe" class="form-select" style="width: auto; min-width: 200px;">
+                <option value="original">ORIGINAL - Pour le destinataire</option>
+                <option value="second-original">SECOND ORIGINAL - Pour l'archive</option>
+                <option value="copie">COPIE - Pour le client/requérant</option>
+            </select>
+            <button type="button" class="btn btn-primary" onclick="telechargerActe()">
+                <i data-lucide="download"></i> Télécharger le PDF
+            </button>
+        </div>
+
+        <div style="margin-top: 20px; padding: 16px; background: var(--info-bg, #e7f3ff); border-radius: 8px;">
+            <p style="font-size: 0.85rem; color: var(--info-text, #0066cc); margin: 0;">
+                <strong><i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i> Note :</strong>
+                Chaque version comporte la mention de son type (Original, Second Original, Copie)
+                en filigrane sous le QR code pour identifier facilement la nature du document.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+function telechargerActe() {
+    var version = document.getElementById('versionActe').value;
+    window.location.href = "{% url 'gestion:telecharger_acte_securise' acte.id %}" + version + "/";
+}
+</script>
+{% else %}
+<!-- Instructions (si pas de PDF uploadé) -->
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2>Instructions d'utilisation</h2>
@@ -120,8 +161,17 @@
             <li><strong>Ajoutez le code</strong> en texte sous le QR : <code>{{ acte.code_verification }}</code></li>
             <li>Le destinataire pourra <strong>scanner le QR</strong> pour vérifier l'authenticité</li>
         </ol>
+
+        <div style="margin-top: 16px; padding: 16px; background: var(--warning-bg, #fff8e6); border-radius: 8px;">
+            <p style="font-size: 0.85rem; color: var(--warning-text, #cc7700); margin: 0;">
+                <strong>Conseil :</strong> Vous pouvez aussi
+                <a href="{% url 'gestion:securiser_acte' dossier.id %}">sécuriser un nouvel acte</a>
+                en uploadant directement le PDF pour que le QR code soit automatiquement incrusté.
+            </p>
+        </div>
     </div>
 </div>
+{% endif %}
 
 <div style="margin-top: 24px; display: flex; gap: 12px;">
     <a href="{% url 'gestion:dossier_detail' dossier.id %}" class="btn btn-secondary">

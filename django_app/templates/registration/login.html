@@ -100,7 +100,7 @@
                     <p class="auth-subtitle">Connectez-vous à votre espace</p>
                 </div>
 
-                <!-- Messages d'erreur/succès -->
+                <!-- Messages d'erreur du formulaire uniquement -->
                 {% if form.errors %}
                 <div class="auth-alert auth-alert-error" id="authAlert">
                     <i data-lucide="x-circle"></i>
@@ -111,24 +111,7 @@
                 </div>
                 {% endif %}
 
-                {% if messages %}
-                {% for message in messages %}
-                <div class="auth-alert auth-alert-{{ message.tags }}">
-                    {% if message.tags == 'success' %}
-                    <i data-lucide="check-circle"></i>
-                    {% elif message.tags == 'warning' %}
-                    <i data-lucide="alert-triangle"></i>
-                    {% elif message.tags == 'error' %}
-                    <i data-lucide="x-circle"></i>
-                    {% else %}
-                    <i data-lucide="info"></i>
-                    {% endif %}
-                    <div class="auth-alert-content">
-                        <p>{{ message }}</p>
-                    </div>
-                </div>
-                {% endfor %}
-                {% endif %}
+                <!-- Note: Les messages de session ne sont PAS affichés ici pour des raisons de confidentialité -->
 
                 <!-- Formulaire de connexion -->
                 <form method="post" class="auth-form" id="loginForm" novalidate>

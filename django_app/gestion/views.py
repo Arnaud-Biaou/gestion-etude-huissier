@@ -61,6 +61,12 @@ from .models import (
     CalendrierSaisieImmo,
     # Actes sécurisés
     ActeSecurise,
+    # Proformas
+    Proforma, LigneProforma,
+    # Types d'actes et débours
+    TypeActe, TypeDebours,
+    # Actes réalisés sur dossier
+    ActeDossier,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -626,7 +632,13 @@ def nouveau_dossier(request):
 
         try:
             # Recuperer les donnees du formulaire
-            reference = data.get('reference', '') or Dossier.generer_reference()
+            reference = data.get('reference', '')
+
+            # Vérifier si la référence existe déjà ou si elle est vide
+            # Si oui, en générer une nouvelle unique
+            if not reference or Dossier.objects.filter(reference=reference).exists():
+                reference = Dossier.generer_reference()
+
             type_dossier = data.get('type_dossier', '')
             is_contentieux = data.get('is_contentieux', 'false') == 'true'
             description = data.get('description', '')
@@ -798,6 +810,9 @@ def dossier_detail(request, pk):
     except Exception:
         pass
     context['mouvements_dossier'] = mouvements_dossier
+
+    # Types d'actes pour le formulaire d'ajout
+    context['types_actes'] = TypeActe.objects.filter(actif=True).order_by('nom')
 
     return render(request, 'gestion/dossier_detail.html', context)
 
@@ -990,6 +1005,9 @@ def facturation(request):
             'dossier_reference': f.dossier.reference if f.dossier else None,
             'dossier_intitule_affaire': f.dossier.intitule_affaire if f.dossier else None,
             'observations': f.observations if hasattr(f, 'observations') else '',
+            'regime': f.regime if hasattr(f, 'regime') else 'tps',
+            'type_client': f.type_client if hasattr(f, 'type_client') else 'prive',
+            'client_aib': f.client_aib if hasattr(f, 'client_aib') else False,
             'lignes': lignes
         }
         factures_list.append(facture_data)
@@ -1011,15 +1029,91 @@ def facturation(request):
     context['nb_normalisees'] = nb_normalisees
     context['nb_non_normalisees'] = nb_non_normalisees
 
-    # Dossiers pour le select (avec intitulé de l'affaire)
+    # Dossiers pour le select avec intitulé de l'affaire et infos client
+    dossiers_qs = Dossier.objects.prefetch_related('demandeurs', 'defendeurs').order_by('-date_ouverture')[:100]
     dossiers_list = []
-    for d in Dossier.objects.all().select_related().prefetch_related('demandeurs', 'defendeurs')[:100]:
+    for d in dossiers_qs:
+        demandeur = d.demandeurs.first()
         dossiers_list.append({
             'id': d.id,
             'reference': d.reference,
-            'intitule_affaire': d.intitule_affaire
+            'intitule_affaire': d.intitule_affaire,
+            'client_nom': demandeur.get_nom_complet() if demandeur else '',
+            'client_ifu': demandeur.ifu if demandeur else '',
         })
     context['dossiers'] = dossiers_list
+
+    # Charger les proformas
+    proformas_qs = Proforma.objects.all().select_related('dossier', 'facture_generee').prefetch_related('lignes').order_by('-date_creation')
+
+    proformas_list = []
+    nb_proformas_brouillon = 0
+    nb_proformas_convertie = 0
+
+    for p in proformas_qs:
+        lignes = [{
+            'description': l.description,
+            'quantite': l.quantite,
+            'prix_unitaire': float(l.prix_unitaire),
+            'feuillets': l.feuillets,
+            'enregistrement': l.enregistrement
+        } for l in p.lignes.all()]
+
+        proforma_data = {
+            'id': p.id,
+            'numero': p.numero,
+            'client': p.client,
+            'ifu': p.ifu,
+            'montant_ht': float(p.montant_ht),
+            'tva': float(p.montant_tva),
+            'total': float(p.montant_ttc),
+            'date': p.date_creation.strftime('%d/%m/%Y'),
+            'date_creation': p.date_creation.strftime('%Y-%m-%d'),
+            'date_validite': p.date_validite.strftime('%Y-%m-%d') if p.date_validite else '',
+            'statut': p.statut,
+            'dossier': p.dossier_id,
+            'description_dossier': p.description_dossier,
+            'observations': p.observations,
+            'regime': p.regime,
+            'type_client': p.type_client,
+            'client_aib': p.client_aib,
+            'facture_generee_id': p.facture_generee_id,
+            'facture_generee_numero': p.facture_generee.numero if p.facture_generee else None,
+            'lignes': lignes,
+            'type_document': 'proforma'
+        }
+        proformas_list.append(proforma_data)
+
+        # Statistiques proformas (2 statuts seulement)
+        if p.statut == 'brouillon':
+            nb_proformas_brouillon += 1
+        elif p.statut == 'convertie':
+            nb_proformas_convertie += 1
+
+    context['proformas'] = proformas_list
+    context['proformas_json'] = json.dumps(proformas_list)
+    context['nb_proformas_brouillon'] = nb_proformas_brouillon
+    context['nb_proformas_convertie'] = nb_proformas_convertie
+    context['nb_proformas_total'] = len(proformas_list)
+
+    # Types d'actes et débours pour les sélecteurs
+    # Convertir les Decimal en float pour JSON
+    types_actes = list(TypeActe.objects.filter(actif=True).values(
+        'id', 'nom', 'honoraires_defaut', 'est_timbre_defaut', 'est_enregistre_defaut'
+    ))
+    for acte in types_actes:
+        acte['honoraires_defaut'] = float(acte['honoraires_defaut'])
+
+    types_debours = list(TypeDebours.objects.filter(actif=True).values(
+        'id', 'nom', 'montant_defaut'
+    ))
+    for debours in types_debours:
+        debours['montant_defaut'] = float(debours['montant_defaut'])
+
+    context['types_actes'] = types_actes
+    context['types_debours'] = types_debours
+    context['types_actes_json'] = json.dumps(types_actes)
+    context['types_debours_json'] = json.dumps(types_debours)
 
     context['tabs'] = [
         {'id': 'liste', 'label': 'Liste des factures'},
@@ -1776,12 +1870,50 @@ def api_sauvegarder_facture(request):
         ifu = data.get('ifu', '')
         dossier_id = data.get('dossier') or None
         observations = data.get('observations', '')
+        regime = data.get('regime', 'tps')
+        type_client = data.get('type_client', 'prive')
+        client_aib = data.get('client_aib', False)
         lignes = data.get('lignes', [])
 
-        # Calculer les totaux
-        montant_ht = sum(l.get('quantite', 1) * l.get('prix_unitaire', 0) for l in lignes)
-        montant_tva = montant_ht * Decimal('0.18')
-        montant_ttc = montant_ht + montant_tva
+        # Calculer les totaux avec la structure huissier
+        # Honoraires = montant HT taxable
+        montant_ht = Decimal('0')
+        # Débours = timbres + enregistrement (non taxables, Groupe F MECeF)
+        debours = Decimal('0')
+
+        for l in lignes:
+            type_ligne = l.get('type_ligne', 'acte')
+
+            if type_ligne == 'debours':
+                # Ligne DÉBOURS - montant non taxable
+                montant_debours = Decimal(str(l.get('montant_debours', l.get('prix_unitaire', 0))))
+                debours += montant_debours
+            else:
+                # Ligne ACTE - honoraires taxables + timbres/enreg optionnels
+                # Honoraires
+                honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
+                montant_ht += honoraires
+
+                # Timbres (1200 FCFA × feuillets) si coché
+                if l.get('has_timbre', True):
+                    feuillets = int(l.get('feuillets', 1))
+                    timbre = Decimal(str(feuillets * 1200))
+                    debours += timbre
+
+                # Enregistrement (2500 FCFA si coché)
+                if l.get('enregistrement', True):
+                    debours += Decimal('2500')
+
+        # TVA selon régime et type de client (conformité MECeF)
+        if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
+            # TVA 18% pour régime TVA ou TPS avec client public
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            # TPS avec client privé = pas de TVA
+            montant_tva = Decimal('0')
+
+        # TTC = HT + TVA + Débours
+        montant_ttc = montant_ht + montant_tva + debours
 
         if facture_id:
             # Modification
@@ -1793,6 +1925,9 @@ def api_sauvegarder_facture(request):
             facture.ifu = ifu
             facture.dossier_id = dossier_id
             facture.observations = observations
+            facture.regime = regime
+            facture.type_client = type_client
+            facture.client_aib = client_aib
             facture.montant_ht = montant_ht
             facture.montant_tva = montant_tva
             facture.montant_ttc = montant_ttc
@@ -1811,6 +1946,9 @@ def api_sauvegarder_facture(request):
                 ifu=ifu,
                 dossier_id=dossier_id,
                 observations=observations,
+                regime=regime,
+                type_client=type_client,
+                client_aib=client_aib,
                 montant_ht=montant_ht,
                 montant_tva=montant_tva,
                 montant_ttc=montant_ttc,
@@ -6332,9 +6470,9 @@ def api_autocomplete_parties(request):
     """
     API d'autocomplétion pour la sélection des parties existantes.
     Utilisé dans les formulaires de création de dossier.
+    Retourne tous les champs pour remplir automatiquement le formulaire.
     """
     from django.http import JsonResponse
-    from gestion.services.suggestions_parties import rechercher_parties_similaires
 
     query = request.GET.get('q', '').strip()
     type_partie = request.GET.get('type', '')  # 'physique', 'morale', ou vide pour tous
@@ -6344,37 +6482,58 @@ def api_autocomplete_parties(request):
         return JsonResponse({'resultats': []})
 
     # Filtrer par type si spécifié
+    from django.db.models import Q
     parties_qs = Partie.objects.all()
     if type_partie == 'physique':
-        parties_qs = parties_qs.filter(est_personne_morale=False)
+        parties_qs = parties_qs.filter(type_personne='physique')
     elif type_partie == 'morale':
-        parties_qs = parties_qs.filter(est_personne_morale=True)
+        parties_qs = parties_qs.filter(type_personne='morale')
 
-    # Recherche simple par contenu
-    from django.db.models import Q
+    # Recherche par nom, prénoms ou dénomination
     parties = parties_qs.filter(
         Q(nom__icontains=query) |
-        Q(prenom__icontains=query) |
-        Q(raison_sociale__icontains=query) |
-        Q(email__icontains=query)
+        Q(prenoms__icontains=query) |
+        Q(denomination__icontains=query) |
+        Q(ifu__icontains=query)
     )[:limite]
 
     resultats = []
     for p in parties:
-        if p.est_personne_morale:
-            label = p.raison_sociale or p.nom
+        if p.type_personne == 'morale':
+            label = p.denomination or p.nom
             if p.forme_juridique:
                 label = f"{label} ({p.forme_juridique})"
         else:
-            label = f"{p.nom} {p.prenom or ''}".strip()
+            label = f"{p.nom} {p.prenoms or ''}".strip()
+            if p.est_commercant and p.nom_commercial:
+                label = f"{label} - {p.nom_commercial}"
 
         resultats.append({
             'id': p.pk,
             'label': label,
-            'type': 'morale' if p.est_personne_morale else 'physique',
-            'email': p.email or '',
+            'type': p.type_personne,
+            # Champs personne physique
+            'nom': p.nom or '',
+            'prenoms': p.prenoms or '',
+            'nationalite': p.nationalite or '',
+            'profession': p.profession or '',
+            'domicile': p.domicile or '',
+            # Champs commerçant
+            'estCommercant': p.est_commercant,
+            'nomCommercial': p.nom_commercial or '',
+            'enseigne': p.enseigne or '',
+            'activiteCommerciale': p.activite_commerciale or '',
+            # Champs personne morale
+            'denomination': p.denomination or '',
+            'formeJuridique': p.forme_juridique or '',
+            'capitalSocial': str(p.capital_social) if p.capital_social else '',
+            'siegeSocial': p.siege_social or '',
+            'representant': p.representant or '',
+            'qualiteRepresentant': p.qualite_representant or '',
+            # Champs communs
             'telephone': p.telephone or '',
-            'adresse': p.adresse or '',
+            'ifu': p.ifu or '',
+            'rccm': p.rccm or '',
         })
 
     return JsonResponse({'resultats': resultats})
@@ -6776,8 +6935,12 @@ def import_donnees_executer(request, session_id):
 @login_required
 def securiser_acte(request, dossier_id):
     """
-    Formulaire pour créer un acte sécurisé avec QR code.
+    Formulaire pour créer un acte sécurisé avec QR code incrusté sur le PDF.
     """
+    from django.core.files.base import ContentFile
+    from .services.pdf_qr_service import PDFQRService
+    import hashlib
+
     dossier = get_object_or_404(Dossier, id=dossier_id)
 
     if request.method == 'POST':
@@ -6787,7 +6950,8 @@ def securiser_acte(request, dossier_id):
             titre_acte = request.POST.get('titre_acte')
             date_acte = request.POST.get('date_acte')
             parties_resume = request.POST.get('parties_resume')
-            contenu_acte = request.POST.get('contenu_acte', '')
+            pdf_file = request.FILES.get('pdf_acte')
+            position_qr = request.POST.get('position_qr', 'bottom-right')
 
             # Validation basique
             if not all([type_acte, titre_acte, date_acte, parties_resume]):
@@ -6796,21 +6960,72 @@ def securiser_acte(request, dossier_id):
 
             # Récupérer le collaborateur connecté
             collaborateur = None
-            if hasattr(request.user, 'collaborateur'):
-                collaborateur = request.user.collaborateur
+            try:
+                from hr.models import Collaborateur
+                collaborateur = Collaborateur.objects.filter(utilisateur=request.user).first()
+            except:
+                pass
+
+            # Générer le code de vérification
+            code_verification = ActeSecurise.generer_code_verification()
+
+            # Calculer le hash du contenu
+            if pdf_file:
+                pdf_bytes = pdf_file.read()
+                pdf_file.seek(0)  # Remettre au début pour save
+
+                # Valider le PDF
+                is_valid, error_msg, page_count = PDFQRService.valider_pdf(pdf_bytes)
+                if not is_valid:
+                    messages.error(request, f"Fichier PDF invalide : {error_msg}")
+                    return redirect('gestion:securiser_acte', dossier_id=dossier_id)
+
+                hash_contenu = hashlib.sha256(pdf_bytes).hexdigest()
+            else:
+                # Si pas de PDF, utiliser un hash basé sur les métadonnées
+                hash_contenu = hashlib.sha256(
+                    f"{type_acte}-{titre_acte}-{date_acte}-{parties_resume}".encode()
+                ).hexdigest()
 
             # Créer l'acte sécurisé
-            acte = ActeSecuriseService.creer_acte_securise(
+            acte = ActeSecurise.objects.create(
+                code_verification=code_verification,
                 dossier=dossier,
                 type_acte=type_acte,
                 titre_acte=titre_acte,
                 date_acte=date_acte,
                 parties_resume=parties_resume,
-                contenu_ou_fichier=contenu_acte or f"{type_acte}-{titre_acte}-{date_acte}",
+                hash_contenu=hash_contenu,
                 cree_par=collaborateur,
+                position_qr=position_qr,
             )
 
-            messages.success(request, f"Acte sécurisé créé avec le code : {acte.code_verification}")
+            # Traiter le PDF si uploadé
+            if pdf_file:
+                # Sauvegarder le PDF original
+                acte.pdf_original.save(
+                    f"original_{code_verification}.pdf",
+                    ContentFile(pdf_bytes)
+                )
+
+                # Générer le PDF avec QR code incrusté
+                url_verification = acte.get_qr_data()
+                pdf_avec_qr = PDFQRService.incruster_qr_sur_pdf(
+                    pdf_bytes,
+                    code_verification,
+                    url_verification,
+                    type_document='ORIGINAL',
+                    position=position_qr,
+                    page='all'
+                )
+
+                acte.pdf_avec_qr.save(
+                    f"securise_{code_verification}.pdf",
+                    ContentFile(pdf_avec_qr)
+                )
+                acte.save()
+
+            messages.success(request, f"Acte sécurisé créé avec le code : {code_verification}")
             return redirect('gestion:acte_securise_detail', acte_id=acte.id)
 
         except Exception as e:
@@ -6874,3 +7089,845 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+@login_required
+def telecharger_acte_securise(request, acte_id, version='original'):
+    """
+    Télécharge une version de l'acte avec QR code incrusté.
+
+    Args:
+        acte_id: ID de l'acte sécurisé
+        version: 'original', 'second_original', ou 'copie'
+    """
+    from django.http import FileResponse
+    from django.core.files.base import ContentFile
+    from .services.pdf_qr_service import PDFQRService
+    import io
+
+    acte = get_object_or_404(ActeSecurise, id=acte_id)
+
+    # Vérifier qu'il y a un PDF original
+    if not acte.pdf_original:
+        messages.error(request, "Aucun PDF original disponible pour cet acte.")
+        return redirect('gestion:acte_securise_detail', acte_id=acte_id)
+
+    # Lire le PDF original
+    acte.pdf_original.seek(0)
+    pdf_bytes = acte.pdf_original.read()
+    url_verification = acte.get_qr_data()
+
+    # Déterminer le type de document
+    types_document = {
+        'original': 'ORIGINAL',
+        'second_original': 'SECOND ORIGINAL',
+        'copie': 'COPIE'
+    }
+    type_doc = types_document.get(version, 'ORIGINAL')
+
+    # Générer le PDF avec le bon type de document
+    # Utiliser la position sauvegardée lors de la création
+    pdf_avec_qr = PDFQRService.incruster_qr_sur_pdf(
+        pdf_bytes,
+        acte.code_verification,
+        url_verification,
+        type_document=type_doc,
+        position=acte.position_qr,
+        page='all'
+    )
+
+    # Préparer le nom du fichier
+    filename = f"{acte.code_verification}_{version}.pdf"
+
+    # Retourner le fichier en téléchargement
+    response = FileResponse(
+        io.BytesIO(pdf_avec_qr),
+        content_type='application/pdf',
+        as_attachment=True,
+        filename=filename
+    )
+    return response
+
+
+# =============================================================================
+# PROFORMAS (FACTURES PRO FORMA / DEVIS)
+# =============================================================================
+
+@login_required
+def proformas(request):
+    """Redirection vers la vue Facturation (onglet Proformas intégré)"""
+    return redirect('gestion:facturation')
+
+
+def generer_numero_proforma_unique():
+    """Génère un numéro de proforma unique PRO-YYYY-XXXX"""
+    annee = timezone.now().year
+    prefix = f"PRO-{annee}-"
+
+    # Trouver le dernier numéro
+    derniere = Proforma.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+
+    if derniere:
+        try:
+            dernier_num = int(derniere.numero.split('-')[-1])
+            nouveau_num = dernier_num + 1
+        except (ValueError, IndexError):
+            nouveau_num = 1
+    else:
+        nouveau_num = 1
+
+    numero = f"{prefix}{nouveau_num:04d}"
+
+    # Boucle de sécurité pour garantir l'unicité
+    while Proforma.objects.filter(numero=numero).exists():
+        nouveau_num += 1
+        numero = f"{prefix}{nouveau_num:04d}"
+
+    return numero
+
+
+@require_POST
+def api_generer_numero_proforma(request):
+    """Génère un nouveau numéro de proforma PRO-YYYY-XXXX"""
+    try:
+        numero = generer_numero_proforma_unique()
+        return JsonResponse({'success': True, 'numero': numero})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_sauvegarder_proforma(request):
+    """API pour créer ou modifier une proforma"""
+    try:
+        data = json.loads(request.body)
+
+        proforma_id = data.get('id')
+        numero = data.get('numero')
+        date_creation = datetime.strptime(data.get('date_creation'), '%Y-%m-%d').date()
+        date_validite = None
+        if data.get('date_validite'):
+            date_validite = datetime.strptime(data.get('date_validite'), '%Y-%m-%d').date()
+        statut = data.get('statut', 'brouillon')
+        client = data.get('client')
+        ifu = data.get('ifu', '')
+        dossier_id = data.get('dossier') or None
+        description_dossier = data.get('description_dossier', '')
+        observations = data.get('observations', '')
+        regime = data.get('regime', 'tps')
+        type_client = data.get('type_client', 'prive')
+        client_aib = data.get('client_aib', False)
+        lignes = data.get('lignes', [])
+
+        # Calculer les totaux avec la structure huissier
+        montant_ht = Decimal('0')
+        debours = Decimal('0')
+
+        for l in lignes:
+            type_ligne = l.get('type_ligne', 'acte')
+
+            if type_ligne == 'debours':
+                # Ligne DÉBOURS - montant non taxable
+                montant_debours = Decimal(str(l.get('montant_debours', l.get('prix_unitaire', 0))))
+                debours += montant_debours
+            else:
+                # Ligne ACTE - honoraires taxables + timbres/enreg optionnels
+                honoraires = Decimal(str(l.get('honoraires', l.get('prix_unitaire', 0))))
+                montant_ht += honoraires
+
+                # Timbres si coché
+                if l.get('has_timbre', True):
+                    feuillets = int(l.get('feuillets', 1))
+                    timbre = Decimal(str(feuillets * 1200))
+                    debours += timbre
+
+                # Enregistrement si coché
+                if l.get('enregistrement', True):
+                    debours += Decimal('2500')
+
+        # TVA selon régime et type de client
+        if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            montant_tva = Decimal('0')
+
+        montant_ttc = montant_ht + montant_tva + debours
+
+        if proforma_id:
+            # Modification
+            proforma = get_object_or_404(Proforma, id=proforma_id)
+            proforma.date_creation = date_creation
+            proforma.date_validite = date_validite
+            proforma.statut = statut
+            proforma.client = client
+            proforma.ifu = ifu
+            proforma.dossier_id = dossier_id
+            proforma.description_dossier = description_dossier
+            proforma.observations = observations
+            proforma.regime = regime
+            proforma.type_client = type_client
+            proforma.client_aib = client_aib
+            proforma.montant_ht = montant_ht
+            proforma.montant_tva = montant_tva
+            proforma.montant_ttc = montant_ttc
+            proforma.save()
+
+            # Supprimer les anciennes lignes et recréer
+            proforma.lignes.all().delete()
+        else:
+            # Création - générer un numéro unique (ignorer celui du frontend)
+            numero_unique = generer_numero_proforma_unique()
+            proforma = Proforma.objects.create(
+                numero=numero_unique,
+                date_creation=date_creation,
+                date_validite=date_validite,
+                statut=statut,
+                client=client,
+                ifu=ifu,
+                dossier_id=dossier_id,
+                description_dossier=description_dossier,
+                observations=observations,
+                regime=regime,
+                type_client=type_client,
+                client_aib=client_aib,
+                montant_ht=montant_ht,
+                montant_tva=montant_tva,
+                montant_ttc=montant_ttc,
+            )
+
+        # Créer les lignes
+        for ligne in lignes:
+            LigneProforma.objects.create(
+                proforma=proforma,
+                description=ligne.get('description', ''),
+                quantite=ligne.get('quantite', 1),
+                prix_unitaire=ligne.get('prix_unitaire', 0),
+                feuillets=ligne.get('feuillets', 1),
+                enregistrement=ligne.get('enregistrement', True)
+            )
+
+        return JsonResponse({
+            'success': True,
+            'proforma_id': proforma.id,
+            'numero': proforma.numero
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_supprimer_proforma(request):
+    """API pour supprimer une proforma"""
+    try:
+        data = json.loads(request.body)
+        proforma_id = data.get('id')
+
+        proforma = get_object_or_404(Proforma, id=proforma_id)
+
+        # Ne pas supprimer si déjà convertie
+        if proforma.statut == 'convertie':
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de supprimer une proforma déjà convertie en facture'
+            }, status=400)
+
+        proforma.delete()
+
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_convertir_proforma(request):
+    """Convertir une proforma en facture définitive"""
+    try:
+        data = json.loads(request.body)
+        proforma_id = data.get('id')
+        if not proforma_id:
+            return JsonResponse({'success': False, 'error': 'ID proforma manquant'}, status=400)
+        proforma = get_object_or_404(Proforma, id=proforma_id)
+
+        # Vérifier si la proforma peut être convertie
+        if proforma.statut == 'convertie':
+            return JsonResponse({
+                'success': False,
+                'error': 'Cette proforma a déjà été convertie en facture'
+            }, status=400)
+
+        # Générer un nouveau numéro de facture
+        annee = timezone.now().year
+        prefix = f"FAC-{annee}-"
+        derniere_facture = Facture.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+
+        if derniere_facture:
+            try:
+                dernier_num = int(derniere_facture.numero.split('-')[-1])
+                nouveau_num = dernier_num + 1
+            except (ValueError, IndexError):
+                nouveau_num = 1
+        else:
+            nouveau_num = 1
+
+        numero_facture = f"{prefix}{nouveau_num:04d}"
+
+        # Créer la facture à partir de la proforma
+        facture = Facture.objects.create(
+            numero=numero_facture,
+            client=proforma.client,
+            ifu=proforma.ifu,
+            dossier=proforma.dossier,
+            regime=proforma.regime,
+            type_client=proforma.type_client,
+            client_aib=proforma.client_aib,
+            montant_ht=proforma.montant_ht,
+            montant_tva=proforma.montant_tva,
+            montant_ttc=proforma.montant_ttc,
+            observations=f"Généré depuis proforma {proforma.numero}. {proforma.observations}",
+            statut='attente',
+            date_emission=timezone.now().date()
+        )
+
+        # Copier les lignes
+        for ligne_pro in proforma.lignes.all():
+            LigneFacture.objects.create(
+                facture=facture,
+                description=ligne_pro.description,
+                quantite=ligne_pro.quantite,
+                prix_unitaire=ligne_pro.prix_unitaire
+            )
+
+        # Marquer la proforma comme convertie
+        proforma.statut = 'convertie'
+        proforma.facture_generee = facture
+        proforma.save()
+
+        return JsonResponse({
+            'success': True,
+            'facture_id': facture.id,
+            'facture_numero': facture.numero,
+            'message': f'Proforma convertie en facture {facture.numero}'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# =============================================================================
+# API TYPES D'ACTES ET DÉBOURS
+# =============================================================================
+
+@require_GET
+def api_types_actes(request):
+    """Liste des types d'actes actifs"""
+    actes = TypeActe.objects.filter(actif=True)
+    data = [{
+        'id': a.id,
+        'nom': a.nom,
+        'description': a.description,
+        'honoraires_defaut': float(a.honoraires_defaut),
+        'est_timbre_defaut': a.est_timbre_defaut,
+        'est_enregistre_defaut': a.est_enregistre_defaut,
+    } for a in actes]
+    return JsonResponse({'success': True, 'actes': data})
+
+
+@require_POST
+def api_creer_type_acte(request):
+    """Créer un nouveau type d'acte"""
+    try:
+        data = json.loads(request.body)
+        nom = data.get('nom', '').strip()
+        honoraires = data.get('honoraires_defaut', 0)
+        est_timbre = data.get('est_timbre_defaut', True)
+        est_enregistre = data.get('est_enregistre_defaut', True)
+
+        if not nom:
+            return JsonResponse({'success': False, 'error': 'Le nom est obligatoire'}, status=400)
+
+        if TypeActe.objects.filter(nom__iexact=nom).exists():
+            return JsonResponse({'success': False, 'error': 'Cet acte existe déjà'}, status=400)
+
+        acte = TypeActe.objects.create(
+            nom=nom,
+            honoraires_defaut=honoraires,
+            est_timbre_defaut=est_timbre,
+            est_enregistre_defaut=est_enregistre
+        )
+        return JsonResponse({
+            'success': True,
+            'id': acte.id,
+            'nom': acte.nom,
+            'message': f'Type d\'acte "{nom}" créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_GET
+def api_types_debours(request):
+    """Liste des types de débours actifs"""
+    debours = TypeDebours.objects.filter(actif=True)
+    data = [{
+        'id': d.id,
+        'nom': d.nom,
+        'montant_defaut': float(d.montant_defaut),
+    } for d in debours]
+    return JsonResponse({'success': True, 'debours': data})
+
+
+@require_POST
+def api_creer_type_debours(request):
+    """Créer un nouveau type de débours"""
+    try:
+        data = json.loads(request.body)
+        nom = data.get('nom', '').strip()
+        montant = data.get('montant_defaut', 0)
+
+        if not nom:
+            return JsonResponse({'success': False, 'error': 'Le nom est obligatoire'}, status=400)
+
+        if TypeDebours.objects.filter(nom__iexact=nom).exists():
+            return JsonResponse({'success': False, 'error': 'Ce débours existe déjà'}, status=400)
+
+        debours = TypeDebours.objects.create(
+            nom=nom,
+            montant_defaut=montant
+        )
+        return JsonResponse({
+            'success': True,
+            'id': debours.id,
+            'nom': debours.nom,
+            'message': f'Type de débours "{nom}" créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# =============================================================================
+# API FUSION DE BROUILLONS
+# =============================================================================
+
+@login_required
+@require_GET
+def api_clients_avec_brouillons(request):
+    """Liste des clients ayant des factures brouillon (non normalisées MECeF)"""
+    from django.db.models import Count
+
+    # Brouillons = factures sans numéro MECeF
+    clients = Facture.objects.filter(
+        Q(mecef_numero__isnull=True) | Q(mecef_numero='')
+    ).values('client').annotate(
+        nb_brouillons=Count('id')
+    ).filter(nb_brouillons__gte=1).order_by('client')
+
+    return JsonResponse({
+        'clients': [{'nom': c['client'], 'nb_brouillons': c['nb_brouillons']} for c in clients if c['client']]
+    })
+
+
+@login_required
+@require_GET
+def api_brouillons_client(request):
+    """Liste des factures brouillon d'un client"""
+    client = request.GET.get('client', '')
+
+    brouillons = Facture.objects.filter(
+        client=client
+    ).filter(
+        Q(mecef_numero__isnull=True) | Q(mecef_numero='')
+    ).order_by('-date_emission')
+
+    data = [{
+        'id': f.id,
+        'numero': f.numero,
+        'date': f.date_emission.strftime('%d/%m/%Y') if f.date_emission else '',
+        'montant_ht': float(f.montant_ht) if f.montant_ht else 0,
+        'montant_ttc': float(f.montant_ttc) if f.montant_ttc else 0,
+        'dossier': f.dossier.reference if f.dossier else None,
+    } for f in brouillons]
+
+    return JsonResponse({'brouillons': data})
+
+
+@login_required
+@require_POST
+def api_fusionner_brouillons(request):
+    """Fusionner plusieurs factures brouillon en une seule"""
+    try:
+        data = json.loads(request.body)
+        facture_ids = data.get('facture_ids', [])
+
+        if len(facture_ids) < 2:
+            return JsonResponse({'success': False, 'error': 'Sélectionnez au moins 2 factures'})
+
+        # Récupérer les factures
+        factures = list(Facture.objects.filter(id__in=facture_ids))
+
+        if len(factures) != len(facture_ids):
+            return JsonResponse({'success': False, 'error': 'Certaines factures n\'existent plus'})
+
+        # Vérifier qu'elles sont toutes des brouillons (pas de numéro MECeF)
+        for f in factures:
+            if f.mecef_numero:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'La facture {f.numero} est déjà normalisée MECeF et ne peut pas être fusionnée'
+                })
+
+        # Vérifier qu'elles sont du même client
+        clients = set(f.client for f in factures)
+        if len(clients) > 1:
+            return JsonResponse({
+                'success': False,
+                'error': 'Les factures doivent être du même client'
+            })
+
+        # Générer un nouveau numéro de facture unique
+        nouveau_numero = Facture.generer_numero()
+
+        # Créer la nouvelle facture fusionnée
+        premiere = factures[0]
+        nouvelle_facture = Facture.objects.create(
+            numero=nouveau_numero,
+            client=premiere.client,
+            ifu=premiere.ifu,
+            regime=premiere.regime,
+            type_client=premiere.type_client,
+            client_aib=premiere.client_aib,
+            date_emission=timezone.now().date(),
+            montant_ht=Decimal('0'),
+            montant_tva=Decimal('0'),
+            montant_ttc=Decimal('0'),
+        )
+
+        # Copier toutes les lignes et calculer les totaux
+        montant_ht = Decimal('0')
+        debours = Decimal('0')
+
+        for facture in factures:
+            for ligne in facture.lignes.all():
+                # Construire la description avec référence dossier si disponible
+                description = ligne.description
+                if facture.dossier:
+                    ref_dossier = facture.dossier.reference
+                    # Préfixer avec la référence du dossier si pas déjà présent
+                    if not description.startswith(f"[{ref_dossier}]"):
+                        description = f"[{ref_dossier}] {description}"
+
+                # Créer la ligne dans la nouvelle facture
+                LigneFacture.objects.create(
+                    facture=nouvelle_facture,
+                    description=description,
+                    quantite=ligne.quantite,
+                    prix_unitaire=ligne.prix_unitaire,
+                )
+
+                # Calculer les totaux
+                montant_ht += ligne.prix_unitaire * ligne.quantite
+
+        # Calculer TVA
+        if nouvelle_facture.regime == 'tva' or (nouvelle_facture.regime == 'tps' and nouvelle_facture.type_client == 'public'):
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            montant_tva = Decimal('0')
+
+        nouvelle_facture.montant_ht = montant_ht
+        nouvelle_facture.montant_tva = montant_tva
+        nouvelle_facture.montant_ttc = montant_ht + montant_tva + debours
+        nouvelle_facture.save()
+
+        # Supprimer les anciennes factures
+        for facture in factures:
+            facture.delete()
+
+        return JsonResponse({
+            'success': True,
+            'id': nouvelle_facture.id,
+            'numero': nouvelle_facture.numero
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# =============================================================================
+# ACTES RÉALISÉS SUR DOSSIER (POUR FACTURATION)
+# =============================================================================
+
+@login_required
+def api_actes_dossier(request, dossier_id):
+    """Liste des actes d'un dossier"""
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    actes = ActeDossier.objects.filter(dossier=dossier).order_by('-date_acte')
+
+    data = [{
+        'id': a.id,
+        'intitule': a.intitule,
+        'date_acte': a.date_acte.strftime('%d/%m/%Y'),
+        'type_acte': a.type_acte.nom if a.type_acte else None,
+        'honoraires': float(a.honoraires),
+        'feuillets': a.feuillets,
+        'timbre': float(a.timbre),
+        'enregistrement': float(a.enregistrement),
+        'debours_divers': float(a.debours_divers),
+        'total_debours': float(a.total_debours),
+        'total_ttc': float(a.total_ttc),
+        'est_facture': a.est_facture,
+        'facture_numero': a.ligne_facture.facture.numero if a.ligne_facture else None,
+    } for a in actes]
+
+    # Calculer les totaux
+    total_honoraires = sum(float(a.honoraires) for a in actes)
+    total_debours = sum(float(a.total_debours) for a in actes)
+    total_ttc = sum(float(a.total_ttc) for a in actes)
+    # Montant total des actes non facturés
+    total_non_factures = sum(float(a.total_ttc) for a in actes if not a.est_facture)
+
+    return JsonResponse({
+        'actes': data,
+        'totaux': {
+            'total_honoraires': total_honoraires,
+            'total_debours': total_debours,
+            'total_ttc': total_ttc,
+            'total_non_factures': total_non_factures,
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_ajouter_acte_dossier(request, dossier_id):
+    """Ajouter un acte à un dossier"""
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    try:
+        data = json.loads(request.body)
+
+        # Récupérer le type d'acte si fourni (accepter type_acte ou type_acte_id)
+        type_acte_id = data.get('type_acte') or data.get('type_acte_id')
+        type_acte = None
+        if type_acte_id:
+            type_acte = TypeActe.objects.filter(id=type_acte_id).first()
+
+        # Feuillets
+        feuillets = int(data.get('feuillets', 1))
+
+        # Timbre - accepter la valeur numérique directement
+        timbre = Decimal(str(data.get('timbre', 0)))
+
+        # Enregistrement - accepter la valeur numérique directement
+        enregistrement = Decimal(str(data.get('enregistrement', 0)))
+
+        acte = ActeDossier.objects.create(
+            dossier=dossier,
+            type_acte=type_acte,
+            intitule=data.get('intitule', ''),
+            date_acte=data.get('date_acte'),
+            honoraires=Decimal(str(data.get('honoraires', 0))),
+            feuillets=feuillets,
+            timbre=timbre,
+            enregistrement=enregistrement,
+            debours_divers=Decimal(str(data.get('debours_divers', 0))),
+            cree_par=request.user,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'id': acte.id,
+            'message': f'Acte "{acte.intitule}" ajouté au dossier'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Erreur ajout acte: {e}")
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def api_supprimer_acte_dossier(request, acte_id):
+    """Supprimer un acte (seulement si non facturé)"""
+    acte = get_object_or_404(ActeDossier, id=acte_id)
+
+    if acte.est_facture:
+        return JsonResponse({
+            'success': False,
+            'error': 'Impossible de supprimer un acte déjà facturé'
+        })
+
+    intitule = acte.intitule
+    acte.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Acte "{intitule}" supprimé'
+    })
+
+
+# =============================================================================
+# FACTURATION MULTI-DOSSIERS
+# =============================================================================
+
+@login_required
+def api_clients_avec_actes_non_factures(request):
+    """Liste des clients (demandeurs) ayant des actes non facturés"""
+
+    # Trouver les dossiers avec actes non facturés
+    dossiers_avec_actes = Dossier.objects.filter(
+        actes_realises__est_facture=False
+    ).distinct()
+
+    # Grouper par client (demandeur)
+    clients = {}
+    for dossier in dossiers_avec_actes:
+        for demandeur in dossier.demandeurs.all():
+            key = demandeur.id
+            if key not in clients:
+                clients[key] = {
+                    'id': demandeur.id,
+                    'nom': demandeur.get_nom_complet() if hasattr(demandeur, 'get_nom_complet') else str(demandeur),
+                    'ifu': getattr(demandeur, 'ifu', '') or '',
+                    'telephone': getattr(demandeur, 'telephone', '') or '',
+                    'dossiers': [],
+                    'nb_actes': 0,
+                    'total_ht': 0,
+                }
+            # Ajouter le dossier
+            actes_dossier = ActeDossier.objects.filter(dossier=dossier, est_facture=False)
+            nb_actes = actes_dossier.count()
+            total_ht = sum(float(a.honoraires) for a in actes_dossier)
+
+            clients[key]['dossiers'].append({
+                'id': dossier.id,
+                'reference': dossier.reference,
+                'nb_actes': nb_actes,
+                'total_ht': total_ht,
+            })
+            clients[key]['nb_actes'] += nb_actes
+            clients[key]['total_ht'] += total_ht
+
+    # Convertir en liste et trier
+    result = sorted(clients.values(), key=lambda x: x['nom'])
+
+    return JsonResponse({'clients': result})
+
+
+@login_required
+def api_actes_non_factures_client(request):
+    """Liste des actes non facturés d'un client (via ses dossiers)"""
+    client_id = request.GET.get('client_id')
+
+    if not client_id:
+        return JsonResponse({'actes': []})
+
+    # Trouver les dossiers du client
+    dossiers = Dossier.objects.filter(demandeurs__id=client_id)
+
+    # Récupérer les actes non facturés
+    actes = ActeDossier.objects.filter(
+        dossier__in=dossiers,
+        est_facture=False
+    ).order_by('dossier__reference', '-date_acte')
+
+    data = [{
+        'id': a.id,
+        'dossier_id': a.dossier.id,
+        'dossier_reference': a.dossier.reference,
+        'intitule': a.intitule,
+        'date_acte': a.date_acte.strftime('%d/%m/%Y'),
+        'honoraires': float(a.honoraires),
+        'total_debours': float(a.total_debours),
+        'total_ttc': float(a.total_ttc),
+    } for a in actes]
+
+    return JsonResponse({'actes': data})
+
+
+@login_required
+@require_POST
+def api_creer_facture_multi_dossiers(request):
+    """Créer une facture à partir d'actes de plusieurs dossiers"""
+    try:
+        data = json.loads(request.body)
+        acte_ids = data.get('acte_ids', [])
+        client_nom = data.get('client_nom', '')
+        client_ifu = data.get('client_ifu', '')
+        regime = data.get('regime', 'tps')
+        type_client = data.get('type_client', 'prive')
+        client_aib = data.get('client_aib', False)
+
+        if not acte_ids:
+            return JsonResponse({'success': False, 'error': 'Aucun acte sélectionné'})
+
+        if not client_nom:
+            return JsonResponse({'success': False, 'error': 'Nom du client requis'})
+
+        # Récupérer les actes
+        actes = ActeDossier.objects.filter(id__in=acte_ids, est_facture=False)
+
+        if actes.count() == 0:
+            return JsonResponse({'success': False, 'error': 'Aucun acte non facturé trouvé'})
+
+        # Calculer les totaux
+        montant_ht = sum(a.honoraires for a in actes)
+        debours_total = sum(a.total_debours for a in actes)
+
+        # Calculer TVA
+        if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            montant_tva = Decimal('0')
+
+        montant_ttc = montant_ht + montant_tva + debours_total
+
+        # Générer le numéro de facture unique
+        numero = Facture.generer_numero()
+
+        # Créer la facture
+        facture = Facture.objects.create(
+            numero=numero,
+            client=client_nom,
+            ifu=client_ifu,
+            regime=regime,
+            type_client=type_client,
+            client_aib=client_aib,
+            date_emission=timezone.now().date(),
+            montant_ht=montant_ht,
+            montant_tva=montant_tva,
+            montant_ttc=montant_ttc,
+            statut='attente',
+        )
+
+        # Créer les lignes et marquer les actes comme facturés
+        for acte in actes:
+            # Construire la description avec référence dossier en préfixe
+            if acte.dossier:
+                description = f"[{acte.dossier.reference}] {acte.intitule}"
+            else:
+                description = acte.intitule
+
+            ligne = LigneFacture.objects.create(
+                facture=facture,
+                description=description,
+                quantite=1,
+                prix_unitaire=acte.honoraires,
+            )
+
+            # Marquer l'acte comme facturé
+            acte.marquer_facture(ligne)
+
+        return JsonResponse({
+            'success': True,
+            'id': facture.id,
+            'numero': facture.numero,
+            'montant_ttc': float(montant_ttc)
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

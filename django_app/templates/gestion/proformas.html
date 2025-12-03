@@ -1,0 +1,836 @@
+{% extends 'gestion/base.html' %}
+
+{% block title %}Proformas - Étude BIAOU{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Proformas</h1>
+            <p class="page-subtitle">Factures pro forma et devis</p>
+        </div>
+        <button class="btn btn-primary" onclick="ouvrirModalProforma()">
+            <i data-lucide="plus"></i> Nouvelle Proforma
+        </button>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+        <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Brouillons</div>
+            <div style="font-size: 24px; font-weight: 700; color: #6b7280;">{{ nb_brouillon }}</div>
+        </div>
+        <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 12px; color: #3b82f6; margin-bottom: 4px;">Envoyées</div>
+            <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">{{ nb_envoyee }}</div>
+        </div>
+        <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 12px; color: #10b981; margin-bottom: 4px;">Acceptées</div>
+            <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ nb_acceptee }}</div>
+        </div>
+        <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 12px; color: #8b5cf6; margin-bottom: 4px;">Converties</div>
+            <div style="font-size: 24px; font-weight: 700; color: #8b5cf6;">{{ nb_convertie }}</div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; display: flex; gap: 16px; align-items: center;">
+        <input type="text" id="searchProforma" class="form-input" placeholder="Rechercher..." style="max-width: 300px;" onkeyup="filtrerProformas()">
+        <select id="filterStatut" class="form-select" style="max-width: 200px;" onchange="filtrerProformas()">
+            <option value="">Tous les statuts</option>
+            <option value="brouillon">Brouillon</option>
+            <option value="envoyee">Envoyée</option>
+            <option value="acceptee">Acceptée</option>
+            <option value="refusee">Refusée</option>
+            <option value="convertie">Convertie</option>
+        </select>
+    </div>
+
+    <!-- Liste des proformas -->
+    <div class="card">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Numéro</th>
+                        <th>Date</th>
+                        <th>Client</th>
+                        <th>Montant TTC</th>
+                        <th>Validité</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="listeProformas">
+                    {% for proforma in proformas %}
+                    <tr data-id="{{ proforma.id }}" data-statut="{{ proforma.statut }}" data-client="{{ proforma.client|lower }}">
+                        <td><strong>{{ proforma.numero }}</strong></td>
+                        <td>{{ proforma.date }}</td>
+                        <td>
+                            {{ proforma.client }}
+                            {% if proforma.ifu %}<br><small style="color: #6b7280;">IFU: {{ proforma.ifu }}</small>{% endif %}
+                        </td>
+                        <td style="font-weight: 600;">{{ proforma.total|floatformat:0 }} FCFA</td>
+                        <td>{{ proforma.date_validite|default:"-" }}</td>
+                        <td>
+                            {% if proforma.statut == 'brouillon' %}
+                            <span class="badge" style="background: #f3f4f6; color: #6b7280;">Brouillon</span>
+                            {% elif proforma.statut == 'envoyee' %}
+                            <span class="badge" style="background: #dbeafe; color: #1d4ed8;">Envoyée</span>
+                            {% elif proforma.statut == 'acceptee' %}
+                            <span class="badge" style="background: #d1fae5; color: #059669;">Acceptée</span>
+                            {% elif proforma.statut == 'refusee' %}
+                            <span class="badge" style="background: #fee2e2; color: #dc2626;">Refusée</span>
+                            {% elif proforma.statut == 'convertie' %}
+                            <span class="badge" style="background: #ede9fe; color: #7c3aed;">
+                                Convertie → {{ proforma.facture_generee_numero }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-icon" onclick="voirProforma({{ proforma.id }})" title="Voir">
+                                    <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                {% if proforma.statut != 'convertie' %}
+                                <button class="btn-icon" onclick="modifierProforma({{ proforma.id }})" title="Modifier">
+                                    <i data-lucide="edit" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                <button class="btn-icon" style="color: #10b981;" onclick="convertirProforma({{ proforma.id }})" title="Convertir en facture">
+                                    <i data-lucide="file-check" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                <button class="btn-icon" style="color: #ef4444;" onclick="supprimerProforma({{ proforma.id }})" title="Supprimer">
+                                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #6b7280;">
+                            Aucune proforma. Cliquez sur "Nouvelle Proforma" pour commencer.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Overlay -->
+<div id="modalOverlay" class="modal-overlay" onclick="fermerModals()"></div>
+
+<!-- Modal Nouvelle/Modifier Proforma -->
+<div id="modalProforma" class="modal-panel" style="display: none;">
+    <div class="modal-header">
+        <h2 id="modalProformaTitle">Nouvelle Proforma</h2>
+        <button class="btn-icon" onclick="fermerModalProforma()">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+    <div class="modal-body" style="overflow-y: auto; max-height: calc(100vh - 180px);">
+        <form id="formProforma" onsubmit="sauvegarderProforma(event)">
+            <input type="hidden" id="proformaId">
+
+            <div class="form-section-title">Informations générales</div>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Numéro *</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="form-input" id="proformaNumero" required readonly style="flex: 1;">
+                        <button type="button" class="btn btn-secondary" onclick="genererNumeroProforma()" style="white-space: nowrap;">
+                            <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date de création</label>
+                    <input type="date" class="form-input" id="proformaDate" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date de validité</label>
+                    <input type="date" class="form-input" id="proformaValidite">
+                </div>
+            </div>
+
+            <div class="form-section-title">Client</div>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Nom du client *</label>
+                    <input type="text" class="form-input" id="proformaClient" required placeholder="Nom du client">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">IFU</label>
+                    <input type="text" class="form-input" id="proformaIFU" placeholder="Numéro IFU">
+                </div>
+            </div>
+
+            <div class="form-section-title">Dossier (optionnel)</div>
+            <div class="form-group">
+                <label class="form-label">Dossier existant</label>
+                <select class="form-select" id="proformaDossier" onchange="remplirDepuisDossier(this)">
+                    <option value="">-- Aucun dossier --</option>
+                    {% for dossier in dossiers %}
+                    <option value="{{ dossier.id }}" data-client="{{ dossier.client }}" data-ifu="{{ dossier.ifu }}">
+                        {{ dossier.numero }} - {{ dossier.client }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description du dossier (si non créé)</label>
+                <textarea class="form-input" id="proformaDescriptionDossier" rows="2" placeholder="Description du dossier à créer..."></textarea>
+            </div>
+
+            <div class="form-section-title">Régime fiscal</div>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Régime</label>
+                    <select class="form-select" id="proformaRegime" onchange="calculerTotauxProforma()">
+                        <option value="tps" selected>TPS - Régime simplifié</option>
+                        <option value="tva">TVA (18%) - Régime normal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type de client</label>
+                    <select class="form-select" id="proformaTypeClient" onchange="calculerTotauxProforma()">
+                        <option value="prive" selected>Client privé</option>
+                        <option value="public">Client public</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="proformaAIB" onchange="calculerTotauxProforma()">
+                        <span>Client soumis à l'AIB (3%)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-section-title">Lignes de la proforma</div>
+            <div id="lignesProforma"></div>
+            <button type="button" class="btn btn-secondary" onclick="ajouterLigneProforma()" style="margin-top: 12px;">
+                <i data-lucide="plus"></i> Ajouter une ligne
+            </button>
+
+            <div class="form-section-title">Récapitulatif</div>
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
+                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div class="form-group">
+                        <label class="form-label" style="font-size: 11px;">Total Honoraires HT</label>
+                        <input class="form-input" type="text" id="proformaTotalHonoraires" readonly style="background: white; font-weight: 600;">
+                    </div>
+                    <div id="proformaLigneTaxe" class="form-group">
+                        <label class="form-label" style="font-size: 11px;" id="proformaLabelTaxe">TPS (0%)</label>
+                        <input class="form-input" type="text" id="proformaTotalTaxe" readonly style="background: white;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="font-size: 11px;">Total Débours</label>
+                        <input class="form-input" type="text" id="proformaTotalDebours" readonly style="background: white;">
+                    </div>
+                </div>
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                    <div class="form-group">
+                        <label class="form-label" style="font-size: 11px;">Total TTC</label>
+                        <input class="form-input" type="text" id="proformaTTC" readonly style="background: #1e3a5f; color: white; font-weight: bold; font-size: 16px;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="font-size: 11px; color: #198754;">NET À PAYER</label>
+                        <input class="form-input" type="text" id="proformaNetAPayer" readonly style="background: #198754; color: white; font-weight: bold; font-size: 16px;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section-title">Observations</div>
+            <div class="form-group">
+                <textarea class="form-input" id="proformaObservations" rows="3" placeholder="Notes ou observations..."></textarea>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer" style="padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="fermerModalProforma()">Annuler</button>
+        <button type="button" class="btn btn-accent" onclick="sauvegarderProforma(event, true)">
+            <i data-lucide="save"></i> Enregistrer brouillon
+        </button>
+        <button type="button" class="btn btn-primary" onclick="sauvegarderProforma(event, false)">
+            <i data-lucide="check"></i> Enregistrer
+        </button>
+    </div>
+</div>
+
+<!-- Modal Voir Proforma -->
+<div id="modalVoirProforma" class="modal-panel" style="display: none;">
+    <div class="modal-header">
+        <h2>Proforma <span id="voirNumero"></span></h2>
+        <button class="btn-icon" onclick="fermerModalVoir()">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+    <div class="modal-body" style="overflow-y: auto; max-height: calc(100vh - 180px);">
+        <div style="background: white; padding: 24px; border-radius: 8px;">
+            <!-- En-tête proforma -->
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; border-bottom: 2px solid #1e3a5f; padding-bottom: 16px;">
+                <div>
+                    <h3 style="font-size: 20px; color: #1e3a5f; margin-bottom: 8px;">PROFORMA</h3>
+                    <div style="font-size: 24px; font-weight: 700;" id="voirNumeroDetail"></div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 12px; color: #6b7280;">Date: <span id="voirDate"></span></div>
+                    <div style="font-size: 12px; color: #6b7280;">Validité: <span id="voirValidite"></span></div>
+                    <div id="voirStatut" style="margin-top: 8px; padding: 4px 12px; border-radius: 4px; display: inline-block;"></div>
+                </div>
+            </div>
+
+            <!-- Client -->
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">PROFORMA À</div>
+                <div style="font-weight: 600;" id="voirClient"></div>
+                <div style="font-size: 13px; color: #6b7280;" id="voirClientIFU"></div>
+            </div>
+
+            <!-- Tableau des lignes -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Description</th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Honoraires</th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Timbres</th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Enreg.</th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="voirLignes"></tbody>
+            </table>
+
+            <!-- Totaux -->
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 300px;">
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                        <span>Total Honoraires:</span>
+                        <span id="voirHonoraires" style="font-weight: 600;"></span>
+                    </div>
+                    <div id="voirTaxeRow" style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                        <span id="voirTaxeLabel">TVA (18%):</span>
+                        <span id="voirTaxe"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                        <span>Total Débours:</span>
+                        <span id="voirDebours"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; background: #1e3a5f; color: white; margin-top: 8px; border-radius: 4px; padding: 12px;">
+                        <span style="font-weight: 600;">TOTAL TTC:</span>
+                        <span id="voirTTC" style="font-weight: 700; font-size: 18px;"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lien facture si convertie -->
+            <div id="voirFactureGeneree" style="display: none; margin-top: 24px; padding: 16px; background: #ede9fe; border-radius: 8px;">
+                <div style="font-weight: 600; color: #7c3aed;">
+                    <i data-lucide="check-circle" style="width: 16px; height: 16px; display: inline;"></i>
+                    Convertie en facture: <span id="voirFactureNumero"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer" style="padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="fermerModalVoir()">Fermer</button>
+        <button type="button" class="btn btn-secondary" onclick="imprimerProforma()">
+            <i data-lucide="printer"></i> Imprimer
+        </button>
+        <button type="button" id="btnConvertirVue" class="btn btn-primary" onclick="convertirProformaVue()">
+            <i data-lucide="file-check"></i> Convertir en facture
+        </button>
+    </div>
+</div>
+
+<style>
+.btn-icon {
+    padding: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    color: #6b7280;
+}
+.btn-icon:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+.ligne-proforma {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid #e5e7eb;
+}
+</style>
+
+<script>
+    // Données des proformas
+    let proformas = {{ proformas_json|safe }};
+    let dossiers = {{ dossiers_json|safe }};
+    let proformaEnCours = null;
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+
+    function formatMontant(m) {
+        return new Intl.NumberFormat('fr-FR').format(Math.round(m)) + ' FCFA';
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('fr-FR');
+    }
+
+    // Gestion des modals
+    function ouvrirModalProforma() {
+        reinitialiserFormulaire();
+        document.getElementById('modalProformaTitle').textContent = 'Nouvelle Proforma';
+        document.getElementById('modalProforma').style.display = 'flex';
+        document.getElementById('modalOverlay').classList.add('open');
+        genererNumeroProforma();
+
+        // Date du jour
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('proformaDate').value = today;
+
+        // Validité à 30 jours
+        const validite = new Date();
+        validite.setDate(validite.getDate() + 30);
+        document.getElementById('proformaValidite').value = validite.toISOString().split('T')[0];
+    }
+
+    function fermerModalProforma() {
+        document.getElementById('modalProforma').style.display = 'none';
+        document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    function fermerModalVoir() {
+        document.getElementById('modalVoirProforma').style.display = 'none';
+        document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    function fermerModals() {
+        fermerModalProforma();
+        fermerModalVoir();
+    }
+
+    function reinitialiserFormulaire() {
+        document.getElementById('formProforma').reset();
+        document.getElementById('proformaId').value = '';
+        document.getElementById('lignesProforma').innerHTML = '';
+        document.getElementById('proformaRegime').value = 'tps';
+        document.getElementById('proformaTypeClient').value = 'prive';
+        document.getElementById('proformaAIB').checked = false;
+        ajouterLigneProforma();
+        calculerTotauxProforma();
+    }
+
+    function genererNumeroProforma() {
+        fetch('{% url "gestion:api_generer_numero_proforma" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('proformaNumero').value = data.numero;
+            }
+        });
+    }
+
+    function remplirDepuisDossier(selectElement) {
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        if (selectedOption.value) {
+            const clientNom = selectedOption.getAttribute('data-client');
+            const clientIfu = selectedOption.getAttribute('data-ifu');
+            if (clientNom) document.getElementById('proformaClient').value = clientNom;
+            if (clientIfu) document.getElementById('proformaIFU').value = clientIfu;
+        }
+    }
+
+    // Gestion des lignes
+    function ajouterLigneProforma(data = null) {
+        const container = document.getElementById('lignesProforma');
+        const div = document.createElement('div');
+        div.className = 'ligne-proforma';
+        div.innerHTML = `
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 11px;">Description</label>
+                    <input type="text" class="form-input ligne-description" placeholder="Description de la prestation" value="${data?.description || ''}">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 11px;">Honoraires</label>
+                    <input type="number" class="form-input ligne-honoraires" placeholder="0" value="${data?.prix_unitaire || ''}" oninput="calculerTotauxProforma()">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 11px;">Feuillets</label>
+                    <input type="number" class="form-input ligne-feuillets" placeholder="1" min="1" value="${data?.feuillets || 1}" oninput="calculerTotauxProforma()">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="font-size: 11px;">Enreg. (2500)</label>
+                    <label style="display: flex; align-items: center; gap: 8px; height: 38px;">
+                        <input type="checkbox" class="ligne-enregistrement" ${data?.enregistrement !== false ? 'checked' : ''} onchange="calculerTotauxProforma()">
+                        <span>Oui</span>
+                    </label>
+                </div>
+                <button type="button" class="btn-icon" onclick="supprimerLigne(this)" style="color: #ef4444;">
+                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(div);
+        lucide.createIcons();
+        calculerTotauxProforma();
+    }
+
+    function supprimerLigne(btn) {
+        btn.closest('.ligne-proforma').remove();
+        calculerTotauxProforma();
+    }
+
+    function calculerTotauxProforma() {
+        let totalHonoraires = 0;
+        let totalTimbres = 0;
+        let totalEnregistrement = 0;
+
+        document.querySelectorAll('.ligne-proforma').forEach(ligne => {
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+            const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+            const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+            totalHonoraires += honoraires;
+            totalTimbres += feuillets * 1200;
+            if (hasEnreg) totalEnregistrement += 2500;
+        });
+
+        const regime = document.getElementById('proformaRegime')?.value || 'tps';
+        const typeClient = document.getElementById('proformaTypeClient')?.value || 'prive';
+        const clientAIB = document.getElementById('proformaAIB')?.checked;
+
+        // Calcul TVA selon régime
+        let taxe = 0;
+        let labelTaxe = 'TPS (0%)';
+        const ligneTaxeEl = document.getElementById('proformaLigneTaxe');
+
+        if (regime === 'tva') {
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%)';
+            if (ligneTaxeEl) ligneTaxeEl.style.display = 'block';
+        } else if (typeClient === 'public') {
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%) - Retenue État';
+            if (ligneTaxeEl) ligneTaxeEl.style.display = 'block';
+        } else {
+            taxe = 0;
+            labelTaxe = 'TPS (0%)';
+            if (ligneTaxeEl) ligneTaxeEl.style.display = 'none';
+        }
+
+        const totalDebours = totalTimbres + totalEnregistrement;
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+        const montantAIB = clientAIB ? totalTTC * 0.03 : 0;
+        const netAPayer = totalTTC - montantAIB;
+
+        // Afficher
+        document.getElementById('proformaLabelTaxe').textContent = labelTaxe;
+        document.getElementById('proformaTotalHonoraires').value = formatMontant(totalHonoraires);
+        document.getElementById('proformaTotalTaxe').value = formatMontant(taxe);
+        document.getElementById('proformaTotalDebours').value = formatMontant(totalDebours);
+        document.getElementById('proformaTTC').value = formatMontant(totalTTC);
+        document.getElementById('proformaNetAPayer').value = formatMontant(netAPayer);
+    }
+
+    // Sauvegarde
+    function sauvegarderProforma(event, brouillon = false) {
+        if (event) event.preventDefault();
+
+        const lignes = [];
+        document.querySelectorAll('.ligne-proforma').forEach(ligne => {
+            const description = ligne.querySelector('.ligne-description')?.value || '';
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+            const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+            const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+            if (description && honoraires > 0) {
+                lignes.push({
+                    description: description,
+                    quantite: 1,
+                    prix_unitaire: honoraires,
+                    honoraires: honoraires,
+                    feuillets: feuillets,
+                    enregistrement: hasEnreg
+                });
+            }
+        });
+
+        if (lignes.length === 0) {
+            alert('Veuillez ajouter au moins une ligne');
+            return;
+        }
+
+        const data = {
+            id: document.getElementById('proformaId').value || null,
+            numero: document.getElementById('proformaNumero').value,
+            date_creation: document.getElementById('proformaDate').value,
+            date_validite: document.getElementById('proformaValidite').value,
+            statut: brouillon ? 'brouillon' : 'envoyee',
+            client: document.getElementById('proformaClient').value,
+            ifu: document.getElementById('proformaIFU').value,
+            dossier: document.getElementById('proformaDossier').value,
+            description_dossier: document.getElementById('proformaDescriptionDossier').value,
+            observations: document.getElementById('proformaObservations').value,
+            regime: document.getElementById('proformaRegime').value,
+            type_client: document.getElementById('proformaTypeClient').value,
+            client_aib: document.getElementById('proformaAIB').checked,
+            lignes: lignes
+        };
+
+        fetch('{% url "gestion:api_sauvegarder_proforma" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(brouillon ? 'Brouillon enregistré !' : 'Proforma enregistrée !');
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur lors de la sauvegarde');
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
+        });
+    }
+
+    // Voir proforma
+    function voirProforma(id) {
+        const proforma = proformas.find(p => p.id == id);
+        if (!proforma) return;
+
+        proformaEnCours = proforma;
+
+        document.getElementById('modalVoirProforma').style.display = 'flex';
+        document.getElementById('modalOverlay').classList.add('open');
+
+        document.getElementById('voirNumero').textContent = proforma.numero;
+        document.getElementById('voirNumeroDetail').textContent = proforma.numero;
+        document.getElementById('voirDate').textContent = formatDate(proforma.date_creation);
+        document.getElementById('voirValidite').textContent = proforma.date_validite ? formatDate(proforma.date_validite) : 'Illimitée';
+        document.getElementById('voirClient').textContent = proforma.client;
+        document.getElementById('voirClientIFU').textContent = proforma.ifu ? 'IFU: ' + proforma.ifu : '';
+
+        // Statut
+        const statutEl = document.getElementById('voirStatut');
+        const statutColors = {
+            'brouillon': { bg: '#f3f4f6', color: '#6b7280', text: 'BROUILLON' },
+            'envoyee': { bg: '#dbeafe', color: '#1d4ed8', text: 'ENVOYÉE' },
+            'acceptee': { bg: '#d1fae5', color: '#059669', text: 'ACCEPTÉE' },
+            'refusee': { bg: '#fee2e2', color: '#dc2626', text: 'REFUSÉE' },
+            'convertie': { bg: '#ede9fe', color: '#7c3aed', text: 'CONVERTIE' }
+        };
+        const s = statutColors[proforma.statut] || statutColors.brouillon;
+        statutEl.style.background = s.bg;
+        statutEl.style.color = s.color;
+        statutEl.textContent = s.text;
+
+        // Calculer les totaux
+        let totalHonoraires = 0;
+        let totalTimbres = 0;
+        let totalEnreg = 0;
+
+        const tbody = document.getElementById('voirLignes');
+        tbody.innerHTML = '';
+
+        if (proforma.lignes && proforma.lignes.length > 0) {
+            proforma.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                const totalLigne = honoraires + timbre + enreg;
+
+                totalHonoraires += honoraires;
+                totalTimbres += timbre;
+                totalEnreg += enreg;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6;">${ligne.description}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; text-align: right;">${formatMontant(honoraires)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; text-align: right;">${formatMontant(timbre)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Calcul TVA
+        const regime = proforma.regime || 'tps';
+        const typeClient = proforma.type_client || 'prive';
+
+        let taxe = 0;
+        let labelTaxe = 'TPS (0%):';
+        const voirTaxeRow = document.getElementById('voirTaxeRow');
+
+        if (regime === 'tva') {
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%):';
+            voirTaxeRow.style.display = 'flex';
+        } else if (typeClient === 'public') {
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%) - Retenue:';
+            voirTaxeRow.style.display = 'flex';
+        } else {
+            voirTaxeRow.style.display = 'none';
+        }
+
+        const totalDebours = totalTimbres + totalEnreg;
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+
+        document.getElementById('voirHonoraires').textContent = formatMontant(totalHonoraires);
+        document.getElementById('voirTaxeLabel').textContent = labelTaxe;
+        document.getElementById('voirTaxe').textContent = formatMontant(taxe);
+        document.getElementById('voirDebours').textContent = formatMontant(totalDebours);
+        document.getElementById('voirTTC').textContent = formatMontant(totalTTC);
+
+        // Bouton convertir
+        const btnConvertir = document.getElementById('btnConvertirVue');
+        if (proforma.statut === 'convertie') {
+            btnConvertir.style.display = 'none';
+            document.getElementById('voirFactureGeneree').style.display = 'block';
+            document.getElementById('voirFactureNumero').textContent = proforma.facture_generee_numero;
+        } else {
+            btnConvertir.style.display = 'inline-flex';
+            document.getElementById('voirFactureGeneree').style.display = 'none';
+        }
+
+        lucide.createIcons();
+    }
+
+    // Modifier proforma
+    function modifierProforma(id) {
+        const proforma = proformas.find(p => p.id == id);
+        if (!proforma) return;
+
+        document.getElementById('modalProformaTitle').textContent = 'Modifier Proforma';
+        document.getElementById('proformaId').value = proforma.id;
+        document.getElementById('proformaNumero').value = proforma.numero;
+        document.getElementById('proformaDate').value = proforma.date_creation;
+        document.getElementById('proformaValidite').value = proforma.date_validite || '';
+        document.getElementById('proformaClient').value = proforma.client;
+        document.getElementById('proformaIFU').value = proforma.ifu || '';
+        document.getElementById('proformaDossier').value = proforma.dossier || '';
+        document.getElementById('proformaDescriptionDossier').value = proforma.description_dossier || '';
+        document.getElementById('proformaObservations').value = proforma.observations || '';
+        document.getElementById('proformaRegime').value = proforma.regime || 'tps';
+        document.getElementById('proformaTypeClient').value = proforma.type_client || 'prive';
+        document.getElementById('proformaAIB').checked = proforma.client_aib || false;
+
+        // Lignes
+        document.getElementById('lignesProforma').innerHTML = '';
+        if (proforma.lignes && proforma.lignes.length > 0) {
+            proforma.lignes.forEach(ligne => ajouterLigneProforma(ligne));
+        } else {
+            ajouterLigneProforma();
+        }
+
+        calculerTotauxProforma();
+
+        document.getElementById('modalProforma').style.display = 'flex';
+        document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    // Supprimer proforma
+    function supprimerProforma(id) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette proforma ?')) return;
+
+        fetch('{% url "gestion:api_supprimer_proforma" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ id: id })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur lors de la suppression');
+            }
+        });
+    }
+
+    // Convertir en facture
+    function convertirProforma(id) {
+        if (!confirm('Convertir cette proforma en facture définitive ?')) return;
+        effectuerConversion(id);
+    }
+
+    function convertirProformaVue() {
+        if (!proformaEnCours) return;
+        if (!confirm('Convertir cette proforma en facture définitive ?')) return;
+        effectuerConversion(proformaEnCours.id);
+    }
+
+    function effectuerConversion(id) {
+        fetch(`/gestion/api/convertir-proforma/${id}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(`Proforma convertie en facture ${result.facture_numero}`);
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur lors de la conversion');
+            }
+        });
+    }
+
+    // Filtrer
+    function filtrerProformas() {
+        const search = document.getElementById('searchProforma').value.toLowerCase();
+        const statut = document.getElementById('filterStatut').value;
+
+        document.querySelectorAll('#listeProformas tr').forEach(row => {
+            const client = row.getAttribute('data-client') || '';
+            const rowStatut = row.getAttribute('data-statut') || '';
+
+            const matchSearch = !search || client.includes(search) || row.textContent.toLowerCase().includes(search);
+            const matchStatut = !statut || rowStatut === statut;
+
+            row.style.display = matchSearch && matchStatut ? '' : 'none';
+        });
+    }
+
+    // Imprimer
+    function imprimerProforma() {
+        window.print();
+    }
+</script>
+{% endblock %}

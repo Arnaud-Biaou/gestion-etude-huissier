@@ -20,7 +20,13 @@
         <button class="btn btn-secondary" onclick="exporterFactures()">
             <i data-lucide="download"></i> Exporter
         </button>
-        <button class="btn btn-primary" onclick="ouvrirModalFacture()">
+        <button class="btn btn-outline" onclick="ouvrirModalFusion()" title="Fusionner des factures brouillon">
+            <i data-lucide="git-merge"></i> Fusionner
+        </button>
+        <button class="btn btn-accent" onclick="ouvrirModalFacture('proforma')">
+            <i data-lucide="file-edit"></i> Nouvelle proforma
+        </button>
+        <button class="btn btn-primary" onclick="ouvrirModalFacture('facture')">
             <i data-lucide="plus"></i> Nouvelle facture
         </button>
         {% endif %}
@@ -118,63 +124,74 @@
 {% else %}
 <!-- Contenu Liste des factures (onglet par defaut) -->
 
-<!-- Factures Card -->
+<!-- Statistiques documents -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="filtrerDocuments('tous')">
+        <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Tous les documents</div>
+        <div style="font-size: 24px; font-weight: 700; color: #1e3a5f;">{{ factures|length }} + {{ nb_proformas_total }}</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="filtrerDocuments('facture')">
+        <div style="font-size: 12px; color: #3b82f6; margin-bottom: 4px;">Factures</div>
+        <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">{{ factures|length }}</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="filtrerDocuments('proforma')">
+        <div style="font-size: 12px; color: #8b5cf6; margin-bottom: 4px;">Proformas</div>
+        <div style="font-size: 24px; font-weight: 700; color: #8b5cf6;">{{ nb_proformas_total }}</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb;">
+        <div style="font-size: 12px; color: #10b981; margin-bottom: 4px;">Normalisées MECeF</div>
+        <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ nb_normalisees }}</div>
+    </div>
+</div>
+
+<!-- Documents Card -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Factures</h3>
+        <h3 class="card-title">Documents</h3>
         <div class="flex gap-2">
-            <select class="form-select" style="width: auto; padding: 6px 10px;" id="filtreStatut" onchange="filtrerFactures()">
-                <option value="">Tous les statuts</option>
-                <option value="brouillon">Brouillon</option>
-                <option value="attente">En attente</option>
-                <option value="payee">Payee</option>
-                <option value="annulee">Annulee</option>
+            <select class="form-select" style="width: auto; padding: 6px 10px;" id="filtreType" onchange="filtrerDocuments(this.value)">
+                <option value="tous">Tous les types</option>
+                <option value="facture">Factures uniquement</option>
+                <option value="proforma">Proformas uniquement</option>
             </select>
-            <input type="text" class="form-input" placeholder="Rechercher..." id="rechercheFacture" style="width: 200px; padding: 6px 10px;" oninput="filtrerFactures()">
+            <select class="form-select" style="width: auto; padding: 6px 10px;" id="filtreStatut" onchange="filtrerDocuments()">
+                <option value="">Tous les statuts</option>
+                <option value="normalise">Normalisé (MECeF)</option>
+                <option value="brouillon">Brouillon</option>
+                <option value="convertie">Proforma convertie</option>
+            </select>
+            <input type="text" class="form-input" placeholder="Rechercher..." id="rechercheFacture" style="width: 200px; padding: 6px 10px;" oninput="filtrerDocuments()">
         </div>
     </div>
     <div class="table-container">
         <table id="tableFactures">
             <thead>
                 <tr>
-                    <th>N Facture</th>
+                    <th>Type</th>
+                    <th>Numéro</th>
                     <th>Client</th>
-                    <th>Montant HT</th>
-                    <th>TVA (18%)</th>
                     <th>Total TTC</th>
                     <th>Date</th>
                     <th>Statut</th>
-                    <th>MECeF</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="factureListe">
+                <!-- Factures -->
                 {% for facture in factures %}
-                <tr data-id="{{ facture.id }}" data-client="{{ facture.client }}" data-statut="{{ facture.statut }}">
+                <tr data-id="{{ facture.id }}" data-type="facture" data-client="{{ facture.client }}" data-statut="{% if facture.mecef_numero %}normalise{% else %}brouillon{% endif %}">
+                    <td><span class="status-badge" style="background: #dbeafe; color: #1d4ed8; font-size: 10px;">FACTURE</span></td>
                     <td style="font-weight: 600; color: var(--primary);">{{ facture.numero }}</td>
                     <td>{{ facture.client }}</td>
-                    <td>{{ facture.montant_ht|floatformat:0 }} F</td>
-                    <td>{{ facture.tva|floatformat:0 }} F</td>
                     <td style="font-weight: 600;">{{ facture.total|floatformat:0 }} F</td>
                     <td>{{ facture.date }}</td>
                     <td>
-                        <span class="status-badge {{ facture.statut }}">
-                            {% if facture.statut == 'payee' %}Payee
-                            {% elif facture.statut == 'attente' %}En attente
-                            {% elif facture.statut == 'brouillon' %}Brouillon
-                            {% else %}Annulee{% endif %}
-                        </span>
-                    </td>
-                    <td>
                         {% if facture.mecef_numero %}
                         <span class="status-badge active" style="font-size: 10px;">
-                            <i data-lucide="check" style="width: 12px; height: 12px;"></i>
-                            {{ facture.mecef_numero }}
+                            <i data-lucide="check" style="width: 10px; height: 10px;"></i> MECeF
                         </span>
                         {% else %}
-                        <button class="btn btn-sm btn-secondary" onclick="normaliserMECeF('{{ facture.id }}')">
-                            Normaliser
-                        </button>
+                        <span class="status-badge brouillon">Brouillon</span>
                         {% endif %}
                     </td>
                     <td>
@@ -185,22 +202,60 @@
                             <button class="icon-btn" title="Modifier" onclick="modifierFacture('{{ facture.id }}')">
                                 <i data-lucide="edit"></i>
                             </button>
-                            <button class="icon-btn" title="Imprimer" onclick="imprimerFacture('{{ facture.id }}')">
-                                <i data-lucide="printer"></i>
+                            {% if not facture.mecef_numero %}
+                            <button class="icon-btn" title="Normaliser MECeF" onclick="normaliserMECeF('{{ facture.id }}')" style="color: var(--success);">
+                                <i data-lucide="shield-check"></i>
                             </button>
+                            {% endif %}
                             <button class="icon-btn" title="Supprimer" onclick="supprimerFacture('{{ facture.id }}')" style="color: var(--danger);">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-                {% empty %}
-                <tr id="emptyRow">
-                    <td colspan="9" class="text-center" style="padding: 40px; color: var(--neutral-500);">
-                        Aucune facture trouvee
+                {% endfor %}
+                <!-- Proformas -->
+                {% for proforma in proformas %}
+                <tr data-id="{{ proforma.id }}" data-type="proforma" data-client="{{ proforma.client }}" data-statut="{{ proforma.statut }}">
+                    <td><span class="status-badge" style="background: #ede9fe; color: #7c3aed; font-size: 10px;">PROFORMA</span></td>
+                    <td style="font-weight: 600; color: #7c3aed;">{{ proforma.numero }}</td>
+                    <td>{{ proforma.client }}</td>
+                    <td style="font-weight: 600;">{{ proforma.total|floatformat:0 }} F</td>
+                    <td>{{ proforma.date }}</td>
+                    <td>
+                        {% if proforma.statut == 'brouillon' %}
+                        <span class="status-badge" style="background: #f3f4f6; color: #6b7280;">Brouillon</span>
+                        {% elif proforma.statut == 'convertie' %}
+                        <span class="status-badge" style="background: #d1fae5; color: #059669;">→ {{ proforma.facture_generee_numero }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="icon-btn" title="Voir" onclick="voirProforma('{{ proforma.id }}')">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            {% if proforma.statut != 'convertie' %}
+                            <button class="icon-btn" title="Modifier" onclick="modifierProforma('{{ proforma.id }}')">
+                                <i data-lucide="edit"></i>
+                            </button>
+                            <button class="icon-btn" title="Convertir en facture" onclick="convertirProforma('{{ proforma.id }}')" style="color: var(--success);">
+                                <i data-lucide="file-check"></i>
+                            </button>
+                            <button class="icon-btn" title="Supprimer" onclick="supprimerProforma('{{ proforma.id }}')" style="color: var(--danger);">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
+                {% if not factures and not proformas %}
+                <tr id="emptyRow">
+                    <td colspan="7" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        Aucun document trouvé. Créez une facture ou une proforma.
+                    </td>
+                </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
@@ -257,19 +312,107 @@
 {% endblock %}
 
 {% block modal %}
-<!-- Modal Nouvelle Facture -->
-<div class="modal large" id="modalFacture" onclick="event.stopPropagation()">
-    <div class="modal-header">
+<!-- Modal Nouvelle Facture (fusionné avec Facturer Actes) -->
+<div class="modal large modal-facture" id="modalFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title" id="modalFactureTitle">Nouvelle facture</h3>
         <button class="modal-close" onclick="fermerModalFacture()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <div class="modal-body">
-        <form id="formFacture" onsubmit="sauvegarderFacture(event)">
-            <input type="hidden" id="factureId" name="id">
 
-            <div class="form-grid">
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+        <!-- Choix du mode de création (affiché uniquement pour nouvelle facture) -->
+        <div id="choixModeFacture" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Mode de création</label>
+            <div style="display: flex; gap: 15px;">
+                <div class="mode-option" id="modeActesOption" onclick="selectionnerModeFacture('actes')"
+                     style="flex: 1; padding: 20px; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                    <i data-lucide="list-checks" style="width: 36px; height: 36px; color: #22c55e;"></i>
+                    <h5 style="margin: 10px 0 5px; font-size: 14px;">Facturer des actes</h5>
+                    <small style="color: #6b7280; font-size: 12px;">Sélectionner des actes déjà enregistrés dans les dossiers</small>
+                </div>
+                <div class="mode-option" id="modeLibreOption" onclick="selectionnerModeFacture('libre')"
+                     style="flex: 1; padding: 20px; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                    <i data-lucide="edit" style="width: 36px; height: 36px; color: #3b82f6;"></i>
+                    <h5 style="margin: 10px 0 5px; font-size: 14px;">Facture libre</h5>
+                    <small style="color: #6b7280; font-size: 12px;">Saisir manuellement les lignes (cas exceptionnels)</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODE ACTES ===== -->
+        <div id="modeActesContent" style="display: none;">
+            <!-- Sélection client -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">1. Sélectionner le client ayant des actes non facturés</label>
+                <select id="factActesClient" class="form-select" onchange="chargerActesNonFacturesClient()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="">-- Chargement des clients... --</option>
+                </select>
+            </div>
+
+            <!-- Info client -->
+            <div id="factActesClientInfo" style="display: none; margin: 15px 0; padding: 12px; background: #e0f2fe; border-radius: 6px; border-left: 4px solid #0284c7;">
+                <strong id="factActesClientNom"></strong> -
+                <span id="factActesClientStats" style="color: #0369a1;"></span>
+            </div>
+
+            <!-- Liste des actes -->
+            <div id="factActesListe" style="margin-top: 15px;">
+                <p style="color: #6b7280;">Sélectionnez un client pour voir ses actes non facturés.</p>
+            </div>
+
+            <!-- Récapitulatif -->
+            <div id="factActesRecap" style="display: none; margin-top: 20px; padding: 16px; background: #f0fdf4; border-radius: 8px; border: 2px solid #22c55e;">
+                <h5 style="margin: 0 0 12px 0; color: #15803d;">Récapitulatif de la facture</h5>
+                <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                    <div>
+                        <small style="color: #6b7280;">Actes sélectionnés</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesNbSelectionnes">0</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total Honoraires</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalHT">0 F</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total Débours</small>
+                        <div style="font-size: 1.5em; font-weight: bold;" id="factActesTotalDebours">0 F</div>
+                    </div>
+                    <div>
+                        <small style="color: #6b7280;">Total TTC</small>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #16a34a;" id="factActesTotalTTC">0 F</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options fiscales -->
+            <div id="factActesOptions" style="display: none; margin-top: 20px;">
+                <h5 style="margin: 0 0 12px 0;">Options de facturation</h5>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Régime fiscal</label>
+                        <select id="factActesRegime" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="tps">TPS (5%)</option>
+                            <option value="tva">TVA (18%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 500; display: block; margin-bottom: 6px;">Type de client</label>
+                        <select id="factActesTypeClient" class="form-select" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="prive">Privé</option>
+                            <option value="public">Public</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODE LIBRE (formulaire existant) ===== -->
+        <div id="modeLibreContent" style="display: none;">
+            <form id="formFacture" onsubmit="sauvegarderFacture(event)" style="display: flex; flex-direction: column;">
+                <input type="hidden" id="factureId" name="id">
+
+                <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Numero de facture</label>
                     <input class="form-input" type="text" id="factureNumero" name="numero" readonly style="background: var(--neutral-100);">
@@ -305,34 +448,72 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Dossier lie (optionnel)</label>
-                    <select class="form-select" id="factureDossier" name="dossier">
+                    <select class="form-select" id="factureDossier" name="dossier" onchange="remplirDepuisDossier(this)">
                         <option value="">-- Aucun --</option>
                         {% for dossier in dossiers %}
-                        <option value="{{ dossier.id }}">{{ dossier.reference }} - {{ dossier.intitule_affaire }}</option>
+                        <option value="{{ dossier.id }}"
+                                data-client="{{ dossier.client_nom }}"
+                                data-ifu="{{ dossier.client_ifu }}">
+                            {{ dossier.reference }} - {{ dossier.intitule_affaire|default:dossier.client_nom|default:"" }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
             </div>
 
-            <div class="form-section-title">Lignes de facture</div>
+            <!-- Régime fiscal et Type de client -->
+            <div class="form-section-title">Régime fiscal et Client</div>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Régime de taxation</label>
+                    <select class="form-select" id="factureRegime" name="regime" onchange="calculerTotauxHuissier()">
+                        <option value="tps" selected>TPS - Régime simplifié</option>
+                        <option value="tva">TVA (18%) - Régime normal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type de client</label>
+                    <select class="form-select" id="typeClient" name="type_client" onchange="calculerTotauxHuissier()">
+                        <option value="prive" selected>Client privé (particulier, entreprise)</option>
+                        <option value="public">Client public (État, mairie, ministère)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="clientAIB" name="client_aib" onchange="calculerTotauxHuissier()" style="width: 18px; height: 18px;">
+                        <span style="font-size: 12px;">AIB (3%) - suivi interne</span>
+                    </label>
+                </div>
+            </div>
+            <!-- Champ caché pour le groupe de taxation MECeF -->
+            <input type="hidden" id="groupeTaxation" name="groupe_taxation" value="E">
+
+            <div class="form-section-title">Lignes de facture (Actes d'huissier)</div>
             <div id="lignesFacture">
                 <div class="ligne-facture" data-index="0">
-                    <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr auto;">
+                    <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr 1fr auto;">
                         <div class="form-group">
-                            <label class="form-label">Description</label>
-                            <input class="form-input ligne-description" type="text" placeholder="Ex: Commandement de payer">
+                            <label class="form-label">Description de l'acte</label>
+                            <input class="form-input ligne-description" type="text" placeholder="Ex: Signification du 28/11/2025">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Quantite</label>
-                            <input class="form-input ligne-quantite" type="number" value="1" min="1" onchange="calculerTotaux()">
+                            <label class="form-label">Honoraires</label>
+                            <input class="form-input ligne-honoraires" type="number" placeholder="15000" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Prix unitaire</label>
-                            <input class="form-input ligne-prix" type="number" placeholder="15000" onchange="calculerTotaux()">
+                            <label class="form-label">Feuillets</label>
+                            <input class="form-input ligne-feuillets" type="number" value="1" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Total</label>
-                            <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100);">
+                            <label class="form-label">Timbre</label>
+                            <input class="form-input ligne-timbre" type="text" readonly style="background: var(--neutral-100);" value="1 200">
+                        </div>
+                        <div class="form-group" style="display: flex; flex-direction: column;">
+                            <label class="form-label">Enreg.</label>
+                            <label style="display: flex; align-items: center; gap: 4px; height: 38px;">
+                                <input type="checkbox" class="ligne-enregistrement" checked onchange="calculerTotauxHuissier()">
+                                <span style="font-size: 12px;">2 500</span>
+                            </label>
                         </div>
                         <div class="form-group" style="align-self: flex-end;">
                             <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
@@ -346,50 +527,100 @@
                 <i data-lucide="plus"></i> Ajouter une ligne
             </button>
 
-            <div class="form-section-title">Totaux</div>
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
-                <div class="form-group">
-                    <label class="form-label">Total HT</label>
-                    <input class="form-input" type="text" id="factureMontantHT" readonly style="background: var(--neutral-100); font-weight: bold;">
+            <div class="form-section-title">Récapitulatif MECeF</div>
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+                <!-- Groupe MECeF affiché -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #dee2e6;">
+                    <span style="font-size: 11px; color: #6b7280;">Groupe de taxation MECeF:</span>
+                    <span id="affichageGroupeMECeF" style="font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #e0f2fe; color: #0369a1;">E - TPS Client privé</span>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">TVA (18%)</label>
-                    <input class="form-input" type="text" id="factureTVA" readonly style="background: var(--neutral-100);">
+                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Honoraires HT</label>
+                        <input class="form-input" type="text" id="totalHonoraires" readonly style="background: white; font-weight: 600;">
+                    </div>
+                    <div id="ligneTaxe" class="form-group" style="margin-bottom: 8px;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;" id="labelTaxe">TPS (0%)</label>
+                        <input class="form-input" type="text" id="totalTaxe" readonly style="background: white;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total Débours (Groupe F)</label>
+                        <input class="form-input" type="text" id="totalDebours" readonly style="background: white;">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Total TTC</label>
-                    <input class="form-input" type="text" id="factureTTC" readonly style="background: var(--primary); color: white; font-weight: bold;">
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px; color: #6b7280;">Total TTC (Facture MECeF)</label>
+                        <input class="form-input" type="text" id="factureTTC" readonly style="background: #1e3a5f; color: white; font-weight: bold; font-size: 16px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px; color: #198754; font-weight: 600;">NET À PAYER</label>
+                        <input class="form-input" type="text" id="netAPayer" readonly style="background: #198754; color: white; font-weight: bold; font-size: 16px;">
+                    </div>
                 </div>
+                <!-- Section AIB - Suivi interne uniquement -->
+                <div id="sectionAIB" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #adb5bd;">
+                    <div style="font-size: 10px; color: #6c757d; margin-bottom: 6px; font-style: italic;">
+                        ⚠️ Suivi interne uniquement (non inclus sur facture MECeF)
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 11px; color: #dc3545;">AIB retenu par client (3%)</label>
+                            <input class="form-input" type="text" id="montantAIB" readonly style="background: #fff3cd; color: #856404; font-weight: 600;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 11px; color: #0d6efd;">Net à percevoir (après AIB)</label>
+                            <input class="form-input" type="text" id="netAPercevoir" readonly style="background: #cfe2ff; color: #084298; font-weight: 600;">
+                        </div>
+                    </div>
+                </div>
+                <!-- Champs cachés pour la sauvegarde -->
+                <input type="hidden" id="factureMontantHT" name="montant_ht">
+                <input type="hidden" id="factureTVA" name="montant_tva">
             </div>
 
             <div class="form-section-title">Observations</div>
             <div class="form-group">
                 <textarea class="form-input" id="factureObservations" name="observations" rows="3" placeholder="Notes ou observations..."></textarea>
             </div>
-        </form>
+            </form>
+        </div>
+        <!-- Fin modeLibreContent -->
     </div>
-    <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="fermerModalFacture()">Annuler</button>
-        <div class="flex gap-2">
-            <button class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
+    <!-- Fin modal-body -->
+
+    <!-- Boutons d'action - footer fixe -->
+    <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="fermerModalFacture()">← Annuler</button>
+
+        <!-- Boutons mode actes -->
+        <div id="btnsModeActes" style="display: none;">
+            <button type="button" class="btn btn-success" id="btnCreerFactureActes" onclick="creerFactureDepuisActes()" disabled>
+                <i data-lucide="check"></i> Créer la facture
+            </button>
+        </div>
+
+        <!-- Boutons mode libre -->
+        <div id="btnsModeLibre" style="display: none;">
+            <button type="button" class="btn btn-accent" onclick="sauvegarderFacture(event, true)">
                 <i data-lucide="save"></i> Enregistrer brouillon
             </button>
-            <button class="btn btn-primary" onclick="sauvegarderFacture(event)">
-                <i data-lucide="check"></i> Valider la facture
+            <button type="button" class="btn btn-primary" id="btnEnregistrerDoc" onclick="sauvegarderFacture(event)">
+                <i data-lucide="check"></i> <span id="labelBtnEnregistrer">Enregistrer la facture</span>
             </button>
         </div>
     </div>
 </div>
 
 <!-- Modal Voir Facture -->
-<div class="modal large" id="modalVoirFacture" onclick="event.stopPropagation()" style="display: none;">
-    <div class="modal-header">
+<div class="modal large modal-voir-facture" id="modalVoirFacture" onclick="event.stopPropagation()" style="display: none; max-height: 90vh; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
         <h3 class="modal-title">Facture <span id="voirNumero"></span></h3>
         <button class="modal-close" onclick="fermerModalVoir()">
             <i data-lucide="x"></i>
         </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px; max-height: calc(90vh - 140px);">
         <div class="invoice-paper" id="facturePrint">
             <!-- En-tete -->
             <div class="invoice-header">
@@ -421,44 +652,60 @@
                 <span id="voirDossierRef" style="font-size: 12px; color: var(--neutral-600);"></span>
             </div>
 
-            <!-- Client -->
-            <div style="margin-bottom: 20px; padding: 15px; background: var(--neutral-50); border-radius: 8px;">
-                <div style="font-size: 10px; text-transform: uppercase; color: var(--neutral-500); margin-bottom: 5px;">Facture a</div>
-                <strong id="voirClient"></strong><br>
-                <span id="voirClientIFU" style="font-size: 11px; color: var(--neutral-600);"></span>
+            <!-- Client / Destinataire -->
+            <div class="client-block" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #1e3a5f;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; font-weight: 600;">Facture a</div>
+                <div id="voirClient" style="font-size: 16px; font-weight: 600; color: #1e3a5f; margin-bottom: 4px;"></div>
+                <div id="voirClientIFU" style="font-size: 12px; color: #4b5563;"></div>
             </div>
 
             <!-- Tableau des lignes -->
             <table class="invoice-table">
                 <thead>
                     <tr>
-                        <th style="width: 50%;">Description</th>
-                        <th style="width: 15%; text-align: center;">Qte</th>
-                        <th style="width: 17%; text-align: right;">Prix Unit.</th>
-                        <th style="width: 18%; text-align: right;">Total</th>
+                        <th style="width: 40%;">Désignation</th>
+                        <th style="width: 15%; text-align: right;">Honoraires</th>
+                        <th style="width: 12%; text-align: right;">Timbre</th>
+                        <th style="width: 12%; text-align: right;">Enreg.</th>
+                        <th style="width: 15%; text-align: right;">Total</th>
                     </tr>
                 </thead>
                 <tbody id="voirLignes">
                 </tbody>
             </table>
 
-            <!-- Totaux -->
+            <!-- Récapitulatif des totaux -->
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                <div style="width: 280px;">
+                <div style="width: 320px;">
                     <div class="invoice-total-row">
-                        <span>Total HT:</span>
-                        <span id="voirHT"></span>
+                        <span>Total Honoraires HT:</span>
+                        <span id="voirHonoraires"></span>
+                    </div>
+                    <div class="invoice-total-row" id="voirTaxeRow">
+                        <span id="voirTaxeLabel">TPS (5%):</span>
+                        <span id="voirTaxe"></span>
                     </div>
                     <div class="invoice-total-row">
-                        <span>TVA (18%):</span>
-                        <span id="voirTVA"></span>
+                        <span>Total Débours:</span>
+                        <span id="voirDebours"></span>
                     </div>
-                    <div class="invoice-total-row invoice-final-total">
-                        <span>Total TTC:</span>
-                        <span id="voirTTC"></span>
+                    <div class="invoice-total-row" style="border-top: 2px solid #1e3a5f; padding-top: 8px; margin-top: 8px;">
+                        <span style="font-weight: 600;">Total TTC:</span>
+                        <span id="voirTTC" style="font-weight: 600;"></span>
+                    </div>
+                    <div class="invoice-total-row" id="voirAIBRow" style="display: none; color: #dc3545;">
+                        <span>AIB à retenir (3%):</span>
+                        <span id="voirAIB"></span>
+                    </div>
+                    <div class="invoice-total-row invoice-final-total" style="background: #198754 !important;">
+                        <span>NET À PAYER:</span>
+                        <span id="voirNetAPayer"></span>
                     </div>
                 </div>
             </div>
+            <!-- Champs cachés pour compatibilité -->
+            <span id="voirHT" style="display: none;"></span>
+            <span id="voirTVA" style="display: none;"></span>
 
             <!-- MECeF -->
             <div id="voirMECeF" style="display: none; margin-top: 30px; padding: 15px; border: 1px solid var(--neutral-200); border-radius: 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
@@ -482,7 +729,7 @@
             </div>
         </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="flex-shrink: 0; padding: 16px 20px; background: white; border-top: 1px solid #dee2e6; display: flex; gap: 12px; justify-content: flex-end;">
         <button class="btn btn-secondary" onclick="fermerModalVoir()">Fermer</button>
         <div class="flex gap-2">
             <button class="btn btn-accent" onclick="imprimerFactureDirecte()">
@@ -494,37 +741,249 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Fusion Brouillons -->
+<div class="modal" id="modalFusion" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; max-width: 700px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 18px;"><i data-lucide="git-merge" style="width: 20px; height: 20px; vertical-align: middle;"></i> Fusionner des factures brouillon</h3>
+            <button onclick="fermerModalFusion()" style="background: none; border: none; cursor: pointer; font-size: 20px;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">Client</label>
+                <select id="fusionClient" class="form-select" onchange="chargerBrouillonsClient()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="">-- Sélectionner un client --</option>
+                </select>
+            </div>
+
+            <div id="listeBrouillonsFusion" style="margin-top: 20px;">
+                <p style="color: #6b7280;">Sélectionnez un client pour voir ses factures brouillon.</p>
+            </div>
+
+            <div id="resumeFusion" style="display: none; margin-top: 20px; padding: 16px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+                <h5 style="margin: 0 0 12px 0; color: #1e40af;">Résumé de la fusion</h5>
+                <p style="margin: 4px 0;">Nombre de factures : <strong id="fusionNbFactures">0</strong></p>
+                <p style="margin: 4px 0;">Total HT : <strong id="fusionTotalHT">0</strong> FCFA</p>
+                <p style="margin: 4px 0;">Total TTC : <strong id="fusionTotalTTC">0</strong> FCFA</p>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="fermerModalFusion()">Annuler</button>
+            <button class="btn btn-primary" onclick="executerFusion()" id="btnFusionner" disabled>
+                <i data-lucide="git-merge"></i> Fusionner en une facture
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<!-- CSS pour tous les modals scrollables -->
+<style>
+    /* Styles de base pour les modals - PAS de display !important */
+    #modalFacture,
+    #modalVoirFacture,
+    .modal.large {
+        max-height: 90vh;
+        overflow: hidden;
+        flex-direction: column;
+    }
+
+    #modalFacture .modal-body,
+    .modal-facture .modal-body,
+    #modalVoirFacture .modal-body,
+    .modal-voir-facture .modal-body,
+    .modal.large .modal-body {
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        max-height: calc(90vh - 140px) !important;
+        padding: 20px !important;
+    }
+
+    #modalFacture .modal-footer,
+    .modal-facture .modal-footer,
+    #modalVoirFacture .modal-footer,
+    .modal-voir-facture .modal-footer,
+    .modal.large .modal-footer {
+        flex-shrink: 0 !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        background: white !important;
+        padding: 16px 20px !important;
+        border-top: 1px solid #dee2e6 !important;
+        display: flex !important;
+        gap: 12px !important;
+        justify-content: flex-end !important;
+        z-index: 10 !important;
+    }
+
+    #modalFacture .modal-header,
+    .modal-facture .modal-header,
+    #modalVoirFacture .modal-header,
+    .modal-voir-facture .modal-header,
+    .modal.large .modal-header {
+        flex-shrink: 0 !important;
+    }
+
+    #modalFacture form,
+    .modal-facture form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        max-height: calc(90vh - 60px) !important;
+    }
+</style>
+
 <!-- QRCode.js library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
     lucide.createIcons();
 
-    // Donnees des factures
+    // Donnees des factures et proformas
     let factures = {{ factures_json|safe }};
+    let proformas = {{ proformas_json|safe }};
     let factureEnCours = null;
+    let proformaEnCours = null;
     let ligneIndex = 1;
+    let typeDocumentEnCours = 'facture'; // 'facture' ou 'proforma'
+
+    // Types d'actes et débours prédéfinis
+    let typesActes = {{ types_actes_json|safe }};
+    let typesDebours = {{ types_debours_json|safe }};
 
     // ============================================
-    // GESTION DU MODAL FACTURE
+    // GESTION DU MODAL FACTURE/PROFORMA
     // ============================================
-    function ouvrirModalFacture(facture = null) {
-        factureEnCours = facture;
-        document.getElementById('modalFacture').style.display = 'block';
+    var modeFactureActuel = null;
+
+    function ouvrirModalFacture(typeOuDocument = 'facture') {
+        // TOUJOURS cacher les autres modaux d'abord
         document.getElementById('modalVoirFacture').style.display = 'none';
+        document.getElementById('modalFusion').style.display = 'none';
+
+        // Déterminer si c'est un document existant ou un type pour création
+        let document_data = null;
+        let type = 'facture';
+
+        if (typeof typeOuDocument === 'object' && typeOuDocument !== null) {
+            // C'est un document existant (facture ou proforma)
+            document_data = typeOuDocument;
+            type = document_data.type_document || 'facture';
+        } else if (typeOuDocument === 'proforma') {
+            type = 'proforma';
+        }
+
+        typeDocumentEnCours = type;
+
+        // Mettre à jour le libellé du bouton d'enregistrement
+        const labelBtn = document.getElementById('labelBtnEnregistrer');
+        if (labelBtn) {
+            labelBtn.textContent = type === 'proforma' ? 'Enregistrer la proforma' : 'Enregistrer la facture';
+        }
+
+        // Ouvrir le modal de création
+        factureEnCours = document_data;
+        document.getElementById('modalFacture').style.display = 'flex';
         document.getElementById('modalOverlay').classList.add('open');
 
-        if (facture) {
-            document.getElementById('modalFactureTitle').textContent = 'Modifier la facture';
-            remplirFormulaire(facture);
+        if (document_data) {
+            // Mode modification: cacher le choix et afficher directement le mode libre
+            if (type === 'proforma') {
+                document.getElementById('modalFactureTitle').textContent = 'Modifier la proforma';
+            } else {
+                document.getElementById('modalFactureTitle').textContent = 'Modifier la facture';
+            }
+            document.getElementById('choixModeFacture').style.display = 'none';
+            document.getElementById('modeActesContent').style.display = 'none';
+            document.getElementById('modeLibreContent').style.display = 'block';
+            document.getElementById('btnsModeActes').style.display = 'none';
+            document.getElementById('btnsModeLibre').style.display = 'block';
+            modeFactureActuel = 'libre';
+            remplirFormulaire(document_data);
         } else {
-            document.getElementById('modalFactureTitle').textContent = 'Nouvelle facture';
-            reinitialiserFormulaire();
+            // Mode création: afficher le choix entre actes et libre
+            if (type === 'proforma') {
+                document.getElementById('modalFactureTitle').textContent = 'Nouvelle proforma';
+                // Pour proforma, directement en mode libre
+                document.getElementById('choixModeFacture').style.display = 'none';
+                document.getElementById('modeActesContent').style.display = 'none';
+                document.getElementById('modeLibreContent').style.display = 'block';
+                document.getElementById('btnsModeActes').style.display = 'none';
+                document.getElementById('btnsModeLibre').style.display = 'block';
+                modeFactureActuel = 'libre';
+                reinitialiserFormulaire();
+                genererNumeroProforma();
+            } else {
+                document.getElementById('modalFactureTitle').textContent = 'Nouvelle facture';
+                // Pour facture, afficher le choix de mode
+                resetModeSelection();
+                reinitialiserFormulaire();
+            }
+        }
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalFacture');
+        lucide.createIcons();
+    }
+
+    function resetModeSelection() {
+        modeFactureActuel = null;
+        document.getElementById('choixModeFacture').style.display = 'block';
+        document.getElementById('modeActesOption').style.borderColor = '#dee2e6';
+        document.getElementById('modeActesOption').style.background = 'white';
+        document.getElementById('modeLibreOption').style.borderColor = '#dee2e6';
+        document.getElementById('modeLibreOption').style.background = 'white';
+        document.getElementById('modeActesContent').style.display = 'none';
+        document.getElementById('modeLibreContent').style.display = 'none';
+        document.getElementById('btnsModeActes').style.display = 'none';
+        document.getElementById('btnsModeLibre').style.display = 'none';
+    }
+
+    function selectionnerModeFacture(mode) {
+        modeFactureActuel = mode;
+
+        // Mettre à jour les styles des options
+        document.getElementById('modeActesOption').style.borderColor = mode === 'actes' ? '#22c55e' : '#dee2e6';
+        document.getElementById('modeActesOption').style.background = mode === 'actes' ? '#f0fdf4' : 'white';
+        document.getElementById('modeLibreOption').style.borderColor = mode === 'libre' ? '#3b82f6' : '#dee2e6';
+        document.getElementById('modeLibreOption').style.background = mode === 'libre' ? '#eff6ff' : 'white';
+
+        // Afficher le contenu approprié
+        document.getElementById('modeActesContent').style.display = mode === 'actes' ? 'block' : 'none';
+        document.getElementById('modeLibreContent').style.display = mode === 'libre' ? 'block' : 'none';
+
+        // Afficher les bons boutons
+        document.getElementById('btnsModeActes').style.display = mode === 'actes' ? 'inline-block' : 'none';
+        document.getElementById('btnsModeLibre').style.display = mode === 'libre' ? 'inline-block' : 'none';
+
+        // Charger les données si nécessaire
+        if (mode === 'actes') {
+            chargerClientsAvecActes();
+        } else if (mode === 'libre') {
             genererNumeroFacture();
         }
+
         lucide.createIcons();
+    }
+
+    // Générer un numéro de proforma
+    function genererNumeroProforma() {
+        fetch('{% url "gestion:api_generer_numero_proforma" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('factureNumero').value = data.numero;
+            }
+        });
     }
 
     function fermerModalFacture() {
@@ -536,8 +995,17 @@
         document.getElementById('formFacture').reset();
         document.getElementById('factureId').value = '';
         document.getElementById('lignesFacture').innerHTML = '';
+
+        // Réinitialiser régime fiscal, type client et AIB
+        const regimeEl = document.getElementById('factureRegime');
+        const typeClientEl = document.getElementById('typeClient');
+        const aibEl = document.getElementById('clientAIB');
+        if (regimeEl) regimeEl.value = 'tps';
+        if (typeClientEl) typeClientEl.value = 'prive';
+        if (aibEl) aibEl.checked = false;
+
         ajouterLigne();
-        calculerTotaux();
+        calculerTotauxHuissier();
 
         // Date du jour
         const today = new Date().toISOString().split('T')[0];
@@ -547,6 +1015,30 @@
         const echeance = new Date();
         echeance.setDate(echeance.getDate() + 30);
         document.getElementById('factureEcheance').value = echeance.toISOString().split('T')[0];
+    }
+
+    // Auto-remplissage depuis le dossier sélectionné
+    function remplirDepuisDossier(selectElement) {
+        var selectedOption = selectElement.options[selectElement.selectedIndex];
+        console.log('Dossier sélectionné:', selectedOption.value);
+        console.log('data-client:', selectedOption.getAttribute('data-client'));
+        console.log('data-ifu:', selectedOption.getAttribute('data-ifu'));
+
+        if (selectedOption.value) {
+            // Récupérer les données du dossier depuis les attributs data-*
+            var clientNom = selectedOption.getAttribute('data-client');
+            var clientIfu = selectedOption.getAttribute('data-ifu');
+
+            // Remplir les champs du formulaire si les données existent
+            if (clientNom) {
+                document.getElementById('factureClient').value = clientNom;
+                console.log('Client rempli:', clientNom);
+            }
+            if (clientIfu) {
+                document.getElementById('factureIFU').value = clientIfu;
+                console.log('IFU rempli:', clientIfu);
+            }
+        }
     }
 
     function genererNumeroFacture() {
@@ -565,92 +1057,508 @@
         });
     }
 
-    function remplirFormulaire(facture) {
-        document.getElementById('factureId').value = facture.id;
-        document.getElementById('factureNumero').value = facture.numero;
-        document.getElementById('factureDate').value = facture.date_emission;
-        document.getElementById('factureEcheance').value = facture.date_echeance || '';
-        document.getElementById('factureStatut').value = facture.statut;
-        document.getElementById('factureClient').value = facture.client;
-        document.getElementById('factureIFU').value = facture.ifu || '';
-        document.getElementById('factureDossier').value = facture.dossier || '';
-        document.getElementById('factureObservations').value = facture.observations || '';
+    function remplirFormulaire(document_data) {
+        document.getElementById('factureId').value = document_data.id;
+        document.getElementById('factureNumero').value = document_data.numero;
+
+        // Gérer les dates selon le type (facture ou proforma)
+        const dateValue = document_data.date_emission || document_data.date_creation || '';
+        const echeanceValue = document_data.date_echeance || document_data.date_validite || '';
+        document.getElementById('factureDate').value = dateValue;
+        document.getElementById('factureEcheance').value = echeanceValue;
+
+        document.getElementById('factureStatut').value = document_data.statut;
+        document.getElementById('factureClient').value = document_data.client;
+        document.getElementById('factureIFU').value = document_data.ifu || '';
+        document.getElementById('factureDossier').value = document_data.dossier || '';
+        document.getElementById('factureObservations').value = document_data.observations || '';
+
+        // Régime fiscal, type client et AIB
+        const regimeEl = document.getElementById('factureRegime');
+        const typeClientEl = document.getElementById('typeClient');
+        const aibEl = document.getElementById('clientAIB');
+        if (regimeEl) regimeEl.value = document_data.regime || 'tps';
+        if (typeClientEl) typeClientEl.value = document_data.type_client || 'prive';
+        if (aibEl) aibEl.checked = document_data.client_aib || false;
 
         // Lignes
         document.getElementById('lignesFacture').innerHTML = '';
-        if (facture.lignes && facture.lignes.length > 0) {
-            facture.lignes.forEach((ligne, index) => {
+        if (document_data.lignes && document_data.lignes.length > 0) {
+            document_data.lignes.forEach((ligne, index) => {
                 ajouterLigne(ligne);
             });
         } else {
             ajouterLigne();
         }
-        calculerTotaux();
+        calculerTotauxHuissier();
     }
 
     // ============================================
     // GESTION DES LIGNES
     // ============================================
+    // Générer les options des types d'actes
+    function genererOptionsActes() {
+        let options = '<option value="">-- Sélectionner un acte --</option>';
+        typesActes.forEach(acte => {
+            options += `<option value="${acte.id}"
+                data-honoraires="${acte.honoraires_defaut}"
+                data-timbre="${acte.est_timbre_defaut}"
+                data-enregistrement="${acte.est_enregistre_defaut}">${acte.nom}</option>`;
+        });
+        options += '<option value="autre">-- Autre (saisie libre) --</option>';
+        return options;
+    }
+
+    // Générer les options des types de débours
+    function genererOptionsDebours() {
+        let options = '<option value="">-- Sélectionner --</option>';
+        typesDebours.forEach(d => {
+            options += `<option value="${d.id}" data-montant="${d.montant_defaut}">${d.nom}</option>`;
+        });
+        options += '<option value="autre">-- Autre --</option>';
+        return options;
+    }
+
     function ajouterLigne(data = null) {
         const container = document.getElementById('lignesFacture');
         const div = document.createElement('div');
         div.className = 'ligne-facture';
         div.dataset.index = ligneIndex++;
+        div.dataset.typeLigne = data?.type_ligne || 'acte';
+
+        const honoraires = data ? data.prix_unitaire : '';
+        const feuillets = data ? (data.feuillets || 1) : 1;
+        const timbre = feuillets * 1200;
+        const hasTimbre = data ? (data.has_timbre !== false) : true;
+        const hasEnreg = data ? (data.enregistrement !== false) : true;
+        const description = data ? data.description : '';
+        const typeLigne = data?.type_ligne || 'acte';
+        const montantDebours = data?.montant_debours || 0;
 
         div.innerHTML = `
-            <div class="form-grid" style="grid-template-columns: 3fr 1fr 1fr 1fr auto;">
-                <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <input class="form-input ligne-description" type="text" placeholder="Ex: Commandement de payer" value="${data ? data.description : ''}">
+            <div style="display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; padding: 12px; background: var(--neutral-50); border-radius: 8px; margin-bottom: 8px;">
+                <!-- Type de ligne -->
+                <div class="form-group" style="min-width: 120px;">
+                    <label class="form-label" style="font-size: 11px;">Type</label>
+                    <select class="form-select ligne-type" onchange="changerTypeLigne(this)" style="padding: 6px 8px;">
+                        <option value="acte" ${typeLigne === 'acte' ? 'selected' : ''}>Acte</option>
+                        <option value="debours" ${typeLigne === 'debours' ? 'selected' : ''}>Débours</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Quantite</label>
-                    <input class="form-input ligne-quantite" type="number" value="${data ? data.quantite : 1}" min="1" onchange="calculerTotaux()">
+
+                <!-- Section ACTE -->
+                <div class="section-acte" style="display: ${typeLigne === 'acte' ? 'contents' : 'none'};">
+                    <div class="form-group" style="min-width: 180px; flex: 1;">
+                        <label class="form-label" style="font-size: 11px;">Acte</label>
+                        <select class="form-select ligne-acte-select" onchange="remplirActe(this)" style="padding: 6px 8px;">
+                            ${genererOptionsActes()}
+                        </select>
+                    </div>
+                    <div class="form-group saisie-libre" style="min-width: 160px; flex: 1; display: none;">
+                        <label class="form-label" style="font-size: 11px;">Nouvel acte</label>
+                        <div style="display: flex; gap: 4px;">
+                            <input class="form-input ligne-description-libre" type="text" placeholder="Intitulé" oninput="construireIntituleActe(this.closest('.ligne-facture'))" style="padding: 6px 8px; flex: 1;">
+                            <button type="button" class="btn btn-success btn-sm" onclick="ajouterNouvelActe(this)" title="Ajouter à la liste" style="padding: 4px 8px; font-size: 11px;">+</button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="min-width: 140px; flex: 1;">
+                        <label class="form-label" style="font-size: 11px;">Date(s) de l'acte</label>
+                        <input class="form-input ligne-acte-dates" type="text" placeholder="Ex: 28/11/2025" oninput="construireIntituleActe(this.closest('.ligne-facture'))" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                        <label class="form-label" style="font-size: 11px;">Intitulé final</label>
+                        <input class="form-input ligne-intitule-final" type="text" readonly style="padding: 6px 8px; background: #f0f0f0; color: #333;">
+                    </div>
+                    <div class="form-group" style="width: 90px;">
+                        <label class="form-label" style="font-size: 11px;">Honoraires</label>
+                        <input class="form-input ligne-honoraires" type="number" placeholder="0" value="${honoraires}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="width: 60px;">
+                        <label class="form-label" style="font-size: 11px;">Feuill.</label>
+                        <input class="form-input ligne-feuillets" type="number" value="${feuillets}" min="1" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 90px;">
+                        <label class="form-label" style="font-size: 11px;">Timbre</label>
+                        <label style="display: flex; align-items: center; gap: 4px; height: 32px;">
+                            <input type="checkbox" class="ligne-timbre-check" ${hasTimbre ? 'checked' : ''} onchange="calculerTotauxHuissier()">
+                            <span class="ligne-timbre-montant" style="font-size: 11px;">${formatMontant(timbre)}</span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; min-width: 70px;">
+                        <label class="form-label" style="font-size: 11px;">Enreg.</label>
+                        <label style="display: flex; align-items: center; gap: 4px; height: 32px;">
+                            <input type="checkbox" class="ligne-enregistrement" ${hasEnreg ? 'checked' : ''} onchange="calculerTotauxHuissier()">
+                            <span style="font-size: 11px;">2 500</span>
+                        </label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Prix unitaire</label>
-                    <input class="form-input ligne-prix" type="number" placeholder="15000" value="${data ? data.prix_unitaire : ''}" onchange="calculerTotaux()">
+
+                <!-- Section DÉBOURS -->
+                <div class="section-debours" style="display: ${typeLigne === 'debours' ? 'contents' : 'none'};">
+                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                        <label class="form-label" style="font-size: 11px;">Débours</label>
+                        <select class="form-select ligne-debours-select" onchange="remplirDebours(this)" style="padding: 6px 8px;">
+                            ${genererOptionsDebours()}
+                        </select>
+                    </div>
+                    <div class="form-group saisie-libre-debours" style="min-width: 180px; flex: 1; display: none;">
+                        <label class="form-label" style="font-size: 11px;">Description</label>
+                        <input class="form-input ligne-debours-description" type="text" placeholder="Autre débours" style="padding: 6px 8px;">
+                    </div>
+                    <div class="form-group" style="width: 120px;">
+                        <label class="form-label" style="font-size: 11px;">Montant</label>
+                        <input class="form-input ligne-debours-montant" type="number" placeholder="0" value="${montantDebours}" onchange="calculerTotauxHuissier()" oninput="calculerTotauxHuissier()" style="padding: 6px 8px;">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Total</label>
-                    <input class="form-input ligne-total" type="text" readonly style="background: var(--neutral-100);" value="${data ? formatMontant(data.quantite * data.prix_unitaire) : ''}">
-                </div>
+
+                <!-- Description (champ caché pour stocker) -->
+                <input type="hidden" class="ligne-description" value="${description}">
+
+                <!-- Bouton supprimer -->
                 <div class="form-group" style="align-self: flex-end;">
-                    <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="margin-bottom: 6px;">
-                        <i data-lucide="trash-2"></i>
+                    <button type="button" class="btn btn-danger btn-icon" onclick="supprimerLigne(this)" style="padding: 6px; margin-bottom: 2px;">
+                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                     </button>
                 </div>
             </div>
         `;
         container.appendChild(div);
         lucide.createIcons();
-        calculerTotaux();
+        calculerTotauxHuissier();
+    }
+
+    // Changer le type de ligne (acte vs débours)
+    function changerTypeLigne(select) {
+        const ligne = select.closest('.ligne-facture');
+        const type = select.value;
+        ligne.dataset.typeLigne = type;
+
+        const sectionActe = ligne.querySelector('.section-acte');
+        const sectionDebours = ligne.querySelector('.section-debours');
+
+        if (type === 'acte') {
+            sectionActe.style.display = 'contents';
+            sectionDebours.style.display = 'none';
+        } else {
+            sectionActe.style.display = 'none';
+            sectionDebours.style.display = 'contents';
+        }
+        calculerTotauxHuissier();
+    }
+
+    // Construire l'intitulé final de l'acte avec les dates
+    function construireIntituleActe(ligne) {
+        const selectActe = ligne.querySelector('.ligne-acte-select');
+        const inputDates = ligne.querySelector('.ligne-acte-dates');
+        const inputNouvel = ligne.querySelector('.ligne-description-libre');
+        const inputFinal = ligne.querySelector('.ligne-intitule-final');
+        const inputDescription = ligne.querySelector('.ligne-description');
+
+        // Récupérer le nom de l'acte
+        let nomActe = '';
+        if (selectActe.value === 'autre') {
+            nomActe = inputNouvel ? inputNouvel.value.trim() : '';
+        } else if (selectActe.value) {
+            const option = selectActe.options[selectActe.selectedIndex];
+            nomActe = option.dataset.nom || option.textContent.trim();
+        }
+
+        // Récupérer les dates
+        const dates = inputDates ? inputDates.value.trim() : '';
+
+        // Construire l'intitulé final
+        let intituleFinal = nomActe;
+        if (dates && nomActe) {
+            // Détecter si c'est une seule date ou plusieurs
+            const hasMultipleDates = dates.includes(',') || dates.includes(' et ') || dates.includes('-') || dates.includes('/') && dates.split('/').length > 3;
+            const preposition = hasMultipleDates ? ' des ' : ' du ';
+            intituleFinal = nomActe + preposition + dates;
+        }
+
+        // Mettre à jour les champs
+        if (inputFinal) {
+            inputFinal.value = intituleFinal;
+        }
+        if (inputDescription) {
+            inputDescription.value = intituleFinal;
+        }
+
+        return intituleFinal;
+    }
+
+    // Remplir les champs depuis un acte prédéfini
+    function remplirActe(select) {
+        const ligne = select.closest('.ligne-facture');
+        const option = select.options[select.selectedIndex];
+        const saisiLibre = ligne.querySelector('.saisie-libre');
+
+        if (select.value === 'autre') {
+            saisiLibre.style.display = 'block';
+            ligne.querySelector('.ligne-description').value = '';
+            ligne.querySelector('.ligne-intitule-final').value = '';
+            construireIntituleActe(ligne);
+            calculerTotauxHuissier();
+            return;
+        }
+
+        saisiLibre.style.display = 'none';
+
+        if (select.value && option.dataset.honoraires) {
+            ligne.querySelector('.ligne-honoraires').value = option.dataset.honoraires;
+            ligne.querySelector('.ligne-timbre-check').checked = option.dataset.timbre === 'true' || option.dataset.timbre === 'True';
+            ligne.querySelector('.ligne-enregistrement').checked = option.dataset.enregistrement === 'true' || option.dataset.enregistrement === 'True';
+        }
+
+        // Construire l'intitulé final avec les dates
+        construireIntituleActe(ligne);
+        calculerTotauxHuissier();
+    }
+
+    // Remplir les champs depuis un débours prédéfini
+    function remplirDebours(select) {
+        const ligne = select.closest('.ligne-facture');
+        const option = select.options[select.selectedIndex];
+        const saisiLibre = ligne.querySelector('.saisie-libre-debours');
+
+        if (select.value === 'autre') {
+            saisiLibre.style.display = 'block';
+            ligne.querySelector('.ligne-description').value = '';
+            return;
+        }
+
+        saisiLibre.style.display = 'none';
+
+        if (select.value && option.dataset.montant) {
+            ligne.querySelector('.ligne-debours-montant').value = option.dataset.montant;
+            ligne.querySelector('.ligne-description').value = option.text;
+        }
+        calculerTotauxHuissier();
+    }
+
+    // Ajouter un nouvel acte à la liste
+    function ajouterNouvelActe(btn) {
+        const ligne = btn.closest('.ligne-facture');
+        const nom = ligne.querySelector('.ligne-description-libre').value.trim();
+        const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires').value) || 0;
+        const estTimbre = ligne.querySelector('.ligne-timbre-check').checked;
+        const estEnreg = ligne.querySelector('.ligne-enregistrement').checked;
+
+        if (!nom) {
+            alert('Veuillez saisir un intitulé pour l\'acte');
+            return;
+        }
+
+        fetch('{% url "gestion:api_creer_type_acte" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                nom: nom,
+                honoraires_defaut: honoraires,
+                est_timbre_defaut: estTimbre,
+                est_enregistre_defaut: estEnreg
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Acte "' + nom + '" ajouté à la liste !');
+
+                // Ajouter au tableau local
+                typesActes.push({
+                    id: data.id,
+                    nom: nom,
+                    honoraires_defaut: honoraires,
+                    est_timbre_defaut: estTimbre,
+                    est_enregistre_defaut: estEnreg
+                });
+
+                // Ajouter l'option à tous les sélecteurs d'actes
+                document.querySelectorAll('.ligne-acte-select').forEach(select => {
+                    const optionAutre = select.querySelector('option[value="autre"]');
+                    const newOption = document.createElement('option');
+                    newOption.value = data.id;
+                    newOption.dataset.nom = nom;
+                    newOption.dataset.honoraires = honoraires;
+                    newOption.dataset.timbre = estTimbre;
+                    newOption.dataset.enregistrement = estEnreg;
+                    newOption.textContent = nom;
+                    select.insertBefore(newOption, optionAutre);
+                });
+
+                // Sélectionner le nouvel acte dans cette ligne
+                const selectActe = ligne.querySelector('.ligne-acte-select');
+                selectActe.value = data.id;
+                ligne.querySelector('.saisie-libre').style.display = 'none';
+
+                // Mettre à jour l'intitulé final
+                construireIntituleActe(ligne);
+            } else {
+                alert('Erreur : ' + (data.error || 'Impossible d\'ajouter l\'acte'));
+            }
+        })
+        .catch(error => {
+            alert('Erreur réseau : ' + error);
+        });
     }
 
     function supprimerLigne(btn) {
         const lignes = document.querySelectorAll('.ligne-facture');
         if (lignes.length > 1) {
             btn.closest('.ligne-facture').remove();
-            calculerTotaux();
+            calculerTotauxHuissier();
         }
     }
 
-    function calculerTotaux() {
-        let totalHT = 0;
+    // ============================================
+    // CALCULS FACTURATION HUISSIER BÉNIN - MECeF
+    // Groupes: A=Exonéré, B=TVA18%, E=TPS, F=Timbres/Enreg
+    // ============================================
+    function calculerTotauxHuissier() {
+        let totalHonoraires = 0;      // Honoraires des actes (taxables)
+        let totalTimbres = 0;         // Timbres des actes (non taxables - Groupe F)
+        let totalEnregistrement = 0;  // Enregistrement des actes (non taxables - Groupe F)
+        let totalDeboursAutres = 0;   // Débours purs (non taxables)
+
         document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const qte = parseFloat(ligne.querySelector('.ligne-quantite').value) || 0;
-            const prix = parseFloat(ligne.querySelector('.ligne-prix').value) || 0;
-            const total = qte * prix;
-            ligne.querySelector('.ligne-total').value = formatMontant(total);
-            totalHT += total;
+            const typeLigne = ligne.dataset.typeLigne || ligne.querySelector('.ligne-type')?.value || 'acte';
+
+            if (typeLigne === 'acte') {
+                // Ligne ACTE - honoraires taxables + timbres/enreg optionnels
+                const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+                const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+                const hasTimbre = ligne.querySelector('.ligne-timbre-check')?.checked;
+                const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+                const timbre = hasTimbre ? feuillets * 1200 : 0;
+                const enreg = hasEnreg ? 2500 : 0;
+
+                // Mettre à jour l'affichage du timbre
+                const timbreMontantEl = ligne.querySelector('.ligne-timbre-montant');
+                if (timbreMontantEl) {
+                    timbreMontantEl.textContent = hasTimbre ? formatMontant(timbre) : '0 FCFA';
+                }
+
+                totalHonoraires += honoraires;
+                totalTimbres += timbre;
+                totalEnregistrement += enreg;
+
+            } else {
+                // Ligne DÉBOURS - montant non taxable
+                const montantDebours = parseFloat(ligne.querySelector('.ligne-debours-montant')?.value) || 0;
+                totalDeboursAutres += montantDebours;
+            }
         });
 
-        const tva = totalHT * 0.18;
-        const ttc = totalHT + tva;
+        // Récupérer régime et type de client
+        const regime = document.getElementById('factureRegime')?.value || 'tps';
+        const typeClient = document.getElementById('typeClient')?.value || 'prive';
+        const clientAIB = document.getElementById('clientAIB')?.checked;
 
-        document.getElementById('factureMontantHT').value = formatMontant(totalHT);
-        document.getElementById('factureTVA').value = formatMontant(tva);
-        document.getElementById('factureTTC').value = formatMontant(ttc);
+        // Déterminer le groupe MECeF et la taxe selon les règles
+        let taxe = 0;
+        let groupeTaxation = 'E';
+        let labelTaxe = 'TPS (0%)';
+        let labelGroupe = 'E - TPS Client privé';
+        let couleurGroupe = '#e0f2fe'; // bleu clair
+
+        if (regime === 'tva') {
+            // Régime TVA normal → Groupe B, TVA 18%
+            taxe = totalHonoraires * 0.18;
+            groupeTaxation = 'B';
+            labelTaxe = 'TVA (18%)';
+            labelGroupe = 'B - TVA 18%';
+            couleurGroupe = '#fef3c7'; // jaune
+        } else {
+            // Régime TPS
+            if (typeClient === 'public') {
+                // TPS + Client public → Groupe B, TVA 18% (retenue État)
+                taxe = totalHonoraires * 0.18;
+                groupeTaxation = 'B';
+                labelTaxe = 'TVA (18%) - Retenue État';
+                labelGroupe = 'B - TVA Client public';
+                couleurGroupe = '#fef3c7'; // jaune
+            } else {
+                // TPS + Client privé → Groupe E, pas de TVA
+                taxe = 0;
+                groupeTaxation = 'E';
+                labelTaxe = 'TPS (0%)';
+                labelGroupe = 'E - TPS Client privé';
+                couleurGroupe = '#e0f2fe'; // bleu clair
+            }
+        }
+
+        // Total débours (non taxables - Groupe F) = timbres + enregistrement + débours purs
+        const totalDebours = totalTimbres + totalEnregistrement + totalDeboursAutres;
+
+        // Total TTC (montant facture MECeF)
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+
+        // AIB (3%) - suivi interne uniquement, pas sur facture MECeF
+        const montantAIB = clientAIB ? totalTTC * 0.03 : 0;
+        const netAPayer = totalTTC; // Net à payer = TTC (AIB est juste suivi interne)
+        const netAPercevoir = totalTTC - montantAIB; // Ce que l'étude perçoit réellement
+
+        // Mettre à jour le groupe MECeF
+        const groupeTaxationEl = document.getElementById('groupeTaxation');
+        const affichageGroupeEl = document.getElementById('affichageGroupeMECeF');
+        if (groupeTaxationEl) groupeTaxationEl.value = groupeTaxation;
+        if (affichageGroupeEl) {
+            affichageGroupeEl.textContent = labelGroupe;
+            affichageGroupeEl.style.background = couleurGroupe;
+        }
+
+        // Mettre à jour le label de la taxe
+        const labelTaxeEl = document.getElementById('labelTaxe');
+        if (labelTaxeEl) labelTaxeEl.textContent = labelTaxe;
+
+        // Masquer la ligne taxe si TPS + Client privé (conformité MECeF)
+        const ligneTaxeEl = document.getElementById('ligneTaxe');
+        if (ligneTaxeEl) {
+            if (regime === 'tps' && typeClient === 'prive') {
+                // TPS + Client privé = pas de ligne taxe affichée
+                ligneTaxeEl.style.display = 'none';
+            } else {
+                // TVA ou TPS+Public = afficher la ligne taxe
+                ligneTaxeEl.style.display = 'block';
+            }
+        }
+
+        // Afficher les totaux
+        const totalHonorairesEl = document.getElementById('totalHonoraires');
+        const totalTaxeEl = document.getElementById('totalTaxe');
+        const totalDeboursEl = document.getElementById('totalDebours');
+        const factureTTCEl = document.getElementById('factureTTC');
+        const netAPayerEl = document.getElementById('netAPayer');
+        const montantAIBEl = document.getElementById('montantAIB');
+        const netAPercevoirEl = document.getElementById('netAPercevoir');
+
+        if (totalHonorairesEl) totalHonorairesEl.value = formatMontant(totalHonoraires);
+        if (totalTaxeEl) totalTaxeEl.value = formatMontant(taxe);
+        if (totalDeboursEl) totalDeboursEl.value = formatMontant(totalDebours);
+        if (factureTTCEl) factureTTCEl.value = formatMontant(totalTTC);
+        if (netAPayerEl) netAPayerEl.value = formatMontant(netAPayer);
+        if (montantAIBEl) montantAIBEl.value = formatMontant(montantAIB);
+        if (netAPercevoirEl) netAPercevoirEl.value = formatMontant(netAPercevoir);
+
+        // Afficher/Masquer la section AIB (suivi interne)
+        const sectionAIB = document.getElementById('sectionAIB');
+        if (sectionAIB) {
+            sectionAIB.style.display = clientAIB ? 'block' : 'none';
+        }
+
+        // Champs cachés pour sauvegarde
+        const factureMontantHTEl = document.getElementById('factureMontantHT');
+        const factureTVAEl = document.getElementById('factureTVA');
+        if (factureMontantHTEl) factureMontantHTEl.value = totalHonoraires;
+        if (factureTVAEl) factureTVAEl.value = taxe;
+    }
+
+    // Ancienne fonction pour compatibilité
+    function calculerTotaux() {
+        calculerTotauxHuissier();
     }
 
     function formatMontant(m) {
@@ -664,41 +1572,136 @@
     }
 
     // ============================================
-    // SAUVEGARDE FACTURE
+    // SAUVEGARDE FACTURE OU PROFORMA
     // ============================================
     function sauvegarderFacture(event, brouillon = false) {
         event.preventDefault();
 
-        // Collecter les lignes
+        // Collecter les lignes avec la structure huissier
         const lignes = [];
         document.querySelectorAll('.ligne-facture').forEach(ligne => {
-            const description = ligne.querySelector('.ligne-description').value;
-            const quantite = parseFloat(ligne.querySelector('.ligne-quantite').value) || 0;
-            const prix = parseFloat(ligne.querySelector('.ligne-prix').value) || 0;
-            if (description && prix > 0) {
-                lignes.push({ description, quantite, prix_unitaire: prix });
+            const typeLigne = ligne.dataset.typeLigne || ligne.querySelector('.ligne-type')?.value || 'acte';
+
+            if (typeLigne === 'acte') {
+                // Ligne ACTE - Utiliser l'intitulé final (avec dates)
+                let description = ligne.querySelector('.ligne-intitule-final')?.value || '';
+                // Si intitulé final vide, construire ou récupérer
+                if (!description) {
+                    description = construireIntituleActe(ligne);
+                }
+                // Dernier recours: prendre du select ou de la saisie libre
+                if (!description) {
+                    const selectActe = ligne.querySelector('.ligne-acte-select');
+                    if (selectActe && selectActe.value && selectActe.value !== 'autre') {
+                        description = selectActe.options[selectActe.selectedIndex].text;
+                    } else {
+                        description = ligne.querySelector('.ligne-description-libre')?.value || '';
+                    }
+                }
+
+                const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires')?.value) || 0;
+                const feuillets = parseInt(ligne.querySelector('.ligne-feuillets')?.value) || 1;
+                const hasTimbre = ligne.querySelector('.ligne-timbre-check')?.checked;
+                const hasEnreg = ligne.querySelector('.ligne-enregistrement')?.checked;
+
+                const timbre = hasTimbre ? feuillets * 1200 : 0;
+                const totalLigne = honoraires + timbre + (hasEnreg ? 2500 : 0);
+
+                if (description || honoraires > 0) {
+                    lignes.push({
+                        type_ligne: 'acte',
+                        description: description,
+                        quantite: 1,
+                        prix_unitaire: honoraires,
+                        honoraires: honoraires,
+                        feuillets: feuillets,
+                        has_timbre: hasTimbre,
+                        enregistrement: hasEnreg,
+                        total_ligne: totalLigne
+                    });
+                }
+            } else {
+                // Ligne DÉBOURS
+                let description = ligne.querySelector('.ligne-description')?.value || '';
+                if (!description) {
+                    const selectDebours = ligne.querySelector('.ligne-debours-select');
+                    if (selectDebours && selectDebours.value && selectDebours.value !== 'autre') {
+                        description = selectDebours.options[selectDebours.selectedIndex].text;
+                    } else {
+                        description = ligne.querySelector('.ligne-debours-description')?.value || '';
+                    }
+                }
+
+                const montant = parseFloat(ligne.querySelector('.ligne-debours-montant')?.value) || 0;
+
+                if (description || montant > 0) {
+                    lignes.push({
+                        type_ligne: 'debours',
+                        description: description,
+                        quantite: 1,
+                        prix_unitaire: montant,
+                        honoraires: 0,
+                        feuillets: 1,
+                        has_timbre: false,
+                        enregistrement: false,
+                        montant_debours: montant,
+                        total_ligne: montant
+                    });
+                }
             }
         });
 
+        const typeDoc = typeDocumentEnCours === 'proforma' ? 'proforma' : 'facture';
+        const labelDoc = typeDoc === 'proforma' ? 'proforma' : 'facture';
+
         if (lignes.length === 0) {
-            alert('Veuillez ajouter au moins une ligne a la facture');
+            alert('Veuillez ajouter au moins une ligne à la ' + labelDoc);
             return;
         }
 
+        // Récupérer le régime fiscal, type de client et AIB
+        const regime = document.getElementById('factureRegime')?.value || 'tps';
+        const typeClient = document.getElementById('typeClient')?.value || 'prive';
+        const groupeTaxation = document.getElementById('groupeTaxation')?.value || 'E';
+        const clientAIB = document.getElementById('clientAIB')?.checked || false;
+
+        // Calculer le montant AIB si applicable
+        const montantHT = parseFloat(document.getElementById('totalHonoraires')?.textContent.replace(/[^\d]/g, '')) || 0;
+        const montantAIB = clientAIB ? Math.round(montantHT * 0.03) : 0;
+
+        // Données communes
         const data = {
             id: document.getElementById('factureId').value || null,
             numero: document.getElementById('factureNumero').value,
-            date_emission: document.getElementById('factureDate').value,
-            date_echeance: document.getElementById('factureEcheance').value,
-            statut: brouillon ? 'brouillon' : document.getElementById('factureStatut').value,
             client: document.getElementById('factureClient').value,
             ifu: document.getElementById('factureIFU').value,
             dossier: document.getElementById('factureDossier').value,
             observations: document.getElementById('factureObservations').value,
+            regime: regime,
+            type_client: typeClient,
+            groupe_taxation: groupeTaxation,
+            client_aib: clientAIB,
+            montant_aib: montantAIB,
             lignes: lignes
         };
 
-        fetch('{% url "gestion:api_sauvegarder_facture" %}', {
+        // Champs spécifiques selon le type
+        if (typeDoc === 'proforma') {
+            data.date_creation = document.getElementById('factureDate').value;
+            data.date_validite = document.getElementById('factureEcheance').value;
+            data.statut = brouillon ? 'brouillon' : (document.getElementById('factureStatut')?.value || 'brouillon');
+        } else {
+            data.date_emission = document.getElementById('factureDate').value;
+            data.date_echeance = document.getElementById('factureEcheance').value;
+            data.statut = brouillon ? 'brouillon' : document.getElementById('factureStatut').value;
+        }
+
+        // URL de sauvegarde selon le type
+        const apiUrl = typeDoc === 'proforma'
+            ? '{% url "gestion:api_sauvegarder_proforma" %}'
+            : '{% url "gestion:api_sauvegarder_facture" %}';
+
+        fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -709,7 +1712,10 @@
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                alert(brouillon ? 'Brouillon enregistre !' : 'Facture enregistree !');
+                const msg = brouillon
+                    ? 'Brouillon enregistré !'
+                    : (typeDoc === 'proforma' ? 'Proforma enregistrée !' : 'Facture enregistrée !');
+                alert(msg);
                 location.reload();
             } else {
                 alert(result.error || 'Erreur lors de la sauvegarde');
@@ -727,9 +1733,20 @@
         const facture = factures.find(f => f.id == id);
         if (!facture) return;
 
+        // TOUJOURS cacher les autres modaux d'abord
         document.getElementById('modalFacture').style.display = 'none';
-        document.getElementById('modalVoirFacture').style.display = 'block';
+        document.getElementById('modalFusion').style.display = 'none';
+
+        // Ouvrir le modal de visualisation
+        document.getElementById('modalVoirFacture').style.display = 'flex';
         document.getElementById('modalOverlay').classList.add('open');
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalVoirFacture');
+
+        // Réinitialiser le titre en "Facture" (peut avoir été changé par voirProforma)
+        document.querySelector('#modalVoirFacture .modal-title').innerHTML = 'Facture <span id="voirNumero">' + facture.numero + '</span>';
+        document.querySelector('.invoice-title').textContent = 'Facture';
 
         document.getElementById('voirNumero').textContent = facture.numero;
         document.getElementById('voirNumeroDetail').textContent = facture.numero;
@@ -737,9 +1754,90 @@
         document.getElementById('voirEcheance').textContent = formatDate(facture.date_echeance);
         document.getElementById('voirClient').textContent = facture.client;
         document.getElementById('voirClientIFU').textContent = facture.ifu ? 'IFU: ' + facture.ifu : '';
-        document.getElementById('voirHT').textContent = formatMontant(facture.montant_ht);
-        document.getElementById('voirTVA').textContent = formatMontant(facture.tva);
-        document.getElementById('voirTTC').textContent = formatMontant(facture.total);
+
+        // Calculer les totaux huissier depuis les lignes
+        let totalHonoraires = 0;
+        let totalTimbres = 0;
+        let totalEnreg = 0;
+
+        if (facture.lignes && facture.lignes.length > 0) {
+            facture.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+
+                totalHonoraires += honoraires;
+                totalTimbres += timbre;
+                totalEnreg += enreg;
+            });
+        }
+
+        // Calcul des taxes selon la logique MECeF
+        const regime = facture.regime || 'tps';
+        const typeClient = facture.type_client || 'prive';
+
+        let taxe = 0;
+        let labelTaxe = 'TPS (0%):';
+        let groupeMECeF = 'E - TPS Client privé';
+
+        if (regime === 'tva') {
+            // Régime TVA normal → Groupe B, TVA 18%
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%):';
+            groupeMECeF = 'B - TVA 18%';
+        } else {
+            // Régime TPS
+            if (typeClient === 'public') {
+                // TPS + Client public → Groupe B, TVA 18% (retenue État)
+                taxe = totalHonoraires * 0.18;
+                labelTaxe = 'TVA (18%) - Retenue État:';
+                groupeMECeF = 'B - TVA Client public';
+            } else {
+                // TPS + Client privé → Groupe E, pas de TVA
+                taxe = 0;
+                labelTaxe = 'TPS (0%):';
+                groupeMECeF = 'E - TPS Client privé';
+            }
+        }
+
+        const totalDebours = totalTimbres + totalEnreg;
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+
+        // AIB si applicable (suivi interne uniquement)
+        const aib = facture.client_aib ? totalHonoraires * 0.03 : 0;
+        const netAPayer = totalTTC - aib;
+
+        // Afficher les totaux
+        document.getElementById('voirHonoraires').textContent = formatMontant(totalHonoraires);
+        document.getElementById('voirTaxeLabel').textContent = labelTaxe;
+        document.getElementById('voirTaxe').textContent = formatMontant(taxe);
+        document.getElementById('voirDebours').textContent = formatMontant(totalDebours);
+        document.getElementById('voirTTC').textContent = formatMontant(totalTTC);
+        document.getElementById('voirNetAPayer').textContent = formatMontant(netAPayer);
+
+        // Masquer la ligne taxe si TPS + Client privé (conformité MECeF)
+        const voirTaxeRow = document.getElementById('voirTaxeRow');
+        if (voirTaxeRow) {
+            if (regime === 'tps' && typeClient === 'prive') {
+                voirTaxeRow.style.display = 'none';
+            } else {
+                voirTaxeRow.style.display = 'flex';
+            }
+        }
+
+        // AIB
+        const aibRow = document.getElementById('voirAIBRow');
+        if (facture.client_aib && aib > 0) {
+            document.getElementById('voirAIB').textContent = formatMontant(aib);
+            aibRow.style.display = 'flex';
+        } else {
+            aibRow.style.display = 'none';
+        }
+
+        // Champs cachés pour compatibilité
+        document.getElementById('voirHT').textContent = formatMontant(totalHonoraires);
+        document.getElementById('voirTVA').textContent = formatMontant(taxe);
 
         // Affichage de l'affaire et du dossier lié
         const affaireSection = document.getElementById('voirAffaireSection');
@@ -763,11 +1861,11 @@
             document.getElementById('voirMECeFNumero').textContent = facture.mecef_numero;
             document.getElementById('voirNIM').textContent = facture.nim || 'N/A';
             document.getElementById('voirDateMECeF').textContent = facture.date_mecef || '-';
-            document.getElementById('voirMECeFMontant').textContent = formatMontant(facture.total);
+            document.getElementById('voirMECeFMontant').textContent = formatMontant(totalTTC);
             document.getElementById('btnNormaliserVue').style.display = 'none';
 
             // Generer le QR Code MECeF
-            const qrData = `MECeF|NIM:${facture.nim || 'N/A'}|NUM:${facture.mecef_numero}|TTC:${Math.round(facture.total)}|DATE:${facture.date_mecef || '-'}|CLIENT:${facture.client}`;
+            const qrData = `MECeF|NIM:${facture.nim || 'N/A'}|NUM:${facture.mecef_numero}|TTC:${Math.round(totalTTC)}|DATE:${facture.date_mecef || '-'}|CLIENT:${facture.client}`;
             try {
                 new QRCode(qrContainer, {
                     text: qrData,
@@ -787,17 +1885,24 @@
             document.getElementById('btnNormaliserVue').style.display = 'inline-flex';
         }
 
-        // Lignes
+        // Lignes - Structure huissier
         const tbody = document.getElementById('voirLignes');
         tbody.innerHTML = '';
         if (facture.lignes && facture.lignes.length > 0) {
             facture.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                const totalLigne = honoraires + timbre + enreg;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${ligne.description}</td>
-                    <td style="text-align: center;">${ligne.quantite}</td>
-                    <td style="text-align: right;">${formatMontant(ligne.prix_unitaire)}</td>
-                    <td style="text-align: right;">${formatMontant(ligne.quantite * ligne.prix_unitaire)}</td>
+                    <td style="text-align: right;">${formatMontant(honoraires)}</td>
+                    <td style="text-align: right;">${formatMontant(timbre)}</td>
+                    <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
+                    <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -840,6 +1945,198 @@
         });
     }
 
+    // ============================================
+    // ACTIONS SUR LES PROFORMAS
+    // ============================================
+    function voirProforma(id) {
+        const proforma = proformas.find(p => p.id == id);
+        if (!proforma) return;
+
+        // TOUJOURS cacher le modal de création d'abord
+        document.getElementById('modalFacture').style.display = 'none';
+
+        // Ouvrir le modal de visualisation
+        document.getElementById('modalVoirFacture').style.display = 'flex';
+        document.getElementById('modalOverlay').classList.add('open');
+
+        // Appliquer les styles de scroll
+        appliquerStylesScroll('modalVoirFacture');
+
+        // Changer le titre en "Proforma" au lieu de "Facture"
+        document.querySelector('#modalVoirFacture .modal-title').innerHTML = 'Proforma <span id="voirNumero">' + proforma.numero + '</span>';
+        document.querySelector('.invoice-title').textContent = 'Proforma';
+
+        document.getElementById('voirNumeroDetail').textContent = proforma.numero;
+        document.getElementById('voirDate').textContent = formatDate(proforma.date_creation);
+        document.getElementById('voirEcheance').textContent = formatDate(proforma.date_validite);
+        document.getElementById('voirClient').textContent = proforma.client;
+        document.getElementById('voirClientIFU').textContent = proforma.ifu ? 'IFU: ' + proforma.ifu : '';
+
+        // Calculer les totaux huissier depuis les lignes
+        let totalHonoraires = 0;
+        let totalTimbres = 0;
+        let totalEnreg = 0;
+
+        if (proforma.lignes && proforma.lignes.length > 0) {
+            proforma.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+
+                totalHonoraires += honoraires;
+                totalTimbres += timbre;
+                totalEnreg += enreg;
+            });
+        }
+
+        // Calcul des taxes selon la logique MECeF
+        const regime = proforma.regime || 'tps';
+        const typeClient = proforma.type_client || 'prive';
+
+        let taxe = 0;
+        let labelTaxe = 'TPS (0%):';
+
+        if (regime === 'tva') {
+            taxe = totalHonoraires * 0.18;
+            labelTaxe = 'TVA (18%):';
+        } else {
+            if (typeClient === 'public') {
+                taxe = totalHonoraires * 0.18;
+                labelTaxe = 'TVA (18%) - Retenue État:';
+            } else {
+                taxe = 0;
+                labelTaxe = 'TPS (0%):';
+            }
+        }
+
+        const totalDebours = totalTimbres + totalEnreg;
+        const totalTTC = totalHonoraires + taxe + totalDebours;
+
+        // AIB si applicable
+        const aib = proforma.client_aib ? totalHonoraires * 0.03 : 0;
+        const netAPayer = totalTTC - aib;
+
+        // Afficher les totaux
+        document.getElementById('voirHonoraires').textContent = formatMontant(totalHonoraires);
+        document.getElementById('voirTaxeLabel').textContent = labelTaxe;
+        document.getElementById('voirTaxe').textContent = formatMontant(taxe);
+        document.getElementById('voirDebours').textContent = formatMontant(totalDebours);
+        document.getElementById('voirTTC').textContent = formatMontant(totalTTC);
+        document.getElementById('voirNetAPayer').textContent = formatMontant(netAPayer);
+
+        // Masquer la ligne taxe si TPS + Client privé
+        const voirTaxeRow = document.getElementById('voirTaxeRow');
+        if (voirTaxeRow) {
+            if (regime === 'tps' && typeClient === 'prive') {
+                voirTaxeRow.style.display = 'none';
+            } else {
+                voirTaxeRow.style.display = 'flex';
+            }
+        }
+
+        // AIB
+        const aibRow = document.getElementById('voirAIBRow');
+        if (proforma.client_aib && aib > 0) {
+            document.getElementById('voirAIB').textContent = formatMontant(aib);
+            aibRow.style.display = 'flex';
+        } else {
+            aibRow.style.display = 'none';
+        }
+
+        // Statut proforma
+        const statutEl = document.getElementById('voirStatut');
+        let statutText = proforma.statut.toUpperCase();
+        if (proforma.statut === 'convertie') {
+            statutText = 'CONVERTIE → ' + proforma.facture_generee_numero;
+        }
+        statutEl.textContent = statutText;
+        statutEl.classList.remove('normalisee');
+
+        // Masquer la section MECeF pour les proformas
+        document.getElementById('voirMECeF').style.display = 'none';
+        document.getElementById('btnNormaliserVue').style.display = 'none';
+
+        // Lignes
+        const tbody = document.getElementById('voirLignes');
+        tbody.innerHTML = '';
+        if (proforma.lignes && proforma.lignes.length > 0) {
+            proforma.lignes.forEach(ligne => {
+                const honoraires = parseFloat(ligne.prix_unitaire) || 0;
+                const feuillets = parseInt(ligne.feuillets) || 1;
+                const timbre = feuillets * 1200;
+                const enreg = ligne.enregistrement !== false ? 2500 : 0;
+                const totalLigne = honoraires + timbre + enreg;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${ligne.description}</td>
+                    <td style="text-align: right;">${formatMontant(honoraires)}</td>
+                    <td style="text-align: right;">${formatMontant(timbre)}</td>
+                    <td style="text-align: right;">${enreg > 0 ? formatMontant(enreg) : '-'}</td>
+                    <td style="text-align: right; font-weight: 600;">${formatMontant(totalLigne)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        proformaEnCours = proforma;
+        factureEnCours = proforma; // Pour compatibilité impression
+        lucide.createIcons();
+    }
+
+    function modifierProforma(id) {
+        const proforma = proformas.find(p => p.id == id);
+        if (proforma) {
+            // Marquer comme proforma pour le formulaire
+            proforma.type_document = 'proforma';
+            ouvrirModalFacture(proforma);
+        }
+    }
+
+    function convertirProforma(id) {
+        if (!confirm('Convertir cette proforma en facture définitive ?\n\nCette action va créer une nouvelle facture basée sur cette proforma.')) return;
+
+        fetch('{% url "gestion:api_convertir_proforma" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ id: id })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Proforma convertie en facture !\nNouvelle facture: ' + result.facture_numero);
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur lors de la conversion');
+            }
+        });
+    }
+
+    function supprimerProforma(id) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette proforma ?')) return;
+
+        fetch('{% url "gestion:api_supprimer_proforma" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ id: id })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.error || 'Erreur lors de la suppression');
+            }
+        });
+    }
+
     function imprimerFacture(id) {
         voirFacture(id);
         setTimeout(() => {
@@ -855,12 +2152,168 @@
             <html>
             <head>
                 <title>Facture - ${factureEnCours ? factureEnCours.numero : ''}</title>
-                <link rel="stylesheet" href="{% static 'css/styles.css' %}">
                 <style>
-                    body { background: white; padding: 20px; }
-                    .invoice-paper { box-shadow: none; }
+                    /* ═══════════════════════════════════════════════════════════════
+                       STYLES D'IMPRESSION POUR FACTURES PROFESSIONNELLES
+                       ═══════════════════════════════════════════════════════════════ */
+
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: white;
+                        padding: 20px;
+                        font-size: 12pt;
+                        line-height: 1.4;
+                        color: #333;
+                    }
+
+                    .invoice-paper {
+                        max-width: 210mm;
+                        margin: 0 auto;
+                        background: white;
+                        box-shadow: none;
+                    }
+
+                    /* En-tête */
+                    .invoice-header {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 30px;
+                        padding-bottom: 20px;
+                        border-bottom: 2px solid #1e3a5f;
+                    }
+
+                    .invoice-logo {
+                        width: 80px;
+                        height: 80px;
+                        background: linear-gradient(135deg, #b8960c 0%, #d4af37 100%) !important;
+                        color: white !important;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 24px;
+                        font-weight: bold;
+                        border-radius: 8px;
+                    }
+
+                    .invoice-title {
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #1e3a5f;
+                        text-transform: uppercase;
+                    }
+
+                    .invoice-status {
+                        display: inline-block;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        margin-top: 10px;
+                    }
+
+                    .invoice-status:contains("NON") {
+                        border: 2px dashed #dc3545;
+                        color: #dc3545;
+                    }
+
+                    /* Tableau des lignes */
+                    .invoice-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }
+
+                    .invoice-table th {
+                        background: #1e3a5f !important;
+                        color: white !important;
+                        padding: 12px 10px;
+                        text-align: left;
+                        font-weight: 600;
+                        font-size: 11px;
+                        text-transform: uppercase;
+                    }
+
+                    .invoice-table td {
+                        padding: 10px;
+                        border-bottom: 1px solid #e5e5e5;
+                        font-size: 11px;
+                    }
+
+                    .invoice-table tr:nth-child(even) {
+                        background: #f9f9f9 !important;
+                    }
+
+                    /* Totaux */
+                    .invoice-total-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e5e5e5;
+                    }
+
+                    .invoice-final-total {
+                        background: #1e3a5f !important;
+                        color: white !important;
+                        padding: 12px !important;
+                        margin-top: 10px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        font-size: 14px;
+                    }
+
+                    /* Bloc Client/Destinataire */
+                    .client-block {
+                        background: #f8f9fa !important;
+                        padding: 15px !important;
+                        border-radius: 8px !important;
+                        border-left: 4px solid #1e3a5f !important;
+                        margin-bottom: 20px !important;
+                    }
+
+                    #voirClient {
+                        font-size: 14px !important;
+                        font-weight: 600 !important;
+                        color: #1e3a5f !important;
+                    }
+
+                    #voirClientIFU {
+                        font-size: 11px !important;
+                        color: #4b5563 !important;
+                    }
+
+                    /* Section MECeF */
+                    #voirMECeF {
+                        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
+                        border: 1px solid #22c55e !important;
+                    }
+
+                    /* Styles d'impression */
                     @media print {
-                        body { padding: 0; }
+                        body {
+                            padding: 0;
+                        }
+
+                        @page {
+                            size: A4;
+                            margin: 15mm;
+                        }
+
+                        .invoice-paper {
+                            page-break-inside: avoid;
+                        }
+
+                        .invoice-table,
+                        tr {
+                            page-break-inside: avoid;
+                        }
                     }
                 </style>
             </head>
@@ -909,24 +2362,424 @@
     // ============================================
     // FILTRES ET EXPORT
     // ============================================
-    function filtrerFactures() {
-        const recherche = document.getElementById('rechercheFacture').value.toLowerCase();
-        const statut = document.getElementById('filtreStatut').value;
+    function filtrerDocuments(typeFiltre = null) {
+        const typeSelect = document.getElementById('filtreType');
+        const type = typeFiltre || (typeSelect ? typeSelect.value : 'tous');
+
+        // Mettre à jour le select si on a cliqué sur une stat card
+        if (typeFiltre && typeSelect) {
+            typeSelect.value = typeFiltre === 'tous' ? 'tous' : (typeFiltre === 'facture' ? 'facture' : 'proforma');
+        }
+
+        const recherche = (document.getElementById('rechercheFacture')?.value || '').toLowerCase();
+        const statut = document.getElementById('filtreStatut')?.value || '';
 
         document.querySelectorAll('#factureListe tr').forEach(tr => {
             if (tr.id === 'emptyRow') return;
+
+            const trType = tr.dataset.type || 'facture';
             const client = (tr.dataset.client || '').toLowerCase();
             const trStatut = tr.dataset.statut || '';
 
+            // Filtre par type de document
+            const matchType = (type === 'tous') || (trType === type);
+
+            // Filtre par recherche client/numéro
             const matchRecherche = !recherche || client.includes(recherche);
+
+            // Filtre par statut
             const matchStatut = !statut || trStatut === statut;
 
-            tr.style.display = matchRecherche && matchStatut ? '' : 'none';
+            tr.style.display = (matchType && matchRecherche && matchStatut) ? '' : 'none';
         });
+    }
+
+    // Compatibilité avec l'ancienne fonction
+    function filtrerFactures() {
+        filtrerDocuments();
     }
 
     function exporterFactures() {
         window.open('{% url "gestion:api_exporter_factures" %}?format=csv', '_blank');
+    }
+
+    // ============================================
+    // FORCER SCROLL MODAL - Ne modifie PAS le display
+    // ============================================
+    function appliquerStylesScroll(modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        // Ne PAS toucher au display ! Juste les styles de scroll
+        var modalBody = modal.querySelector('.modal-body');
+        var modalFooter = modal.querySelector('.modal-footer');
+        var form = modal.querySelector('form');
+
+        modal.style.maxHeight = '90vh';
+        modal.style.overflow = 'hidden';
+        modal.style.flexDirection = 'column';
+
+        if (form) {
+            form.style.flexDirection = 'column';
+            form.style.flex = '1';
+            form.style.overflow = 'hidden';
+            form.style.maxHeight = 'calc(90vh - 60px)';
+        }
+
+        if (modalBody) {
+            modalBody.style.flex = '1';
+            modalBody.style.overflowY = 'auto';
+            modalBody.style.maxHeight = 'calc(90vh - 140px)';
+            modalBody.style.padding = '20px';
+        }
+
+        if (modalFooter) {
+            modalFooter.style.flexShrink = '0';
+            modalFooter.style.position = 'sticky';
+            modalFooter.style.bottom = '0';
+            modalFooter.style.background = 'white';
+            modalFooter.style.zIndex = '10';
+        }
+    }
+
+    // ============================================
+    // FUSION DE BROUILLONS
+    // ============================================
+    let brouillonsData = [];
+
+    function ouvrirModalFusion() {
+        // Fermer les autres modaux d'abord
+        document.getElementById('modalFacture').style.display = 'none';
+        document.getElementById('modalVoirFacture').style.display = 'none';
+        // Ouvrir le modal de fusion
+        document.getElementById('modalFusion').style.display = 'flex';
+        document.getElementById('modalOverlay').classList.add('open');
+        chargerClientsAvecBrouillons();
+        lucide.createIcons();
+    }
+
+    function fermerModalFusion() {
+        document.getElementById('modalFusion').style.display = 'none';
+        document.getElementById('modalOverlay').classList.remove('open');
+        document.getElementById('fusionClient').innerHTML = '<option value="">-- Sélectionner un client --</option>';
+        document.getElementById('listeBrouillonsFusion').innerHTML = '<p style="color: #6b7280;">Sélectionnez un client pour voir ses factures brouillon.</p>';
+        document.getElementById('resumeFusion').style.display = 'none';
+        brouillonsData = [];
+    }
+
+    function chargerClientsAvecBrouillons() {
+        fetch('{% url "gestion:api_clients_avec_brouillons" %}')
+            .then(response => response.json())
+            .then(data => {
+                var select = document.getElementById('fusionClient');
+                select.innerHTML = '<option value="">-- Sélectionner un client --</option>';
+                data.clients.forEach(function(client) {
+                    var option = document.createElement('option');
+                    option.value = client.nom;
+                    option.textContent = client.nom + ' (' + client.nb_brouillons + ' brouillon' + (client.nb_brouillons > 1 ? 's' : '') + ')';
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Erreur:', error));
+    }
+
+    function chargerBrouillonsClient() {
+        var clientNom = document.getElementById('fusionClient').value;
+        if (!clientNom) {
+            document.getElementById('listeBrouillonsFusion').innerHTML = '<p style="color: #6b7280;">Sélectionnez un client.</p>';
+            document.getElementById('resumeFusion').style.display = 'none';
+            return;
+        }
+
+        fetch('{% url "gestion:api_brouillons_client" %}?client=' + encodeURIComponent(clientNom))
+            .then(response => response.json())
+            .then(data => {
+                brouillonsData = data.brouillons;
+                var html = '<table style="width: 100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background: #f3f4f6;">';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;"><input type="checkbox" onchange="toggleTousBrouillons(this)"></th>';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;">N°</th>';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;">Date</th>';
+                html += '<th style="padding: 10px; text-align: right; border-bottom: 2px solid #e5e7eb;">Montant TTC</th>';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;">Dossier</th>';
+                html += '</tr></thead><tbody>';
+                data.brouillons.forEach(function(b, index) {
+                    html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                    html += '<td style="padding: 10px;"><input type="checkbox" class="brouillon-checkbox" value="' + b.id + '" data-index="' + index + '" onchange="majResumeFusion()"></td>';
+                    html += '<td style="padding: 10px; font-weight: 600;">' + b.numero + '</td>';
+                    html += '<td style="padding: 10px;">' + b.date + '</td>';
+                    html += '<td style="padding: 10px; text-align: right;">' + Number(b.montant_ttc).toLocaleString('fr-FR') + ' FCFA</td>';
+                    html += '<td style="padding: 10px;">' + (b.dossier || '-') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                document.getElementById('listeBrouillonsFusion').innerHTML = html;
+            })
+            .catch(error => console.error('Erreur:', error));
+    }
+
+    function toggleTousBrouillons(masterCheckbox) {
+        document.querySelectorAll('.brouillon-checkbox').forEach(function(cb) {
+            cb.checked = masterCheckbox.checked;
+        });
+        majResumeFusion();
+    }
+
+    function majResumeFusion() {
+        var checkboxes = document.querySelectorAll('.brouillon-checkbox:checked');
+        var nbFactures = checkboxes.length;
+
+        var totalHT = 0;
+        var totalTTC = 0;
+        checkboxes.forEach(function(cb) {
+            var index = parseInt(cb.dataset.index);
+            if (brouillonsData[index]) {
+                totalHT += brouillonsData[index].montant_ht || 0;
+                totalTTC += brouillonsData[index].montant_ttc || 0;
+            }
+        });
+
+        document.getElementById('fusionNbFactures').textContent = nbFactures;
+        document.getElementById('fusionTotalHT').textContent = Number(totalHT).toLocaleString('fr-FR');
+        document.getElementById('fusionTotalTTC').textContent = Number(totalTTC).toLocaleString('fr-FR');
+        document.getElementById('btnFusionner').disabled = nbFactures < 2;
+        document.getElementById('resumeFusion').style.display = nbFactures > 0 ? 'block' : 'none';
+    }
+
+    function executerFusion() {
+        var ids = [];
+        document.querySelectorAll('.brouillon-checkbox:checked').forEach(function(cb) {
+            ids.push(parseInt(cb.value));
+        });
+
+        if (ids.length < 2) {
+            alert('Sélectionnez au moins 2 factures à fusionner');
+            return;
+        }
+
+        if (!confirm('Fusionner ' + ids.length + ' factures brouillon en une seule ?\n\nLes factures originales seront supprimées.')) {
+            return;
+        }
+
+        fetch('{% url "gestion:api_fusionner_brouillons" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ facture_ids: ids })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Fusion réussie !\nNouvelle facture : ' + data.numero);
+                fermerModalFusion();
+                location.reload();
+            } else {
+                alert('Erreur : ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur réseau : ' + error);
+        });
+    }
+
+    // ===== FACTURATION DES ACTES DE DOSSIERS =====
+
+    function chargerClientsAvecActes() {
+        var select = document.getElementById('factActesClient');
+        select.innerHTML = '<option value="">-- Chargement... --</option>';
+
+        fetch('/api/clients-avec-actes/')
+            .then(response => response.json())
+            .then(data => {
+                select.innerHTML = '<option value="">-- Sélectionner un client --</option>';
+
+                if (!data.clients || data.clients.length === 0) {
+                    select.innerHTML = '<option value="">Aucun client avec actes non facturés</option>';
+                    return;
+                }
+
+                data.clients.forEach(function(client) {
+                    var option = document.createElement('option');
+                    option.value = client.id;
+                    option.dataset.nom = client.nom;
+                    option.dataset.ifu = client.ifu || '';
+                    option.dataset.nbActes = client.nb_actes;
+                    option.dataset.totalHt = client.total_ht;
+                    option.textContent = client.nom + ' (' + client.nb_actes + ' actes - ' + Number(client.total_ht).toLocaleString('fr-FR') + ' F)';
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => {
+                console.error('Erreur chargement clients:', err);
+                select.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+    }
+
+    function chargerActesNonFacturesClient() {
+        var select = document.getElementById('factActesClient');
+        var clientId = select.value;
+
+        var infoDiv = document.getElementById('factActesClientInfo');
+        var listeDiv = document.getElementById('factActesListe');
+        var recapDiv = document.getElementById('factActesRecap');
+        var optionsDiv = document.getElementById('factActesOptions');
+
+        if (!clientId) {
+            infoDiv.style.display = 'none';
+            listeDiv.innerHTML = '<p style="color: #6b7280;">Sélectionnez un client pour voir ses actes non facturés.</p>';
+            recapDiv.style.display = 'none';
+            optionsDiv.style.display = 'none';
+            document.getElementById('btnCreerFactureActes').disabled = true;
+            return;
+        }
+
+        var option = select.options[select.selectedIndex];
+        document.getElementById('factActesClientNom').textContent = option.dataset.nom;
+        document.getElementById('factActesClientStats').textContent = option.dataset.nbActes + ' actes non facturés';
+        infoDiv.style.display = 'block';
+
+        listeDiv.innerHTML = '<p style="color: #6b7280;">Chargement des actes...</p>';
+
+        fetch('/api/actes-non-factures-client/?client_id=' + clientId)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.actes || data.actes.length === 0) {
+                    listeDiv.innerHTML = '<p style="color: #6b7280;">Aucun acte non facturé pour ce client.</p>';
+                    recapDiv.style.display = 'none';
+                    optionsDiv.style.display = 'none';
+                    return;
+                }
+
+                var html = '<label style="font-weight: 600; display: block; margin-bottom: 8px;">2. Sélectionner les actes à facturer</label>';
+                html += '<div style="margin: 10px 0;"><label style="cursor: pointer;"><input type="checkbox" id="factActesSelectAll" onchange="toggleTousActes(this)"> Tout sélectionner</label></div>';
+                html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><thead><tr style="background: #f3f4f6;">';
+                html += '<th style="padding: 10px 8px; text-align: left; width: 40px;"></th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Dossier</th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Acte</th>';
+                html += '<th style="padding: 10px 8px; text-align: left;">Date</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Honoraires</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Débours</th>';
+                html += '<th style="padding: 10px 8px; text-align: right;">Total</th>';
+                html += '</tr></thead><tbody>';
+
+                data.actes.forEach(function(acte) {
+                    html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                    html += '<td style="padding: 10px 8px;"><input type="checkbox" class="acte-facturer-check" value="' + acte.id + '" ';
+                    html += 'data-honoraires="' + acte.honoraires + '" ';
+                    html += 'data-debours="' + acte.total_debours + '" ';
+                    html += 'data-ttc="' + acte.total_ttc + '" ';
+                    html += 'onchange="majRecapFactureActes()"></td>';
+                    html += '<td style="padding: 10px 8px;"><small style="color: #6b7280;">' + acte.dossier_reference + '</small></td>';
+                    html += '<td style="padding: 10px 8px;">' + acte.intitule + '</td>';
+                    html += '<td style="padding: 10px 8px;">' + acte.date_acte + '</td>';
+                    html += '<td style="padding: 10px 8px; text-align: right;">' + Number(acte.honoraires).toLocaleString('fr-FR') + '</td>';
+                    html += '<td style="padding: 10px 8px; text-align: right;">' + Number(acte.total_debours).toLocaleString('fr-FR') + '</td>';
+                    html += '<td style="padding: 10px 8px; text-align: right; font-weight: 600;">' + Number(acte.total_ttc).toLocaleString('fr-FR') + '</td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                listeDiv.innerHTML = html;
+
+                recapDiv.style.display = 'block';
+                optionsDiv.style.display = 'block';
+                majRecapFactureActes();
+            })
+            .catch(err => {
+                console.error('Erreur chargement actes:', err);
+                listeDiv.innerHTML = '<p style="color: #ef4444;">Erreur lors du chargement des actes.</p>';
+            });
+    }
+
+    function toggleTousActes(masterCheckbox) {
+        document.querySelectorAll('.acte-facturer-check').forEach(function(cb) {
+            cb.checked = masterCheckbox.checked;
+        });
+        majRecapFactureActes();
+    }
+
+    function majRecapFactureActes() {
+        var checkboxes = document.querySelectorAll('.acte-facturer-check:checked');
+        var nbSelectionnes = checkboxes.length;
+        var totalHT = 0;
+        var totalDebours = 0;
+        var totalTTC = 0;
+
+        checkboxes.forEach(function(cb) {
+            totalHT += parseFloat(cb.dataset.honoraires) || 0;
+            totalDebours += parseFloat(cb.dataset.debours) || 0;
+            totalTTC += parseFloat(cb.dataset.ttc) || 0;
+        });
+
+        document.getElementById('factActesNbSelectionnes').textContent = nbSelectionnes;
+        document.getElementById('factActesTotalHT').textContent = totalHT.toLocaleString('fr-FR') + ' F';
+        document.getElementById('factActesTotalDebours').textContent = totalDebours.toLocaleString('fr-FR') + ' F';
+        document.getElementById('factActesTotalTTC').textContent = totalTTC.toLocaleString('fr-FR') + ' F';
+
+        document.getElementById('btnCreerFactureActes').disabled = nbSelectionnes === 0;
+    }
+
+    function creerFactureDepuisActes() {
+        var select = document.getElementById('factActesClient');
+        var option = select.options[select.selectedIndex];
+
+        var acteIds = [];
+        document.querySelectorAll('.acte-facturer-check:checked').forEach(function(cb) {
+            acteIds.push(parseInt(cb.value));
+        });
+
+        if (acteIds.length === 0) {
+            alert('Veuillez sélectionner au moins un acte à facturer');
+            return;
+        }
+
+        var regime = document.getElementById('factActesRegime').value;
+        var typeClient = document.getElementById('factActesTypeClient').value;
+
+        if (!confirm('Créer une facture avec ' + acteIds.length + ' acte(s) ?')) {
+            return;
+        }
+
+        var btn = document.getElementById('btnCreerFactureActes');
+        btn.disabled = true;
+        btn.textContent = 'Création en cours...';
+
+        fetch('/api/creer-facture-multi-dossiers/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                acte_ids: acteIds,
+                client_nom: option.dataset.nom,
+                client_ifu: option.dataset.ifu,
+                regime: regime,
+                type_client: typeClient
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Facture ' + data.numero + ' créée avec succès !\nMontant TTC : ' + Number(data.montant_ttc).toLocaleString('fr-FR') + ' FCFA');
+                fermerModalFacture();
+                location.reload();
+            } else {
+                alert('Erreur : ' + (data.error || 'Erreur inconnue'));
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check"></i> Créer la facture';
+                lucide.createIcons();
+            }
+        })
+        .catch(err => {
+            console.error('Erreur:', err);
+            alert('Erreur lors de la création de la facture');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="check"></i> Créer la facture';
+            lucide.createIcons();
+        });
     }
 </script>
 {% endblock %}
