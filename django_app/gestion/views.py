@@ -7682,15 +7682,16 @@ def api_actes_dossier(request, dossier_id):
     total_honoraires = sum(float(a.honoraires) for a in actes)
     total_debours = sum(float(a.total_debours) for a in actes)
     total_ttc = sum(float(a.total_ttc) for a in actes)
-    non_factures = actes.filter(est_facture=False).count()
+    # Montant total des actes non facturés
+    total_non_factures = sum(float(a.total_ttc) for a in actes if not a.est_facture)
 
     return JsonResponse({
         'actes': data,
         'totaux': {
-            'honoraires': total_honoraires,
-            'debours': total_debours,
-            'ttc': total_ttc,
-            'non_factures': non_factures,
+            'total_honoraires': total_honoraires,
+            'total_debours': total_debours,
+            'total_ttc': total_ttc,
+            'total_non_factures': total_non_factures,
         }
     })
 
@@ -7704,20 +7705,20 @@ def api_ajouter_acte_dossier(request, dossier_id):
     try:
         data = json.loads(request.body)
 
-        # Récupérer le type d'acte si fourni
-        type_acte_id = data.get('type_acte_id')
+        # Récupérer le type d'acte si fourni (accepter type_acte ou type_acte_id)
+        type_acte_id = data.get('type_acte') or data.get('type_acte_id')
         type_acte = None
         if type_acte_id:
             type_acte = TypeActe.objects.filter(id=type_acte_id).first()
 
-        # Calculer timbre
+        # Feuillets
         feuillets = int(data.get('feuillets', 1))
-        has_timbre = data.get('has_timbre', True)
-        timbre = Decimal(str(feuillets * 1200)) if has_timbre else Decimal('0')
 
-        # Enregistrement
-        has_enregistrement = data.get('has_enregistrement', True)
-        enregistrement = Decimal('2500') if has_enregistrement else Decimal('0')
+        # Timbre - accepter la valeur numérique directement
+        timbre = Decimal(str(data.get('timbre', 0)))
+
+        # Enregistrement - accepter la valeur numérique directement
+        enregistrement = Decimal(str(data.get('enregistrement', 0)))
 
         acte = ActeDossier.objects.create(
             dossier=dossier,
@@ -7739,6 +7740,9 @@ def api_ajouter_acte_dossier(request, dossier_id):
         })
 
     except Exception as e:
+        import traceback
+        print(f"Erreur ajout acte: {e}")
+        print(traceback.format_exc())
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
