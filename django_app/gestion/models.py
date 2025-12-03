@@ -661,9 +661,32 @@ class Facture(models.Model):
 
     @classmethod
     def generer_numero(cls):
+        """Génère un numéro de facture unique au format FAC-YYYY-XXXX"""
+        import time
         now = timezone.now()
-        count = cls.objects.filter(date_emission__year=now.year).count() + 1
-        return f"FAC-{now.year}-{str(count).zfill(3)}"
+        annee = now.year
+        prefix = f"FAC-{annee}-"
+
+        # Chercher le dernier numéro de cette année
+        derniere = cls.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+        if derniere and derniere.numero:
+            try:
+                dernier_num = int(derniere.numero.split('-')[-1])
+            except (ValueError, IndexError):
+                dernier_num = 0
+        else:
+            dernier_num = 0
+
+        # Boucle de sécurité pour garantir l'unicité
+        nouveau_num = dernier_num + 1
+        for _ in range(100):
+            numero_candidat = f"{prefix}{str(nouveau_num).zfill(4)}"
+            if not cls.objects.filter(numero=numero_candidat).exists():
+                return numero_candidat
+            nouveau_num += 1
+
+        # Fallback avec timestamp
+        return f"{prefix}{int(time.time())}"
 
     # ═══════════════════════════════════════════════════════════════
     # MÉTHODES AVOIR ET FACTURES CORRECTIVES

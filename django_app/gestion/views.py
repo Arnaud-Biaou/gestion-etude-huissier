@@ -7581,18 +7581,35 @@ def api_fusionner_brouillons(request):
                 'error': 'Les factures doivent être du même client'
             })
 
-        # Générer un nouveau numéro de facture
+        # Générer un nouveau numéro de facture UNIQUE
         from datetime import datetime
+        import time
         annee = datetime.now().year
-        dernier = Facture.objects.filter(numero__startswith=f'FAC-{annee}').order_by('-numero').first()
+        prefix = f'FAC-{annee}-'
+
+        # Chercher le dernier numéro de cette année
+        dernier = Facture.objects.filter(numero__startswith=prefix).order_by('-numero').first()
         if dernier and dernier.numero:
             try:
                 dernier_num = int(dernier.numero.split('-')[-1])
-            except:
+            except (ValueError, IndexError):
                 dernier_num = 0
         else:
             dernier_num = 0
-        nouveau_numero = f'FAC-{annee}-{str(dernier_num + 1).zfill(4)}'
+
+        # Boucle de sécurité pour garantir l'unicité
+        nouveau_num = dernier_num + 1
+        nouveau_numero = None
+        for _ in range(100):  # Max 100 tentatives
+            numero_candidat = f'{prefix}{str(nouveau_num).zfill(4)}'
+            if not Facture.objects.filter(numero=numero_candidat).exists():
+                nouveau_numero = numero_candidat
+                break
+            nouveau_num += 1
+
+        # Fallback avec timestamp si toujours pas trouvé
+        if not nouveau_numero:
+            nouveau_numero = f'{prefix}{int(time.time())}'
 
         # Créer la nouvelle facture fusionnée
         premiere = factures[0]
