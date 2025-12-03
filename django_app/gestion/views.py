@@ -67,6 +67,8 @@ from .models import (
     TypeActe, TypeDebours,
     # Actes réalisés sur dossier
     ActeDossier,
+    # Débours autonomes
+    DeboursDossier,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -7784,6 +7786,101 @@ def api_supprimer_acte_dossier(request, acte_id):
 
 
 # =============================================================================
+# DÉBOURS AUTONOMES (FRAIS DE GREFFE, ENRÔLEMENT, ETC.)
+# =============================================================================
+
+@login_required
+def api_debours_dossier(request, dossier_id):
+    """Liste des débours autonomes d'un dossier"""
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    debours = DeboursDossier.objects.filter(dossier=dossier).order_by('-date_debours')
+
+    data = [{
+        'id': d.id,
+        'intitule': d.intitule,
+        'montant': float(d.montant),
+        'date_debours': d.date_debours.strftime('%d/%m/%Y'),
+        'est_facture': d.est_facture,
+        'facture_numero': d.ligne_facture.facture.numero if d.ligne_facture else None,
+    } for d in debours]
+
+    # Calculer les totaux
+    total_debours = sum(float(d.montant) for d in debours)
+    total_non_factures = sum(float(d.montant) for d in debours if not d.est_facture)
+
+    return JsonResponse({
+        'debours': data,
+        'totaux': {
+            'total_debours': total_debours,
+            'total_non_factures': total_non_factures,
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_ajouter_debours_dossier(request, dossier_id):
+    """Ajoute un débours autonome à un dossier"""
+    dossier = get_object_or_404(Dossier, id=dossier_id)
+
+    try:
+        data = json.loads(request.body)
+
+        intitule = data.get('intitule', '').strip()
+        if not intitule:
+            return JsonResponse({'success': False, 'error': 'Description requise'})
+
+        montant = Decimal(str(data.get('montant', 0)))
+        if montant <= 0:
+            return JsonResponse({'success': False, 'error': 'Montant invalide'})
+
+        date_debours_str = data.get('date_debours')
+        if date_debours_str:
+            date_debours = datetime.strptime(date_debours_str, '%Y-%m-%d').date()
+        else:
+            date_debours = timezone.now().date()
+
+        debours = DeboursDossier.objects.create(
+            dossier=dossier,
+            intitule=intitule,
+            montant=montant,
+            date_debours=date_debours,
+            cree_par=request.user if request.user.is_authenticated else None
+        )
+
+        return JsonResponse({
+            'success': True,
+            'id': debours.id,
+            'message': f'Débours "{intitule}" ajouté'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def api_supprimer_debours_dossier(request, debours_id):
+    """Supprimer un débours (seulement si non facturé)"""
+    debours = get_object_or_404(DeboursDossier, id=debours_id)
+
+    if debours.est_facture:
+        return JsonResponse({
+            'success': False,
+            'error': 'Impossible de supprimer un débours déjà facturé'
+        })
+
+    intitule = debours.intitule
+    debours.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Débours "{intitule}" supprimé'
+    })
+
+
+# =============================================================================
 # FACTURATION MULTI-DOSSIERS
 # =============================================================================
 
@@ -7865,18 +7962,19 @@ def api_actes_non_factures_client(request):
 @login_required
 @require_POST
 def api_creer_facture_multi_dossiers(request):
-    """Créer une facture à partir d'actes de plusieurs dossiers"""
+    """Créer une facture à partir d'actes et/ou débours de plusieurs dossiers"""
     try:
         data = json.loads(request.body)
         acte_ids = data.get('acte_ids', [])
+        debours_ids = data.get('debours_ids', [])  # IDs des débours autonomes
         client_nom = data.get('client_nom', '')
         client_ifu = data.get('client_ifu', '')
         regime = data.get('regime', 'tps')
         type_client = data.get('type_client', 'prive')
         client_aib = data.get('client_aib', False)
 
-        if not acte_ids:
-            return JsonResponse({'success': False, 'error': 'Aucun acte sélectionné'})
+        if not acte_ids and not debours_ids:
+            return JsonResponse({'success': False, 'error': 'Aucun acte ou débours sélectionné'})
 
         if not client_nom:
             return JsonResponse({'success': False, 'error': 'Nom du client requis'})
@@ -7884,21 +7982,32 @@ def api_creer_facture_multi_dossiers(request):
         # Récupérer les actes
         actes = list(ActeDossier.objects.filter(id__in=acte_ids, est_facture=False).select_related('dossier'))
 
-        if len(actes) == 0:
-            return JsonResponse({'success': False, 'error': 'Aucun acte non facturé trouvé'})
+        # Récupérer les débours autonomes
+        debours_autonomes = list(DeboursDossier.objects.filter(id__in=debours_ids, est_facture=False).select_related('dossier'))
+
+        if len(actes) == 0 and len(debours_autonomes) == 0:
+            return JsonResponse({'success': False, 'error': 'Aucun élément non facturé trouvé'})
 
         # Déterminer si plusieurs dossiers différents
         dossiers_uniques = set()
         for acte in actes:
             if acte.dossier_id:
                 dossiers_uniques.add(acte.dossier_id)
+        for debours in debours_autonomes:
+            if debours.dossier_id:
+                dossiers_uniques.add(debours.dossier_id)
         plusieurs_dossiers = len(dossiers_uniques) > 1
 
         # Calculer les totaux
+        # Les honoraires sont taxables
         montant_ht = sum(a.honoraires for a in actes)
-        debours_total = sum(a.total_debours for a in actes)
+        # Les débours inclus dans les actes
+        debours_actes = sum(a.total_debours for a in actes)
+        # Les débours autonomes (non taxables)
+        debours_autonomes_total = sum(d.montant for d in debours_autonomes)
+        debours_total = debours_actes + debours_autonomes_total
 
-        # Calculer TVA
+        # Calculer TVA (seulement sur les honoraires)
         if regime == 'tva' or (regime == 'tps' and type_client == 'public'):
             montant_tva = montant_ht * Decimal('0.18')
         else:
@@ -7925,11 +8034,17 @@ def api_creer_facture_multi_dossiers(request):
         )
 
         # Si un seul dossier, associer ce dossier à la facture
-        if not plusieurs_dossiers and actes and actes[0].dossier:
-            facture.dossier = actes[0].dossier
-            facture.save()
+        dossier_unique = None
+        if not plusieurs_dossiers:
+            if actes and actes[0].dossier:
+                dossier_unique = actes[0].dossier
+            elif debours_autonomes and debours_autonomes[0].dossier:
+                dossier_unique = debours_autonomes[0].dossier
+            if dossier_unique:
+                facture.dossier = dossier_unique
+                facture.save()
 
-        # Créer les lignes et marquer les actes comme facturés
+        # Créer les lignes pour les actes (type honoraire) et marquer comme facturés
         for acte in actes:
             # Préfixer avec la référence du dossier SEULEMENT si plusieurs dossiers
             if plusieurs_dossiers and acte.dossier:
@@ -7942,10 +8057,30 @@ def api_creer_facture_multi_dossiers(request):
                 description=description,
                 quantite=1,
                 prix_unitaire=acte.honoraires,
+                type_ligne='honoraire',
             )
 
             # Marquer l'acte comme facturé
             acte.marquer_facture(ligne)
+
+        # Créer les lignes pour les débours autonomes (type débours, non taxable)
+        for debours in debours_autonomes:
+            # Préfixer avec la référence du dossier SEULEMENT si plusieurs dossiers
+            if plusieurs_dossiers and debours.dossier:
+                description = f"[{debours.dossier.reference}] {debours.intitule}"
+            else:
+                description = debours.intitule
+
+            ligne = LigneFacture.objects.create(
+                facture=facture,
+                description=description,
+                quantite=1,
+                prix_unitaire=debours.montant,
+                type_ligne='debours',
+            )
+
+            # Marquer le débours comme facturé
+            debours.marquer_facture(ligne)
 
         return JsonResponse({
             'success': True,

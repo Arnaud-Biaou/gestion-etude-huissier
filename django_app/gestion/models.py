@@ -779,10 +779,21 @@ class Facture(models.Model):
 
 class LigneFacture(models.Model):
     """Lignes de facture"""
+    TYPE_LIGNE_CHOICES = [
+        ('honoraire', 'Honoraire'),
+        ('debours', 'Débours'),
+    ]
+
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
     description = models.CharField(max_length=500)
     quantite = models.IntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+    type_ligne = models.CharField(
+        max_length=20,
+        choices=TYPE_LIGNE_CHOICES,
+        default='honoraire',
+        verbose_name="Type de ligne"
+    )
 
     class Meta:
         verbose_name = 'Ligne de facture'
@@ -794,6 +805,11 @@ class LigneFacture(models.Model):
     @property
     def total(self):
         return self.quantite * self.prix_unitaire
+
+    @property
+    def est_taxable(self):
+        """Les débours ne sont pas taxables"""
+        return self.type_ligne == 'honoraire'
 
 
 class ActeProcedure(models.Model):
@@ -4490,6 +4506,88 @@ class ActeDossier(models.Model):
 
     def annuler_facturation(self):
         """Annule la facturation de l'acte (en cas d'avoir)"""
+        self.est_facture = False
+        self.ligne_facture = None
+        self.date_facturation = None
+        self.save()
+
+
+class DeboursDossier(models.Model):
+    """
+    Débours autonomes à facturer séparément.
+    Exemples: frais de greffe, enrôlement, obtention d'ordonnances, etc.
+    Ces débours apparaissent comme des lignes séparées sur la facture et ne sont PAS taxables.
+    """
+
+    dossier = models.ForeignKey(
+        'Dossier',
+        on_delete=models.CASCADE,
+        related_name='debours_autonomes',
+        verbose_name='Dossier'
+    )
+
+    # Description du débours
+    intitule = models.CharField(
+        max_length=500,
+        verbose_name="Description du débours",
+        help_text="Ex: Frais d'obtention ordonnance d'injonction de payer"
+    )
+    montant = models.DecimalField(
+        max_digits=15,
+        decimal_places=0,
+        verbose_name="Montant (FCFA)"
+    )
+    date_debours = models.DateField(
+        verbose_name="Date du débours"
+    )
+
+    # Traçabilité facturation
+    est_facture = models.BooleanField(
+        default=False,
+        verbose_name="Facturé"
+    )
+    ligne_facture = models.ForeignKey(
+        'LigneFacture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='debours_source',
+        verbose_name="Ligne de facture"
+    )
+    date_facturation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date de facturation"
+    )
+
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date_debours', '-date_creation']
+        verbose_name = "Débours autonome"
+        verbose_name_plural = "Débours autonomes"
+
+    def __str__(self):
+        return f"{self.intitule} - {self.montant} F"
+
+    def marquer_facture(self, ligne_facture):
+        """Marque le débours comme facturé"""
+        self.est_facture = True
+        self.ligne_facture = ligne_facture
+        self.date_facturation = timezone.now().date()
+        self.save()
+
+    def annuler_facturation(self):
+        """Annule la facturation du débours (en cas d'avoir)"""
         self.est_facture = False
         self.ligne_facture = None
         self.date_facturation = None

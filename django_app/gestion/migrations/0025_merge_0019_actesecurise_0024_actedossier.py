@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("gestion", "0019_actesecurise"),
         ("gestion", "0024_actedossier"),
     ]
 

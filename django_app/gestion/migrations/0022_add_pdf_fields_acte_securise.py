@@ -7,6 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('gestion', '0021_typeacte_typedebours'),
+        ('gestion', '0019_actesecurise'),
     ]
 
     operations = [

@@ -623,6 +623,69 @@
     </div>
 </div>
 
+<!-- Section Débours Autonomes (frais de greffe, enrôlement, etc.) -->
+<div class="card mb-4">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="card-title"><i data-lucide="receipt" style="width: 18px; height: 18px;"></i> Débours à facturer</h3>
+        <button type="button" class="btn btn-primary btn-sm" onclick="ouvrirModalAjoutDebours()">
+            + Ajouter un débours
+        </button>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div id="debours-container">
+            <div style="padding: 20px; text-align: center; color: var(--neutral-500);">
+                <i data-lucide="loader" class="spin" style="width: 24px; height: 24px;"></i>
+                Chargement...
+            </div>
+        </div>
+    </div>
+    <div id="debours-totaux" class="card-footer" style="display: none; padding: 12px 16px; background: var(--neutral-50); border-top: 1px solid var(--neutral-200);">
+        <div class="flex justify-between" style="font-size: 13px;">
+            <span style="color: var(--primary);"><strong>Total débours:</strong> <span id="total-debours-autonomes">0</span> F</span>
+            <span><strong>Non facturés:</strong> <span id="total-debours-non-factures">0</span> F</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout Débours -->
+<div id="modal-ajout-debours" class="modal" style="display: none;">
+    <div class="modal-backdrop" onclick="fermerModalAjoutDebours()"></div>
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Ajouter un débours</h3>
+            <button type="button" class="modal-close" onclick="fermerModalAjoutDebours()">&times;</button>
+        </div>
+        <form id="form-ajout-debours" onsubmit="sauvegarderDeboursDossier(event)">
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="debours-intitule">Description du débours *</label>
+                    <input type="text" id="debours-intitule" name="intitule" class="form-control" required
+                           placeholder="Ex: Frais d'obtention ordonnance d'injonction de payer">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group mb-3">
+                        <label for="debours-montant">Montant (FCFA) *</label>
+                        <input type="number" id="debours-montant" name="montant" class="form-control" min="1" required
+                               placeholder="7000">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="debours-date">Date du débours *</label>
+                        <input type="date" id="debours-date" name="date_debours" class="form-control" required>
+                    </div>
+                </div>
+                <div class="alert alert-info" style="font-size: 12px; padding: 10px; background: var(--primary-light); border-radius: 6px;">
+                    <i data-lucide="info" style="width: 14px; height: 14px;"></i>
+                    Les débours apparaîtront comme des lignes séparées sur la facture et ne sont pas taxables.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fermerModalAjoutDebours()">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Historique des basculements (si phase forcée) -->
 {% if dossier.phase == 'force' and basculements %}
 <div class="card mb-4">
@@ -676,6 +739,7 @@
     // Charger les actes au chargement de la page
     document.addEventListener('DOMContentLoaded', function() {
         chargerActesDossier();
+        chargerDeboursDossier();
         // Définir la date du jour par défaut
         document.getElementById('acte-date').valueAsDate = new Date();
     });
@@ -887,6 +951,145 @@
                 chargerActesDossier();
             } else {
                 alert('Erreur: ' + (data.error || 'Impossible de supprimer l\'acte'));
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la suppression');
+        }
+    }
+
+    // ========== GESTION DES DÉBOURS ==========
+
+    // Charger la liste des débours du dossier
+    async function chargerDeboursDossier() {
+        try {
+            const response = await fetch(`/api/dossier/${DOSSIER_ID}/debours/`);
+            const data = await response.json();
+
+            const container = document.getElementById('debours-container');
+            const totauxDiv = document.getElementById('debours-totaux');
+
+            if (data.debours && data.debours.length > 0) {
+                let html = `<table class="w-full" style="font-size: 13px;">
+                    <thead>
+                        <tr style="background: var(--neutral-50);">
+                            <th style="padding: 8px 12px; text-align: left;">Date</th>
+                            <th style="padding: 8px 12px; text-align: left;">Description</th>
+                            <th style="padding: 8px 12px; text-align: right;">Montant</th>
+                            <th style="padding: 8px 12px; text-align: center;">Statut</th>
+                            <th style="padding: 8px 12px; text-align: center; width: 60px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                data.debours.forEach(debours => {
+                    const statutHtml = debours.est_facture
+                        ? `<span class="status-badge active" style="font-size: 11px;">Facturé</span>`
+                        : `<span class="status-badge warning" style="font-size: 11px;">À facturer</span>`;
+
+                    const actionsHtml = debours.est_facture
+                        ? `<span style="color: var(--neutral-400);">-</span>`
+                        : `<button type="button" class="icon-btn" onclick="supprimerDeboursDossier(${debours.id})" title="Supprimer">
+                             <i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--danger);"></i>
+                           </button>`;
+
+                    html += `<tr style="border-bottom: 1px solid var(--neutral-100);">
+                        <td style="padding: 8px 12px;">${debours.date_debours}</td>
+                        <td style="padding: 8px 12px;">${debours.intitule}</td>
+                        <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${debours.montant.toLocaleString('fr-FR')} F</td>
+                        <td style="padding: 8px 12px; text-align: center;">${statutHtml}</td>
+                        <td style="padding: 8px 12px; text-align: center;">${actionsHtml}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+
+                // Afficher les totaux
+                document.getElementById('total-debours-autonomes').textContent = data.total.toLocaleString('fr-FR');
+                document.getElementById('total-debours-non-factures').textContent = data.total_non_facture.toLocaleString('fr-FR');
+                totauxDiv.style.display = 'block';
+
+                lucide.createIcons();
+            } else {
+                container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--neutral-500);">
+                    <p style="margin: 0;">Aucun débours enregistré</p>
+                    <p style="margin: 5px 0 0; font-size: 12px;">Ajoutez des débours (frais de greffe, enrôlement, etc.) qui seront facturés séparément.</p>
+                </div>`;
+                totauxDiv.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement des débours:', error);
+            document.getElementById('debours-container').innerHTML =
+                `<div style="padding: 20px; text-align: center; color: var(--danger);">Erreur de chargement des débours</div>`;
+        }
+    }
+
+    // Ouvrir le modal d'ajout de débours
+    function ouvrirModalAjoutDebours() {
+        document.getElementById('modal-ajout-debours').style.display = 'flex';
+        document.getElementById('form-ajout-debours').reset();
+        document.getElementById('debours-date').valueAsDate = new Date();
+        lucide.createIcons();
+    }
+
+    // Fermer le modal d'ajout de débours
+    function fermerModalAjoutDebours() {
+        document.getElementById('modal-ajout-debours').style.display = 'none';
+    }
+
+    // Sauvegarder un débours
+    async function sauvegarderDeboursDossier(event) {
+        event.preventDefault();
+
+        const formData = {
+            intitule: document.getElementById('debours-intitule').value,
+            montant: parseInt(document.getElementById('debours-montant').value),
+            date_debours: document.getElementById('debours-date').value
+        };
+
+        try {
+            const response = await fetch(`/api/dossier/${DOSSIER_ID}/ajouter-debours/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                fermerModalAjoutDebours();
+                chargerDeboursDossier();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible d\'enregistrer le débours'));
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de l\'enregistrement');
+        }
+    }
+
+    // Supprimer un débours
+    async function supprimerDeboursDossier(deboursId) {
+        if (!confirm('Supprimer ce débours ?')) return;
+
+        try {
+            const response = await fetch(`/api/debours-dossier/${deboursId}/supprimer/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                chargerDeboursDossier();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de supprimer le débours'));
             }
         } catch (error) {
             console.error('Erreur:', error);

@@ -195,6 +195,11 @@ urlpatterns = [
     path('api/dossier/<int:dossier_id>/ajouter-acte/', views.api_ajouter_acte_dossier, name='api_ajouter_acte_dossier'),
     path('api/acte-dossier/<int:acte_id>/supprimer/', views.api_supprimer_acte_dossier, name='api_supprimer_acte_dossier'),
 
+    # API Débours autonomes (frais de greffe, enrôlement, etc.)
+    path('api/dossier/<int:dossier_id>/debours/', views.api_debours_dossier, name='api_debours_dossier'),
+    path('api/dossier/<int:dossier_id>/ajouter-debours/', views.api_ajouter_debours_dossier, name='api_ajouter_debours_dossier'),
+    path('api/debours-dossier/<int:debours_id>/supprimer/', views.api_supprimer_debours_dossier, name='api_supprimer_debours_dossier'),
+
     # API Facturation multi-dossiers
     path('api/clients-avec-actes/', views.api_clients_avec_actes_non_factures, name='api_clients_avec_actes'),
     path('api/actes-non-factures-client/', views.api_actes_non_factures_client, name='api_actes_non_factures_client'),
