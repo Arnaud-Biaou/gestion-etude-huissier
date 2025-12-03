@@ -7581,35 +7581,8 @@ def api_fusionner_brouillons(request):
                 'error': 'Les factures doivent être du même client'
             })
 
-        # Générer un nouveau numéro de facture UNIQUE
-        from datetime import datetime
-        import time
-        annee = datetime.now().year
-        prefix = f'FAC-{annee}-'
-
-        # Chercher le dernier numéro de cette année
-        dernier = Facture.objects.filter(numero__startswith=prefix).order_by('-numero').first()
-        if dernier and dernier.numero:
-            try:
-                dernier_num = int(dernier.numero.split('-')[-1])
-            except (ValueError, IndexError):
-                dernier_num = 0
-        else:
-            dernier_num = 0
-
-        # Boucle de sécurité pour garantir l'unicité
-        nouveau_num = dernier_num + 1
-        nouveau_numero = None
-        for _ in range(100):  # Max 100 tentatives
-            numero_candidat = f'{prefix}{str(nouveau_num).zfill(4)}'
-            if not Facture.objects.filter(numero=numero_candidat).exists():
-                nouveau_numero = numero_candidat
-                break
-            nouveau_num += 1
-
-        # Fallback avec timestamp si toujours pas trouvé
-        if not nouveau_numero:
-            nouveau_numero = f'{prefix}{int(time.time())}'
+        # Générer un nouveau numéro de facture unique
+        nouveau_numero = Facture.generer_numero()
 
         # Créer la nouvelle facture fusionnée
         premiere = factures[0]
@@ -7900,26 +7873,8 @@ def api_creer_facture_multi_dossiers(request):
 
         montant_ttc = montant_ht + montant_tva + debours_total
 
-        # Générer le numéro de facture
-        from datetime import date
-        today = date.today()
-        annee = today.year
-        prefix = f"FAC-{annee}-"
-
-        last_facture = Facture.objects.filter(
-            numero__startswith=prefix
-        ).order_by('-numero').first()
-
-        if last_facture:
-            try:
-                last_num = int(last_facture.numero.split('-')[-1])
-                new_num = last_num + 1
-            except:
-                new_num = 1
-        else:
-            new_num = 1
-
-        numero = f"{prefix}{new_num:04d}"
+        # Générer le numéro de facture unique
+        numero = Facture.generer_numero()
 
         # Créer la facture
         facture = Facture.objects.create(
