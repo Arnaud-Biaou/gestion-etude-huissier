@@ -1006,8 +1006,8 @@
                 container.innerHTML = html;
 
                 // Afficher les totaux
-                document.getElementById('total-debours-autonomes').textContent = data.total.toLocaleString('fr-FR');
-                document.getElementById('total-debours-non-factures').textContent = data.total_non_facture.toLocaleString('fr-FR');
+                document.getElementById('total-debours-autonomes').textContent = data.totaux.total_debours.toLocaleString('fr-FR');
+                document.getElementById('total-debours-non-factures').textContent = data.totaux.total_non_factures.toLocaleString('fr-FR');
                 totauxDiv.style.display = 'block';
 
                 lucide.createIcons();
