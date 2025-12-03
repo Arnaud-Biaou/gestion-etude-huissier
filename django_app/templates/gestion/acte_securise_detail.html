@@ -112,70 +112,42 @@
 {% if acte.pdf_avec_qr %}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
-        <h2><i data-lucide="download"></i> Télécharger les versions de l'acte</h2>
+        <h2><i data-lucide="download"></i> Télécharger l'acte avec QR code</h2>
     </div>
     <div class="card-body">
         <p style="color: var(--neutral-600); margin-bottom: 20px;">
             Le QR code de vérification a été automatiquement incrusté sur votre document PDF.
-            Téléchargez la version appropriée selon l'usage :
+            Sélectionnez la version à télécharger :
         </p>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-            <!-- Original -->
-            <div style="background: var(--success-bg, #e7f7e7); padding: 20px; border-radius: 12px; text-align: center;">
-                <div style="width: 60px; height: 60px; background: var(--success, #28a745); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                    <i data-lucide="file-check" style="width: 28px; height: 28px; color: white;"></i>
-                </div>
-                <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--success, #28a745);">ORIGINAL</h3>
-                <p style="font-size: 0.8rem; color: var(--neutral-600); margin-bottom: 16px;">
-                    À remettre au destinataire de l'acte
-                </p>
-                <a href="{% url 'gestion:telecharger_acte_securise_version' acte.id 'original' %}"
-                   class="btn btn-success" style="width: 100%;">
-                    <i data-lucide="download"></i> Télécharger
-                </a>
-            </div>
-
-            <!-- Second Original -->
-            <div style="background: var(--primary-bg, #e7f3ff); padding: 20px; border-radius: 12px; text-align: center;">
-                <div style="width: 60px; height: 60px; background: var(--primary, #0066cc); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                    <i data-lucide="files" style="width: 28px; height: 28px; color: white;"></i>
-                </div>
-                <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--primary, #0066cc);">SECOND ORIGINAL</h3>
-                <p style="font-size: 0.8rem; color: var(--neutral-600); margin-bottom: 16px;">
-                    Pour l'archive de l'étude
-                </p>
-                <a href="{% url 'gestion:telecharger_acte_securise_version' acte.id 'second-original' %}"
-                   class="btn btn-primary" style="width: 100%;">
-                    <i data-lucide="download"></i> Télécharger
-                </a>
-            </div>
-
-            <!-- Copie -->
-            <div style="background: var(--neutral-100); padding: 20px; border-radius: 12px; text-align: center;">
-                <div style="width: 60px; height: 60px; background: var(--neutral-500); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                    <i data-lucide="copy" style="width: 28px; height: 28px; color: white;"></i>
-                </div>
-                <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--neutral-700);">COPIE</h3>
-                <p style="font-size: 0.8rem; color: var(--neutral-600); margin-bottom: 16px;">
-                    Pour transmission au client/requérant
-                </p>
-                <a href="{% url 'gestion:telecharger_acte_securise_version' acte.id 'copie' %}"
-                   class="btn btn-secondary" style="width: 100%;">
-                    <i data-lucide="download"></i> Télécharger
-                </a>
-            </div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <label for="versionActe" style="font-weight: 500;">Version :</label>
+            <select id="versionActe" class="form-select" style="width: auto; min-width: 200px;">
+                <option value="original">ORIGINAL - Pour le destinataire</option>
+                <option value="second-original">SECOND ORIGINAL - Pour l'archive</option>
+                <option value="copie">COPIE - Pour le client/requérant</option>
+            </select>
+            <button type="button" class="btn btn-primary" onclick="telechargerActe()">
+                <i data-lucide="download"></i> Télécharger le PDF
+            </button>
         </div>
 
         <div style="margin-top: 20px; padding: 16px; background: var(--info-bg, #e7f3ff); border-radius: 8px;">
             <p style="font-size: 0.85rem; color: var(--info-text, #0066cc); margin: 0;">
                 <strong><i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i> Note :</strong>
                 Chaque version comporte la mention de son type (Original, Second Original, Copie)
-                en filigrane sous le QR code. Ceci permet d'identifier facilement la nature du document.
+                en filigrane sous le QR code pour identifier facilement la nature du document.
             </p>
         </div>
     </div>
 </div>
+
+<script>
+function telechargerActe() {
+    var version = document.getElementById('versionActe').value;
+    window.location.href = "{% url 'gestion:telecharger_acte_securise' acte.id %}" + version + "/";
+}
+</script>
 {% else %}
 <!-- Instructions (si pas de PDF uploadé) -->
 <div class="card" style="margin-top: 24px;">
