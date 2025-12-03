@@ -970,6 +970,7 @@ def facturation(request):
 
     for f in factures_qs:
         lignes = [{
+            'id': l.id,
             'description': l.description,
             'quantite': l.quantite,
             'prix_unitaire': float(l.prix_unitaire),
@@ -997,7 +998,12 @@ def facturation(request):
             'date_mecef': f.date_mecef.strftime('%d/%m/%Y') if hasattr(f, 'date_mecef') and f.date_mecef else '',
             'dossier': f.dossier_id,
             'observations': f.observations if hasattr(f, 'observations') else '',
-            'lignes': lignes
+            'lignes': lignes,
+            # Champs pour les avoirs
+            'type_facture': f.type_facture if hasattr(f, 'type_facture') else 'standard',
+            'avoir_lie': f.avoir_lie_id if hasattr(f, 'avoir_lie_id') else None,
+            'facture_origine_id': f.facture_origine_id if hasattr(f, 'facture_origine_id') else None,
+            'motif_avoir': f.motif_avoir_correction if hasattr(f, 'motif_avoir_correction') else '',
         }
         factures_list.append(facture_data)
         total_ht += float(f.montant_ht)
@@ -1938,6 +1944,62 @@ def api_normaliser_mecef(request):
             'qr_code': qr_hash
         })
 
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def api_creer_avoir(request):
+    """API pour créer une facture d'avoir à partir d'une facture normalisée"""
+    try:
+        data = json.loads(request.body)
+        facture_id = data.get('facture_id')
+        motif = data.get('motif', '')
+        lignes_ids = data.get('lignes', [])  # Liste des IDs de lignes à annuler (ou vide = tout)
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': 'Le motif de l\'avoir est obligatoire'
+            }, status=400)
+
+        facture_origine = get_object_or_404(Facture, id=facture_id)
+
+        # Vérifier que la facture peut faire l'objet d'un avoir
+        if not facture_origine.peut_creer_avoir():
+            # Vérifier les conditions une par une pour un message d'erreur précis
+            if facture_origine.type_facture != 'standard':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Seules les factures standard peuvent faire l\'objet d\'un avoir'
+                }, status=400)
+            if facture_origine.statut_mecef != 'normalise':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Seules les factures normalisées MECeF peuvent faire l\'objet d\'un avoir'
+                }, status=400)
+            if facture_origine.avoir_lie:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cette facture a déjà un avoir d\'annulation'
+                }, status=400)
+
+        # Créer l'avoir via la méthode du modèle
+        avoir = facture_origine.creer_avoir(
+            motif=motif,
+            user=request.user if request.user.is_authenticated else None,
+            lignes_ids=lignes_ids if lignes_ids else None
+        )
+
+        return JsonResponse({
+            'success': True,
+            'avoir_id': avoir.id,
+            'avoir_numero': avoir.numero,
+            'message': f'Avoir {avoir.numero} créé avec succès'
+        })
+
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 

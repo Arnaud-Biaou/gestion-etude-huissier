@@ -599,10 +599,42 @@ class Facture(models.Model):
         super().save(*args, **kwargs)
 
     @classmethod
-    def generer_numero(cls):
+    def generer_numero(cls, type_facture='standard'):
+        """Génère un numéro de facture unique selon le type"""
+        from django.utils import timezone
         now = timezone.now()
-        count = cls.objects.filter(date_emission__year=now.year).count() + 1
-        return f"FAC-{now.year}-{str(count).zfill(3)}"
+        annee = now.year
+
+        # Préfixe selon le type de facture
+        if type_facture == 'avoir':
+            prefix = f"AVO-{annee}-"
+        elif type_facture == 'corrective':
+            prefix = f"COR-{annee}-"
+        else:
+            prefix = f"FAC-{annee}-"
+
+        # Trouver le dernier numéro avec ce préfixe
+        derniere = cls.objects.filter(numero__startswith=prefix).order_by('-numero').first()
+
+        if derniere:
+            try:
+                dernier_num = int(derniere.numero.split('-')[-1])
+                nouveau_num = dernier_num + 1
+            except (ValueError, IndexError):
+                nouveau_num = 1
+        else:
+            nouveau_num = 1
+
+        # Vérifier l'unicité et incrémenter si nécessaire
+        for _ in range(100):
+            numero = f"{prefix}{nouveau_num:04d}"
+            if not cls.objects.filter(numero=numero).exists():
+                return numero
+            nouveau_num += 1
+
+        # Fallback avec timestamp
+        import time
+        return f"{prefix}{int(time.time())}"
 
     # ═══════════════════════════════════════════════════════════════
     # MÉTHODES AVOIR ET FACTURES CORRECTIVES
@@ -616,31 +648,69 @@ class Facture(models.Model):
             not self.avoir_lie
         )
 
-    def creer_avoir(self, motif, user=None):
-        """Crée une facture d'avoir pour annuler cette facture"""
+    def creer_avoir(self, motif, user=None, lignes_ids=None):
+        """Crée une facture d'avoir pour annuler cette facture (totalement ou partiellement)"""
         if not self.peut_creer_avoir():
             raise ValueError("Impossible de créer un avoir pour cette facture")
 
+        # Sélectionner les lignes à annuler
+        if lignes_ids:
+            lignes_a_annuler = self.lignes.filter(id__in=lignes_ids)
+            annulation_partielle = True
+        else:
+            lignes_a_annuler = self.lignes.all()
+            annulation_partielle = False
+
+        # Calculer les montants de l'avoir
+        total_honoraires = 0
+        total_debours = 0
+
+        for ligne in lignes_a_annuler:
+            if ligne.type_ligne == 'debours':
+                total_debours += abs(ligne.montant_ht or ligne.prix_unitaire)
+            else:
+                total_honoraires += abs(ligne.honoraires or ligne.prix_unitaire)
+                total_debours += abs(ligne.timbre or 0) + abs(ligne.enregistrement or 0)
+
+        montant_ht = total_honoraires + total_debours
+        montant_tva = total_honoraires * self.taux_tva / 100
+        montant_ttc = montant_ht + montant_tva
+
         avoir = Facture.objects.create(
-            numero=f"AVO-{self.numero}",
+            numero=Facture.generer_numero('avoir'),
             type_facture='avoir',
             facture_origine=self,
             client=self.client,
             ifu=self.ifu,
             dossier=self.dossier,
-            montant_ht=-self.montant_ht,  # Montant négatif
+            montant_ht=-montant_ht,  # Montant négatif
             taux_tva=self.taux_tva,
-            montant_tva=-self.montant_tva,
-            montant_ttc=-self.montant_ttc,
+            montant_tva=-montant_tva,
+            montant_ttc=-montant_ttc,
             motif_avoir_correction=motif,
-            observations=f"AVOIR sur facture {self.numero}",
+            observations=f"AVOIR {'partiel ' if annulation_partielle else ''}sur facture {self.numero}",
             date_emission=timezone.now().date(),
         )
 
-        # Lier l'avoir à la facture originale
-        self.avoir_lie = avoir
-        self.statut_mecef = 'annule'
-        self.save()
+        # Copier les lignes avec montants négatifs
+        for ligne in lignes_a_annuler:
+            LigneFacture.objects.create(
+                facture=avoir,
+                description=f"Annulation: {ligne.description}",
+                quantite=ligne.quantite,
+                prix_unitaire=-abs(ligne.prix_unitaire),
+                type_ligne=ligne.type_ligne,
+                honoraires=-abs(ligne.honoraires) if ligne.honoraires else None,
+                timbre=-abs(ligne.timbre) if ligne.timbre else None,
+                enregistrement=-abs(ligne.enregistrement) if ligne.enregistrement else None,
+                montant_ht=-abs(ligne.montant_ht) if ligne.montant_ht else -abs(ligne.prix_unitaire)
+            )
+
+        # Pour une annulation totale, lier l'avoir à la facture originale
+        if not annulation_partielle:
+            self.avoir_lie = avoir
+            self.statut_mecef = 'annule'
+            self.save()
 
         return avoir
 

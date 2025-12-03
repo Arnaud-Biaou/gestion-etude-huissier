@@ -52,6 +52,7 @@ urlpatterns = [
     path('api/sauvegarder-facture/', views.api_sauvegarder_facture, name='api_sauvegarder_facture'),
     path('api/supprimer-facture/', views.api_supprimer_facture, name='api_supprimer_facture'),
     path('api/normaliser-mecef/', views.api_normaliser_mecef, name='api_normaliser_mecef'),
+    path('api/creer-avoir/', views.api_creer_avoir, name='api_creer_avoir'),
     path('api/exporter-factures/', views.api_exporter_factures, name='api_exporter_factures'),
 
     # API endpoints - Calcul Recouvrement
