@@ -20,6 +20,9 @@
         <button class="btn btn-secondary" onclick="exporterFactures()">
             <i data-lucide="download"></i> Exporter
         </button>
+        <button class="btn btn-outline" onclick="ouvrirModalFusion()" title="Fusionner des factures brouillon">
+            <i data-lucide="git-merge"></i> Fusionner
+        </button>
         <button class="btn btn-accent" onclick="ouvrirModalFacture('proforma')">
             <i data-lucide="file-edit"></i> Nouvelle proforma
         </button>
@@ -624,6 +627,41 @@
             </button>
             <button class="btn btn-primary" id="btnNormaliserVue" onclick="normaliserDepuisVue()">
                 <i data-lucide="qr-code"></i> Normaliser MECeF
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Fusion Brouillons -->
+<div class="modal" id="modalFusion" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; max-width: 700px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 18px;"><i data-lucide="git-merge" style="width: 20px; height: 20px; vertical-align: middle;"></i> Fusionner des factures brouillon</h3>
+            <button onclick="fermerModalFusion()" style="background: none; border: none; cursor: pointer; font-size: 20px;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">Client</label>
+                <select id="fusionClient" class="form-select" onchange="chargerBrouillonsClient()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="">-- Sélectionner un client --</option>
+                </select>
+            </div>
+
+            <div id="listeBrouillonsFusion" style="margin-top: 20px;">
+                <p style="color: #6b7280;">Sélectionnez un client pour voir ses factures brouillon.</p>
+            </div>
+
+            <div id="resumeFusion" style="display: none; margin-top: 20px; padding: 16px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+                <h5 style="margin: 0 0 12px 0; color: #1e40af;">Résumé de la fusion</h5>
+                <p style="margin: 4px 0;">Nombre de factures : <strong id="fusionNbFactures">0</strong></p>
+                <p style="margin: 4px 0;">Total HT : <strong id="fusionTotalHT">0</strong> FCFA</p>
+                <p style="margin: 4px 0;">Total TTC : <strong id="fusionTotalTTC">0</strong> FCFA</p>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="fermerModalFusion()">Annuler</button>
+            <button class="btn btn-primary" onclick="executerFusion()" id="btnFusionner" disabled>
+                <i data-lucide="git-merge"></i> Fusionner en une facture
             </button>
         </div>
     </div>
@@ -2222,6 +2260,142 @@
             modalFooter.style.background = 'white';
             modalFooter.style.zIndex = '10';
         }
+    }
+
+    // ============================================
+    // FUSION DE BROUILLONS
+    // ============================================
+    let brouillonsData = [];
+
+    function ouvrirModalFusion() {
+        document.getElementById('modalFusion').style.display = 'flex';
+        chargerClientsAvecBrouillons();
+        lucide.createIcons();
+    }
+
+    function fermerModalFusion() {
+        document.getElementById('modalFusion').style.display = 'none';
+        document.getElementById('fusionClient').innerHTML = '<option value="">-- Sélectionner un client --</option>';
+        document.getElementById('listeBrouillonsFusion').innerHTML = '<p style="color: #6b7280;">Sélectionnez un client pour voir ses factures brouillon.</p>';
+        document.getElementById('resumeFusion').style.display = 'none';
+        brouillonsData = [];
+    }
+
+    function chargerClientsAvecBrouillons() {
+        fetch('{% url "gestion:api_clients_avec_brouillons" %}')
+            .then(response => response.json())
+            .then(data => {
+                var select = document.getElementById('fusionClient');
+                select.innerHTML = '<option value="">-- Sélectionner un client --</option>';
+                data.clients.forEach(function(client) {
+                    var option = document.createElement('option');
+                    option.value = client.nom;
+                    option.textContent = client.nom + ' (' + client.nb_brouillons + ' brouillon' + (client.nb_brouillons > 1 ? 's' : '') + ')';
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Erreur:', error));
+    }
+
+    function chargerBrouillonsClient() {
+        var clientNom = document.getElementById('fusionClient').value;
+        if (!clientNom) {
+            document.getElementById('listeBrouillonsFusion').innerHTML = '<p style="color: #6b7280;">Sélectionnez un client.</p>';
+            document.getElementById('resumeFusion').style.display = 'none';
+            return;
+        }
+
+        fetch('{% url "gestion:api_brouillons_client" %}?client=' + encodeURIComponent(clientNom))
+            .then(response => response.json())
+            .then(data => {
+                brouillonsData = data.brouillons;
+                var html = '<table style="width: 100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background: #f3f4f6;">';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;"><input type="checkbox" onchange="toggleTousBrouillons(this)"></th>';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;">N°</th>';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;">Date</th>';
+                html += '<th style="padding: 10px; text-align: right; border-bottom: 2px solid #e5e7eb;">Montant TTC</th>';
+                html += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb;">Dossier</th>';
+                html += '</tr></thead><tbody>';
+                data.brouillons.forEach(function(b, index) {
+                    html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                    html += '<td style="padding: 10px;"><input type="checkbox" class="brouillon-checkbox" value="' + b.id + '" data-index="' + index + '" onchange="majResumeFusion()"></td>';
+                    html += '<td style="padding: 10px; font-weight: 600;">' + b.numero + '</td>';
+                    html += '<td style="padding: 10px;">' + b.date + '</td>';
+                    html += '<td style="padding: 10px; text-align: right;">' + Number(b.montant_ttc).toLocaleString('fr-FR') + ' FCFA</td>';
+                    html += '<td style="padding: 10px;">' + (b.dossier || '-') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                document.getElementById('listeBrouillonsFusion').innerHTML = html;
+            })
+            .catch(error => console.error('Erreur:', error));
+    }
+
+    function toggleTousBrouillons(masterCheckbox) {
+        document.querySelectorAll('.brouillon-checkbox').forEach(function(cb) {
+            cb.checked = masterCheckbox.checked;
+        });
+        majResumeFusion();
+    }
+
+    function majResumeFusion() {
+        var checkboxes = document.querySelectorAll('.brouillon-checkbox:checked');
+        var nbFactures = checkboxes.length;
+
+        var totalHT = 0;
+        var totalTTC = 0;
+        checkboxes.forEach(function(cb) {
+            var index = parseInt(cb.dataset.index);
+            if (brouillonsData[index]) {
+                totalHT += brouillonsData[index].montant_ht || 0;
+                totalTTC += brouillonsData[index].montant_ttc || 0;
+            }
+        });
+
+        document.getElementById('fusionNbFactures').textContent = nbFactures;
+        document.getElementById('fusionTotalHT').textContent = Number(totalHT).toLocaleString('fr-FR');
+        document.getElementById('fusionTotalTTC').textContent = Number(totalTTC).toLocaleString('fr-FR');
+        document.getElementById('btnFusionner').disabled = nbFactures < 2;
+        document.getElementById('resumeFusion').style.display = nbFactures > 0 ? 'block' : 'none';
+    }
+
+    function executerFusion() {
+        var ids = [];
+        document.querySelectorAll('.brouillon-checkbox:checked').forEach(function(cb) {
+            ids.push(parseInt(cb.value));
+        });
+
+        if (ids.length < 2) {
+            alert('Sélectionnez au moins 2 factures à fusionner');
+            return;
+        }
+
+        if (!confirm('Fusionner ' + ids.length + ' factures brouillon en une seule ?\n\nLes factures originales seront supprimées.')) {
+            return;
+        }
+
+        fetch('{% url "gestion:api_fusionner_brouillons" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ facture_ids: ids })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Fusion réussie !\nNouvelle facture : ' + data.numero);
+                fermerModalFusion();
+                location.reload();
+            } else {
+                alert('Erreur : ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur réseau : ' + error);
+        });
     }
 </script>
 {% endblock %}

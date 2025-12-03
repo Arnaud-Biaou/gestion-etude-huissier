@@ -67,6 +67,11 @@ urlpatterns = [
     path('api/types-debours/', views.api_types_debours, name='api_types_debours'),
     path('api/creer-type-debours/', views.api_creer_type_debours, name='api_creer_type_debours'),
 
+    # API endpoints - Fusion de brouillons
+    path('api/clients-avec-brouillons/', views.api_clients_avec_brouillons, name='api_clients_avec_brouillons'),
+    path('api/brouillons-client/', views.api_brouillons_client, name='api_brouillons_client'),
+    path('api/fusionner-brouillons/', views.api_fusionner_brouillons, name='api_fusionner_brouillons'),
+
     # API endpoints - Calcul Recouvrement
     path('api/calculer-interets/', views.api_calculer_interets, name='api_calculer_interets'),
     path('api/calculer-emoluments/', views.api_calculer_emoluments, name='api_calculer_emoluments'),

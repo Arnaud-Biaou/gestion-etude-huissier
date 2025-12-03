@@ -7354,3 +7354,152 @@ def api_creer_type_debours(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# =============================================================================
+# API FUSION DE BROUILLONS
+# =============================================================================
+
+@login_required
+@require_GET
+def api_clients_avec_brouillons(request):
+    """Liste des clients ayant des factures brouillon (non normalisées MECeF)"""
+    from django.db.models import Count
+
+    # Brouillons = factures sans numéro MECeF
+    clients = Facture.objects.filter(
+        Q(mecef_numero__isnull=True) | Q(mecef_numero='')
+    ).values('client').annotate(
+        nb_brouillons=Count('id')
+    ).filter(nb_brouillons__gte=1).order_by('client')
+
+    return JsonResponse({
+        'clients': [{'nom': c['client'], 'nb_brouillons': c['nb_brouillons']} for c in clients if c['client']]
+    })
+
+
+@login_required
+@require_GET
+def api_brouillons_client(request):
+    """Liste des factures brouillon d'un client"""
+    client = request.GET.get('client', '')
+
+    brouillons = Facture.objects.filter(
+        client=client
+    ).filter(
+        Q(mecef_numero__isnull=True) | Q(mecef_numero='')
+    ).order_by('-date_emission')
+
+    data = [{
+        'id': f.id,
+        'numero': f.numero,
+        'date': f.date_emission.strftime('%d/%m/%Y') if f.date_emission else '',
+        'montant_ht': float(f.montant_ht) if f.montant_ht else 0,
+        'montant_ttc': float(f.montant_ttc) if f.montant_ttc else 0,
+        'dossier': f.dossier.reference if f.dossier else None,
+    } for f in brouillons]
+
+    return JsonResponse({'brouillons': data})
+
+
+@login_required
+@require_POST
+def api_fusionner_brouillons(request):
+    """Fusionner plusieurs factures brouillon en une seule"""
+    try:
+        data = json.loads(request.body)
+        facture_ids = data.get('facture_ids', [])
+
+        if len(facture_ids) < 2:
+            return JsonResponse({'success': False, 'error': 'Sélectionnez au moins 2 factures'})
+
+        # Récupérer les factures
+        factures = list(Facture.objects.filter(id__in=facture_ids))
+
+        if len(factures) != len(facture_ids):
+            return JsonResponse({'success': False, 'error': 'Certaines factures n\'existent plus'})
+
+        # Vérifier qu'elles sont toutes des brouillons (pas de numéro MECeF)
+        for f in factures:
+            if f.mecef_numero:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'La facture {f.numero} est déjà normalisée MECeF et ne peut pas être fusionnée'
+                })
+
+        # Vérifier qu'elles sont du même client
+        clients = set(f.client for f in factures)
+        if len(clients) > 1:
+            return JsonResponse({
+                'success': False,
+                'error': 'Les factures doivent être du même client'
+            })
+
+        # Générer un nouveau numéro de facture
+        from datetime import datetime
+        annee = datetime.now().year
+        dernier = Facture.objects.filter(numero__startswith=f'FAC-{annee}').order_by('-numero').first()
+        if dernier and dernier.numero:
+            try:
+                dernier_num = int(dernier.numero.split('-')[-1])
+            except:
+                dernier_num = 0
+        else:
+            dernier_num = 0
+        nouveau_numero = f'FAC-{annee}-{str(dernier_num + 1).zfill(4)}'
+
+        # Créer la nouvelle facture fusionnée
+        premiere = factures[0]
+        nouvelle_facture = Facture.objects.create(
+            numero=nouveau_numero,
+            client=premiere.client,
+            ifu=premiere.ifu,
+            regime=premiere.regime,
+            type_client=premiere.type_client,
+            client_aib=premiere.client_aib,
+            date_emission=timezone.now().date(),
+            montant_ht=Decimal('0'),
+            montant_tva=Decimal('0'),
+            montant_ttc=Decimal('0'),
+        )
+
+        # Copier toutes les lignes et calculer les totaux
+        montant_ht = Decimal('0')
+        debours = Decimal('0')
+
+        for facture in factures:
+            for ligne in facture.lignes.all():
+                # Créer la ligne dans la nouvelle facture
+                LigneFacture.objects.create(
+                    facture=nouvelle_facture,
+                    description=ligne.description,
+                    quantite=ligne.quantite,
+                    prix_unitaire=ligne.prix_unitaire,
+                )
+
+                # Calculer les totaux
+                montant_ht += ligne.prix_unitaire * ligne.quantite
+
+        # Calculer TVA
+        if nouvelle_facture.regime == 'tva' or (nouvelle_facture.regime == 'tps' and nouvelle_facture.type_client == 'public'):
+            montant_tva = montant_ht * Decimal('0.18')
+        else:
+            montant_tva = Decimal('0')
+
+        nouvelle_facture.montant_ht = montant_ht
+        nouvelle_facture.montant_tva = montant_tva
+        nouvelle_facture.montant_ttc = montant_ht + montant_tva + debours
+        nouvelle_facture.save()
+
+        # Supprimer les anciennes factures
+        for facture in factures:
+            facture.delete()
+
+        return JsonResponse({
+            'success': True,
+            'id': nouvelle_facture.id,
+            'numero': nouvelle_facture.numero
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
