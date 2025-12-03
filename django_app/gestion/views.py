@@ -7605,10 +7605,18 @@ def api_fusionner_brouillons(request):
 
         for facture in factures:
             for ligne in facture.lignes.all():
+                # Construire la description avec référence dossier si disponible
+                description = ligne.description
+                if facture.dossier:
+                    ref_dossier = facture.dossier.reference
+                    # Préfixer avec la référence du dossier si pas déjà présent
+                    if not description.startswith(f"[{ref_dossier}]"):
+                        description = f"[{ref_dossier}] {description}"
+
                 # Créer la ligne dans la nouvelle facture
                 LigneFacture.objects.create(
                     facture=nouvelle_facture,
-                    description=ligne.description,
+                    description=description,
                     quantite=ligne.quantite,
                     prix_unitaire=ligne.prix_unitaire,
                 )
@@ -7893,9 +7901,11 @@ def api_creer_facture_multi_dossiers(request):
 
         # Créer les lignes et marquer les actes comme facturés
         for acte in actes:
-            description = f"{acte.intitule}"
+            # Construire la description avec référence dossier en préfixe
             if acte.dossier:
-                description += f" (Dossier {acte.dossier.reference})"
+                description = f"[{acte.dossier.reference}] {acte.intitule}"
+            else:
+                description = acte.intitule
 
             ligne = LigneFacture.objects.create(
                 facture=facture,
