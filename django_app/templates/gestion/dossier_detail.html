@@ -569,7 +569,7 @@
 
 <!-- Modal Ajouter Acte -->
 <div id="modalActe" class="modal-overlay" style="display: none;">
-    <div class="modal" style="max-width: 500px;">
+    <div class="modal" style="max-width: 550px;">
         <div class="modal-header">
             <h3>Ajouter un acte</h3>
             <button onclick="fermerModalActe()" style="background: none; border: none; cursor: pointer;">
@@ -578,19 +578,21 @@
         </div>
         <div class="modal-body">
             <form id="formActe">
-                <div class="form-group mb-3">
-                    <label>Date de l'acte *</label>
-                    <input type="date" id="acteDate" class="form-control" required>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div class="form-group">
+                        <label>Date de l'acte *</label>
+                        <input type="date" id="acteDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Feuillets</label>
+                        <input type="number" id="acteFeuillets" class="form-control" value="1" min="1">
+                    </div>
                 </div>
                 <div class="form-group mb-3">
-                    <label>Type d'acte *</label>
-                    <input type="text" id="acteType" class="form-control" placeholder="Ex: Signification, Commandement..." required>
+                    <label>Intitulé de l'acte *</label>
+                    <input type="text" id="acteIntitule" class="form-control" placeholder="Ex: Signification de jugement, Commandement de payer..." required>
                 </div>
-                <div class="form-group mb-3">
-                    <label>Description</label>
-                    <textarea id="acteDescription" class="form-control" rows="2" placeholder="Description de l'acte..."></textarea>
-                </div>
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="form-group">
                         <label>Honoraires</label>
                         <input type="number" id="acteHonoraires" class="form-control" value="0" min="0">
@@ -599,9 +601,15 @@
                         <label>Timbre</label>
                         <input type="number" id="acteTimbre" class="form-control" value="0" min="0">
                     </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
                     <div class="form-group">
                         <label>Enregistrement</label>
                         <input type="number" id="acteEnregistrement" class="form-control" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Débours divers</label>
+                        <input type="number" id="acteDeboursDiv" class="form-control" value="0" min="0">
                     </div>
                 </div>
             </form>
@@ -629,8 +637,8 @@
                     <input type="date" id="deboursDate" class="form-control" required>
                 </div>
                 <div class="form-group mb-3">
-                    <label>Désignation *</label>
-                    <input type="text" id="deboursDesignation" class="form-control" placeholder="Ex: Frais de transport, Droit de timbre..." required>
+                    <label>Intitulé *</label>
+                    <input type="text" id="deboursIntitule" class="form-control" placeholder="Ex: Frais de transport, Frais d'huissier..." required>
                 </div>
                 <div class="form-group mb-3">
                     <label>Montant *</label>
@@ -730,7 +738,7 @@
             <thead>
                 <tr style="background: var(--neutral-50);">
                     <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
-                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Type</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Intitulé</th>
                     <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Honoraires</th>
                     <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Timbre</th>
                     <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Enreg.</th>
@@ -741,17 +749,20 @@
             <tbody>`;
 
         actes.forEach(acte => {
+            const factureBadge = acte.est_facture
+                ? `<span style="font-size: 10px; background: var(--success-light); color: var(--success); padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Facturé</span>`
+                : '';
             html += `<tr style="border-bottom: 1px solid var(--neutral-100);">
-                <td style="padding: 8px 12px; font-size: 13px;">${acte.date_acte_display}</td>
-                <td style="padding: 8px 12px; font-size: 13px;" title="${acte.description || ''}">${acte.type_acte}</td>
+                <td style="padding: 8px 12px; font-size: 13px;">${acte.date_acte}</td>
+                <td style="padding: 8px 12px; font-size: 13px;">${acte.intitule}${factureBadge}</td>
                 <td style="padding: 8px 12px; font-size: 13px; text-align: right;">${formatNumber(acte.honoraires)}</td>
                 <td style="padding: 8px 12px; font-size: 13px; text-align: right;">${formatNumber(acte.timbre)}</td>
                 <td style="padding: 8px 12px; font-size: 13px; text-align: right;">${formatNumber(acte.enregistrement)}</td>
-                <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600;">${formatNumber(acte.montant_total)}</td>
+                <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600;">${formatNumber(acte.total)}</td>
                 <td style="padding: 8px 12px; text-align: center;">
-                    <button onclick="supprimerActe(${acte.id})" class="btn btn-sm" style="padding: 4px 8px; background: var(--danger-light); color: var(--danger);">
+                    ${!acte.est_facture ? `<button onclick="supprimerActe(${acte.id})" class="btn btn-sm" style="padding: 4px 8px; background: var(--danger-light); color: var(--danger);">
                         <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-                    </button>
+                    </button>` : ''}
                 </td>
             </tr>`;
         });
@@ -772,6 +783,7 @@
     function ouvrirModalActe() {
         document.getElementById('formActe').reset();
         document.getElementById('acteDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('acteFeuillets').value = 1;
         document.getElementById('modalActe').style.display = 'flex';
         lucide.createIcons();
     }
@@ -783,14 +795,15 @@
     function sauvegarderActe() {
         const data = {
             date_acte: document.getElementById('acteDate').value,
-            type_acte: document.getElementById('acteType').value,
-            description: document.getElementById('acteDescription').value,
+            intitule: document.getElementById('acteIntitule').value,
+            feuillets: parseInt(document.getElementById('acteFeuillets').value) || 1,
             honoraires: parseInt(document.getElementById('acteHonoraires').value) || 0,
             timbre: parseInt(document.getElementById('acteTimbre').value) || 0,
-            enregistrement: parseInt(document.getElementById('acteEnregistrement').value) || 0
+            enregistrement: parseInt(document.getElementById('acteEnregistrement').value) || 0,
+            debours_divers: parseInt(document.getElementById('acteDeboursDiv').value) || 0
         };
 
-        if (!data.date_acte || !data.type_acte) {
+        if (!data.date_acte || !data.intitule) {
             alert('Veuillez remplir les champs obligatoires');
             return;
         }
@@ -844,7 +857,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    afficherDebours(data.debours, data.total);
+                    afficherDebours(data.debours, data.totaux);
                 }
             })
             .catch(err => {
@@ -853,7 +866,7 @@
             });
     }
 
-    function afficherDebours(debours, total) {
+    function afficherDebours(debours, totaux) {
         const container = document.getElementById('tableDeboursDossier');
         const footerTotaux = document.getElementById('totauxDebours');
 
@@ -867,7 +880,7 @@
             <thead>
                 <tr style="background: var(--neutral-50);">
                     <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Date</th>
-                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Désignation</th>
+                    <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Intitulé</th>
                     <th style="padding: 8px 12px; text-align: right; font-size: 12px;">Montant</th>
                     <th style="padding: 8px 12px; text-align: center; font-size: 12px;"></th>
                 </tr>
@@ -875,14 +888,17 @@
             <tbody>`;
 
         debours.forEach(d => {
+            const factureBadge = d.est_facture
+                ? `<span style="font-size: 10px; background: var(--success-light); color: var(--success); padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Facturé</span>`
+                : '';
             html += `<tr style="border-bottom: 1px solid var(--neutral-100);">
-                <td style="padding: 8px 12px; font-size: 13px;">${d.date_debours_display}</td>
-                <td style="padding: 8px 12px; font-size: 13px;">${d.designation}</td>
+                <td style="padding: 8px 12px; font-size: 13px;">${d.date_debours}</td>
+                <td style="padding: 8px 12px; font-size: 13px;">${d.intitule}${factureBadge}</td>
                 <td style="padding: 8px 12px; font-size: 13px; text-align: right; font-weight: 600;">${formatNumber(d.montant)} F</td>
                 <td style="padding: 8px 12px; text-align: center;">
-                    <button onclick="supprimerDebours(${d.id})" class="btn btn-sm" style="padding: 4px 8px; background: var(--danger-light); color: var(--danger);">
+                    ${!d.est_facture ? `<button onclick="supprimerDebours(${d.id})" class="btn btn-sm" style="padding: 4px 8px; background: var(--danger-light); color: var(--danger);">
                         <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-                    </button>
+                    </button>` : ''}
                 </td>
             </tr>`;
         });
@@ -890,7 +906,7 @@
         html += '</tbody></table>';
         container.innerHTML = html;
 
-        document.getElementById('totalDebours').textContent = formatNumber(total);
+        document.getElementById('totalDebours').textContent = formatNumber(totaux.total);
         footerTotaux.style.display = 'block';
 
         lucide.createIcons();
@@ -910,11 +926,11 @@
     function sauvegarderDebours() {
         const data = {
             date_debours: document.getElementById('deboursDate').value,
-            designation: document.getElementById('deboursDesignation').value,
+            intitule: document.getElementById('deboursIntitule').value,
             montant: parseInt(document.getElementById('deboursMontant').value) || 0
         };
 
-        if (!data.date_debours || !data.designation || data.montant <= 0) {
+        if (!data.date_debours || !data.intitule || data.montant <= 0) {
             alert('Veuillez remplir tous les champs obligatoires');
             return;
         }

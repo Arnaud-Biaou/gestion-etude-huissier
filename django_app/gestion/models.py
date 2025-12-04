@@ -4106,75 +4106,122 @@ class ActeSecurise(models.Model):
         self.save(update_fields=['nombre_verifications', 'derniere_verification'])
 
 
+class TypeActe(models.Model):
+    """Types d'actes prédéfinis"""
+    nom = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    honoraires_defaut = models.DecimalField(max_digits=15, decimal_places=0, default=0)
+    timbre_defaut = models.DecimalField(max_digits=15, decimal_places=0, default=0)
+    enregistrement_defaut = models.DecimalField(max_digits=15, decimal_places=0, default=0)
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Type d'acte"
+        verbose_name_plural = "Types d'actes"
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+
 class ActeDossier(models.Model):
-    """Actes liés à un dossier (pour le suivi des actes de procédure)"""
+    """Acte réalisé dans le cadre d'un dossier"""
     dossier = models.ForeignKey(
         'Dossier', on_delete=models.CASCADE,
         related_name='actes_dossier', verbose_name='Dossier'
     )
-    date_acte = models.DateField(verbose_name='Date de l\'acte')
-    type_acte = models.CharField(max_length=100, verbose_name='Type d\'acte')
-    description = models.TextField(blank=True, verbose_name='Description')
-    honoraires = models.DecimalField(
-        max_digits=15, decimal_places=0, default=0,
-        verbose_name='Honoraires'
+    type_acte = models.ForeignKey(
+        'TypeActe', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Type d'acte"
     )
-    timbre = models.DecimalField(
-        max_digits=15, decimal_places=0, default=0,
-        verbose_name='Timbre'
+    acte_securise = models.ForeignKey(
+        'ActeSecurise', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='Acte sécurisé lié'
     )
-    enregistrement = models.DecimalField(
-        max_digits=15, decimal_places=0, default=0,
-        verbose_name='Enregistrement'
+
+    intitule = models.CharField(max_length=500, verbose_name='Intitulé')
+    date_acte = models.DateField(verbose_name="Date de l'acte")
+    honoraires = models.DecimalField(max_digits=15, decimal_places=0, default=0, verbose_name='Honoraires')
+    feuillets = models.PositiveIntegerField(default=1, verbose_name='Nombre de feuillets')
+    timbre = models.DecimalField(max_digits=15, decimal_places=0, default=0, verbose_name='Timbre')
+    enregistrement = models.DecimalField(max_digits=15, decimal_places=0, default=0, verbose_name='Enregistrement')
+    debours_divers = models.DecimalField(max_digits=15, decimal_places=0, default=0, verbose_name='Débours divers')
+
+    # Traçabilité facturation
+    est_facture = models.BooleanField(default=False, verbose_name='Facturé')
+    ligne_facture = models.ForeignKey(
+        'LigneFacture', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='Ligne de facture'
     )
+    date_facturation = models.DateField(null=True, blank=True, verbose_name='Date de facturation')
+
+    # Métadonnées
     cree_par = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='actes_dossier_crees'
     )
     date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Acte du dossier'
-        verbose_name_plural = 'Actes du dossier'
+        verbose_name = 'Acte de dossier'
+        verbose_name_plural = 'Actes de dossier'
         ordering = ['-date_acte']
 
     def __str__(self):
-        return f"{self.type_acte} - {self.date_acte}"
+        return f"{self.intitule} - {self.dossier.reference}"
 
-    def get_montant_total(self):
-        """Retourne le montant total de l'acte"""
-        return (self.honoraires or 0) + (self.timbre or 0) + (self.enregistrement or 0)
+    @property
+    def total(self):
+        return (self.honoraires or 0) + (self.timbre or 0) + (self.enregistrement or 0) + (self.debours_divers or 0)
+
+    def marquer_facture(self, ligne_facture):
+        self.est_facture = True
+        self.ligne_facture = ligne_facture
+        self.date_facturation = timezone.now().date()
+        self.save()
 
 
 class DeboursDossier(models.Model):
-    """Débours liés à un dossier (frais avancés pour le compte du client)"""
+    """Débours autonome à facturer séparément"""
     dossier = models.ForeignKey(
         'Dossier', on_delete=models.CASCADE,
-        related_name='debours_dossier', verbose_name='Dossier'
+        related_name='debours_autonomes', verbose_name='Dossier'
     )
+
+    intitule = models.CharField(max_length=500, verbose_name='Intitulé')
+    montant = models.DecimalField(max_digits=15, decimal_places=0, verbose_name='Montant')
     date_debours = models.DateField(verbose_name='Date du débours')
-    designation = models.CharField(max_length=200, verbose_name='Désignation')
-    montant = models.DecimalField(
-        max_digits=15, decimal_places=0,
-        verbose_name='Montant'
+
+    # Traçabilité facturation
+    est_facture = models.BooleanField(default=False, verbose_name='Facturé')
+    ligne_facture = models.ForeignKey(
+        'LigneFacture', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='Ligne de facture'
     )
-    piece_justificative = models.FileField(
-        upload_to='debours/', blank=True, null=True,
-        verbose_name='Pièce justificative'
-    )
+    date_facturation = models.DateField(null=True, blank=True, verbose_name='Date de facturation')
+
+    # Métadonnées
     cree_par = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='debours_dossier_crees'
     )
     date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Débours du dossier'
-        verbose_name_plural = 'Débours du dossier'
+        verbose_name = 'Débours autonome'
+        verbose_name_plural = 'Débours autonomes'
         ordering = ['-date_debours']
 
     def __str__(self):
-        return f"{self.designation} - {self.montant} FCFA"
+        return f"{self.intitule} - {self.montant} FCFA"
+
+    def marquer_facture(self, ligne_facture):
+        self.est_facture = True
+        self.ligne_facture = ligne_facture
+        self.date_facturation = timezone.now().date()
+        self.save()
 
 
 # Import des modèles d'import (pour les inclure dans les migrations)

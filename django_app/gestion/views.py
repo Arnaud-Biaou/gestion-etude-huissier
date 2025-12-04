@@ -62,7 +62,7 @@ from .models import (
     # Actes sécurisés
     ActeSecurise,
     # Actes et débours dossier
-    ActeDossier, DeboursDossier,
+    TypeActe, ActeDossier, DeboursDossier,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -6984,7 +6984,7 @@ def liste_actes_securises(request, dossier_id):
 @login_required
 @require_GET
 def api_liste_actes_dossier(request, dossier_id):
-    """API pour lister les actes d'un dossier"""
+    """Liste les actes d'un dossier"""
     try:
         dossier = get_object_or_404(Dossier, id=dossier_id)
         actes = dossier.actes_dossier.all()
@@ -6993,30 +6993,33 @@ def api_liste_actes_dossier(request, dossier_id):
         for acte in actes:
             data.append({
                 'id': acte.id,
-                'date_acte': acte.date_acte.strftime('%Y-%m-%d'),
-                'date_acte_display': acte.date_acte.strftime('%d/%m/%Y'),
-                'type_acte': acte.type_acte,
-                'description': acte.description,
+                'intitule': acte.intitule,
+                'type_acte': acte.type_acte.nom if acte.type_acte else '',
+                'date_acte': acte.date_acte.strftime('%d/%m/%Y'),
                 'honoraires': float(acte.honoraires or 0),
+                'feuillets': acte.feuillets,
                 'timbre': float(acte.timbre or 0),
                 'enregistrement': float(acte.enregistrement or 0),
-                'montant_total': float(acte.get_montant_total()),
+                'debours_divers': float(acte.debours_divers or 0),
+                'total': float(acte.total),
+                'est_facture': acte.est_facture,
+                'numero_facture': acte.ligne_facture.facture.numero if acte.ligne_facture else None
             })
 
-        # Calcul des totaux
-        total_honoraires = sum(a['honoraires'] for a in data)
-        total_timbre = sum(a['timbre'] for a in data)
-        total_enregistrement = sum(a['enregistrement'] for a in data)
-        total_general = sum(a['montant_total'] for a in data)
+        total_honoraires = sum(a.honoraires or 0 for a in actes)
+        total_timbre = sum(a.timbre or 0 for a in actes)
+        total_enregistrement = sum(a.enregistrement or 0 for a in actes)
+        total_debours = sum(a.debours_divers or 0 for a in actes)
 
         return JsonResponse({
             'success': True,
             'actes': data,
             'totaux': {
-                'honoraires': total_honoraires,
-                'timbre': total_timbre,
-                'enregistrement': total_enregistrement,
-                'total': total_general
+                'honoraires': float(total_honoraires),
+                'timbre': float(total_timbre),
+                'enregistrement': float(total_enregistrement),
+                'debours_divers': float(total_debours),
+                'total': float(total_honoraires + total_timbre + total_enregistrement + total_debours)
             }
         })
     except Exception as e:
@@ -7026,19 +7029,26 @@ def api_liste_actes_dossier(request, dossier_id):
 @login_required
 @require_POST
 def api_ajouter_acte_dossier(request, dossier_id):
-    """API pour ajouter un acte à un dossier"""
+    """Ajoute un acte à un dossier"""
     try:
         dossier = get_object_or_404(Dossier, id=dossier_id)
         data = json.loads(request.body)
 
+        type_acte = None
+        type_acte_id = data.get('type_acte_id')
+        if type_acte_id:
+            type_acte = TypeActe.objects.filter(id=type_acte_id).first()
+
         acte = ActeDossier.objects.create(
             dossier=dossier,
-            date_acte=data.get('date_acte'),
-            type_acte=data.get('type_acte', ''),
-            description=data.get('description', ''),
+            type_acte=type_acte,
+            intitule=data.get('intitule', type_acte.nom if type_acte else ''),
+            date_acte=data.get('date_acte', timezone.now().date()),
             honoraires=Decimal(str(data.get('honoraires', 0) or 0)),
+            feuillets=int(data.get('feuillets', 1) or 1),
             timbre=Decimal(str(data.get('timbre', 0) or 0)),
             enregistrement=Decimal(str(data.get('enregistrement', 0) or 0)),
+            debours_divers=Decimal(str(data.get('debours_divers', 0) or 0)),
             cree_par=request.user
         )
 
@@ -7054,9 +7064,14 @@ def api_ajouter_acte_dossier(request, dossier_id):
 @login_required
 @require_POST
 def api_supprimer_acte_dossier(request, acte_id):
-    """API pour supprimer un acte d'un dossier"""
+    """Supprime un acte d'un dossier"""
     try:
         acte = get_object_or_404(ActeDossier, id=acte_id)
+        if acte.est_facture:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de supprimer un acte déjà facturé'
+            }, status=400)
         acte.delete()
 
         return JsonResponse({
@@ -7070,29 +7085,30 @@ def api_supprimer_acte_dossier(request, acte_id):
 @login_required
 @require_GET
 def api_liste_debours_dossier(request, dossier_id):
-    """API pour lister les débours d'un dossier"""
+    """Liste les débours d'un dossier"""
     try:
         dossier = get_object_or_404(Dossier, id=dossier_id)
-        debours = dossier.debours_dossier.all()
+        debours = dossier.debours_autonomes.all()
 
         data = []
         for d in debours:
             data.append({
                 'id': d.id,
-                'date_debours': d.date_debours.strftime('%Y-%m-%d'),
-                'date_debours_display': d.date_debours.strftime('%d/%m/%Y'),
-                'designation': d.designation,
+                'intitule': d.intitule,
                 'montant': float(d.montant or 0),
-                'piece_justificative': d.piece_justificative.url if d.piece_justificative else None,
+                'date_debours': d.date_debours.strftime('%d/%m/%Y'),
+                'est_facture': d.est_facture,
+                'numero_facture': d.ligne_facture.facture.numero if d.ligne_facture else None
             })
 
-        # Calcul du total
-        total_debours = sum(d['montant'] for d in data)
+        total = sum(d.montant or 0 for d in debours)
 
         return JsonResponse({
             'success': True,
             'debours': data,
-            'total': total_debours
+            'totaux': {
+                'total': float(total)
+            }
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -7101,16 +7117,16 @@ def api_liste_debours_dossier(request, dossier_id):
 @login_required
 @require_POST
 def api_ajouter_debours_dossier(request, dossier_id):
-    """API pour ajouter un débours à un dossier"""
+    """Ajoute un débours à un dossier"""
     try:
         dossier = get_object_or_404(Dossier, id=dossier_id)
         data = json.loads(request.body)
 
         debours = DeboursDossier.objects.create(
             dossier=dossier,
-            date_debours=data.get('date_debours'),
-            designation=data.get('designation', ''),
+            intitule=data.get('intitule'),
             montant=Decimal(str(data.get('montant', 0) or 0)),
+            date_debours=data.get('date_debours', timezone.now().date()),
             cree_par=request.user
         )
 
@@ -7126,9 +7142,14 @@ def api_ajouter_debours_dossier(request, dossier_id):
 @login_required
 @require_POST
 def api_supprimer_debours_dossier(request, debours_id):
-    """API pour supprimer un débours d'un dossier"""
+    """Supprime un débours d'un dossier"""
     try:
         debours = get_object_or_404(DeboursDossier, id=debours_id)
+        if debours.est_facture:
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de supprimer un débours déjà facturé'
+            }, status=400)
         debours.delete()
 
         return JsonResponse({
