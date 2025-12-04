@@ -2302,7 +2302,7 @@ class AffaireMemoire(models.Model):
     )
     intitule_affaire = models.CharField(
         max_length=300, verbose_name='Intitulé de l\'affaire',
-        help_text='Ex: MP c/ DUPONT Jean et autres'
+        help_text='Ex: MP C/ DUPONT Jean et autres'
     )
     nature_infraction = models.CharField(
         max_length=300, blank=True,
@@ -3419,7 +3419,7 @@ class CalendrierSaisieImmo(models.Model):
         verbose_name_plural = "Calendriers saisies immobilières"
 
     def __str__(self):
-        return f"{self.reference} - {self.creancier} c/ {self.debiteurs[:50]}"
+        return f"{self.reference} - {self.creancier} C/ {self.debiteurs[:50]}"
 
     @classmethod
     def generer_reference(cls):
@@ -3994,7 +3994,7 @@ class ActeSecurise(models.Model):
     # Parties concernées (résumé pour affichage vérification)
     parties_resume = models.TextField(
         verbose_name="Parties",
-        help_text="Ex: BANQUE XYZ c/ M. DUPONT Jean"
+        help_text="Ex: BANQUE XYZ C/ M. DUPONT Jean"
     )
 
     # Sécurisation - Hash du contenu

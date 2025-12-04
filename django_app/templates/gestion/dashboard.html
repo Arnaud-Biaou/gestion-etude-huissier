@@ -867,7 +867,7 @@
                                 <a href="{% url 'gestion:dossier_detail' dossier.pk %}" class="dossier-item-ref">{{ dossier.reference }}</a>
                                 <div class="dossier-item-parties">
                                     {% if dossier.demandeurs.first %}{{ dossier.demandeurs.first }}{% endif %}
-                                    {% if dossier.is_contentieux %} c/ {% endif %}
+                                    {% if dossier.is_contentieux %} C/ {% endif %}
                                     {% if dossier.defendeurs.first %}{{ dossier.defendeurs.first }}{% endif %}
                                 </div>
                             </div>
