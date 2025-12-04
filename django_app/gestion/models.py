@@ -4107,18 +4107,19 @@ class ActeSecurise(models.Model):
 
 
 class TypeActe(models.Model):
-    """Types d'actes prédéfinis"""
-    nom = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    """Type d'acte avec tarifs par défaut"""
+    nom = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True, default='')
     honoraires_defaut = models.DecimalField(max_digits=15, decimal_places=0, default=0)
-    timbre_defaut = models.DecimalField(max_digits=15, decimal_places=0, default=0)
-    enregistrement_defaut = models.DecimalField(max_digits=15, decimal_places=0, default=0)
+    est_timbre_defaut = models.BooleanField(default=False)
+    est_enregistre_defaut = models.BooleanField(default=False)
     actif = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        ordering = ['nom']
         verbose_name = "Type d'acte"
         verbose_name_plural = "Types d'actes"
-        ordering = ['nom']
 
     def __str__(self):
         return self.nom
