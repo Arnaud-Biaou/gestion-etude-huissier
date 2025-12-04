@@ -327,13 +327,31 @@ class Dossier(models.Model):
     def __str__(self):
         return f"{self.reference} - {self.get_intitule()}"
 
+    def _formater_nom_parties(self, queryset):
+        """Formate le nom des parties avec 'et X autre(s)' si plusieurs"""
+        parties = list(queryset)
+        if not parties:
+            return ""
+
+        premier = parties[0].get_nom_complet()
+        count = len(parties)
+
+        if count == 1:
+            return premier
+        elif count == 2:
+            return f"{premier} et 1 autre"
+        else:
+            return f"{premier} et {count - 1} autres"
+
     def get_intitule(self):
-        demandeur = self.demandeurs.first()
-        defendeur = self.defendeurs.first()
-        if self.is_contentieux and demandeur and defendeur:
-            return f"{demandeur.get_nom_complet()} C/ {defendeur.get_nom_complet()}"
-        elif demandeur:
-            return demandeur.get_nom_complet()
+        """Retourne l'intitulé du dossier avec gestion des parties multiples"""
+        demandeurs_str = self._formater_nom_parties(self.demandeurs.all())
+        defendeurs_str = self._formater_nom_parties(self.defendeurs.all())
+
+        if self.is_contentieux and demandeurs_str and defendeurs_str:
+            return f"{demandeurs_str} C/ {defendeurs_str}"
+        elif demandeurs_str:
+            return demandeurs_str
         return "Sans parties"
 
     def get_montant_total_du(self):
