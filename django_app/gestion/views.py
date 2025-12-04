@@ -1786,9 +1786,13 @@ def api_sauvegarder_facture(request):
         observations = data.get('observations', '')
         lignes = data.get('lignes', [])
 
-        # Calculer les totaux
-        montant_ht = sum(l.get('quantite', 1) * l.get('prix_unitaire', 0) for l in lignes)
-        montant_tva = montant_ht * Decimal('0.18')
+        # Récupérer le taux de TVA (18% TVA standard, 5% TPS, 0% exonéré)
+        taux_tva_raw = data.get('taux_tva', 18.00)
+        taux_tva = Decimal(str(taux_tva_raw)) if taux_tva_raw is not None else Decimal('18.00')
+
+        # Calculer les totaux avec le taux de TVA dynamique
+        montant_ht = sum(Decimal(str(l.get('quantite', 1))) * Decimal(str(l.get('prix_unitaire', 0))) for l in lignes)
+        montant_tva = montant_ht * taux_tva / Decimal('100')
         montant_ttc = montant_ht + montant_tva
 
         if facture_id:
@@ -1801,6 +1805,7 @@ def api_sauvegarder_facture(request):
             facture.ifu = ifu
             facture.dossier_id = dossier_id
             facture.observations = observations
+            facture.taux_tva = taux_tva
             facture.montant_ht = montant_ht
             facture.montant_tva = montant_tva
             facture.montant_ttc = montant_ttc
@@ -1819,6 +1824,7 @@ def api_sauvegarder_facture(request):
                 ifu=ifu,
                 dossier_id=dossier_id,
                 observations=observations,
+                taux_tva=taux_tva,
                 montant_ht=montant_ht,
                 montant_tva=montant_tva,
                 montant_ttc=montant_ttc,
