@@ -6931,9 +6931,9 @@ def securiser_acte(request, dossier_id):
     defendeurs = dossier.defendeurs.all()
 
     if demandeurs and defendeurs:
-        d_nom = demandeurs[0].nom_complet if hasattr(demandeurs[0], 'nom_complet') else str(demandeurs[0])
-        def_nom = defendeurs[0].nom_complet if hasattr(defendeurs[0], 'nom_complet') else str(defendeurs[0])
-        parties_default = f"{d_nom} c/ {def_nom}"
+        d_nom = demandeurs[0].get_nom_complet() if hasattr(demandeurs[0], 'get_nom_complet') else str(demandeurs[0])
+        def_nom = defendeurs[0].get_nom_complet() if hasattr(defendeurs[0], 'get_nom_complet') else str(defendeurs[0])
+        parties_default = f"{d_nom} C/ {def_nom}"
 
     context = get_default_context(request)
     context.update({
