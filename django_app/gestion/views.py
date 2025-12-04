@@ -61,6 +61,8 @@ from .models import (
     CalendrierSaisieImmo,
     # Actes sécurisés
     ActeSecurise,
+    # Actes et débours dossier
+    ActeDossier, DeboursDossier,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -6973,3 +6975,165 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+# =============================================================================
+# APIS ACTES ET DÉBOURS DOSSIER
+# =============================================================================
+
+@login_required
+@require_GET
+def api_liste_actes_dossier(request, dossier_id):
+    """API pour lister les actes d'un dossier"""
+    try:
+        dossier = get_object_or_404(Dossier, id=dossier_id)
+        actes = dossier.actes_dossier.all()
+
+        data = []
+        for acte in actes:
+            data.append({
+                'id': acte.id,
+                'date_acte': acte.date_acte.strftime('%Y-%m-%d'),
+                'date_acte_display': acte.date_acte.strftime('%d/%m/%Y'),
+                'type_acte': acte.type_acte,
+                'description': acte.description,
+                'honoraires': float(acte.honoraires or 0),
+                'timbre': float(acte.timbre or 0),
+                'enregistrement': float(acte.enregistrement or 0),
+                'montant_total': float(acte.get_montant_total()),
+            })
+
+        # Calcul des totaux
+        total_honoraires = sum(a['honoraires'] for a in data)
+        total_timbre = sum(a['timbre'] for a in data)
+        total_enregistrement = sum(a['enregistrement'] for a in data)
+        total_general = sum(a['montant_total'] for a in data)
+
+        return JsonResponse({
+            'success': True,
+            'actes': data,
+            'totaux': {
+                'honoraires': total_honoraires,
+                'timbre': total_timbre,
+                'enregistrement': total_enregistrement,
+                'total': total_general
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_ajouter_acte_dossier(request, dossier_id):
+    """API pour ajouter un acte à un dossier"""
+    try:
+        dossier = get_object_or_404(Dossier, id=dossier_id)
+        data = json.loads(request.body)
+
+        acte = ActeDossier.objects.create(
+            dossier=dossier,
+            date_acte=data.get('date_acte'),
+            type_acte=data.get('type_acte', ''),
+            description=data.get('description', ''),
+            honoraires=Decimal(str(data.get('honoraires', 0) or 0)),
+            timbre=Decimal(str(data.get('timbre', 0) or 0)),
+            enregistrement=Decimal(str(data.get('enregistrement', 0) or 0)),
+            cree_par=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'acte_id': acte.id,
+            'message': 'Acte ajouté avec succès'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_supprimer_acte_dossier(request, acte_id):
+    """API pour supprimer un acte d'un dossier"""
+    try:
+        acte = get_object_or_404(ActeDossier, id=acte_id)
+        acte.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Acte supprimé avec succès'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_GET
+def api_liste_debours_dossier(request, dossier_id):
+    """API pour lister les débours d'un dossier"""
+    try:
+        dossier = get_object_or_404(Dossier, id=dossier_id)
+        debours = dossier.debours_dossier.all()
+
+        data = []
+        for d in debours:
+            data.append({
+                'id': d.id,
+                'date_debours': d.date_debours.strftime('%Y-%m-%d'),
+                'date_debours_display': d.date_debours.strftime('%d/%m/%Y'),
+                'designation': d.designation,
+                'montant': float(d.montant or 0),
+                'piece_justificative': d.piece_justificative.url if d.piece_justificative else None,
+            })
+
+        # Calcul du total
+        total_debours = sum(d['montant'] for d in data)
+
+        return JsonResponse({
+            'success': True,
+            'debours': data,
+            'total': total_debours
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_ajouter_debours_dossier(request, dossier_id):
+    """API pour ajouter un débours à un dossier"""
+    try:
+        dossier = get_object_or_404(Dossier, id=dossier_id)
+        data = json.loads(request.body)
+
+        debours = DeboursDossier.objects.create(
+            dossier=dossier,
+            date_debours=data.get('date_debours'),
+            designation=data.get('designation', ''),
+            montant=Decimal(str(data.get('montant', 0) or 0)),
+            cree_par=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'debours_id': debours.id,
+            'message': 'Débours ajouté avec succès'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_supprimer_debours_dossier(request, debours_id):
+    """API pour supprimer un débours d'un dossier"""
+    try:
+        debours = get_object_or_404(DeboursDossier, id=debours_id)
+        debours.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Débours supprimé avec succès'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

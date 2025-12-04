@@ -4106,5 +4106,76 @@ class ActeSecurise(models.Model):
         self.save(update_fields=['nombre_verifications', 'derniere_verification'])
 
 
+class ActeDossier(models.Model):
+    """Actes liés à un dossier (pour le suivi des actes de procédure)"""
+    dossier = models.ForeignKey(
+        'Dossier', on_delete=models.CASCADE,
+        related_name='actes_dossier', verbose_name='Dossier'
+    )
+    date_acte = models.DateField(verbose_name='Date de l\'acte')
+    type_acte = models.CharField(max_length=100, verbose_name='Type d\'acte')
+    description = models.TextField(blank=True, verbose_name='Description')
+    honoraires = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Honoraires'
+    )
+    timbre = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Timbre'
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name='Enregistrement'
+    )
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='actes_dossier_crees'
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Acte du dossier'
+        verbose_name_plural = 'Actes du dossier'
+        ordering = ['-date_acte']
+
+    def __str__(self):
+        return f"{self.type_acte} - {self.date_acte}"
+
+    def get_montant_total(self):
+        """Retourne le montant total de l'acte"""
+        return (self.honoraires or 0) + (self.timbre or 0) + (self.enregistrement or 0)
+
+
+class DeboursDossier(models.Model):
+    """Débours liés à un dossier (frais avancés pour le compte du client)"""
+    dossier = models.ForeignKey(
+        'Dossier', on_delete=models.CASCADE,
+        related_name='debours_dossier', verbose_name='Dossier'
+    )
+    date_debours = models.DateField(verbose_name='Date du débours')
+    designation = models.CharField(max_length=200, verbose_name='Désignation')
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=0,
+        verbose_name='Montant'
+    )
+    piece_justificative = models.FileField(
+        upload_to='debours/', blank=True, null=True,
+        verbose_name='Pièce justificative'
+    )
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='debours_dossier_crees'
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Débours du dossier'
+        verbose_name_plural = 'Débours du dossier'
+        ordering = ['-date_debours']
+
+    def __str__(self):
+        return f"{self.designation} - {self.montant} FCFA"
+
+
 # Import des modèles d'import (pour les inclure dans les migrations)
 from gestion.models_import import SessionImport, DossierImportTemp

@@ -170,4 +170,12 @@ urlpatterns = [
     path('import/<int:session_id>/analyser/', views.import_donnees_analyser, name='import_analyser'),
     path('import/<int:session_id>/valider/', views.import_donnees_valider, name='import_valider'),
     path('import/<int:session_id>/executer/', views.import_donnees_executer, name='import_executer'),
+
+    # API endpoints - Actes et débours dossier
+    path('api/dossiers/<int:dossier_id>/actes/', views.api_liste_actes_dossier, name='api_liste_actes_dossier'),
+    path('api/dossiers/<int:dossier_id>/actes/ajouter/', views.api_ajouter_acte_dossier, name='api_ajouter_acte_dossier'),
+    path('api/actes-dossier/<int:acte_id>/supprimer/', views.api_supprimer_acte_dossier, name='api_supprimer_acte_dossier'),
+    path('api/dossiers/<int:dossier_id>/debours/', views.api_liste_debours_dossier, name='api_liste_debours_dossier'),
+    path('api/dossiers/<int:dossier_id>/debours/ajouter/', views.api_ajouter_debours_dossier, name='api_ajouter_debours_dossier'),
+    path('api/debours-dossier/<int:debours_id>/supprimer/', views.api_supprimer_debours_dossier, name='api_supprimer_debours_dossier'),
 ]
