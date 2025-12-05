@@ -1434,7 +1434,7 @@ class ParticipationRdv(models.Model):
         verbose_name_plural = 'Participations RDV'
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(collaborateur__isnull=False, participant_externe__isnull=True) |
                     models.Q(collaborateur__isnull=True, participant_externe__isnull=False)
                 ),
