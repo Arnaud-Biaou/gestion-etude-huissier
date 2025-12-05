@@ -786,9 +786,9 @@ class LigneFacture(models.Model):
     ]
 
     TAUX_PAR_GROUPE = {
-        'A': Decimal('0'),
-        'B': Decimal('18'),
-        'E': Decimal('5'),
+        'A': 0,
+        'B': 18,
+        'E': 5,
     }
 
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
@@ -889,7 +889,7 @@ class LigneFacture(models.Model):
 
         # Appliquer le taux selon le groupe si non défini explicitement
         if self.type_ligne != 'debours' and (self.taux_ligne is None or self.taux_ligne == Decimal('0')):
-            self.taux_ligne = self.TAUX_PAR_GROUPE.get(self.groupe_taxation, Decimal('5'))
+            self.taux_ligne = Decimal(str(self.TAUX_PAR_GROUPE.get(self.groupe_taxation, 5)))
 
         super().save(*args, **kwargs)
 
