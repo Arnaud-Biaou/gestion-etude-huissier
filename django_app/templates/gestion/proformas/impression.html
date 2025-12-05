@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ proforma.numero }} - Impression{% endblock %}
+{% block title %}{{ proforma.numero }} - Proforma{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -10,208 +10,402 @@
         .sidebar { display: none !important; }
         .app-container { display: block !important; }
         .main-content { margin-left: 0 !important; padding: 0 !important; }
-        .container-fluid { padding: 0 !important; }
-        body { font-size: 12px; }
+        body {
+            font-size: 11px;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .bg-primary, .bg-secondary, .bg-success, .bg-warning, .bg-info {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
     }
-    .print-header {
-        border-bottom: 2px solid #333;
-        padding-bottom: 15px;
-        margin-bottom: 20px;
+
+    .invoice-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    .print-title {
-        text-align: center;
-        font-size: 24px;
+
+    /* En-tête */
+    .invoice-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #2c3e50;
+    }
+
+    .company-info {
+        display: flex;
+        align-items: center;
+    }
+
+    .company-logo {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
         font-weight: bold;
-        margin: 20px 0;
+        border-radius: 10px;
+        margin-right: 20px;
+    }
+
+    .company-details h2 {
+        margin: 0 0 5px 0;
+        color: #2c3e50;
+        font-size: 18px;
+    }
+
+    .company-details p {
+        margin: 2px 0;
+        color: #666;
+        font-size: 12px;
+    }
+
+    .invoice-info {
+        text-align: right;
+    }
+
+    .invoice-badges {
+        margin-bottom: 10px;
+    }
+
+    .badge-proforma {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        padding: 8px 20px;
+        font-size: 14px;
+        font-weight: bold;
+        border-radius: 5px;
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    .badge-status {
+        padding: 5px 15px;
+        font-size: 11px;
+        font-weight: bold;
+        border-radius: 3px;
+        display: inline-block;
         text-transform: uppercase;
     }
-    .info-box {
-        border: 1px solid #ddd;
-        padding: 15px;
-        margin-bottom: 15px;
+
+    .badge-brouillon { background-color: #95a5a6; color: white; }
+    .badge-envoyee { background-color: #3498db; color: white; }
+    .badge-acceptee { background-color: #27ae60; color: white; }
+    .badge-refusee { background-color: #e74c3c; color: white; }
+    .badge-convertie { background-color: #9b59b6; color: white; }
+    .badge-expiree { background-color: #f39c12; color: white; }
+
+    .invoice-number {
+        font-size: 14px;
+        color: #2c3e50;
+        margin: 5px 0;
     }
-    .table-print {
+
+    .invoice-number strong {
+        font-size: 16px;
+    }
+
+    /* Client */
+    .client-section {
+        background: #f8f9fa;
+        border-left: 4px solid #3498db;
+        padding: 15px 20px;
+        margin-bottom: 25px;
+    }
+
+    .client-section h4 {
+        margin: 0 0 10px 0;
+        color: #3498db;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .client-section .client-name {
+        font-size: 16px;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+
+    .client-section .client-ifu {
+        color: #666;
+        font-size: 12px;
+    }
+
+    /* Tableau */
+    .invoice-table {
         width: 100%;
         border-collapse: collapse;
+        margin-bottom: 25px;
     }
-    .table-print th, .table-print td {
-        border: 1px solid #333;
-        padding: 8px;
+
+    .invoice-table thead {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        color: white;
     }
-    .table-print th {
-        background-color: #f5f5f5;
+
+    .invoice-table th {
+        padding: 12px 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
-    .text-end { text-align: right; }
-    .totaux-box {
-        margin-top: 20px;
-        float: right;
-        width: 300px;
+
+    .invoice-table th.text-end {
+        text-align: right;
     }
-    .footer-print {
-        margin-top: 50px;
-        text-align: center;
+
+    .invoice-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #eee;
+        font-size: 12px;
+    }
+
+    .invoice-table td.text-end {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+    }
+
+    .invoice-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    /* Totaux */
+    .totals-section {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .totals-box {
+        width: 350px;
+    }
+
+    .totals-table {
+        width: 100%;
+    }
+
+    .totals-table td {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+
+    .totals-table td:last-child {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+    }
+
+    .totals-table .subtotal {
+        border-bottom: 1px solid #ddd;
+    }
+
+    .totals-table .total-ttc {
+        background: #f8f9fa;
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .totals-table .aib-row {
+        color: #e74c3c;
+        font-style: italic;
+    }
+
+    .totals-table .net-row {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 16px;
+    }
+
+    .totals-table .net-row td {
+        padding: 12px 10px;
+    }
+
+    /* Footer */
+    .invoice-footer {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #ddd;
         font-size: 10px;
         color: #666;
+        text-align: center;
+    }
+
+    .payment-note {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 10px 15px;
+        margin-top: 20px;
+        font-size: 11px;
+        color: #856404;
+        border-radius: 5px;
+    }
+
+    /* Dossier info */
+    .dossier-info {
+        background: #e8f4fd;
+        border-left: 4px solid #2c3e50;
+        padding: 10px 15px;
+        margin-bottom: 20px;
+        font-size: 11px;
+    }
+
+    .dossier-info strong {
+        color: #2c3e50;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Bouton imprimer (masqué à l'impression) -->
-    <div class="no-print mb-3">
-        <button onclick="window.print()" class="btn btn-primary">
+<div class="container-fluid py-3">
+    <!-- Boutons (masqués à l'impression) -->
+    <div class="no-print mb-3 text-center">
+        <button onclick="window.print()" class="btn btn-primary btn-lg">
             <i class="fas fa-print"></i> Imprimer
         </button>
-        <a href="{% url 'gestion:detail_proforma' proforma.pk %}" class="btn btn-secondary">
+        <a href="{% url 'gestion:detail_proforma' proforma.pk %}" class="btn btn-secondary btn-lg">
             <i class="fas fa-arrow-left"></i> Retour
         </a>
     </div>
 
-    <!-- En-tête -->
-    <div class="print-header">
-        <div class="row">
-            <div class="col-6">
-                <h4>ÉTUDE DE Me Martial Arnaud BIAOU</h4>
-                <p>
-                    Huissier de Justice<br>
-                    Quartier Zongo - Parakou<br>
-                    Tél: +229 XX XX XX XX<br>
-                    Email: contact@etude-biaou.bj
-                </p>
+    <div class="invoice-container">
+        <!-- En-tête -->
+        <div class="invoice-header">
+            <div class="company-info">
+                <div class="company-logo">MAB</div>
+                <div class="company-details">
+                    <h2>Étude Me BIAOU Martial Arnaud</h2>
+                    <p><strong>Huissier de Justice</strong></p>
+                    <p>Cotonou, Bénin</p>
+                    <p>Tél: +229 97 00 00 00</p>
+                    <p>IFU: 3201900XXXXX</p>
+                </div>
             </div>
-            <div class="col-6 text-end">
-                <h5>PROFORMA N° {{ proforma.numero }}</h5>
-                <p>
-                    Date : {{ proforma.date_emission|date:"d/m/Y" }}<br>
-                    {% if proforma.date_validite %}
-                    Valide jusqu'au : {{ proforma.date_validite|date:"d/m/Y" }}
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Titre -->
-    <div class="print-title">PROFORMA</div>
-
-    <!-- Informations client -->
-    <div class="row mb-4">
-        <div class="col-6">
-            <div class="info-box">
-                <strong>CLIENT :</strong><br>
-                {{ proforma.client }}<br>
-                {% if proforma.ifu %}IFU : {{ proforma.ifu }}{% endif %}
+            <div class="invoice-info">
+                <div class="invoice-badges">
+                    <span class="badge-proforma">PROFORMA</span>
+                    <span class="badge-status badge-{{ proforma.statut }}">{{ proforma.get_statut_display }}</span>
+                </div>
+                <p class="invoice-number">N°: <strong>{{ proforma.numero }}</strong></p>
+                <p class="invoice-number">Date: {{ proforma.date_emission|date:"d/m/Y" }}</p>
+                {% if proforma.date_validite %}
+                <p class="invoice-number">Échéance: {{ proforma.date_validite|date:"d/m/Y" }}</p>
+                {% endif %}
             </div>
         </div>
-        <div class="col-6">
-            {% if proforma.dossier %}
-            <div class="info-box">
-                <strong>DOSSIER :</strong><br>
-                Réf : {{ proforma.dossier.reference }}<br>
-                {{ proforma.dossier.get_intitule }}
-            </div>
+
+        <!-- Dossier (si lié) -->
+        {% if proforma.dossier %}
+        <div class="dossier-info">
+            <strong>Dossier:</strong> {{ proforma.dossier.reference }} - {{ proforma.dossier.get_intitule }}
+        </div>
+        {% endif %}
+
+        <!-- Client -->
+        <div class="client-section">
+            <h4>Facturé à</h4>
+            <div class="client-name">{{ proforma.client }}</div>
+            {% if proforma.ifu %}
+            <div class="client-ifu">IFU: {{ proforma.ifu }}</div>
             {% endif %}
         </div>
-    </div>
 
-    <!-- Tableau des lignes -->
-    <table class="table-print">
-        <thead>
-            <tr>
-                <th style="width: 40%">Désignation</th>
-                <th style="width: 15%" class="text-end">Honoraires</th>
-                <th style="width: 12%" class="text-end">Timbre</th>
-                <th style="width: 12%" class="text-end">Enreg.</th>
-                <th style="width: 15%" class="text-end">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ligne in lignes %}
-            <tr>
-                <td>
-                    {% if ligne.type_ligne == 'debours' %}
-                    <em>(Débours)</em>
+        <!-- Tableau des lignes -->
+        <table class="invoice-table">
+            <thead>
+                <tr>
+                    <th style="width: 40%">Désignation</th>
+                    <th style="width: 15%" class="text-end">Honoraires</th>
+                    <th style="width: 12%" class="text-end">Timbre</th>
+                    <th style="width: 13%" class="text-end">Enreg.</th>
+                    <th style="width: 15%" class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>
+                        {% if ligne.type_ligne == 'debours' %}<em>(Débours)</em> {% endif %}
+                        {{ ligne.description }}
+                    </td>
+                    {% if ligne.type_ligne == 'acte' %}
+                    <td class="text-end">{{ ligne.honoraires|floatformat:0|default:"0" }}</td>
+                    <td class="text-end">{{ ligne.timbre|floatformat:0|default:"0" }}</td>
+                    <td class="text-end">{{ ligne.enregistrement|floatformat:0|default:"0" }}</td>
+                    {% else %}
+                    <td class="text-end">-</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">{{ ligne.prix_unitaire|floatformat:0 }}</td>
                     {% endif %}
-                    {{ ligne.description }}
-                </td>
-                {% if ligne.type_ligne == 'acte' %}
-                <td class="text-end">{{ ligne.honoraires|floatformat:0|default:"0" }}</td>
-                <td class="text-end">{{ ligne.timbre|floatformat:0|default:"0" }}</td>
-                <td class="text-end">{{ ligne.enregistrement|floatformat:0|default:"0" }}</td>
-                {% else %}
-                <td class="text-end">-</td>
-                <td class="text-end">-</td>
-                <td class="text-end">{{ ligne.prix_unitaire|floatformat:0 }}</td>
-                {% endif %}
-                <td class="text-end">{{ ligne.total|floatformat:0 }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" class="text-center">Aucune ligne</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Totaux -->
-    <div class="totaux-box">
-        <table class="table table-sm">
-            <tr>
-                <td>Total HT</td>
-                <td class="text-end">{{ proforma.montant_ht|floatformat:0 }} FCFA</td>
-            </tr>
-            <tr>
-                <td>TVA ({{ proforma.taux_tva }}%)</td>
-                <td class="text-end">{{ proforma.montant_tva|floatformat:0 }} FCFA</td>
-            </tr>
-            <tr style="font-weight: bold; border-top: 2px solid #333;">
-                <td>TOTAL TTC</td>
-                <td class="text-end">{{ proforma.montant_ttc|floatformat:0 }} FCFA</td>
-            </tr>
+                    <td class="text-end"><strong>{{ ligne.total|floatformat:0 }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">Aucune ligne</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
-    </div>
 
-    <div style="clear: both;"></div>
-
-    <!-- Observations -->
-    {% if proforma.observations %}
-    <div class="mt-4">
-        <strong>Observations :</strong><br>
-        {{ proforma.observations|linebreaks }}
-    </div>
-    {% endif %}
-
-    <!-- Mention légale -->
-    <div class="mt-5">
-        <p><strong>Conditions :</strong></p>
-        <ul>
-            <li>Cette proforma est valable {% if proforma.date_validite %}jusqu'au {{ proforma.date_validite|date:"d/m/Y" }}{% else %}30 jours{% endif %}</li>
-            <li>Paiement à la commande</li>
-            <li>Les montants sont exprimés en Francs CFA (XOF)</li>
-        </ul>
-    </div>
-
-    <!-- Signature -->
-    <div class="row mt-5">
-        <div class="col-6">
-            <p>Le Client</p>
-            <br><br><br>
-            <p>_______________________</p>
+        <!-- Totaux -->
+        <div class="totals-section">
+            <div class="totals-box">
+                <table class="totals-table">
+                    <tr class="subtotal">
+                        <td>Total Honoraires HT:</td>
+                        <td>{{ proforma.montant_ht|floatformat:0 }} FCFA</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Débours:</td>
+                        <td>{{ total_debours|floatformat:0|default:"0" }} FCFA</td>
+                    </tr>
+                    <tr>
+                        <td>TVA ({{ proforma.taux_tva|floatformat:0 }}%):</td>
+                        <td>{{ proforma.montant_tva|floatformat:0 }} FCFA</td>
+                    </tr>
+                    <tr class="total-ttc">
+                        <td>Total TTC:</td>
+                        <td>{{ proforma.montant_ttc|floatformat:0 }} FCFA</td>
+                    </tr>
+                    <tr class="net-row">
+                        <td>NET À PAYER:</td>
+                        <td>{{ proforma.montant_ttc|floatformat:0 }} FCFA</td>
+                    </tr>
+                </table>
+            </div>
         </div>
-        <div class="col-6 text-end">
-            <p>L'Huissier de Justice</p>
-            <br><br><br>
-            <p>_______________________</p>
-        </div>
-    </div>
 
-    <!-- Pied de page -->
-    <div class="footer-print">
-        <p>
-            Étude de Me Martial Arnaud BIAOU - Huissier de Justice<br>
-            Document généré le {% now "d/m/Y à H:i" %}
-        </p>
+        <!-- Mention légale -->
+        <div class="payment-note">
+            <i class="fas fa-info-circle"></i>
+            Cette proforma est valable {% if proforma.date_validite %}jusqu'au {{ proforma.date_validite|date:"d/m/Y" }}{% else %}30 jours à compter de sa date d'émission{% endif %}.
+            Paiement à la commande. Les montants sont exprimés en Francs CFA (XOF).
+        </div>
+
+        <!-- Observations -->
+        {% if proforma.observations %}
+        <div class="mt-4">
+            <strong>Observations:</strong><br>
+            <p style="color: #666;">{{ proforma.observations|linebreaks }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Footer -->
+        <div class="invoice-footer">
+            <p>Étude de Me Martial Arnaud BIAOU - Huissier de Justice près le TPI et la Cour d'Appel de Cotonou</p>
+            <p>Document généré le {% now "d/m/Y à H:i" %}</p>
+        </div>
     </div>
 </div>
 {% endblock %}
