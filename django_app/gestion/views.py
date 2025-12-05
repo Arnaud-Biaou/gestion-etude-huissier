@@ -7392,14 +7392,28 @@ def api_sauvegarder_proforma(request):
                 if type_ligne == 'debours':
                     groupe = 'A'
 
-                prix_unitaire = Decimal(str(ligne_data.get('prix_unitaire', 0)))
                 quantite = int(ligne_data.get('quantite', 1))
-                ligne_ht = prix_unitaire * quantite
-
                 taux = TAUX_PAR_GROUPE.get(groupe, Decimal('5'))
-                ligne_tva = ligne_ht * taux / Decimal('100')
 
-                montant_ht += ligne_ht
+                if type_ligne == 'acte':
+                    # Pour les actes: récupérer honoraires, timbre, enregistrement
+                    honoraires = Decimal(str(ligne_data.get('honoraires', 0)))
+                    timbre = Decimal(str(ligne_data.get('timbre', 0)))
+                    enregistrement = Decimal(str(ligne_data.get('enregistrement', 0)))
+                    prix_unitaire = honoraires  # Base pour compatibilité
+                    ligne_total = honoraires + timbre + enregistrement
+                    # TVA uniquement sur honoraires
+                    ligne_tva = honoraires * taux / Decimal('100')
+                else:
+                    # Pour les débours: montant simple
+                    honoraires = None
+                    timbre = None
+                    enregistrement = None
+                    prix_unitaire = Decimal(str(ligne_data.get('prix_unitaire', 0)))
+                    ligne_total = prix_unitaire * quantite
+                    ligne_tva = Decimal('0')  # Débours exonérés
+
+                montant_ht += ligne_total
                 montant_tva += ligne_tva
 
                 LigneProforma.objects.create(
@@ -7410,6 +7424,9 @@ def api_sauvegarder_proforma(request):
                     type_ligne=type_ligne,
                     groupe_taxation=groupe,
                     taux_ligne=taux,
+                    honoraires=honoraires,
+                    timbre=timbre,
+                    enregistrement=enregistrement,
                 )
 
             # Mettre à jour les totaux de la proforma
