@@ -1786,14 +1786,45 @@ def api_sauvegarder_facture(request):
         observations = data.get('observations', '')
         lignes = data.get('lignes', [])
 
-        # Récupérer le taux de TVA (18% TVA standard, 5% TPS, 0% exonéré)
-        taux_tva_raw = data.get('taux_tva', 18.00)
-        taux_tva = Decimal(str(taux_tva_raw)) if taux_tva_raw is not None else Decimal('18.00')
+        # Taux par groupe de taxation MECeF
+        TAUX_PAR_GROUPE = {
+            'A': Decimal('0'),   # Exonéré (débours)
+            'B': Decimal('18'),  # TVA 18% (client public)
+            'E': Decimal('5'),   # TPS 5% (client privé - défaut)
+        }
 
-        # Calculer les totaux avec le taux de TVA dynamique
-        montant_ht = sum(Decimal(str(l.get('quantite', 1))) * Decimal(str(l.get('prix_unitaire', 0))) for l in lignes)
-        montant_tva = montant_ht * taux_tva / Decimal('100')
+        # Calculer les totaux en sommant par ligne selon le groupe de taxation
+        montant_ht = Decimal('0')
+        montant_tva = Decimal('0')
+
+        for ligne_data in lignes:
+            # Calculer le montant HT de la ligne
+            if ligne_data.get('honoraires') is not None:
+                h = Decimal(str(ligne_data.get('honoraires', 0) or 0))
+                t = Decimal(str(ligne_data.get('timbre', 0) or 0))
+                e = Decimal(str(ligne_data.get('enregistrement', 0) or 0))
+                ligne_ht = h + t + e
+            else:
+                quantite = Decimal(str(ligne_data.get('quantite', 1)))
+                prix_unitaire = Decimal(str(ligne_data.get('prix_unitaire', 0)))
+                ligne_ht = quantite * prix_unitaire
+
+            # Déterminer le groupe de taxation
+            groupe = ligne_data.get('groupe_taxation', 'E')
+            if ligne_data.get('type_ligne') == 'debours':
+                groupe = 'A'  # Débours toujours exonérés
+
+            # Calculer la TVA de la ligne
+            taux = TAUX_PAR_GROUPE.get(groupe, Decimal('5'))
+            ligne_tva = ligne_ht * taux / Decimal('100')
+
+            montant_ht += ligne_ht
+            montant_tva += ligne_tva
+
         montant_ttc = montant_ht + montant_tva
+
+        # Taux moyen pour la facture (pour affichage)
+        taux_tva = (montant_tva * Decimal('100') / montant_ht) if montant_ht > 0 else Decimal('0')
 
         if facture_id:
             # Modification
@@ -1830,9 +1861,14 @@ def api_sauvegarder_facture(request):
                 montant_ttc=montant_ttc,
             )
 
-        # Creer les lignes
+        # Creer les lignes avec groupe de taxation
         for ligne in lignes:
             type_ligne = ligne.get('type_ligne', 'acte')
+
+            # Déterminer le groupe de taxation
+            groupe_taxation = ligne.get('groupe_taxation', 'E')
+            if type_ligne == 'debours':
+                groupe_taxation = 'A'  # Débours toujours exonérés
 
             if type_ligne == 'debours':
                 # Pour les débours : juste le montant, pas de décomposition
@@ -1842,7 +1878,8 @@ def api_sauvegarder_facture(request):
                     quantite=1,
                     prix_unitaire=ligne.get('prix_unitaire', 0),
                     type_ligne='debours',
-                    montant_ht=ligne.get('prix_unitaire', 0)
+                    montant_ht=ligne.get('prix_unitaire', 0),
+                    groupe_taxation=groupe_taxation
                 )
             else:
                 # Pour les actes : avec décomposition honoraires/timbre/enregistrement
@@ -1855,7 +1892,7 @@ def api_sauvegarder_facture(request):
                     h = Decimal(str(honoraires)) if honoraires else Decimal('0')
                     t = Decimal(str(timbre)) if timbre else Decimal('0')
                     e = Decimal(str(enregistrement)) if enregistrement else Decimal('0')
-                    montant_ht = h + t + e
+                    montant_ht_ligne = h + t + e
 
                     LigneFacture.objects.create(
                         facture=facture,
@@ -1866,7 +1903,8 @@ def api_sauvegarder_facture(request):
                         honoraires=h,
                         timbre=t,
                         enregistrement=e,
-                        montant_ht=montant_ht
+                        montant_ht=montant_ht_ligne,
+                        groupe_taxation=groupe_taxation
                     )
                 else:
                     # Mode simple : juste prix unitaire
@@ -1875,7 +1913,8 @@ def api_sauvegarder_facture(request):
                         description=ligne.get('description', ''),
                         quantite=ligne.get('quantite', 1),
                         prix_unitaire=ligne.get('prix_unitaire', 0),
-                        type_ligne='acte'
+                        type_ligne='acte',
+                        groupe_taxation=groupe_taxation
                     )
 
         return JsonResponse({
