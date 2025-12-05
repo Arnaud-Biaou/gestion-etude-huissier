@@ -178,4 +178,17 @@ urlpatterns = [
     path('api/dossiers/<int:dossier_id>/debours/', views.api_liste_debours_dossier, name='api_liste_debours_dossier'),
     path('api/dossiers/<int:dossier_id>/debours/ajouter/', views.api_ajouter_debours_dossier, name='api_ajouter_debours_dossier'),
     path('api/debours-dossier/<int:debours_id>/supprimer/', views.api_supprimer_debours_dossier, name='api_supprimer_debours_dossier'),
+
+    # Proformas
+    path('proformas/', views.liste_proformas, name='liste_proformas'),
+    path('proformas/nouvelle/', views.nouvelle_proforma, name='nouvelle_proforma'),
+    path('proformas/<int:pk>/', views.detail_proforma, name='detail_proforma'),
+    path('proformas/<int:pk>/modifier/', views.modifier_proforma, name='modifier_proforma'),
+    path('proformas/<int:pk>/supprimer/', views.supprimer_proforma, name='supprimer_proforma'),
+    path('proformas/<int:pk>/convertir/', views.convertir_proforma, name='convertir_proforma'),
+    path('proformas/<int:pk>/imprimer/', views.imprimer_proforma, name='imprimer_proforma'),
+
+    # API Proformas
+    path('api/proformas/sauvegarder/', views.api_sauvegarder_proforma, name='api_sauvegarder_proforma'),
+    path('api/proformas/<int:pk>/', views.api_proforma_detail, name='api_proforma_detail'),
 ]

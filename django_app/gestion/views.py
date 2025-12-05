@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Sum, Q
+from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
 from functools import wraps
@@ -63,6 +64,8 @@ from .models import (
     ActeSecurise,
     # Actes et débours dossier
     TypeActe, ActeDossier, DeboursDossier,
+    # Proformas
+    Proforma, LigneProforma,
 )
 from .services.qr_service import QRCodeService, ActeSecuriseService
 
@@ -7203,3 +7206,265 @@ def api_supprimer_debours_dossier(request, debours_id):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ============================================
+# VUES PROFORMA
+# ============================================
+
+@login_required
+def liste_proformas(request):
+    """Liste des proformas avec filtres"""
+    proformas = Proforma.objects.all().order_by('-date_creation')
+
+    # Filtres
+    statut = request.GET.get('statut')
+    if statut:
+        proformas = proformas.filter(statut=statut)
+
+    recherche = request.GET.get('q')
+    if recherche:
+        proformas = proformas.filter(
+            Q(numero__icontains=recherche) |
+            Q(client__icontains=recherche)
+        )
+
+    context = {
+        'proformas': proformas,
+        'statuts': Proforma.STATUT_CHOICES,
+    }
+    return render(request, 'gestion/proformas/liste.html', context)
+
+
+@login_required
+def detail_proforma(request, pk):
+    """Détail d'une proforma"""
+    proforma = get_object_or_404(Proforma, pk=pk)
+    context = {
+        'proforma': proforma,
+        'lignes': proforma.lignes.all(),
+    }
+    return render(request, 'gestion/proformas/detail.html', context)
+
+
+@login_required
+def nouvelle_proforma(request):
+    """Création d'une nouvelle proforma"""
+    if request.method == 'POST':
+        # Logique de création via API
+        pass
+
+    context = {
+        'dossiers': Dossier.objects.all().order_by('-date_creation')[:50],
+    }
+    return render(request, 'gestion/proformas/form.html', context)
+
+
+@login_required
+def modifier_proforma(request, pk):
+    """Modification d'une proforma existante"""
+    proforma = get_object_or_404(Proforma, pk=pk)
+
+    if proforma.statut == 'convertie':
+        messages.error(request, "Cette proforma a été convertie et ne peut plus être modifiée.")
+        return redirect('gestion:detail_proforma', pk=pk)
+
+    if request.method == 'POST':
+        # Logique de modification via API
+        pass
+
+    context = {
+        'proforma': proforma,
+        'lignes': proforma.lignes.all(),
+        'dossiers': Dossier.objects.all().order_by('-date_creation')[:50],
+    }
+    return render(request, 'gestion/proformas/form.html', context)
+
+
+@login_required
+def supprimer_proforma(request, pk):
+    """Suppression d'une proforma (brouillon uniquement)"""
+    proforma = get_object_or_404(Proforma, pk=pk)
+
+    if proforma.statut != 'brouillon':
+        messages.error(request, "Seules les proformas en brouillon peuvent être supprimées.")
+        return redirect('gestion:liste_proformas')
+
+    if request.method == 'POST':
+        numero = proforma.numero
+        proforma.delete()
+        messages.success(request, f"Proforma {numero} supprimée.")
+        return redirect('gestion:liste_proformas')
+
+    return render(request, 'gestion/proformas/confirmer_suppression.html', {'proforma': proforma})
+
+
+@login_required
+def convertir_proforma(request, pk):
+    """Convertit une proforma en facture"""
+    proforma = get_object_or_404(Proforma, pk=pk)
+
+    if not proforma.peut_etre_convertie:
+        messages.error(request, "Cette proforma ne peut pas être convertie.")
+        return redirect('gestion:detail_proforma', pk=pk)
+
+    if request.method == 'POST':
+        try:
+            facture = proforma.convertir_en_facture()
+            messages.success(request, f"Proforma convertie en facture {facture.numero}")
+            return redirect('gestion:facturation')
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect('gestion:detail_proforma', pk=pk)
+
+    return render(request, 'gestion/proformas/confirmer_conversion.html', {'proforma': proforma})
+
+
+@login_required
+def imprimer_proforma(request, pk):
+    """Génère un PDF de la proforma"""
+    proforma = get_object_or_404(Proforma, pk=pk)
+    # TODO: Générer PDF avec ReportLab
+    context = {
+        'proforma': proforma,
+        'lignes': proforma.lignes.all(),
+    }
+    return render(request, 'gestion/proformas/impression.html', context)
+
+
+# ============================================
+# API PROFORMA (JSON)
+# ============================================
+
+@login_required
+@require_POST
+def api_sauvegarder_proforma(request):
+    """API pour créer/modifier une proforma"""
+    try:
+        data = json.loads(request.body)
+        proforma_id = data.get('proforma_id')
+
+        with transaction.atomic():
+            if proforma_id:
+                # Modification
+                proforma = get_object_or_404(Proforma, pk=proforma_id)
+                if proforma.statut == 'convertie':
+                    return JsonResponse({'error': 'Proforma déjà convertie'}, status=400)
+            else:
+                # Création
+                proforma = Proforma(cree_par=request.user)
+
+            # Mise à jour des champs
+            proforma.client = data.get('client', '')
+            proforma.ifu = data.get('ifu', '')
+            proforma.taux_tva = Decimal(str(data.get('taux_tva', 5)))
+            proforma.observations = data.get('observations', '')
+            proforma.statut = data.get('statut', 'brouillon')
+
+            if data.get('dossier_id'):
+                proforma.dossier_id = data['dossier_id']
+
+            if data.get('date_validite'):
+                proforma.date_validite = data['date_validite']
+
+            proforma.save()
+
+            # Supprimer les anciennes lignes si modification
+            if proforma_id:
+                proforma.lignes.all().delete()
+
+            # Définir les taux par groupe
+            TAUX_PAR_GROUPE = {
+                'A': Decimal('0'),
+                'B': Decimal('18'),
+                'E': Decimal('5'),
+            }
+
+            # Créer les nouvelles lignes et calculer les totaux
+            lignes = data.get('lignes', [])
+            montant_ht = Decimal('0')
+            montant_tva = Decimal('0')
+
+            for ligne_data in lignes:
+                type_ligne = ligne_data.get('type_ligne', 'acte')
+                groupe = ligne_data.get('groupe_taxation', 'E')
+                if type_ligne == 'debours':
+                    groupe = 'A'
+
+                prix_unitaire = Decimal(str(ligne_data.get('prix_unitaire', 0)))
+                quantite = int(ligne_data.get('quantite', 1))
+                ligne_ht = prix_unitaire * quantite
+
+                taux = TAUX_PAR_GROUPE.get(groupe, Decimal('5'))
+                ligne_tva = ligne_ht * taux / Decimal('100')
+
+                montant_ht += ligne_ht
+                montant_tva += ligne_tva
+
+                LigneProforma.objects.create(
+                    proforma=proforma,
+                    description=ligne_data.get('description', ''),
+                    quantite=quantite,
+                    prix_unitaire=prix_unitaire,
+                    type_ligne=type_ligne,
+                    groupe_taxation=groupe,
+                    taux_ligne=taux,
+                )
+
+            # Mettre à jour les totaux de la proforma
+            proforma.montant_ht = montant_ht
+            proforma.montant_tva = montant_tva
+            proforma.montant_ttc = montant_ht + montant_tva
+            proforma.save()
+
+            return JsonResponse({
+                'success': True,
+                'proforma_id': proforma.id,
+                'numero': proforma.numero,
+                'montant_ht': float(proforma.montant_ht),
+                'montant_tva': float(proforma.montant_tva),
+                'montant_ttc': float(proforma.montant_ttc),
+            })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def api_proforma_detail(request, pk):
+    """API pour récupérer les détails d'une proforma"""
+    proforma = get_object_or_404(Proforma, pk=pk)
+
+    lignes = []
+    for ligne in proforma.lignes.all():
+        lignes.append({
+            'id': ligne.id,
+            'description': ligne.description,
+            'quantite': ligne.quantite,
+            'prix_unitaire': float(ligne.prix_unitaire),
+            'type_ligne': ligne.type_ligne,
+            'groupe_taxation': ligne.groupe_taxation,
+            'taux_ligne': float(ligne.taux_ligne),
+            'total': float(ligne.total),
+            'montant_tva_ligne': float(ligne.montant_tva_ligne),
+            'montant_ttc_ligne': float(ligne.montant_ttc_ligne),
+        })
+
+    return JsonResponse({
+        'id': proforma.id,
+        'numero': proforma.numero,
+        'client': proforma.client,
+        'ifu': proforma.ifu,
+        'dossier_id': proforma.dossier_id,
+        'montant_ht': float(proforma.montant_ht),
+        'montant_tva': float(proforma.montant_tva),
+        'montant_ttc': float(proforma.montant_ttc),
+        'taux_tva': float(proforma.taux_tva),
+        'date_emission': proforma.date_emission.isoformat() if proforma.date_emission else None,
+        'date_validite': proforma.date_validite.isoformat() if proforma.date_validite else None,
+        'statut': proforma.statut,
+        'observations': proforma.observations,
+        'peut_etre_convertie': proforma.peut_etre_convertie,
+        'est_expiree': proforma.est_expiree,
+        'lignes': lignes,
+    })
