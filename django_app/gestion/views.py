@@ -1791,10 +1791,11 @@ def api_sauvegarder_facture(request):
         lignes = data.get('lignes', [])
 
         # Taux par groupe de taxation MECeF
+        # Note: Régime TPS = l'étude paie 5% du CA annuel à l'État, mais pas facturé au client
         TAUX_PAR_GROUPE = {
             'A': Decimal('0'),   # Exonéré (débours)
             'B': Decimal('18'),  # TVA 18% (client public)
-            'E': Decimal('5'),   # TPS 5% (client privé - défaut)
+            'E': Decimal('0'),   # TPS (pas de taxe sur facture)
         }
 
         # Calculer les totaux en sommant par ligne selon le groupe de taxation
@@ -7375,10 +7376,11 @@ def api_sauvegarder_proforma(request):
                 proforma.lignes.all().delete()
 
             # Définir les taux par groupe
+            # Note: Régime TPS = l'étude paie 5% du CA annuel à l'État, mais pas facturé au client
             TAUX_PAR_GROUPE = {
-                'A': Decimal('0'),
-                'B': Decimal('18'),
-                'E': Decimal('5'),
+                'A': Decimal('0'),   # Exonéré (débours)
+                'B': Decimal('18'),  # TVA 18% (client public)
+                'E': Decimal('0'),   # TPS (pas de taxe sur facture)
             }
 
             # Créer les nouvelles lignes et calculer les totaux

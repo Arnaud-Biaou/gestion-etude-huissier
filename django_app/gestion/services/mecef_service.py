@@ -26,8 +26,8 @@ Configuration requise dans settings.py:
 
 Groupes de taxation MECeF:
     - Groupe A: Exonéré (0%) - pour les débours
-    - Groupe B: TVA 18% - taux standard
-    - Groupe E: TPS 5% - Taxe sur Prestations de Services
+    - Groupe B: TVA 18% - taux standard (clients publics ou régime réel)
+    - Groupe E: TPS (0% sur facture) - L'étude paie 5% du CA annuel à l'État
 """
 import requests
 import hashlib
@@ -75,10 +75,11 @@ class MECeFService:
     """
 
     # Groupes de taxation selon la norme MECeF
+    # Note: Régime TPS = l'étude paie 5% du CA annuel à l'État, mais pas facturé au client
     GROUPE_TAXATION = {
         'A': {'code': 'A', 'libelle': 'Exonéré', 'taux': Decimal('0')},
         'B': {'code': 'B', 'libelle': 'TVA 18%', 'taux': Decimal('18')},
-        'E': {'code': 'E', 'libelle': 'TPS 5%', 'taux': Decimal('5')},
+        'E': {'code': 'E', 'libelle': 'TPS (pas de taxe sur facture)', 'taux': Decimal('0')},
     }
 
     # Types de factures MECeF

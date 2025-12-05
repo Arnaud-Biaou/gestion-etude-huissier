@@ -781,14 +781,16 @@ class LigneFacture(models.Model):
     # Groupes de taxation MECeF
     GROUPE_TAXATION_CHOICES = [
         ('A', 'Exonéré (Débours)'),
-        ('B', 'TVA 18%'),
-        ('E', 'TPS 5%'),
+        ('B', 'TVA 18% (Client public)'),
+        ('E', 'TPS (Pas de TVA sur facture)'),
     ]
 
+    # Taux appliqués sur la facture client
+    # Note: Régime TPS = l'étude paie 5% du CA annuel à l'État, mais pas facturé au client
     TAUX_PAR_GROUPE = {
-        'A': 0,
-        'B': 18,
-        'E': 5,
+        'A': 0,   # Exonéré (débours)
+        'B': 18,  # TVA 18% (clients publics ou régime réel)
+        'E': 0,   # TPS (pas de taxe sur facture)
     }
 
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
@@ -1080,14 +1082,16 @@ class LigneProforma(models.Model):
     # Groupes de taxation MECeF
     GROUPE_TAXATION_CHOICES = [
         ('A', 'Exonéré (Débours)'),
-        ('B', 'TVA 18%'),
-        ('E', 'TPS 5%'),
+        ('B', 'TVA 18% (Client public)'),
+        ('E', 'TPS (Pas de TVA sur facture)'),
     ]
 
+    # Taux appliqués sur la facture client
+    # Note: Régime TPS = l'étude paie 5% du CA annuel à l'État, mais pas facturé au client
     TAUX_PAR_GROUPE = {
-        'A': 0,
-        'B': 18,
-        'E': 5,
+        'A': 0,   # Exonéré (débours)
+        'B': 18,  # TVA 18% (clients publics ou régime réel)
+        'E': 0,   # TPS (pas de taxe sur facture)
     }
 
     proforma = models.ForeignKey(Proforma, on_delete=models.CASCADE, related_name='lignes')

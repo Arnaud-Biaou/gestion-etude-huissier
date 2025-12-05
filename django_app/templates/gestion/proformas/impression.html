@@ -371,8 +371,13 @@
                         <td>{{ total_debours|floatformat:0|default:"0" }} FCFA</td>
                     </tr>
                     <tr>
+                        {% if proforma.taux_tva and proforma.taux_tva > 0 %}
                         <td>TVA ({{ proforma.taux_tva|floatformat:0 }}%):</td>
                         <td>{{ proforma.montant_tva|floatformat:0 }} FCFA</td>
+                        {% else %}
+                        <td>TVA:</td>
+                        <td>N/A (Régime TPS)</td>
+                        {% endif %}
                     </tr>
                     <tr class="total-ttc">
                         <td>Total TTC:</td>

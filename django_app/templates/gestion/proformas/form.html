@@ -183,8 +183,9 @@
 </div>
 
 <script>
-// Taux TVA (TPS 5% par défaut pour huissiers)
-const TAUX_TVA = 5;
+// Régime TPS: l'étude paie 5% du CA annuel à l'État, mais PAS facturé au client
+// Donc taux sur facture = 0% (contrairement au régime réel où TVA 18% est facturée)
+const TAUX_TVA = 0;
 
 let ligneIndex = 0;
 
@@ -301,7 +302,7 @@ function calculerTotaux() {
         tr.querySelector('.ligne-total').textContent = Math.round(montant).toLocaleString('fr-FR');
     });
 
-    // Calcul TVA (TPS 5% sur honoraires uniquement)
+    // Calcul TVA (régime TPS = 0% sur facture, l'étude paie 5% du CA annuel)
     const totalHT = totalHonoraires + totalDebours;
     const montantTVA = totalHonoraires * TAUX_TVA / 100;
     const totalTTC = totalHT + montantTVA;
