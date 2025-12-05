@@ -71,11 +71,11 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-list"></i> Lignes</h5>
                         <div>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="ajouterLigne('acte')">
-                                <i class="fas fa-plus"></i> Acte/Honoraire
+                            <button type="button" class="btn btn-sm btn-primary" onclick="ajouterLigneActe()">
+                                <i class="fas fa-plus"></i> Ajouter un Acte
                             </button>
-                            <button type="button" class="btn btn-sm btn-secondary" onclick="ajouterLigne('debours')">
-                                <i class="fas fa-plus"></i> Débours
+                            <button type="button" class="btn btn-sm btn-warning" onclick="ajouterLigneDebours()">
+                                <i class="fas fa-plus"></i> Ajouter un Débours
                             </button>
                         </div>
                     </div>
@@ -83,12 +83,12 @@
                         <table class="table mb-0" id="tableLignes">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 40%">Description</th>
-                                    <th style="width: 10%" class="text-center">Qté</th>
-                                    <th style="width: 15%" class="text-end">Prix Unit.</th>
-                                    <th style="width: 12%" class="text-center">Groupe</th>
-                                    <th style="width: 15%" class="text-end">Total HT</th>
-                                    <th style="width: 8%"></th>
+                                    <th style="width: 35%">Description</th>
+                                    <th style="width: 15%" class="text-end">Honoraires</th>
+                                    <th style="width: 12%" class="text-end">Timbre</th>
+                                    <th style="width: 12%" class="text-end">Enregistrement</th>
+                                    <th style="width: 15%" class="text-end">Total</th>
+                                    <th style="width: 6%"></th>
                                 </tr>
                             </thead>
                             <tbody id="lignesBody">
@@ -96,12 +96,19 @@
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
+                                    <td class="text-end"><strong>Honoraires :</strong></td>
+                                    <td class="text-end"><strong id="totalHonoraires">0</strong></td>
+                                    <td colspan="2" class="text-end"><strong>Débours :</strong></td>
+                                    <td class="text-end"><strong id="totalDebours">0</strong></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
                                     <td colspan="4" class="text-end"><strong>Total HT :</strong></td>
                                     <td class="text-end"><strong id="totalHT">0</strong> FCFA</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="4" class="text-end"><strong>TVA :</strong></td>
+                                    <td colspan="4" class="text-end"><strong>TVA (sur honoraires) :</strong></td>
                                     <td class="text-end"><strong id="totalTVA">0</strong> FCFA</td>
                                     <td></td>
                                 </tr>
@@ -135,11 +142,19 @@
                     <div class="card-body">
                         <table class="table table-sm table-borderless">
                             <tr>
+                                <td>Honoraires</td>
+                                <td class="text-end" id="recapHonoraires">0 FCFA</td>
+                            </tr>
+                            <tr>
+                                <td>Débours</td>
+                                <td class="text-end" id="recapDebours">0 FCFA</td>
+                            </tr>
+                            <tr class="border-top">
                                 <td>Total HT</td>
                                 <td class="text-end" id="recapHT">0 FCFA</td>
                             </tr>
                             <tr>
-                                <td>TVA</td>
+                                <td>TVA (5%)</td>
                                 <td class="text-end" id="recapTVA">0 FCFA</td>
                             </tr>
                             <tr class="border-top">
@@ -168,47 +183,47 @@
 </div>
 
 <script>
-// Taux par groupe de taxation
-const TAUX_GROUPE = {
-    'A': 0,    // Exonéré (débours)
-    'B': 18,   // TVA 18%
-    'E': 5     // TPS 5%
-};
+// Taux TVA (TPS 5% par défaut pour huissiers)
+const TAUX_TVA = 5;
 
 let ligneIndex = 0;
 
-function ajouterLigne(type = 'acte') {
+// Ajouter une ligne ACTE (honoraires + timbre + enregistrement)
+function ajouterLigneActe(data = null) {
     const tbody = document.getElementById('lignesBody');
-    const groupe = type === 'debours' ? 'A' : 'E';
-    const groupeDisabled = type === 'debours' ? 'disabled' : '';
-
     const tr = document.createElement('tr');
+    tr.className = 'ligne-acte';
+    tr.dataset.type = 'acte';
     tr.id = `ligne_${ligneIndex}`;
+
+    const honoraires = data ? (data.honoraires || data.prix_unitaire || '') : '';
+    const timbre = data ? (data.timbre || '') : '';
+    const enreg = data ? (data.enregistrement || '') : '';
+    const description = data ? data.description : '';
+
     tr.innerHTML = `
         <td>
-            <input type="text" class="form-control form-control-sm" name="lignes[${ligneIndex}][description]"
-                   placeholder="Description..." required>
-            <input type="hidden" name="lignes[${ligneIndex}][type_ligne]" value="${type}">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary">ACTE</span>
+                <input type="text" class="form-control form-control-sm ligne-description"
+                       placeholder="Intitulé de l'acte..." value="${description}" required>
+            </div>
         </td>
         <td>
-            <input type="number" class="form-control form-control-sm text-center" name="lignes[${ligneIndex}][quantite]"
-                   value="1" min="1" onchange="calculerTotaux()">
+            <input type="number" class="form-control form-control-sm text-end ligne-honoraires"
+                   placeholder="0" min="0" value="${honoraires}" onchange="calculerTotaux()">
         </td>
         <td>
-            <input type="number" class="form-control form-control-sm text-end" name="lignes[${ligneIndex}][prix_unitaire]"
-                   value="0" min="0" onchange="calculerTotaux()">
+            <input type="number" class="form-control form-control-sm text-end ligne-timbre"
+                   placeholder="0" min="0" value="${timbre}" onchange="calculerTotaux()">
         </td>
         <td>
-            <select class="form-select form-select-sm" name="lignes[${ligneIndex}][groupe_taxation]"
-                    onchange="calculerTotaux()" ${groupeDisabled}>
-                <option value="A" ${groupe === 'A' ? 'selected' : ''}>A (0%)</option>
-                <option value="B" ${groupe === 'B' ? 'selected' : ''}>B (18%)</option>
-                <option value="E" ${groupe === 'E' ? 'selected' : ''}>E (5%)</option>
-            </select>
+            <input type="number" class="form-control form-control-sm text-end ligne-enreg"
+                   placeholder="0" min="0" value="${enreg}" onchange="calculerTotaux()">
         </td>
-        <td class="text-end ligne-total">0</td>
+        <td class="text-end ligne-total fw-bold">0</td>
         <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerLigne(${ligneIndex})">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerLigne(this)">
                 <i class="fas fa-trash"></i>
             </button>
         </td>
@@ -218,8 +233,44 @@ function ajouterLigne(type = 'acte') {
     calculerTotaux();
 }
 
-function supprimerLigne(index) {
-    const tr = document.getElementById(`ligne_${index}`);
+// Ajouter une ligne DÉBOURS (montant unique)
+function ajouterLigneDebours(data = null) {
+    const tbody = document.getElementById('lignesBody');
+    const tr = document.createElement('tr');
+    tr.className = 'ligne-debours';
+    tr.dataset.type = 'debours';
+    tr.id = `ligne_${ligneIndex}`;
+    tr.style.backgroundColor = '#fffbeb';
+
+    const montant = data ? (data.montant || data.prix_unitaire || '') : '';
+    const description = data ? data.description : '';
+
+    tr.innerHTML = `
+        <td colspan="3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-warning text-dark">DÉBOURS</span>
+                <input type="text" class="form-control form-control-sm ligne-description"
+                       placeholder="Description du débours..." value="${description}" required>
+            </div>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm text-end ligne-montant"
+                   placeholder="0" min="0" value="${montant}" onchange="calculerTotaux()">
+        </td>
+        <td class="text-end ligne-total fw-bold">0</td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerLigne(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    ligneIndex++;
+    calculerTotaux();
+}
+
+function supprimerLigne(btn) {
+    const tr = btn.closest('tr');
     if (tr) {
         tr.remove();
         calculerTotaux();
@@ -227,54 +278,85 @@ function supprimerLigne(index) {
 }
 
 function calculerTotaux() {
-    let totalHT = 0;
-    let totalTVA = 0;
+    let totalHonoraires = 0;
+    let totalDebours = 0;
 
-    const lignes = document.querySelectorAll('#lignesBody tr');
-    lignes.forEach(tr => {
-        const qte = parseInt(tr.querySelector('input[name*="quantite"]')?.value) || 0;
-        const pu = parseFloat(tr.querySelector('input[name*="prix_unitaire"]')?.value) || 0;
-        const groupe = tr.querySelector('select[name*="groupe_taxation"]')?.value || 'E';
+    // Lignes ACTE
+    document.querySelectorAll('.ligne-acte').forEach(tr => {
+        const honoraires = parseFloat(tr.querySelector('.ligne-honoraires')?.value) || 0;
+        const timbre = parseFloat(tr.querySelector('.ligne-timbre')?.value) || 0;
+        const enreg = parseFloat(tr.querySelector('.ligne-enreg')?.value) || 0;
 
-        const ligneHT = qte * pu;
-        const ligneTVA = ligneHT * TAUX_GROUPE[groupe] / 100;
+        const ligneTotal = honoraires + timbre + enreg;
+        totalHonoraires += honoraires;
+        totalDebours += timbre + enreg;  // Timbre et enregistrement = débours exonérés
 
-        totalHT += ligneHT;
-        totalTVA += ligneTVA;
-
-        tr.querySelector('.ligne-total').textContent = Math.round(ligneHT).toLocaleString('fr-FR');
+        tr.querySelector('.ligne-total').textContent = Math.round(ligneTotal).toLocaleString('fr-FR');
     });
 
-    const totalTTC = totalHT + totalTVA;
+    // Lignes DÉBOURS
+    document.querySelectorAll('.ligne-debours').forEach(tr => {
+        const montant = parseFloat(tr.querySelector('.ligne-montant')?.value) || 0;
+        totalDebours += montant;
+        tr.querySelector('.ligne-total').textContent = Math.round(montant).toLocaleString('fr-FR');
+    });
 
-    // Mise à jour affichage
+    // Calcul TVA (TPS 5% sur honoraires uniquement)
+    const totalHT = totalHonoraires + totalDebours;
+    const montantTVA = totalHonoraires * TAUX_TVA / 100;
+    const totalTTC = totalHT + montantTVA;
+
+    // Mise à jour tableau
+    document.getElementById('totalHonoraires').textContent = Math.round(totalHonoraires).toLocaleString('fr-FR');
+    document.getElementById('totalDebours').textContent = Math.round(totalDebours).toLocaleString('fr-FR');
     document.getElementById('totalHT').textContent = Math.round(totalHT).toLocaleString('fr-FR');
-    document.getElementById('totalTVA').textContent = Math.round(totalTVA).toLocaleString('fr-FR');
+    document.getElementById('totalTVA').textContent = Math.round(montantTVA).toLocaleString('fr-FR');
     document.getElementById('totalTTC').textContent = Math.round(totalTTC).toLocaleString('fr-FR');
 
+    // Mise à jour récap
+    document.getElementById('recapHonoraires').textContent = Math.round(totalHonoraires).toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('recapDebours').textContent = Math.round(totalDebours).toLocaleString('fr-FR') + ' FCFA';
     document.getElementById('recapHT').textContent = Math.round(totalHT).toLocaleString('fr-FR') + ' FCFA';
-    document.getElementById('recapTVA').textContent = Math.round(totalTVA).toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('recapTVA').textContent = Math.round(montantTVA).toLocaleString('fr-FR') + ' FCFA';
     document.getElementById('recapTTC').textContent = Math.round(totalTTC).toLocaleString('fr-FR') + ' FCFA';
 }
 
 function collecterLignes() {
     const lignes = [];
-    const trs = document.querySelectorAll('#lignesBody tr');
 
-    trs.forEach(tr => {
-        const description = tr.querySelector('input[name*="description"]')?.value;
-        const quantite = parseInt(tr.querySelector('input[name*="quantite"]')?.value) || 1;
-        const prix_unitaire = parseFloat(tr.querySelector('input[name*="prix_unitaire"]')?.value) || 0;
-        const type_ligne = tr.querySelector('input[name*="type_ligne"]')?.value || 'acte';
-        const groupe_taxation = tr.querySelector('select[name*="groupe_taxation"]')?.value || 'E';
+    // Actes
+    document.querySelectorAll('.ligne-acte').forEach(tr => {
+        const description = tr.querySelector('.ligne-description')?.value;
+        const honoraires = parseFloat(tr.querySelector('.ligne-honoraires')?.value) || 0;
+        const timbre = parseFloat(tr.querySelector('.ligne-timbre')?.value) || 0;
+        const enreg = parseFloat(tr.querySelector('.ligne-enreg')?.value) || 0;
 
-        if (description) {
+        if (description && (honoraires > 0 || timbre > 0 || enreg > 0)) {
             lignes.push({
-                description,
-                quantite,
-                prix_unitaire,
-                type_ligne,
-                groupe_taxation
+                type_ligne: 'acte',
+                description: description,
+                honoraires: honoraires,
+                timbre: timbre,
+                enregistrement: enreg,
+                prix_unitaire: honoraires,
+                quantite: 1,
+                groupe_taxation: 'E'  // Honoraires taxables TPS
+            });
+        }
+    });
+
+    // Débours
+    document.querySelectorAll('.ligne-debours').forEach(tr => {
+        const description = tr.querySelector('.ligne-description')?.value;
+        const montant = parseFloat(tr.querySelector('.ligne-montant')?.value) || 0;
+
+        if (description && montant > 0) {
+            lignes.push({
+                type_ligne: 'debours',
+                description: description,
+                prix_unitaire: montant,
+                quantite: 1,
+                groupe_taxation: 'A'  // Débours exonérés
             });
         }
     });
@@ -304,6 +386,7 @@ function sauvegarderProforma(statut) {
         date_validite: document.getElementById('date_validite').value || null,
         observations: document.getElementById('observations').value,
         statut: statut,
+        taux_tva: TAUX_TVA,
         lignes: lignes
     };
 
@@ -337,31 +420,27 @@ document.addEventListener('DOMContentLoaded', function() {
         {% for ligne in lignes %}
         {
             description: "{{ ligne.description|escapejs }}",
-            quantite: {{ ligne.quantite }},
-            prix_unitaire: {{ ligne.prix_unitaire }},
             type_ligne: "{{ ligne.type_ligne }}",
-            groupe_taxation: "{{ ligne.groupe_taxation }}"
+            honoraires: {{ ligne.honoraires|default:0 }},
+            timbre: {{ ligne.timbre|default:0 }},
+            enregistrement: {{ ligne.enregistrement|default:0 }},
+            prix_unitaire: {{ ligne.prix_unitaire|default:0 }},
+            montant: {{ ligne.prix_unitaire|default:0 }}
         },
         {% endfor %}
     ];
 
     lignesExistantes.forEach(l => {
-        ajouterLigneAvecDonnees(l);
+        if (l.type_ligne === 'acte') {
+            ajouterLigneActe(l);
+        } else {
+            ajouterLigneDebours(l);
+        }
     });
     {% else %}
-    // Ajouter une ligne vide par défaut
-    ajouterLigne('acte');
+    // Ajouter une ligne acte vide par défaut
+    ajouterLigneActe();
     {% endif %}
 });
-
-function ajouterLigneAvecDonnees(data) {
-    ajouterLigne(data.type_ligne);
-    const tr = document.getElementById(`ligne_${ligneIndex - 1}`);
-    tr.querySelector('input[name*="description"]').value = data.description;
-    tr.querySelector('input[name*="quantite"]').value = data.quantite;
-    tr.querySelector('input[name*="prix_unitaire"]').value = data.prix_unitaire;
-    tr.querySelector('select[name*="groupe_taxation"]').value = data.groupe_taxation;
-    calculerTotaux();
-}
 </script>
 {% endblock %}
