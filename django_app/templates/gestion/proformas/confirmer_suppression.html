@@ -1,0 +1,42 @@
+{% extends "gestion/base.html" %}
+
+{% block title %}Supprimer Proforma{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-trash"></i> Supprimer Proforma</h5>
+                </div>
+                <div class="card-body">
+                    <p>Êtes-vous sûr de vouloir supprimer cette proforma ?</p>
+                    <ul class="list-unstyled">
+                        <li><strong>Numéro :</strong> {{ proforma.numero }}</li>
+                        <li><strong>Client :</strong> {{ proforma.client }}</li>
+                        <li><strong>Montant TTC :</strong> {{ proforma.montant_ttc|floatformat:0 }} FCFA</li>
+                    </ul>
+                    <div class="alert alert-danger small mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Cette action est irréversible. Toutes les lignes associées seront également supprimées.
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'gestion:liste_proformas' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

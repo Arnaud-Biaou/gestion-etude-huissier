@@ -1,0 +1,43 @@
+{% extends "gestion/base.html" %}
+
+{% block title %}Convertir Proforma{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-exchange-alt"></i> Convertir en Facture</h5>
+                </div>
+                <div class="card-body">
+                    <p>Êtes-vous sûr de vouloir convertir cette proforma en facture ?</p>
+                    <ul class="list-unstyled">
+                        <li><strong>Numéro :</strong> {{ proforma.numero }}</li>
+                        <li><strong>Client :</strong> {{ proforma.client }}</li>
+                        <li><strong>Montant TTC :</strong> {{ proforma.montant_ttc|floatformat:0 }} FCFA</li>
+                    </ul>
+                    <div class="alert alert-info small mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        Une fois convertie, la proforma ne pourra plus être modifiée.
+                        Une nouvelle facture sera créée avec les mêmes informations.
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'gestion:detail_proforma' proforma.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check"></i> Convertir en Facture
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends "gestion/base.html" %}
+{% load static %}
+
+{% block title %}{{ proforma.numero }} - Proforma{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'gestion:liste_proformas' %}" class="text-decoration-none">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+            <h2 class="mt-2">{{ proforma.numero }}</h2>
+        </div>
+        <div class="btn-group">
+            {% if proforma.statut == 'brouillon' %}
+            <a href="{% url 'gestion:modifier_proforma' proforma.pk %}" class="btn btn-secondary">
+                <i class="fas fa-edit"></i> Modifier
+            </a>
+            <a href="{% url 'gestion:supprimer_proforma' proforma.pk %}" class="btn btn-outline-danger">
+                <i class="fas fa-trash"></i> Supprimer
+            </a>
+            {% endif %}
+            <a href="{% url 'gestion:imprimer_proforma' proforma.pk %}" class="btn btn-outline-primary" target="_blank">
+                <i class="fas fa-print"></i> Imprimer
+            </a>
+            {% if proforma.peut_etre_convertie %}
+            <a href="{% url 'gestion:convertir_proforma' proforma.pk %}" class="btn btn-success">
+                <i class="fas fa-exchange-alt"></i> Convertir en Facture
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Infos principales -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Informations</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Client :</strong> {{ proforma.client }}</p>
+                            <p><strong>IFU :</strong> {{ proforma.ifu|default:"-" }}</p>
+                            {% if proforma.dossier %}
+                            <p><strong>Dossier :</strong>
+                                <a href="{% url 'gestion:dossier_detail' proforma.dossier.pk %}">{{ proforma.dossier.reference }}</a>
+                            </p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Date d'émission :</strong> {{ proforma.date_emission|date:"d/m/Y" }}</p>
+                            <p><strong>Date de validité :</strong>
+                                {{ proforma.date_validite|date:"d/m/Y"|default:"Non définie" }}
+                                {% if proforma.est_expiree %}<span class="badge bg-warning">Expirée</span>{% endif %}
+                            </p>
+                            <p><strong>Statut :</strong>
+                                {% if proforma.statut == 'brouillon' %}
+                                <span class="badge bg-secondary">Brouillon</span>
+                                {% elif proforma.statut == 'envoyee' %}
+                                <span class="badge bg-info">Envoyée</span>
+                                {% elif proforma.statut == 'acceptee' %}
+                                <span class="badge bg-success">Acceptée</span>
+                                {% elif proforma.statut == 'refusee' %}
+                                <span class="badge bg-danger">Refusée</span>
+                                {% elif proforma.statut == 'convertie' %}
+                                <span class="badge bg-primary">Convertie</span>
+                                {% elif proforma.statut == 'expiree' %}
+                                <span class="badge bg-warning">Expirée</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% if proforma.observations %}
+                    <hr>
+                    <p><strong>Observations :</strong><br>{{ proforma.observations|linebreaks }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Lignes -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Lignes</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Description</th>
+                                <th class="text-center">Qté</th>
+                                <th class="text-end">P.U.</th>
+                                <th class="text-center">Groupe</th>
+                                <th class="text-end">TVA</th>
+                                <th class="text-end">Total TTC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ligne in lignes %}
+                            <tr>
+                                <td>{{ ligne.description }}</td>
+                                <td class="text-center">{{ ligne.quantite }}</td>
+                                <td class="text-end">{{ ligne.prix_unitaire|floatformat:0 }}</td>
+                                <td class="text-center">
+                                    <span class="badge {% if ligne.groupe_taxation == 'A' %}bg-secondary{% elif ligne.groupe_taxation == 'B' %}bg-info{% else %}bg-success{% endif %}">
+                                        {{ ligne.get_groupe_taxation_display }}
+                                    </span>
+                                </td>
+                                <td class="text-end">{{ ligne.montant_tva_ligne|floatformat:0 }}</td>
+                                <td class="text-end">{{ ligne.montant_ttc_ligne|floatformat:0 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">Aucune ligne</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Totaux -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Totaux</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless mb-0">
+                        <tr>
+                            <td>Montant HT</td>
+                            <td class="text-end">{{ proforma.montant_ht|floatformat:0 }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <td>TVA</td>
+                            <td class="text-end">{{ proforma.montant_tva|floatformat:0 }} FCFA</td>
+                        </tr>
+                        <tr class="table-primary">
+                            <td><strong>Total TTC</strong></td>
+                            <td class="text-end"><strong>{{ proforma.montant_ttc|floatformat:0 }} FCFA</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            {% if proforma.facture_generee %}
+            <div class="card mt-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-check-circle"></i> Facture générée</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">Cette proforma a été convertie en facture.</p>
+                    <a href="{% url 'gestion:facturation' %}" class="btn btn-outline-success w-100">
+                        <i class="fas fa-file-invoice"></i> {{ proforma.facture_generee.numero }}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Historique -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Historique</h5>
+                </div>
+                <div class="card-body small">
+                    <p class="mb-1"><strong>Créée le :</strong> {{ proforma.date_creation|date:"d/m/Y H:i" }}</p>
+                    {% if proforma.cree_par %}
+                    <p class="mb-1"><strong>Par :</strong> {{ proforma.cree_par }}</p>
+                    {% endif %}
+                    <p class="mb-0"><strong>Modifiée le :</strong> {{ proforma.date_modification|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
