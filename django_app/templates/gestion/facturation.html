@@ -8,6 +8,9 @@
         <a href="?tab=liste" class="tab {% if current_tab == 'liste' %}active{% endif %}">
             Liste des factures
         </a>
+        <a href="{% url 'gestion:liste_proformas' %}" class="tab">
+            Proformas
+        </a>
         <a href="{% url 'gestion:memoires' %}" class="tab">
             Memoires
         </a>
