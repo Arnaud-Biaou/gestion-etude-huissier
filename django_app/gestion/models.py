@@ -777,6 +777,19 @@ class LigneFacture(models.Model):
         ('debours', 'Débours'),
     ]
 
+    # Groupes de taxation MECeF
+    GROUPE_TAXATION_CHOICES = [
+        ('A', 'Exonéré (Débours)'),
+        ('B', 'TVA 18%'),
+        ('E', 'TPS 5%'),
+    ]
+
+    TAUX_PAR_GROUPE = {
+        'A': Decimal('0'),
+        'B': Decimal('18'),
+        'E': Decimal('5'),
+    }
+
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
     description = models.CharField(max_length=500)
     quantite = models.IntegerField(default=1)
@@ -812,6 +825,20 @@ class LigneFacture(models.Model):
         verbose_name='Montant HT'
     )
 
+    # Champs MECeF pour la taxation
+    groupe_taxation = models.CharField(
+        max_length=1,
+        choices=GROUPE_TAXATION_CHOICES,
+        default='E',
+        verbose_name='Groupe de taxation MECeF'
+    )
+    taux_ligne = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('5.00'),
+        verbose_name='Taux applicable (%)'
+    )
+
     class Meta:
         verbose_name = 'Ligne de facture'
         verbose_name_plural = 'Lignes de facture'
@@ -829,6 +856,18 @@ class LigneFacture(models.Model):
             return self.montant_ht
         return self.quantite * self.prix_unitaire
 
+    @property
+    def montant_tva_ligne(self):
+        """Calcule la TVA pour cette ligne selon le groupe de taxation"""
+        if self.taux_ligne is None or self.taux_ligne == 0:
+            return Decimal('0')
+        return self.total * self.taux_ligne / Decimal('100')
+
+    @property
+    def montant_ttc_ligne(self):
+        """Calcule le TTC pour cette ligne"""
+        return self.total + self.montant_tva_ligne
+
     def save(self, *args, **kwargs):
         # Pour les débours, le montant_ht = prix_unitaire (pas de décomposition)
         if self.type_ligne == 'debours':
@@ -836,6 +875,9 @@ class LigneFacture(models.Model):
             self.honoraires = None
             self.timbre = None
             self.enregistrement = None
+            # Débours = Groupe A (exonéré)
+            self.groupe_taxation = 'A'
+            self.taux_ligne = Decimal('0')
         # Pour les actes, calculer montant_ht si honoraires/timbre/enreg sont fournis
         elif self.honoraires is not None:
             h = self.honoraires or 0
@@ -843,6 +885,11 @@ class LigneFacture(models.Model):
             e = self.enregistrement or 0
             self.montant_ht = h + t + e
             self.prix_unitaire = h  # Prix unitaire = honoraires pour compatibilité
+
+        # Appliquer le taux selon le groupe si non défini explicitement
+        if self.type_ligne != 'debours' and (self.taux_ligne is None or self.taux_ligne == Decimal('0')):
+            self.taux_ligne = self.TAUX_PAR_GROUPE.get(self.groupe_taxation, Decimal('5'))
+
         super().save(*args, **kwargs)
 
 
