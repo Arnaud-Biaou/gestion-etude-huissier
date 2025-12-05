@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if proforma %}Modifier{% else %}Nouvelle{% endif %} Proforma{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'gestion:liste_proformas' %}" class="text-decoration-none">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+            <h2 class="mt-2">
+                {% if proforma %}
+                    Modifier {{ proforma.numero }}
+                {% else %}
+                    Nouvelle Proforma
+                {% endif %}
+            </h2>
+        </div>
+    </div>
+
+    <form id="proformaForm">
+        {% csrf_token %}
+        <input type="hidden" id="proforma_id" value="{{ proforma.pk|default:'' }}">
+
+        <div class="row">
+            <!-- Colonne principale -->
+            <div class="col-md-8">
+                <!-- Informations client -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-user"></i> Client</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="client" class="form-label">Nom du client *</label>
+                                <input type="text" class="form-control" id="client" name="client"
+                                       value="{{ proforma.client|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ifu" class="form-label">IFU</label>
+                                <input type="text" class="form-control" id="ifu" name="ifu"
+                                       value="{{ proforma.ifu|default:'' }}" maxlength="20">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="dossier" class="form-label">Dossier (optionnel)</label>
+                                <select class="form-select" id="dossier" name="dossier">
+                                    <option value="">-- Aucun dossier --</option>
+                                    {% for d in dossiers %}
+                                    <option value="{{ d.pk }}" {% if proforma.dossier_id == d.pk %}selected{% endif %}>
+                                        {{ d.reference }} - {{ d.get_intitule }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="date_validite" class="form-label">Date de validité</label>
+                                <input type="date" class="form-control" id="date_validite" name="date_validite"
+                                       value="{{ proforma.date_validite|date:'Y-m-d'|default:'' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lignes -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list"></i> Lignes</h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="ajouterLigne('acte')">
+                                <i class="fas fa-plus"></i> Acte/Honoraire
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="ajouterLigne('debours')">
+                                <i class="fas fa-plus"></i> Débours
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table mb-0" id="tableLignes">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40%">Description</th>
+                                    <th style="width: 10%" class="text-center">Qté</th>
+                                    <th style="width: 15%" class="text-end">Prix Unit.</th>
+                                    <th style="width: 12%" class="text-center">Groupe</th>
+                                    <th style="width: 15%" class="text-end">Total HT</th>
+                                    <th style="width: 8%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="lignesBody">
+                                <!-- Lignes ajoutées dynamiquement -->
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="4" class="text-end"><strong>Total HT :</strong></td>
+                                    <td class="text-end"><strong id="totalHT">0</strong> FCFA</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="4" class="text-end"><strong>TVA :</strong></td>
+                                    <td class="text-end"><strong id="totalTVA">0</strong> FCFA</td>
+                                    <td></td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td colspan="4" class="text-end"><strong>Total TTC :</strong></td>
+                                    <td class="text-end"><strong id="totalTTC">0</strong> FCFA</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Observations -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-comment"></i> Observations</h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control" id="observations" name="observations" rows="3">{{ proforma.observations|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne actions -->
+            <div class="col-md-4">
+                <div class="card sticky-top" style="top: 20px;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Récapitulatif</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td>Total HT</td>
+                                <td class="text-end" id="recapHT">0 FCFA</td>
+                            </tr>
+                            <tr>
+                                <td>TVA</td>
+                                <td class="text-end" id="recapTVA">0 FCFA</td>
+                            </tr>
+                            <tr class="border-top">
+                                <td><strong>Total TTC</strong></td>
+                                <td class="text-end"><strong id="recapTTC">0 FCFA</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary" onclick="sauvegarderProforma('brouillon')">
+                                <i class="fas fa-save"></i> Enregistrer (Brouillon)
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="sauvegarderProforma('envoyee')">
+                                <i class="fas fa-paper-plane"></i> Enregistrer et Envoyer
+                            </button>
+                            <a href="{% url 'gestion:liste_proformas' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Taux par groupe de taxation
+const TAUX_GROUPE = {
+    'A': 0,    // Exonéré (débours)
+    'B': 18,   // TVA 18%
+    'E': 5     // TPS 5%
+};
+
+let ligneIndex = 0;
+
+function ajouterLigne(type = 'acte') {
+    const tbody = document.getElementById('lignesBody');
+    const groupe = type === 'debours' ? 'A' : 'E';
+    const groupeDisabled = type === 'debours' ? 'disabled' : '';
+
+    const tr = document.createElement('tr');
+    tr.id = `ligne_${ligneIndex}`;
+    tr.innerHTML = `
+        <td>
+            <input type="text" class="form-control form-control-sm" name="lignes[${ligneIndex}][description]"
+                   placeholder="Description..." required>
+            <input type="hidden" name="lignes[${ligneIndex}][type_ligne]" value="${type}">
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm text-center" name="lignes[${ligneIndex}][quantite]"
+                   value="1" min="1" onchange="calculerTotaux()">
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm text-end" name="lignes[${ligneIndex}][prix_unitaire]"
+                   value="0" min="0" onchange="calculerTotaux()">
+        </td>
+        <td>
+            <select class="form-select form-select-sm" name="lignes[${ligneIndex}][groupe_taxation]"
+                    onchange="calculerTotaux()" ${groupeDisabled}>
+                <option value="A" ${groupe === 'A' ? 'selected' : ''}>A (0%)</option>
+                <option value="B" ${groupe === 'B' ? 'selected' : ''}>B (18%)</option>
+                <option value="E" ${groupe === 'E' ? 'selected' : ''}>E (5%)</option>
+            </select>
+        </td>
+        <td class="text-end ligne-total">0</td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerLigne(${ligneIndex})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    ligneIndex++;
+    calculerTotaux();
+}
+
+function supprimerLigne(index) {
+    const tr = document.getElementById(`ligne_${index}`);
+    if (tr) {
+        tr.remove();
+        calculerTotaux();
+    }
+}
+
+function calculerTotaux() {
+    let totalHT = 0;
+    let totalTVA = 0;
+
+    const lignes = document.querySelectorAll('#lignesBody tr');
+    lignes.forEach(tr => {
+        const qte = parseInt(tr.querySelector('input[name*="quantite"]')?.value) || 0;
+        const pu = parseFloat(tr.querySelector('input[name*="prix_unitaire"]')?.value) || 0;
+        const groupe = tr.querySelector('select[name*="groupe_taxation"]')?.value || 'E';
+
+        const ligneHT = qte * pu;
+        const ligneTVA = ligneHT * TAUX_GROUPE[groupe] / 100;
+
+        totalHT += ligneHT;
+        totalTVA += ligneTVA;
+
+        tr.querySelector('.ligne-total').textContent = Math.round(ligneHT).toLocaleString('fr-FR');
+    });
+
+    const totalTTC = totalHT + totalTVA;
+
+    // Mise à jour affichage
+    document.getElementById('totalHT').textContent = Math.round(totalHT).toLocaleString('fr-FR');
+    document.getElementById('totalTVA').textContent = Math.round(totalTVA).toLocaleString('fr-FR');
+    document.getElementById('totalTTC').textContent = Math.round(totalTTC).toLocaleString('fr-FR');
+
+    document.getElementById('recapHT').textContent = Math.round(totalHT).toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('recapTVA').textContent = Math.round(totalTVA).toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('recapTTC').textContent = Math.round(totalTTC).toLocaleString('fr-FR') + ' FCFA';
+}
+
+function collecterLignes() {
+    const lignes = [];
+    const trs = document.querySelectorAll('#lignesBody tr');
+
+    trs.forEach(tr => {
+        const description = tr.querySelector('input[name*="description"]')?.value;
+        const quantite = parseInt(tr.querySelector('input[name*="quantite"]')?.value) || 1;
+        const prix_unitaire = parseFloat(tr.querySelector('input[name*="prix_unitaire"]')?.value) || 0;
+        const type_ligne = tr.querySelector('input[name*="type_ligne"]')?.value || 'acte';
+        const groupe_taxation = tr.querySelector('select[name*="groupe_taxation"]')?.value || 'E';
+
+        if (description) {
+            lignes.push({
+                description,
+                quantite,
+                prix_unitaire,
+                type_ligne,
+                groupe_taxation
+            });
+        }
+    });
+
+    return lignes;
+}
+
+function sauvegarderProforma(statut) {
+    const lignes = collecterLignes();
+
+    if (lignes.length === 0) {
+        alert('Veuillez ajouter au moins une ligne.');
+        return;
+    }
+
+    const client = document.getElementById('client').value;
+    if (!client) {
+        alert('Veuillez saisir le nom du client.');
+        return;
+    }
+
+    const data = {
+        proforma_id: document.getElementById('proforma_id').value || null,
+        client: client,
+        ifu: document.getElementById('ifu').value,
+        dossier_id: document.getElementById('dossier').value || null,
+        date_validite: document.getElementById('date_validite').value || null,
+        observations: document.getElementById('observations').value,
+        statut: statut,
+        lignes: lignes
+    };
+
+    fetch("{% url 'gestion:api_sauvegarder_proforma' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Proforma ' + result.numero + ' enregistrée avec succès !');
+            window.location.href = "{% url 'gestion:detail_proforma' 0 %}".replace('0', result.proforma_id);
+        } else {
+            alert('Erreur : ' + (result.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de communication avec le serveur.');
+    });
+}
+
+// Charger les lignes existantes si modification
+document.addEventListener('DOMContentLoaded', function() {
+    {% if proforma and lignes %}
+    const lignesExistantes = [
+        {% for ligne in lignes %}
+        {
+            description: "{{ ligne.description|escapejs }}",
+            quantite: {{ ligne.quantite }},
+            prix_unitaire: {{ ligne.prix_unitaire }},
+            type_ligne: "{{ ligne.type_ligne }}",
+            groupe_taxation: "{{ ligne.groupe_taxation }}"
+        },
+        {% endfor %}
+    ];
+
+    lignesExistantes.forEach(l => {
+        ajouterLigneAvecDonnees(l);
+    });
+    {% else %}
+    // Ajouter une ligne vide par défaut
+    ajouterLigne('acte');
+    {% endif %}
+});
+
+function ajouterLigneAvecDonnees(data) {
+    ajouterLigne(data.type_ligne);
+    const tr = document.getElementById(`ligne_${ligneIndex - 1}`);
+    tr.querySelector('input[name*="description"]').value = data.description;
+    tr.querySelector('input[name*="quantite"]').value = data.quantite;
+    tr.querySelector('input[name*="prix_unitaire"]').value = data.prix_unitaire;
+    tr.querySelector('select[name*="groupe_taxation"]').value = data.groupe_taxation;
+    calculerTotaux();
+}
+</script>
+{% endblock %}
