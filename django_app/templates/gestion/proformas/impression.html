@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ proforma.numero }} - Impression{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .no-print { display: none !important; }
+        .sidebar { display: none !important; }
+        .app-container { display: block !important; }
+        .main-content { margin-left: 0 !important; padding: 0 !important; }
+        .container-fluid { padding: 0 !important; }
+        body { font-size: 12px; }
+    }
+    .print-header {
+        border-bottom: 2px solid #333;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .print-title {
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin: 20px 0;
+        text-transform: uppercase;
+    }
+    .info-box {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .table-print {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .table-print th, .table-print td {
+        border: 1px solid #333;
+        padding: 8px;
+    }
+    .table-print th {
+        background-color: #f5f5f5;
+    }
+    .text-end { text-align: right; }
+    .totaux-box {
+        margin-top: 20px;
+        float: right;
+        width: 300px;
+    }
+    .footer-print {
+        margin-top: 50px;
+        text-align: center;
+        font-size: 10px;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Bouton imprimer (masqué à l'impression) -->
+    <div class="no-print mb-3">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> Imprimer
+        </button>
+        <a href="{% url 'gestion:detail_proforma' proforma.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <!-- En-tête -->
+    <div class="print-header">
+        <div class="row">
+            <div class="col-6">
+                <h4>ÉTUDE DE Me Martial Arnaud BIAOU</h4>
+                <p>
+                    Huissier de Justice<br>
+                    Quartier Zongo - Parakou<br>
+                    Tél: +229 XX XX XX XX<br>
+                    Email: contact@etude-biaou.bj
+                </p>
+            </div>
+            <div class="col-6 text-end">
+                <h5>PROFORMA N° {{ proforma.numero }}</h5>
+                <p>
+                    Date : {{ proforma.date_emission|date:"d/m/Y" }}<br>
+                    {% if proforma.date_validite %}
+                    Valide jusqu'au : {{ proforma.date_validite|date:"d/m/Y" }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Titre -->
+    <div class="print-title">PROFORMA</div>
+
+    <!-- Informations client -->
+    <div class="row mb-4">
+        <div class="col-6">
+            <div class="info-box">
+                <strong>CLIENT :</strong><br>
+                {{ proforma.client }}<br>
+                {% if proforma.ifu %}IFU : {{ proforma.ifu }}{% endif %}
+            </div>
+        </div>
+        <div class="col-6">
+            {% if proforma.dossier %}
+            <div class="info-box">
+                <strong>DOSSIER :</strong><br>
+                Réf : {{ proforma.dossier.reference }}<br>
+                {{ proforma.dossier.get_intitule }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tableau des lignes -->
+    <table class="table-print">
+        <thead>
+            <tr>
+                <th style="width: 40%">Désignation</th>
+                <th style="width: 15%" class="text-end">Honoraires</th>
+                <th style="width: 12%" class="text-end">Timbre</th>
+                <th style="width: 12%" class="text-end">Enreg.</th>
+                <th style="width: 15%" class="text-end">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in lignes %}
+            <tr>
+                <td>
+                    {% if ligne.type_ligne == 'debours' %}
+                    <em>(Débours)</em>
+                    {% endif %}
+                    {{ ligne.description }}
+                </td>
+                {% if ligne.type_ligne == 'acte' %}
+                <td class="text-end">{{ ligne.honoraires|floatformat:0|default:"0" }}</td>
+                <td class="text-end">{{ ligne.timbre|floatformat:0|default:"0" }}</td>
+                <td class="text-end">{{ ligne.enregistrement|floatformat:0|default:"0" }}</td>
+                {% else %}
+                <td class="text-end">-</td>
+                <td class="text-end">-</td>
+                <td class="text-end">{{ ligne.prix_unitaire|floatformat:0 }}</td>
+                {% endif %}
+                <td class="text-end">{{ ligne.total|floatformat:0 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">Aucune ligne</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totaux -->
+    <div class="totaux-box">
+        <table class="table table-sm">
+            <tr>
+                <td>Total HT</td>
+                <td class="text-end">{{ proforma.montant_ht|floatformat:0 }} FCFA</td>
+            </tr>
+            <tr>
+                <td>TVA ({{ proforma.taux_tva }}%)</td>
+                <td class="text-end">{{ proforma.montant_tva|floatformat:0 }} FCFA</td>
+            </tr>
+            <tr style="font-weight: bold; border-top: 2px solid #333;">
+                <td>TOTAL TTC</td>
+                <td class="text-end">{{ proforma.montant_ttc|floatformat:0 }} FCFA</td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="clear: both;"></div>
+
+    <!-- Observations -->
+    {% if proforma.observations %}
+    <div class="mt-4">
+        <strong>Observations :</strong><br>
+        {{ proforma.observations|linebreaks }}
+    </div>
+    {% endif %}
+
+    <!-- Mention légale -->
+    <div class="mt-5">
+        <p><strong>Conditions :</strong></p>
+        <ul>
+            <li>Cette proforma est valable {% if proforma.date_validite %}jusqu'au {{ proforma.date_validite|date:"d/m/Y" }}{% else %}30 jours{% endif %}</li>
+            <li>Paiement à la commande</li>
+            <li>Les montants sont exprimés en Francs CFA (XOF)</li>
+        </ul>
+    </div>
+
+    <!-- Signature -->
+    <div class="row mt-5">
+        <div class="col-6">
+            <p>Le Client</p>
+            <br><br><br>
+            <p>_______________________</p>
+        </div>
+        <div class="col-6 text-end">
+            <p>L'Huissier de Justice</p>
+            <br><br><br>
+            <p>_______________________</p>
+        </div>
+    </div>
+
+    <!-- Pied de page -->
+    <div class="footer-print">
+        <p>
+            Étude de Me Martial Arnaud BIAOU - Huissier de Justice<br>
+            Document généré le {% now "d/m/Y à H:i" %}
+        </p>
+    </div>
+</div>
+{% endblock %}
