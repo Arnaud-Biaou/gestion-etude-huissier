@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
@@ -523,6 +525,26 @@ class Facture(models.Model):
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # AIB (Acompte sur Impôt assis sur les Bénéfices) - Retenue à la source
+    est_client_assujetti_aib = models.BooleanField(
+        default=False,
+        verbose_name="Client assujetti AIB",
+        help_text="Cocher si le client est assujetti à l'AIB (retenue 3%)"
+    )
+    taux_aib = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('3.00'),
+        verbose_name="Taux AIB (%)"
+    )
+    montant_aib = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant AIB"
+    )
+    net_a_payer = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Net à payer"
+    )
+
     date_emission = models.DateField(default=timezone.now)
     date_echeance = models.DateField(null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='attente')
@@ -596,7 +618,22 @@ class Facture(models.Model):
             self.montant_tva = self.montant_ht * self.taux_tva / 100
         if not self.montant_ttc:
             self.montant_ttc = self.montant_ht + self.montant_tva
+        # Calculer AIB et net à payer
+        self.calculer_aib()
         super().save(*args, **kwargs)
+
+    def calculer_aib(self):
+        """
+        Calcule le montant AIB et le net à payer.
+        L'AIB (Acompte sur Impôt assis sur les Bénéfices) est une retenue
+        à la source de 3% applicable sur le montant TTC pour les clients assujettis.
+        """
+        if self.est_client_assujetti_aib and self.montant_ttc:
+            self.montant_aib = (self.montant_ttc * self.taux_aib / Decimal('100')).quantize(Decimal('1'))
+            self.net_a_payer = self.montant_ttc - self.montant_aib
+        else:
+            self.montant_aib = Decimal('0')
+            self.net_a_payer = self.montant_ttc or Decimal('0')
 
     @classmethod
     def generer_numero(cls):
