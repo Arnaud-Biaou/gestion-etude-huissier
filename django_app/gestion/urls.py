@@ -55,6 +55,18 @@ urlpatterns = [
     path('api/exporter-factures/', views.api_exporter_factures, name='api_exporter_factures'),
     path('factures/<int:facture_id>/imprimer/', views.imprimer_facture, name='imprimer_facture'),
 
+    # === PROFORMAS ===
+    path('proformas/', views.liste_proformas, name='liste_proformas'),
+    path('proformas/nouveau/', views.nouvelle_proforma, name='nouvelle_proforma'),
+    path('proformas/<int:proforma_id>/', views.detail_proforma, name='detail_proforma'),
+    path('proformas/<int:proforma_id>/imprimer/', views.imprimer_proforma, name='imprimer_proforma'),
+    path('proformas/<int:proforma_id>/convertir/', views.convertir_proforma, name='convertir_proforma'),
+
+    # API endpoints - Proformas
+    path('api/proforma/sauvegarder/', views.api_sauvegarder_proforma, name='api_sauvegarder_proforma'),
+    path('api/proforma/supprimer/', views.api_supprimer_proforma, name='api_supprimer_proforma'),
+    path('api/proforma/<int:proforma_id>/', views.api_proforma_detail, name='api_proforma_detail'),
+
     # API endpoints - Calcul Recouvrement
     path('api/calculer-interets/', views.api_calculer_interets, name='api_calculer_interets'),
     path('api/calculer-emoluments/', views.api_calculer_emoluments, name='api_calculer_emoluments'),
