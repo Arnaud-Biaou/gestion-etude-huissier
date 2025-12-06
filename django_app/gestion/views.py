@@ -6863,3 +6863,33 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+# =============================================================================
+# IMPRESSION FACTURE
+# =============================================================================
+
+@login_required
+def imprimer_facture(request, facture_id):
+    """
+    Vue pour générer la facture en HTML imprimable avec informations MECeF.
+    """
+    facture = get_object_or_404(
+        Facture.objects.select_related('dossier').prefetch_related('lignes'),
+        pk=facture_id
+    )
+
+    # Récupérer les informations de l'étude
+    try:
+        from parametres.models import ConfigurationEtude
+        etude = ConfigurationEtude.objects.first()
+    except Exception:
+        etude = None
+
+    context = {
+        'facture': facture,
+        'etude': etude,
+        'now': timezone.now(),
+    }
+
+    return render(request, 'gestion/factures/impression.html', context)
