@@ -3930,7 +3930,7 @@ class ActeSecurise(models.Model):
 
     # Métadonnées de création
     cree_par = models.ForeignKey(
-        'hr.Collaborateur',
+        'rh.Collaborateur',
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Créé par"
