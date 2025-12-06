@@ -178,7 +178,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <div class="flex gap-1">
+                        <div class="flex gap-1 flex-wrap align-items-center">
                             <button class="icon-btn" title="Voir" onclick="voirFacture('{{ facture.id }}')">
                                 <i data-lucide="eye"></i>
                             </button>
@@ -188,9 +188,20 @@
                             <button class="icon-btn" title="Imprimer" onclick="imprimerFacture('{{ facture.id }}')">
                                 <i data-lucide="printer"></i>
                             </button>
+                            {% if facture.peut_creer_avoir %}
+                            <button class="icon-btn" title="Creer un avoir" onclick="ouvrirModalAvoir('{{ facture.id }}', '{{ facture.numero }}')" style="color: var(--warning);">
+                                <i data-lucide="file-minus"></i>
+                            </button>
+                            {% endif %}
                             <button class="icon-btn" title="Supprimer" onclick="supprimerFacture('{{ facture.id }}')" style="color: var(--danger);">
                                 <i data-lucide="trash-2"></i>
                             </button>
+                            {% if facture.est_annulee %}
+                            <span class="status-badge annulee" style="font-size: 9px;">Annulee par {{ facture.avoir_lie.numero }}</span>
+                            {% endif %}
+                            {% if facture.type_facture == 'avoir' %}
+                            <span class="status-badge warning" style="font-size: 9px;">Avoir de {{ facture.facture_origine.numero }}</span>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -487,6 +498,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Creer Avoir -->
+<div class="modal" id="modalAvoir" onclick="event.stopPropagation()">
+    <div class="modal-header" style="background: var(--warning); color: white;">
+        <h3 class="modal-title"><i data-lucide="file-minus"></i> Creer un avoir</h3>
+        <button class="modal-close" onclick="fermerModalAvoir()">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <p>Vous allez creer un avoir pour annuler la facture <strong id="avoirFactureNumero"></strong>.</p>
+        <div class="alert alert-warning" style="background: var(--warning-light); border: 1px solid var(--warning); border-radius: 8px; padding: 12px; margin: 16px 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="alert-triangle" style="color: var(--warning);"></i>
+                <span><strong>Attention:</strong> Cette action est irreversible. La facture sera marquee comme annulee.</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Motif de l'avoir <span style="color: var(--danger);">*</span></label>
+            <textarea id="avoirMotif" class="form-input" rows="3"
+                      placeholder="Ex: Erreur de facturation, Annulation de prestation..."></textarea>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fermerModalAvoir()">Annuler</button>
+        <button class="btn btn-warning" onclick="creerAvoir()">
+            <i data-lucide="file-minus"></i> Creer l'avoir
+        </button>
+    </div>
+</div>
+<input type="hidden" id="avoirFactureId">
 {% endblock %}
 
 {% block extra_js %}
@@ -910,6 +952,61 @@
 
     function exporterFactures() {
         window.open('{% url "gestion:api_exporter_factures" %}?format=csv', '_blank');
+    }
+
+    // ============================================
+    // GESTION DES AVOIRS
+    // ============================================
+    let avoirFactureId = null;
+
+    function ouvrirModalAvoir(factureId, factureNumero) {
+        avoirFactureId = factureId;
+        document.getElementById('avoirFactureNumero').textContent = factureNumero;
+        document.getElementById('avoirMotif').value = '';
+        document.getElementById('modalAvoir').style.display = 'block';
+        document.getElementById('modalOverlay').classList.add('open');
+        lucide.createIcons();
+    }
+
+    function fermerModalAvoir() {
+        document.getElementById('modalAvoir').style.display = 'none';
+        document.getElementById('modalOverlay').classList.remove('open');
+        avoirFactureId = null;
+    }
+
+    function creerAvoir() {
+        const motif = document.getElementById('avoirMotif').value.trim();
+        if (!motif) {
+            alert('Le motif est obligatoire');
+            return;
+        }
+
+        if (!avoirFactureId) {
+            alert('Erreur: ID de facture non defini');
+            return;
+        }
+
+        fetch(`/gestion/api/factures/${avoirFactureId}/creer-avoir/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ motif: motif })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                fermerModalAvoir();
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
+        });
     }
 </script>
 {% endblock %}
