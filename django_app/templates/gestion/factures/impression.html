@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Facture {{ facture.numero }}</title>
+    <style>
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none !important; }
+            @page { margin: 15mm; }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #1a365d;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .header-left {
+            flex: 1;
+        }
+        .header-left h1 {
+            font-size: 18px;
+            color: #1a365d;
+            margin-bottom: 5px;
+        }
+        .header-left .subtitle {
+            font-size: 11px;
+            color: #666;
+        }
+        .header-left .contact {
+            font-size: 10px;
+            color: #666;
+            margin-top: 8px;
+        }
+        .header-right {
+            text-align: right;
+        }
+        .facture-title {
+            background: linear-gradient(135deg, #1a365d, #2c5282);
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .facture-title.avoir {
+            background: linear-gradient(135deg, #c53030, #e53e3e);
+        }
+        .facture-title.corrective {
+            background: linear-gradient(135deg, #d69e2e, #ecc94b);
+            color: #1a365d;
+        }
+        .facture-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .facture-numero {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1a365d;
+        }
+        .facture-date {
+            color: #666;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+        .info-box h3 {
+            font-size: 11px;
+            color: #1a365d;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .info-row label {
+            color: #64748b;
+        }
+        .info-row span {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        /* Tableau des lignes */
+        .lignes-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .lignes-table th {
+            background: #1a365d;
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .lignes-table th:last-child,
+        .lignes-table td:last-child {
+            text-align: right;
+        }
+        .lignes-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .lignes-table tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        /* Totaux */
+        .totaux {
+            display: flex;
+            justify-content: flex-end;
+            margin: 20px 0;
+        }
+        .totaux-box {
+            width: 300px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .totaux-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .totaux-row:last-child {
+            border-bottom: none;
+        }
+        .totaux-row.total-ttc {
+            background: #1a365d;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .totaux-row.net-a-payer {
+            background: #c6a962;
+            color: #1a365d;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .totaux-row.aib {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        /* Section MECeF */
+        .mecef-section {
+            margin: 25px 0;
+            padding: 15px;
+            border: 2px solid #1a365d;
+            border-radius: 8px;
+            background: #f0f9ff;
+        }
+        .mecef-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .mecef-header h3 {
+            color: #1a365d;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        .mecef-badge {
+            background: #16a34a;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .mecef-badge.non-normalise {
+            background: #dc2626;
+        }
+        .mecef-badge.en-attente {
+            background: #d97706;
+        }
+        .mecef-content {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .mecef-qr {
+            flex-shrink: 0;
+            width: 120px;
+            height: 120px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+        }
+        .mecef-qr img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .mecef-qr .placeholder {
+            color: #94a3b8;
+            font-size: 10px;
+            text-align: center;
+        }
+        .mecef-info {
+            flex: 1;
+        }
+        .mecef-info .info-row {
+            margin-bottom: 8px;
+        }
+        .mecef-info .info-row label {
+            min-width: 120px;
+            display: inline-block;
+        }
+
+        /* Signatures */
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 40px;
+            padding-top: 20px;
+        }
+        .signature-box {
+            text-align: center;
+        }
+        .signature-box .title {
+            font-weight: bold;
+            color: #1a365d;
+            margin-bottom: 50px;
+        }
+        .signature-box .line {
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 10px;
+            color: #64748b;
+            text-align: center;
+        }
+        .footer .legal {
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        /* Bouton imprimer */
+        .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #1a365d;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .print-btn:hover {
+            background: #2c5282;
+        }
+
+        /* Statut badges */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .status-attente { background: #fef3c7; color: #d97706; }
+        .status-payee { background: #dcfce7; color: #16a34a; }
+        .status-annulee { background: #fee2e2; color: #dc2626; }
+        .status-brouillon { background: #e2e8f0; color: #64748b; }
+
+        /* Alerte reference avoir/corrective */
+        .alert-reference {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+        .alert-reference.avoir {
+            background: #fee2e2;
+            border-color: #dc2626;
+        }
+        .alert-reference strong {
+            color: #1a365d;
+        }
+
+        /* Montants negatifs pour avoirs */
+        .montant-avoir {
+            color: #dc2626 !important;
+            font-weight: bold;
+        }
+        .montant-avoir::before {
+            content: "- ";
+        }
+
+        /* Observations */
+        .observations {
+            margin: 20px 0;
+            padding: 12px 15px;
+            background: #fffbeb;
+            border-left: 4px solid #d69e2e;
+            border-radius: 0 6px 6px 0;
+        }
+        .observations h4 {
+            font-size: 11px;
+            color: #92400e;
+            margin-bottom: 5px;
+        }
+        .observations p {
+            color: #78350f;
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn no-print" onclick="window.print()">
+        <span>&#128424;</span> Imprimer / PDF
+    </button>
+
+    <div class="header">
+        <div class="header-left">
+            <h1>{{ etude.nom|default:"ETUDE D'HUISSIER DE JUSTICE" }}</h1>
+            <p class="subtitle">{{ etude.sous_titre|default:"Recouvrement de Creances - Constats - Significations" }}</p>
+            <div class="contact">
+                {% if etude.adresse %}{{ etude.adresse }}<br>{% endif %}
+                {% if etude.telephone %}Tel: {{ etude.telephone }}{% endif %}
+                {% if etude.email %} | {{ etude.email }}{% endif %}
+                {% if etude.ifu %}<br>IFU: {{ etude.ifu }}{% endif %}
+            </div>
+        </div>
+        <div class="header-right">
+            {% if etude.logo %}
+            <img src="{{ etude.logo.url }}" alt="Logo" style="max-height: 60px;">
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="facture-title {% if facture.type_facture == 'avoir' %}avoir{% elif facture.type_facture == 'corrective' %}corrective{% endif %}">
+        {% if facture.type_facture == 'avoir' %}
+            FACTURE D'AVOIR
+        {% elif facture.type_facture == 'corrective' %}
+            FACTURE CORRECTIVE
+        {% else %}
+            FACTURE
+        {% endif %}
+    </div>
+
+    <div class="facture-meta">
+        <div class="facture-numero">N° {{ facture.numero }}</div>
+        <div class="facture-date">
+            Date d'emission: {{ facture.date_emission|date:"d/m/Y" }}
+            {% if facture.date_echeance %}
+            <br>Echeance: {{ facture.date_echeance|date:"d/m/Y" }}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <h3>Client</h3>
+            <div class="info-row">
+                <label>Nom / Raison sociale:</label>
+                <span>{{ facture.client }}</span>
+            </div>
+            {% if facture.ifu %}
+            <div class="info-row">
+                <label>IFU:</label>
+                <span>{{ facture.ifu }}</span>
+            </div>
+            {% endif %}
+            {% if facture.dossier %}
+            <div class="info-row">
+                <label>Dossier:</label>
+                <span>{{ facture.dossier.reference }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="info-box">
+            <h3>Informations facture</h3>
+            <div class="info-row">
+                <label>Statut:</label>
+                <span class="status-badge status-{{ facture.statut }}">{{ facture.get_statut_display }}</span>
+            </div>
+            <div class="info-row">
+                <label>Type:</label>
+                <span>{{ facture.get_type_facture_display }}</span>
+            </div>
+            {% if facture.facture_origine %}
+            <div class="info-row">
+                <label>Ref. origine:</label>
+                <span>{{ facture.facture_origine.numero }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if facture.facture_origine %}
+    <div class="alert-reference {% if facture.type_facture == 'avoir' %}avoir{% endif %}">
+        <strong>Reference :</strong>
+        {% if facture.type_facture == 'avoir' %}
+            Avoir annulant la facture {{ facture.facture_origine.numero }}
+        {% else %}
+            Facture corrective de {{ facture.facture_origine.numero }}
+        {% endif %}
+        {% if facture.motif_avoir_correction %}
+        <br>
+        <strong>Motif :</strong> {{ facture.motif_avoir_correction }}
+        {% endif %}
+    </div>
+    {% elif facture.motif_avoir_correction %}
+    <div class="observations">
+        <h4>Motif de l'avoir / correction</h4>
+        <p>{{ facture.motif_avoir_correction }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Tableau des lignes -->
+    <table class="lignes-table">
+        <thead>
+            <tr>
+                <th style="width: 50%;">Description</th>
+                <th style="width: 15%;">Quantite</th>
+                <th style="width: 15%;">Prix unitaire</th>
+                <th style="width: 20%;">Total HT</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in facture.lignes.all %}
+            <tr>
+                <td>{{ ligne.description }}</td>
+                <td>{{ ligne.quantite }}</td>
+                <td {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ ligne.prix_unitaire|floatformat:0 }} F</td>
+                <td {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ ligne.total|floatformat:0 }} F</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; color: #94a3b8;">
+                    Prestation forfaitaire
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totaux -->
+    <div class="totaux">
+        <div class="totaux-box">
+            <div class="totaux-row">
+                <span>Total HT</span>
+                <span {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ facture.montant_ht|floatformat:0 }} FCFA</span>
+            </div>
+            <div class="totaux-row">
+                <span>TVA ({{ facture.taux_tva }}%)</span>
+                <span {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ facture.montant_tva|floatformat:0 }} FCFA</span>
+            </div>
+            <div class="totaux-row total-ttc" {% if facture.type_facture == 'avoir' %}style="background: #dc2626;"{% endif %}>
+                <span>Total TTC</span>
+                <span>{% if facture.type_facture == 'avoir' %}- {% endif %}{{ facture.montant_ttc|floatformat:0 }} FCFA</span>
+            </div>
+            {% if facture.est_client_assujetti_aib %}
+            <div class="totaux-row aib">
+                <span>AIB ({{ facture.taux_aib }}%)</span>
+                <span>{% if facture.type_facture == 'avoir' %}+ {% else %}- {% endif %}{{ facture.montant_aib|floatformat:0 }} FCFA</span>
+            </div>
+            <div class="totaux-row net-a-payer">
+                <span>{% if facture.type_facture == 'avoir' %}Net a crediter{% else %}Net a payer{% endif %}</span>
+                <span>{% if facture.type_facture == 'avoir' %}- {% endif %}{{ facture.net_a_payer|floatformat:0 }} FCFA</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Section MECeF -->
+    <div class="mecef-section">
+        <div class="mecef-header">
+            <h3>Normalisation MECeF</h3>
+            {% if facture.statut_mecef == 'normalise' %}
+            <span class="mecef-badge">Normalise</span>
+            {% elif facture.statut_mecef == 'en_attente' %}
+            <span class="mecef-badge en-attente">En attente</span>
+            {% else %}
+            <span class="mecef-badge non-normalise">Non normalise</span>
+            {% endif %}
+        </div>
+        <div class="mecef-content">
+            <div class="mecef-qr">
+                {% if facture.mecef_qr %}
+                <img src="data:image/png;base64,{{ facture.mecef_qr }}" alt="QR Code MECeF">
+                {% else %}
+                <div class="placeholder">QR Code<br>non disponible</div>
+                {% endif %}
+            </div>
+            <div class="mecef-info">
+                <div class="info-row">
+                    <label>Numero MECeF:</label>
+                    <span>{{ facture.mecef_numero|default:"-" }}</span>
+                </div>
+                <div class="info-row">
+                    <label>NIM:</label>
+                    <span>{{ facture.nim|default:"-" }}</span>
+                </div>
+                {% if facture.date_mecef %}
+                <div class="info-row">
+                    <label>Date normalisation:</label>
+                    <span>{{ facture.date_mecef|date:"d/m/Y a H:i" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if facture.observations %}
+    <div class="observations">
+        <h4>Observations</h4>
+        <p>{{ facture.observations }}</p>
+    </div>
+    {% endif %}
+
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="title">Le Client</div>
+            <div class="line">Signature</div>
+        </div>
+        <div class="signature-box">
+            <div class="title">L'Huissier de Justice</div>
+            <div class="line">Cachet et signature</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Document genere le {{ now|date:"d/m/Y a H:i" }}</p>
+        <p class="legal">
+            {% if facture.type_facture == 'avoir' %}
+            Ce document constitue une facture d'avoir. Le montant sera deduit de vos prochaines factures ou rembourse sur demande.
+            {% elif facture.type_facture == 'corrective' %}
+            Cette facture corrective annule et remplace la facture {{ facture.facture_origine.numero }}.
+            {% else %}
+            Cette facture est payable a reception. Tout retard de paiement entrainera des penalites de retard.
+            {% endif %}
+        </p>
+    </div>
+</body>
+</html>

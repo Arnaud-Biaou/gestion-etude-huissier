@@ -5,10 +5,11 @@ Administration Django pour le module Paramètres
 from django.contrib import admin
 from .models import (
     ConfigurationEtude, SiteAgence, TypeDossier, StatutDossier,
-    ModeleDocument, Localite, TauxLegal, JourFerie, TypeActe,
+    Localite, TauxLegal, JourFerie, TypeActe,
     Juridiction, HistoriqueSauvegarde, JournalModification, ModeleTypeBail,
     TrancheIPTS, ConfigurationEnteteDocument, EnteteJuridiction
 )
+# ModeleDocument a été déplacé vers documents.models
 
 
 @admin.register(ConfigurationEtude)
@@ -78,13 +79,7 @@ class StatutDossierAdmin(admin.ModelAdmin):
     ordering = ['ordre', 'libelle']
 
 
-@admin.register(ModeleDocument)
-class ModeleDocumentAdmin(admin.ModelAdmin):
-    list_display = ['nom', 'categorie', 'actif', 'date_creation', 'date_modification']
-    list_filter = ['categorie', 'actif']
-    search_fields = ['nom']
-    readonly_fields = ['date_creation', 'date_modification']
-
+# ModeleDocumentAdmin supprimé - voir documents/admin.py
 
 @admin.register(Localite)
 class LocaliteAdmin(admin.ModelAdmin):

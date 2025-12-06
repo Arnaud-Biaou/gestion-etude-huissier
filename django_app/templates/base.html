@@ -55,6 +55,10 @@
                         <i data-lucide="hand-coins"></i>
                         Recouvrement
                     </a>
+                    <a href="{% url 'gestion:liste_proformas' %}" class="nav-item {% if active_module == 'proformas' %}active{% endif %}">
+                        <i data-lucide="file-text"></i>
+                        Proformas
+                    </a>
                 </div>
 
                 <!-- Rapports -->

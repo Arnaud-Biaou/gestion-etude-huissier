@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Proformas - Gestion{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="breadcrumb mb-4">
+    <a href="{% url 'gestion:dashboard' %}">Tableau de bord</a>
+    <span>/</span>
+    <a href="{% url 'gestion:facturation' %}">Facturation</a>
+    <span>/</span>
+    <span>Proformas</span>
+</nav>
+
+<!-- Header -->
+<div class="flex justify-between items-center flex-wrap gap-4 mb-4">
+    <div>
+        <h1 class="page-title">Proformas</h1>
+        <p class="page-subtitle">Gestion des devis et proformas</p>
+    </div>
+    <div class="flex gap-2">
+        <button class="btn btn-secondary" onclick="exporterProformas()">
+            <i data-lucide="download"></i> Exporter
+        </button>
+        <a href="{% url 'gestion:nouvelle_proforma' %}" class="btn btn-primary">
+            <i data-lucide="plus"></i> Nouvelle proforma
+        </a>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Statut</label>
+                <select name="statut" class="form-select" style="min-width: 150px;">
+                    <option value="">Tous les statuts</option>
+                    {% for value, label in statuts %}
+                    <option value="{{ value }}" {% if filtres.statut == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Date debut</label>
+                <input type="date" name="date_debut" class="form-input" value="{{ filtres.date_debut|default:'' }}">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Date fin</label>
+                <input type="date" name="date_fin" class="form-input" value="{{ filtres.date_fin|default:'' }}">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Client</label>
+                <input type="text" name="client" class="form-input" placeholder="Nom du client..." value="{{ filtres.client|default:'' }}">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="search"></i> Filtrer
+                </button>
+                <a href="{% url 'gestion:liste_proformas' %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i> Reset
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiques -->
+<div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="card stat-card">
+        <div class="stat-content">
+            <div class="stat-icon info">
+                <i data-lucide="file-text"></i>
+            </div>
+            <div>
+                <div class="stat-label">Total Proformas</div>
+                <div class="stat-value">{{ proformas.paginator.count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-content">
+            <div class="stat-icon warning">
+                <i data-lucide="clock"></i>
+            </div>
+            <div>
+                <div class="stat-label">En attente</div>
+                <div class="stat-value">{{ stats.envoyees|default:0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-content">
+            <div class="stat-icon success">
+                <i data-lucide="check-circle"></i>
+            </div>
+            <div>
+                <div class="stat-label">Acceptees</div>
+                <div class="stat-value">{{ stats.acceptees|default:0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-content">
+            <div class="stat-icon accent">
+                <i data-lucide="arrow-right-circle"></i>
+            </div>
+            <div>
+                <div class="stat-label">Converties</div>
+                <div class="stat-value">{{ stats.converties|default:0 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des proformas -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Liste des proformas</h3>
+        <span class="badge">{{ proformas.paginator.count }} resultat{{ proformas.paginator.count|pluralize }}</span>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Numero</th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Dossier</th>
+                    <th>Montant TTC</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proforma in proformas %}
+                <tr data-id="{{ proforma.id }}">
+                    <td style="font-weight: 600; color: var(--primary);">
+                        <a href="{% url 'gestion:detail_proforma' proforma.id %}">{{ proforma.numero }}</a>
+                    </td>
+                    <td>{{ proforma.date_emission|date:"d/m/Y" }}</td>
+                    <td>{{ proforma.client }}</td>
+                    <td>
+                        {% if proforma.dossier %}
+                        <a href="{% url 'gestion:dossier_detail' proforma.dossier.id %}" class="link">
+                            {{ proforma.dossier.reference }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: 600;">{{ proforma.montant_ttc|floatformat:0 }} F</td>
+                    <td>
+                        <span class="status-badge status-{{ proforma.statut }}">
+                            {{ proforma.get_statut_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <a href="{% url 'gestion:detail_proforma' proforma.id %}" class="icon-btn" title="Voir">
+                                <i data-lucide="eye"></i>
+                            </a>
+                            {% if proforma.statut == 'brouillon' %}
+                            <a href="{% url 'gestion:nouvelle_proforma' %}?id={{ proforma.id }}" class="icon-btn" title="Modifier">
+                                <i data-lucide="edit"></i>
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'gestion:imprimer_proforma' proforma.id %}" class="icon-btn" title="Imprimer" target="_blank">
+                                <i data-lucide="printer"></i>
+                            </a>
+                            {% if proforma.statut != 'convertie' and proforma.statut != 'refusee' %}
+                            <button class="icon-btn" title="Convertir en facture" onclick="convertirProforma('{{ proforma.id }}', '{{ proforma.numero }}')" style="color: var(--success);">
+                                <i data-lucide="arrow-right-circle"></i>
+                            </button>
+                            {% endif %}
+                            {% if proforma.statut == 'brouillon' %}
+                            <button class="icon-btn" title="Supprimer" onclick="supprimerProforma('{{ proforma.id }}', '{{ proforma.numero }}')" style="color: var(--danger);">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 40px; color: var(--neutral-500);">
+                        <i data-lucide="inbox" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                        <p>Aucune proforma trouvee</p>
+                        <a href="{% url 'gestion:nouvelle_proforma' %}" class="btn btn-primary mt-4">
+                            <i data-lucide="plus"></i> Creer une proforma
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if proformas.has_other_pages %}
+    <div class="card-footer">
+        <div class="pagination">
+            {% if proformas.has_previous %}
+            <a href="?page={{ proformas.previous_page_number }}{% if filtres.statut %}&statut={{ filtres.statut }}{% endif %}{% if filtres.client %}&client={{ filtres.client }}{% endif %}{% if filtres.date_debut %}&date_debut={{ filtres.date_debut }}{% endif %}{% if filtres.date_fin %}&date_fin={{ filtres.date_fin }}{% endif %}" class="btn btn-sm btn-secondary">
+                <i data-lucide="chevron-left"></i> Precedent
+            </a>
+            {% endif %}
+
+            <span class="pagination-info">
+                Page {{ proformas.number }} sur {{ proformas.paginator.num_pages }}
+            </span>
+
+            {% if proformas.has_next %}
+            <a href="?page={{ proformas.next_page_number }}{% if filtres.statut %}&statut={{ filtres.statut }}{% endif %}{% if filtres.client %}&client={{ filtres.client }}{% endif %}{% if filtres.date_debut %}&date_debut={{ filtres.date_debut }}{% endif %}{% if filtres.date_fin %}&date_fin={{ filtres.date_fin }}{% endif %}" class="btn btn-sm btn-secondary">
+                Suivant <i data-lucide="chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+/* Badges de statut proforma */
+.status-badge.status-brouillon {
+    background-color: var(--neutral-200);
+    color: var(--neutral-700);
+}
+
+.status-badge.status-envoyee {
+    background-color: var(--info-light, #e0f2fe);
+    color: var(--info, #0284c7);
+}
+
+.status-badge.status-acceptee {
+    background-color: var(--success-light, #dcfce7);
+    color: var(--success, #16a34a);
+}
+
+.status-badge.status-refusee {
+    background-color: var(--danger-light, #fee2e2);
+    color: var(--danger, #dc2626);
+}
+
+.status-badge.status-expiree {
+    background-color: var(--warning-light, #fef3c7);
+    color: var(--warning, #d97706);
+}
+
+.status-badge.status-convertie {
+    background-color: #f3e8ff;
+    color: #7c3aed;
+}
+
+.link {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+.text-muted {
+    color: var(--neutral-400);
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.pagination-info {
+    color: var(--neutral-600);
+    font-size: 0.9rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+
+function convertirProforma(id, numero) {
+    if (!confirm(`Convertir la proforma ${numero} en facture ?`)) return;
+
+    fetch(`{% url 'gestion:convertir_proforma' 0 %}`.replace('0', id), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Facture ${data.facture_numero} creee avec succes !`);
+            window.location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Erreur: ' + error.message);
+    });
+}
+
+function supprimerProforma(id, numero) {
+    if (!confirm(`Supprimer definitivement la proforma ${numero} ?`)) return;
+
+    fetch('{% url "gestion:api_supprimer_proforma" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: id })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Erreur: ' + error.message);
+    });
+}
+
+function exporterProformas() {
+    // TODO: Implementer l'export CSV/Excel
+    alert('Export en cours de developpement');
+}
+</script>
+{% endblock %}

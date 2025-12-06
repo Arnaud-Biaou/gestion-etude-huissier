@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
@@ -523,6 +525,26 @@ class Facture(models.Model):
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
     montant_tva = models.DecimalField(max_digits=15, decimal_places=0)
     montant_ttc = models.DecimalField(max_digits=15, decimal_places=0)
+
+    # AIB (Acompte sur Impôt assis sur les Bénéfices) - Retenue à la source
+    est_client_assujetti_aib = models.BooleanField(
+        default=False,
+        verbose_name="Client assujetti AIB",
+        help_text="Cocher si le client est assujetti à l'AIB (retenue 3%)"
+    )
+    taux_aib = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('3.00'),
+        verbose_name="Taux AIB (%)"
+    )
+    montant_aib = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant AIB"
+    )
+    net_a_payer = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Net à payer"
+    )
+
     date_emission = models.DateField(default=timezone.now)
     date_echeance = models.DateField(null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='attente')
@@ -596,7 +618,22 @@ class Facture(models.Model):
             self.montant_tva = self.montant_ht * self.taux_tva / 100
         if not self.montant_ttc:
             self.montant_ttc = self.montant_ht + self.montant_tva
+        # Calculer AIB et net à payer
+        self.calculer_aib()
         super().save(*args, **kwargs)
+
+    def calculer_aib(self):
+        """
+        Calcule le montant AIB et le net à payer.
+        L'AIB (Acompte sur Impôt assis sur les Bénéfices) est une retenue
+        à la source de 3% applicable sur le montant TTC pour les clients assujettis.
+        """
+        if self.est_client_assujetti_aib and self.montant_ttc:
+            self.montant_aib = (self.montant_ttc * self.taux_aib / Decimal('100')).quantize(Decimal('1'))
+            self.net_a_payer = self.montant_ttc - self.montant_aib
+        else:
+            self.montant_aib = Decimal('0')
+            self.net_a_payer = self.montant_ttc or Decimal('0')
 
     @classmethod
     def generer_numero(cls):
@@ -681,12 +718,294 @@ class Facture(models.Model):
         return self.statut_mecef == 'annule' or self.avoir_lie is not None
 
 
+class Proforma(models.Model):
+    """Devis/Proforma - peut être converti en Facture"""
+
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('envoyee', 'Envoyée'),
+        ('acceptee', 'Acceptée'),
+        ('refusee', 'Refusée'),
+        ('expiree', 'Expirée'),
+        ('convertie', 'Convertie en facture'),
+    ]
+
+    numero = models.CharField(max_length=20, unique=True, verbose_name="Numéro")
+    date_emission = models.DateField(auto_now_add=True, verbose_name="Date d'émission")
+    date_validite = models.DateField(null=True, blank=True, verbose_name="Date de validité")
+
+    dossier = models.ForeignKey(
+        'Dossier', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='proformas',
+        verbose_name="Dossier"
+    )
+
+    client = models.CharField(max_length=200, verbose_name="Client")
+    client_adresse = models.TextField(blank=True, verbose_name="Adresse client")
+    ifu = models.CharField(max_length=20, blank=True, verbose_name="IFU client")
+
+    objet = models.TextField(blank=True, verbose_name="Objet")
+
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant HT"
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TVA"
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TTC"
+    )
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name="Taux TVA"
+    )
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='brouillon', verbose_name="Statut"
+    )
+
+    facture_generee = models.ForeignKey(
+        'Facture', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='proforma_origine',
+        verbose_name="Facture générée"
+    )
+
+    notes = models.TextField(blank=True, verbose_name="Notes internes")
+
+    cree_par = models.ForeignKey(
+        'Utilisateur', on_delete=models.SET_NULL,
+        null=True, related_name='proformas_crees',
+        verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Proforma"
+        verbose_name_plural = "Proformas"
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"{self.numero} - {self.client}"
+
+    def save(self, *args, **kwargs):
+        if not self.numero:
+            self.numero = self.generer_numero()
+        self.calculer_totaux()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generer_numero(cls):
+        from django.utils import timezone
+        annee = timezone.now().year
+        dernier = cls.objects.filter(
+            numero__startswith=f'PRO-{annee}-'
+        ).order_by('-numero').first()
+
+        if dernier:
+            try:
+                num = int(dernier.numero.split('-')[-1]) + 1
+            except:
+                num = 1
+        else:
+            num = 1
+        return f'PRO-{annee}-{num:05d}'
+
+    def calculer_totaux(self):
+        """Recalcule les totaux depuis les lignes"""
+        if self.pk:
+            lignes = self.lignes.all()
+            self.montant_ht = sum(l.montant_ht for l in lignes)
+            self.montant_tva = sum(l.montant_tva for l in lignes)
+            self.montant_ttc = sum(l.montant_ttc for l in lignes)
+
+    def convertir_en_facture(self):
+        """Convertit cette proforma en facture"""
+        from django.db import transaction
+
+        if self.statut == 'convertie':
+            raise ValueError("Cette proforma a déjà été convertie")
+
+        with transaction.atomic():
+            facture = Facture.objects.create(
+                dossier=self.dossier,
+                client=self.client,
+                ifu=self.ifu,
+                montant_ht=self.montant_ht,
+                montant_tva=self.montant_tva,
+                montant_ttc=self.montant_ttc,
+                taux_tva=self.taux_tva,
+            )
+
+            for ligne_pro in self.lignes.all():
+                LigneFacture.objects.create(
+                    facture=facture,
+                    description=ligne_pro.description,
+                    quantite=ligne_pro.quantite,
+                    prix_unitaire=ligne_pro.prix_unitaire,
+                    type_ligne=ligne_pro.type_ligne,
+                    groupe_taxation=ligne_pro.groupe_taxation,
+                    honoraires=ligne_pro.honoraires,
+                    timbre=ligne_pro.timbre,
+                    enregistrement=ligne_pro.enregistrement,
+                    taux_tva=ligne_pro.taux_tva,
+                    montant_ht=ligne_pro.montant_ht,
+                    montant_tva=ligne_pro.montant_tva,
+                    montant_ttc=ligne_pro.montant_ttc,
+                )
+
+            self.statut = 'convertie'
+            self.facture_generee = facture
+            self.save()
+
+            return facture
+
+
+class LigneProforma(models.Model):
+    """Ligne de proforma avec distinction Acte/Débours"""
+
+    TAUX_PAR_GROUPE = {'A': 0, 'B': 18, 'E': 0}
+
+    proforma = models.ForeignKey(
+        Proforma, on_delete=models.CASCADE,
+        related_name='lignes', verbose_name="Proforma"
+    )
+    description = models.CharField(max_length=500, verbose_name="Description")
+    quantite = models.IntegerField(default=1, verbose_name="Quantité")
+    prix_unitaire = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Prix unitaire"
+    )
+
+    type_ligne = models.CharField(
+        max_length=10,
+        choices=[('acte', 'Acte'), ('debours', 'Débours')],
+        default='acte',
+        verbose_name="Type de ligne"
+    )
+
+    groupe_taxation = models.CharField(
+        max_length=1,
+        choices=[('A', 'Exonéré'), ('B', 'TVA 18%'), ('E', 'TPS')],
+        default='E',
+        verbose_name="Groupe de taxation"
+    )
+
+    honoraires = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Honoraires"
+    )
+    timbre = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Droit de timbre"
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Droit d'enregistrement"
+    )
+
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name="Taux TVA"
+    )
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant HT"
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TVA"
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TTC"
+    )
+
+    class Meta:
+        verbose_name = "Ligne de proforma"
+        verbose_name_plural = "Lignes de proforma"
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.description[:50]}"
+
+    def calculer_montants(self):
+        if self.type_ligne == 'acte':
+            self.montant_ht = self.honoraires + self.timbre + self.enregistrement
+        else:
+            self.montant_ht = self.prix_unitaire * self.quantite
+
+        self.taux_tva = Decimal(str(self.TAUX_PAR_GROUPE.get(self.groupe_taxation, 0)))
+        self.montant_tva = (self.montant_ht * self.taux_tva / 100).quantize(Decimal('1'))
+        self.montant_ttc = self.montant_ht + self.montant_tva
+
+    def save(self, *args, **kwargs):
+        self.calculer_montants()
+        super().save(*args, **kwargs)
+
+
 class LigneFacture(models.Model):
-    """Lignes de facture"""
+    """Lignes de facture avec décomposition MECeF"""
+
+    # Taux TVA par groupe de taxation MECeF
+    TAUX_PAR_GROUPE = {'A': 0, 'B': 18, 'E': 0}
+
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
     description = models.CharField(max_length=500)
     quantite = models.IntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+
+    type_ligne = models.CharField(
+        max_length=10,
+        choices=[('acte', 'Acte'), ('debours', 'Débours')],
+        default='acte',
+        verbose_name="Type de ligne"
+    )
+
+    groupe_taxation = models.CharField(
+        max_length=1,
+        choices=[('A', 'Exonéré'), ('B', 'TVA 18%'), ('E', 'TPS')],
+        default='E',
+        verbose_name="Groupe de taxation"
+    )
+
+    # Décomposition pour les actes
+    honoraires = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Honoraires"
+    )
+    timbre = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Droit de timbre"
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Droit d'enregistrement"
+    )
+
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name="Taux TVA appliqué"
+    )
+
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant HT"
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TVA"
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TTC"
+    )
 
     class Meta:
         verbose_name = 'Ligne de facture'
@@ -698,6 +1017,21 @@ class LigneFacture(models.Model):
     @property
     def total(self):
         return self.quantite * self.prix_unitaire
+
+    def calculer_montants(self):
+        """Calcule les montants selon le type de ligne et le groupe de taxation"""
+        if self.type_ligne == 'acte':
+            self.montant_ht = self.honoraires + self.timbre + self.enregistrement
+        else:
+            self.montant_ht = self.prix_unitaire * self.quantite
+
+        self.taux_tva = Decimal(str(self.TAUX_PAR_GROUPE.get(self.groupe_taxation, 0)))
+        self.montant_tva = (self.montant_ht * self.taux_tva / 100).quantize(Decimal('1'))
+        self.montant_ttc = self.montant_ht + self.montant_tva
+
+    def save(self, *args, **kwargs):
+        self.calculer_montants()
+        super().save(*args, **kwargs)
 
 
 class ActeProcedure(models.Model):
@@ -3893,7 +4227,7 @@ class ActeSecurise(models.Model):
 
     # Métadonnées de création
     cree_par = models.ForeignKey(
-        'hr.Collaborateur',
+        'rh.Employe',
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Créé par"

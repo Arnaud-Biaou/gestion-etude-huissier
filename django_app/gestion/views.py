@@ -1920,6 +1920,89 @@ def api_exporter_factures(request):
 
 
 # ============================================
+# API ENDPOINTS FACTURES D'AVOIR
+# ============================================
+
+@login_required
+@require_POST
+def api_creer_avoir(request, facture_id):
+    """Crée un avoir pour annuler une facture normalisée"""
+    try:
+        facture = get_object_or_404(Facture, id=facture_id)
+        data = json.loads(request.body)
+        motif = data.get('motif', '')
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': 'Le motif est obligatoire'
+            }, status=400)
+
+        if not facture.peut_creer_avoir():
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de créer un avoir pour cette facture (doit être standard, normalisée et sans avoir existant)'
+            }, status=400)
+
+        avoir = facture.creer_avoir(motif=motif, user=request.user)
+
+        return JsonResponse({
+            'success': True,
+            'avoir_id': avoir.id,
+            'avoir_numero': avoir.numero,
+            'message': f'Avoir {avoir.numero} créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+@require_POST
+def api_creer_corrective(request, facture_id):
+    """Crée une facture corrective après avoir"""
+    try:
+        facture = get_object_or_404(Facture, id=facture_id)
+        data = json.loads(request.body)
+        motif = data.get('motif', '')
+        nouvelles_donnees = data.get('donnees', {})
+
+        if not facture.avoir_lie:
+            return JsonResponse({
+                'success': False,
+                'error': 'Cette facture n\'a pas d\'avoir. Créez d\'abord un avoir.'
+            }, status=400)
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': 'Le motif est obligatoire'
+            }, status=400)
+
+        corrective = facture.creer_facture_corrective(
+            nouvelles_donnees=nouvelles_donnees,
+            motif=motif,
+            user=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'corrective_id': corrective.id,
+            'corrective_numero': corrective.numero,
+            'message': f'Facture corrective {corrective.numero} créée avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+# ============================================
 # API ENDPOINTS CALCUL RECOUVREMENT
 # ============================================
 
@@ -6863,3 +6946,376 @@ def liste_actes_securises(request, dossier_id):
     })
 
     return render(request, 'gestion/liste_actes_securises.html', context)
+
+
+# =============================================================================
+# IMPRESSION FACTURE
+# =============================================================================
+
+@login_required
+def imprimer_facture(request, facture_id):
+    """
+    Vue pour générer la facture en HTML imprimable avec informations MECeF.
+    """
+    facture = get_object_or_404(
+        Facture.objects.select_related('dossier').prefetch_related('lignes'),
+        pk=facture_id
+    )
+
+    # Récupérer les informations de l'étude
+    try:
+        from parametres.models import ConfigurationEtude
+        etude = ConfigurationEtude.objects.first()
+    except Exception:
+        etude = None
+
+    context = {
+        'facture': facture,
+        'etude': etude,
+        'now': timezone.now(),
+    }
+
+    return render(request, 'gestion/factures/impression.html', context)
+
+
+# =============================================================================
+# MODULE PROFORMA
+# =============================================================================
+
+@login_required
+def liste_proformas(request):
+    """
+    Liste paginée des proformas avec filtres.
+    GET /proformas/
+    """
+    from .models import Proforma
+
+    proformas = Proforma.objects.select_related('dossier', 'cree_par').order_by('-date_creation')
+
+    # Filtres
+    statut = request.GET.get('statut')
+    if statut:
+        proformas = proformas.filter(statut=statut)
+
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    if date_debut:
+        proformas = proformas.filter(date_emission__gte=date_debut)
+    if date_fin:
+        proformas = proformas.filter(date_emission__lte=date_fin)
+
+    client = request.GET.get('client')
+    if client:
+        proformas = proformas.filter(client__icontains=client)
+
+    # Pagination
+    paginator = Paginator(proformas, 20)
+    page = request.GET.get('page', 1)
+    proformas_page = paginator.get_page(page)
+
+    context = get_default_context(request)
+    context.update({
+        'proformas': proformas_page,
+        'statuts': Proforma.STATUT_CHOICES,
+        'filtres': {
+            'statut': statut,
+            'date_debut': date_debut,
+            'date_fin': date_fin,
+            'client': client,
+        },
+    })
+
+    return render(request, 'gestion/proformas/liste.html', context)
+
+
+@login_required
+def detail_proforma(request, proforma_id):
+    """
+    Détail d'une proforma avec ses lignes.
+    GET /proformas/<id>/
+    """
+    from .models import Proforma
+
+    proforma = get_object_or_404(
+        Proforma.objects.select_related('dossier', 'cree_par', 'facture_generee')
+        .prefetch_related('lignes'),
+        pk=proforma_id
+    )
+
+    context = get_default_context(request)
+    context.update({
+        'proforma': proforma,
+        'lignes': proforma.lignes.all(),
+    })
+
+    return render(request, 'gestion/proformas/detail.html', context)
+
+
+@login_required
+def nouvelle_proforma(request):
+    """
+    Formulaire de création ou modification d'une proforma.
+    GET /proformas/nouveau/
+    GET /proformas/nouveau/?id=123 (modification)
+    """
+    from .models import Proforma, Dossier
+
+    proforma = None
+    proforma_id = request.GET.get('id')
+    if proforma_id:
+        proforma = get_object_or_404(Proforma, pk=proforma_id)
+
+    dossiers = Dossier.objects.filter(est_actif=True).order_by('-date_creation')[:100]
+
+    context = get_default_context(request)
+    context.update({
+        'proforma': proforma,
+        'dossiers': dossiers,
+        'groupes_taxation': [
+            ('A', 'Exonéré (débours) - 0%'),
+            ('B', 'TVA 18%'),
+            ('E', 'TPS - 0%'),
+        ],
+        'types_ligne': [
+            ('acte', 'Acte'),
+            ('debours', 'Débours'),
+        ],
+    })
+
+    return render(request, 'gestion/proformas/nouvelle.html', context)
+
+
+@login_required
+@require_POST
+def api_sauvegarder_proforma(request):
+    """
+    API pour sauvegarder une proforma (création ou modification).
+    POST /api/proforma/sauvegarder/
+    """
+    import json
+    from .models import Proforma, LigneProforma, Dossier
+    from decimal import Decimal
+
+    try:
+        data = json.loads(request.body)
+
+        proforma_id = data.get('id')
+        if proforma_id:
+            proforma = get_object_or_404(Proforma, pk=proforma_id)
+        else:
+            proforma = Proforma()
+            proforma.cree_par = request.user
+
+        # Données principales
+        proforma.client = data.get('client', '')
+        proforma.client_adresse = data.get('client_adresse', '')
+        proforma.ifu = data.get('ifu', '')
+        proforma.objet = data.get('objet', '')
+        proforma.notes = data.get('notes', '')
+
+        # Dossier lié (optionnel)
+        dossier_id = data.get('dossier_id')
+        if dossier_id:
+            proforma.dossier = Dossier.objects.filter(pk=dossier_id).first()
+        else:
+            proforma.dossier = None
+
+        # Date de validité
+        date_validite = data.get('date_validite')
+        if date_validite:
+            proforma.date_validite = date_validite
+
+        # Statut
+        statut = data.get('statut')
+        if statut and statut in dict(Proforma.STATUT_CHOICES):
+            proforma.statut = statut
+
+        proforma.save()
+
+        # Supprimer les anciennes lignes et recréer
+        proforma.lignes.all().delete()
+
+        lignes_data = data.get('lignes', [])
+        for ligne_data in lignes_data:
+            LigneProforma.objects.create(
+                proforma=proforma,
+                description=ligne_data.get('description', ''),
+                quantite=int(ligne_data.get('quantite', 1)),
+                prix_unitaire=Decimal(str(ligne_data.get('prix_unitaire', 0))),
+                type_ligne=ligne_data.get('type_ligne', 'acte'),
+                groupe_taxation=ligne_data.get('groupe_taxation', 'E'),
+                honoraires=Decimal(str(ligne_data.get('honoraires', 0))),
+                timbre=Decimal(str(ligne_data.get('timbre', 0))),
+                enregistrement=Decimal(str(ligne_data.get('enregistrement', 0))),
+            )
+
+        # Recalculer les totaux
+        proforma.calculer_totaux()
+        proforma.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Proforma enregistrée',
+            'proforma_id': proforma.id,
+            'numero': proforma.numero,
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def imprimer_proforma(request, proforma_id):
+    """
+    Vue pour imprimer une proforma.
+    GET /proformas/<id>/imprimer/
+    """
+    from .models import Proforma
+
+    proforma = get_object_or_404(
+        Proforma.objects.select_related('dossier')
+        .prefetch_related('lignes'),
+        pk=proforma_id
+    )
+
+    try:
+        from parametres.models import ConfigurationEtude
+        etude = ConfigurationEtude.objects.first()
+    except Exception:
+        etude = None
+
+    context = {
+        'proforma': proforma,
+        'lignes': proforma.lignes.all(),
+        'etude': etude,
+        'now': timezone.now(),
+    }
+
+    return render(request, 'gestion/proformas/impression.html', context)
+
+
+@login_required
+@require_POST
+def convertir_proforma(request, proforma_id):
+    """
+    Convertit une proforma en facture.
+    POST /proformas/<id>/convertir/
+    """
+    from .models import Proforma
+
+    proforma = get_object_or_404(Proforma, pk=proforma_id)
+
+    if proforma.statut == 'convertie':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cette proforma a déjà été convertie en facture'
+        }, status=400)
+
+    try:
+        facture = proforma.convertir_en_facture()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Proforma convertie en facture {facture.numero}',
+            'facture_id': facture.id,
+            'facture_numero': facture.numero,
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+@require_POST
+def api_supprimer_proforma(request):
+    """
+    Supprime une proforma (uniquement si brouillon).
+    POST /api/proforma/supprimer/
+    """
+    import json
+    from .models import Proforma
+
+    try:
+        data = json.loads(request.body)
+        proforma_id = data.get('id')
+
+        proforma = get_object_or_404(Proforma, pk=proforma_id)
+
+        if proforma.statut != 'brouillon':
+            return JsonResponse({
+                'success': False,
+                'error': 'Seules les proformas en brouillon peuvent être supprimées'
+            }, status=400)
+
+        numero = proforma.numero
+        proforma.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Proforma {numero} supprimée'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def api_proforma_detail(request, proforma_id):
+    """
+    API pour récupérer les détails d'une proforma (JSON).
+    GET /api/proforma/<id>/
+    """
+    from .models import Proforma
+
+    proforma = get_object_or_404(
+        Proforma.objects.prefetch_related('lignes'),
+        pk=proforma_id
+    )
+
+    lignes = [{
+        'id': l.id,
+        'description': l.description,
+        'quantite': l.quantite,
+        'prix_unitaire': float(l.prix_unitaire),
+        'type_ligne': l.type_ligne,
+        'groupe_taxation': l.groupe_taxation,
+        'honoraires': float(l.honoraires),
+        'timbre': float(l.timbre),
+        'enregistrement': float(l.enregistrement),
+        'taux_tva': float(l.taux_tva),
+        'montant_ht': float(l.montant_ht),
+        'montant_tva': float(l.montant_tva),
+        'montant_ttc': float(l.montant_ttc),
+    } for l in proforma.lignes.all()]
+
+    return JsonResponse({
+        'success': True,
+        'data': {
+            'id': proforma.id,
+            'numero': proforma.numero,
+            'date_emission': proforma.date_emission.isoformat() if proforma.date_emission else None,
+            'date_validite': proforma.date_validite.isoformat() if proforma.date_validite else None,
+            'client': proforma.client,
+            'client_adresse': proforma.client_adresse,
+            'ifu': proforma.ifu,
+            'objet': proforma.objet,
+            'statut': proforma.statut,
+            'dossier_id': proforma.dossier_id,
+            'dossier_reference': proforma.dossier.reference if proforma.dossier else None,
+            'montant_ht': float(proforma.montant_ht),
+            'montant_tva': float(proforma.montant_tva),
+            'montant_ttc': float(proforma.montant_ttc),
+            'notes': proforma.notes,
+            'lignes': lignes,
+            'facture_id': proforma.facture_generee_id,
+        }
+    })
