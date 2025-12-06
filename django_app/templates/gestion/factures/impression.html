@@ -315,6 +315,31 @@
         .status-annulee { background: #fee2e2; color: #dc2626; }
         .status-brouillon { background: #e2e8f0; color: #64748b; }
 
+        /* Alerte reference avoir/corrective */
+        .alert-reference {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+        .alert-reference.avoir {
+            background: #fee2e2;
+            border-color: #dc2626;
+        }
+        .alert-reference strong {
+            color: #1a365d;
+        }
+
+        /* Montants negatifs pour avoirs */
+        .montant-avoir {
+            color: #dc2626 !important;
+            font-weight: bold;
+        }
+        .montant-avoir::before {
+            content: "- ";
+        }
+
         /* Observations */
         .observations {
             margin: 20px 0;
@@ -416,7 +441,20 @@
         </div>
     </div>
 
-    {% if facture.motif_avoir_correction %}
+    {% if facture.facture_origine %}
+    <div class="alert-reference {% if facture.type_facture == 'avoir' %}avoir{% endif %}">
+        <strong>Reference :</strong>
+        {% if facture.type_facture == 'avoir' %}
+            Avoir annulant la facture {{ facture.facture_origine.numero }}
+        {% else %}
+            Facture corrective de {{ facture.facture_origine.numero }}
+        {% endif %}
+        {% if facture.motif_avoir_correction %}
+        <br>
+        <strong>Motif :</strong> {{ facture.motif_avoir_correction }}
+        {% endif %}
+    </div>
+    {% elif facture.motif_avoir_correction %}
     <div class="observations">
         <h4>Motif de l'avoir / correction</h4>
         <p>{{ facture.motif_avoir_correction }}</p>
@@ -438,8 +476,8 @@
             <tr>
                 <td>{{ ligne.description }}</td>
                 <td>{{ ligne.quantite }}</td>
-                <td>{{ ligne.prix_unitaire|floatformat:0 }} F</td>
-                <td>{{ ligne.total|floatformat:0 }} F</td>
+                <td {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ ligne.prix_unitaire|floatformat:0 }} F</td>
+                <td {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ ligne.total|floatformat:0 }} F</td>
             </tr>
             {% empty %}
             <tr>
@@ -456,24 +494,24 @@
         <div class="totaux-box">
             <div class="totaux-row">
                 <span>Total HT</span>
-                <span>{{ facture.montant_ht|floatformat:0 }} FCFA</span>
+                <span {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ facture.montant_ht|floatformat:0 }} FCFA</span>
             </div>
             <div class="totaux-row">
                 <span>TVA ({{ facture.taux_tva }}%)</span>
-                <span>{{ facture.montant_tva|floatformat:0 }} FCFA</span>
+                <span {% if facture.type_facture == 'avoir' %}class="montant-avoir"{% endif %}>{{ facture.montant_tva|floatformat:0 }} FCFA</span>
             </div>
-            <div class="totaux-row total-ttc">
+            <div class="totaux-row total-ttc" {% if facture.type_facture == 'avoir' %}style="background: #dc2626;"{% endif %}>
                 <span>Total TTC</span>
-                <span>{{ facture.montant_ttc|floatformat:0 }} FCFA</span>
+                <span>{% if facture.type_facture == 'avoir' %}- {% endif %}{{ facture.montant_ttc|floatformat:0 }} FCFA</span>
             </div>
             {% if facture.est_client_assujetti_aib %}
             <div class="totaux-row aib">
                 <span>AIB ({{ facture.taux_aib }}%)</span>
-                <span>- {{ facture.montant_aib|floatformat:0 }} FCFA</span>
+                <span>{% if facture.type_facture == 'avoir' %}+ {% else %}- {% endif %}{{ facture.montant_aib|floatformat:0 }} FCFA</span>
             </div>
             <div class="totaux-row net-a-payer">
-                <span>Net a payer</span>
-                <span>{{ facture.net_a_payer|floatformat:0 }} FCFA</span>
+                <span>{% if facture.type_facture == 'avoir' %}Net a crediter{% else %}Net a payer{% endif %}</span>
+                <span>{% if facture.type_facture == 'avoir' %}- {% endif %}{{ facture.net_a_payer|floatformat:0 }} FCFA</span>
             </div>
             {% endif %}
         </div>
@@ -539,7 +577,13 @@
     <div class="footer">
         <p>Document genere le {{ now|date:"d/m/Y a H:i" }}</p>
         <p class="legal">
+            {% if facture.type_facture == 'avoir' %}
+            Ce document constitue une facture d'avoir. Le montant sera deduit de vos prochaines factures ou rembourse sur demande.
+            {% elif facture.type_facture == 'corrective' %}
+            Cette facture corrective annule et remplace la facture {{ facture.facture_origine.numero }}.
+            {% else %}
             Cette facture est payable a reception. Tout retard de paiement entrainera des penalites de retard.
+            {% endif %}
         </p>
     </div>
 </body>
