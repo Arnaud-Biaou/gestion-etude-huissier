@@ -6971,15 +6971,22 @@ def detail_proforma(request, proforma_id):
 @login_required
 def nouvelle_proforma(request):
     """
-    Formulaire de création d'une nouvelle proforma.
+    Formulaire de création ou modification d'une proforma.
     GET /proformas/nouveau/
+    GET /proformas/nouveau/?id=123 (modification)
     """
     from .models import Proforma, Dossier
+
+    proforma = None
+    proforma_id = request.GET.get('id')
+    if proforma_id:
+        proforma = get_object_or_404(Proforma, pk=proforma_id)
 
     dossiers = Dossier.objects.filter(est_actif=True).order_by('-date_creation')[:100]
 
     context = get_default_context(request)
     context.update({
+        'proforma': proforma,
         'dossiers': dossiers,
         'groupes_taxation': [
             ('A', 'Exonéré (débours) - 0%'),

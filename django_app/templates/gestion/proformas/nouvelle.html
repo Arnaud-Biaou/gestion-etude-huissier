@@ -1,0 +1,721 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if proforma %}Modifier{% else %}Nouvelle{% endif %} Proforma - Gestion{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="breadcrumb mb-4">
+    <a href="{% url 'gestion:dashboard' %}">Tableau de bord</a>
+    <span>/</span>
+    <a href="{% url 'gestion:liste_proformas' %}">Proformas</a>
+    <span>/</span>
+    <span>{% if proforma %}Modifier {{ proforma.numero }}{% else %}Nouvelle proforma{% endif %}</span>
+</nav>
+
+<div class="card">
+    <div class="card-header">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'gestion:liste_proformas' %}" class="btn-back">
+                <i data-lucide="arrow-left"></i> Retour
+            </a>
+            <h3 class="card-title">{% if proforma %}Modifier la proforma {{ proforma.numero }}{% else %}Nouvelle proforma{% endif %}</h3>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <form id="proformaForm">
+            {% csrf_token %}
+            <input type="hidden" id="proformaId" value="{{ proforma.id|default:'' }}">
+
+            <!-- Section: Informations générales -->
+            <div class="form-section">
+                <h4 class="form-section-title">
+                    <i data-lucide="file-text"></i> Informations generales
+                </h4>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Dossier lie</label>
+                        <select class="form-select" id="dossierId" onchange="onDossierChange()">
+                            <option value="">-- Sans dossier --</option>
+                            {% for dossier in dossiers %}
+                            <option value="{{ dossier.id }}"
+                                    data-client="{{ dossier.get_intitule|default:dossier.reference }}"
+                                    {% if proforma.dossier_id == dossier.id %}selected{% endif %}>
+                                {{ dossier.reference }} - {{ dossier.get_intitule|default:"" }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Date de validite</label>
+                        <input type="date" class="form-input" id="dateValidite"
+                               value="{{ proforma.date_validite|date:'Y-m-d'|default:'' }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Client <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="client" required
+                               value="{{ proforma.client|default:'' }}" placeholder="Nom du client">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">IFU Client</label>
+                        <input type="text" class="form-input" id="ifu"
+                               value="{{ proforma.ifu|default:'' }}" placeholder="Numero IFU">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label">Adresse client</label>
+                        <textarea class="form-textarea" id="clientAdresse" rows="2"
+                                  placeholder="Adresse complete du client">{{ proforma.client_adresse|default:'' }}</textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label">Objet</label>
+                        <textarea class="form-textarea" id="objet" rows="2"
+                                  placeholder="Objet de la proforma">{{ proforma.objet|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Lignes de facturation -->
+            <div class="form-section">
+                <h4 class="form-section-title">
+                    <i data-lucide="list"></i> Lignes de facturation
+                </h4>
+
+                <div class="flex gap-2 mb-4">
+                    <button type="button" class="btn btn-primary" onclick="ajouterLigne('acte')">
+                        <i data-lucide="plus"></i> Ajouter Acte
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="ajouterLigne('debours')">
+                        <i data-lucide="plus"></i> Ajouter Debours
+                    </button>
+                </div>
+
+                <div id="lignesContainer">
+                    <!-- Les lignes seront ajoutées ici dynamiquement -->
+                </div>
+
+                <div id="noLignes" class="empty-state">
+                    <i data-lucide="inbox"></i>
+                    <p>Aucune ligne ajoutee</p>
+                    <p class="text-muted">Cliquez sur "Ajouter Acte" ou "Ajouter Debours" pour commencer</p>
+                </div>
+            </div>
+
+            <!-- Section: Récapitulatif -->
+            <div class="form-section">
+                <h4 class="form-section-title">
+                    <i data-lucide="calculator"></i> Recapitulatif
+                </h4>
+
+                <div class="recap-grid">
+                    <div class="recap-item">
+                        <span class="recap-label">Total Honoraires</span>
+                        <span class="recap-value" id="totalHonoraires">0 F</span>
+                    </div>
+                    <div class="recap-item">
+                        <span class="recap-label">Total Debours</span>
+                        <span class="recap-value" id="totalDebours">0 F</span>
+                    </div>
+                    <div class="recap-item">
+                        <span class="recap-label">Total HT</span>
+                        <span class="recap-value" id="totalHT">0 F</span>
+                    </div>
+                    <div class="recap-item">
+                        <span class="recap-label">TVA (18%)</span>
+                        <span class="recap-value" id="totalTVA">0 F</span>
+                    </div>
+                    <div class="recap-item total">
+                        <span class="recap-label">Total TTC</span>
+                        <span class="recap-value" id="totalTTC">0 F</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Notes -->
+            <div class="form-section">
+                <h4 class="form-section-title">
+                    <i data-lucide="sticky-note"></i> Notes internes
+                </h4>
+                <textarea class="form-textarea" id="notes" rows="3"
+                          placeholder="Notes visibles uniquement en interne">{{ proforma.notes|default:'' }}</textarea>
+            </div>
+
+            <!-- Boutons d'action -->
+            <div class="form-actions">
+                <a href="{% url 'gestion:liste_proformas' %}" class="btn btn-secondary">
+                    <i data-lucide="x"></i> Annuler
+                </a>
+                <div class="flex gap-2">
+                    <button type="button" class="btn btn-secondary" onclick="enregistrer('brouillon')">
+                        <i data-lucide="save"></i> Enregistrer brouillon
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="enregistrer('envoyee')">
+                        <i data-lucide="send"></i> Enregistrer et envoyer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template ligne Acte -->
+<template id="templateLigneActe">
+    <div class="ligne-item ligne-acte" data-type="acte">
+        <div class="ligne-header">
+            <span class="ligne-type-badge acte">Acte</span>
+            <button type="button" class="btn-remove" onclick="supprimerLigne(this)" title="Supprimer">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>
+        <div class="ligne-body">
+            <div class="form-group full-width">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-input ligne-description" placeholder="Description de l'acte" oninput="calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Honoraires</label>
+                <input type="number" class="form-input ligne-honoraires" value="0" min="0" oninput="calculerLigne(this); calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Droit de timbre</label>
+                <input type="number" class="form-input ligne-timbre" value="0" min="0" oninput="calculerLigne(this); calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Enregistrement</label>
+                <input type="number" class="form-input ligne-enregistrement" value="0" min="0" oninput="calculerLigne(this); calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Groupe taxation</label>
+                <select class="form-select ligne-groupe" onchange="calculerLigne(this); calculerTotaux()">
+                    <option value="E">TPS (0%)</option>
+                    <option value="B">TVA 18%</option>
+                    <option value="A">Exonere (0%)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Montant HT</label>
+                <input type="text" class="form-input ligne-montant-ht" readonly>
+            </div>
+            <div class="form-group">
+                <label class="form-label">TVA</label>
+                <input type="text" class="form-input ligne-tva" readonly>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Montant TTC</label>
+                <input type="text" class="form-input ligne-montant-ttc" readonly>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Template ligne Débours -->
+<template id="templateLigneDebours">
+    <div class="ligne-item ligne-debours" data-type="debours">
+        <div class="ligne-header">
+            <span class="ligne-type-badge debours">Debours</span>
+            <button type="button" class="btn-remove" onclick="supprimerLigne(this)" title="Supprimer">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>
+        <div class="ligne-body">
+            <div class="form-group" style="flex: 2;">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-input ligne-description" placeholder="Description du debours" oninput="calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Quantite</label>
+                <input type="number" class="form-input ligne-quantite" value="1" min="1" oninput="calculerLigne(this); calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Prix unitaire</label>
+                <input type="number" class="form-input ligne-prix-unitaire" value="0" min="0" oninput="calculerLigne(this); calculerTotaux()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Groupe taxation</label>
+                <select class="form-select ligne-groupe" onchange="calculerLigne(this); calculerTotaux()">
+                    <option value="A">Exonere (0%)</option>
+                    <option value="E">TPS (0%)</option>
+                    <option value="B">TVA 18%</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Montant HT</label>
+                <input type="text" class="form-input ligne-montant-ht" readonly>
+            </div>
+            <div class="form-group">
+                <label class="form-label">TVA</label>
+                <input type="text" class="form-input ligne-tva" readonly>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Montant TTC</label>
+                <input type="text" class="form-input ligne-montant-ttc" readonly>
+            </div>
+        </div>
+    </div>
+</template>
+
+<style>
+.form-section {
+    background: var(--neutral-50);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--neutral-200);
+    color: var(--neutral-800);
+}
+
+.form-section-title i {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.form-group.full-width {
+    grid-column: span 2;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--neutral-700);
+}
+
+.required {
+    color: var(--danger);
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius-md);
+    resize: vertical;
+}
+
+/* Lignes de facturation */
+.ligne-item {
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.ligne-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--neutral-100);
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.ligne-type-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.ligne-type-badge.acte {
+    background: var(--primary-light, #e0e7ff);
+    color: var(--primary);
+}
+
+.ligne-type-badge.debours {
+    background: var(--warning-light, #fef3c7);
+    color: var(--warning, #d97706);
+}
+
+.ligne-body {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 16px;
+}
+
+.ligne-body .form-group {
+    margin-bottom: 0;
+}
+
+.btn-remove {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+}
+
+.btn-remove:hover {
+    background: var(--danger-light, #fee2e2);
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--neutral-500);
+}
+
+.empty-state i {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state .text-muted {
+    font-size: 0.9rem;
+    margin-top: 8px;
+}
+
+/* Récapitulatif */
+.recap-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+}
+
+.recap-item {
+    background: white;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    border: 1px solid var(--neutral-200);
+}
+
+.recap-item.total {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.recap-label {
+    display: block;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    opacity: 0.8;
+}
+
+.recap-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+/* Actions */
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 24px;
+    border-top: 1px solid var(--neutral-200);
+}
+
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-group.full-width {
+        grid-column: span 1;
+    }
+
+    .ligne-body {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .recap-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+
+<script>
+const TAUX_TVA = {
+    'A': 0,
+    'B': 18,
+    'E': 0
+};
+
+let ligneIndex = 0;
+
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+
+    // Charger les lignes existantes si modification
+    {% if proforma %}
+    chargerLignesExistantes();
+    {% endif %}
+
+    updateEmptyState();
+});
+
+function onDossierChange() {
+    const select = document.getElementById('dossierId');
+    const option = select.options[select.selectedIndex];
+
+    if (option.value) {
+        const clientName = option.dataset.client || '';
+        document.getElementById('client').value = clientName;
+    }
+}
+
+function ajouterLigne(type) {
+    const container = document.getElementById('lignesContainer');
+    const template = document.getElementById(type === 'acte' ? 'templateLigneActe' : 'templateLigneDebours');
+
+    const clone = template.content.cloneNode(true);
+    const ligneElement = clone.querySelector('.ligne-item');
+    ligneElement.dataset.index = ligneIndex++;
+
+    container.appendChild(clone);
+
+    // Réinitialiser les icônes Lucide
+    lucide.createIcons();
+
+    updateEmptyState();
+    calculerTotaux();
+}
+
+function supprimerLigne(button) {
+    const ligne = button.closest('.ligne-item');
+    ligne.remove();
+    updateEmptyState();
+    calculerTotaux();
+}
+
+function updateEmptyState() {
+    const container = document.getElementById('lignesContainer');
+    const emptyState = document.getElementById('noLignes');
+
+    if (container.children.length === 0) {
+        emptyState.style.display = 'block';
+    } else {
+        emptyState.style.display = 'none';
+    }
+}
+
+function calculerLigne(element) {
+    const ligne = element.closest('.ligne-item');
+    const type = ligne.dataset.type;
+    const groupe = ligne.querySelector('.ligne-groupe').value;
+    const tauxTva = TAUX_TVA[groupe];
+
+    let montantHT = 0;
+
+    if (type === 'acte') {
+        const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires').value) || 0;
+        const timbre = parseFloat(ligne.querySelector('.ligne-timbre').value) || 0;
+        const enregistrement = parseFloat(ligne.querySelector('.ligne-enregistrement').value) || 0;
+        montantHT = honoraires + timbre + enregistrement;
+    } else {
+        const quantite = parseInt(ligne.querySelector('.ligne-quantite').value) || 1;
+        const prixUnitaire = parseFloat(ligne.querySelector('.ligne-prix-unitaire').value) || 0;
+        montantHT = quantite * prixUnitaire;
+    }
+
+    const montantTVA = Math.round(montantHT * tauxTva / 100);
+    const montantTTC = montantHT + montantTVA;
+
+    ligne.querySelector('.ligne-montant-ht').value = formatMontant(montantHT);
+    ligne.querySelector('.ligne-tva').value = formatMontant(montantTVA);
+    ligne.querySelector('.ligne-montant-ttc').value = formatMontant(montantTTC);
+}
+
+function calculerTotaux() {
+    const lignes = document.querySelectorAll('.ligne-item');
+
+    let totalHonoraires = 0;
+    let totalDebours = 0;
+    let totalHT = 0;
+    let totalTVA = 0;
+    let totalTTC = 0;
+
+    lignes.forEach(ligne => {
+        const type = ligne.dataset.type;
+        const groupe = ligne.querySelector('.ligne-groupe').value;
+        const tauxTva = TAUX_TVA[groupe];
+
+        let montantHT = 0;
+
+        if (type === 'acte') {
+            const honoraires = parseFloat(ligne.querySelector('.ligne-honoraires').value) || 0;
+            const timbre = parseFloat(ligne.querySelector('.ligne-timbre').value) || 0;
+            const enregistrement = parseFloat(ligne.querySelector('.ligne-enregistrement').value) || 0;
+            montantHT = honoraires + timbre + enregistrement;
+            totalHonoraires += montantHT;
+        } else {
+            const quantite = parseInt(ligne.querySelector('.ligne-quantite').value) || 1;
+            const prixUnitaire = parseFloat(ligne.querySelector('.ligne-prix-unitaire').value) || 0;
+            montantHT = quantite * prixUnitaire;
+            totalDebours += montantHT;
+        }
+
+        const montantTVA = Math.round(montantHT * tauxTva / 100);
+
+        totalHT += montantHT;
+        totalTVA += montantTVA;
+    });
+
+    totalTTC = totalHT + totalTVA;
+
+    document.getElementById('totalHonoraires').textContent = formatMontant(totalHonoraires) + ' F';
+    document.getElementById('totalDebours').textContent = formatMontant(totalDebours) + ' F';
+    document.getElementById('totalHT').textContent = formatMontant(totalHT) + ' F';
+    document.getElementById('totalTVA').textContent = formatMontant(totalTVA) + ' F';
+    document.getElementById('totalTTC').textContent = formatMontant(totalTTC) + ' F';
+}
+
+function formatMontant(montant) {
+    return Math.round(montant).toLocaleString('fr-FR');
+}
+
+function collecterLignes() {
+    const lignes = [];
+    document.querySelectorAll('.ligne-item').forEach(ligne => {
+        const type = ligne.dataset.type;
+
+        const data = {
+            description: ligne.querySelector('.ligne-description').value,
+            type_ligne: type,
+            groupe_taxation: ligne.querySelector('.ligne-groupe').value,
+        };
+
+        if (type === 'acte') {
+            data.honoraires = parseFloat(ligne.querySelector('.ligne-honoraires').value) || 0;
+            data.timbre = parseFloat(ligne.querySelector('.ligne-timbre').value) || 0;
+            data.enregistrement = parseFloat(ligne.querySelector('.ligne-enregistrement').value) || 0;
+            data.quantite = 1;
+            data.prix_unitaire = 0;
+        } else {
+            data.quantite = parseInt(ligne.querySelector('.ligne-quantite').value) || 1;
+            data.prix_unitaire = parseFloat(ligne.querySelector('.ligne-prix-unitaire').value) || 0;
+            data.honoraires = 0;
+            data.timbre = 0;
+            data.enregistrement = 0;
+        }
+
+        lignes.push(data);
+    });
+    return lignes;
+}
+
+function enregistrer(statut) {
+    const client = document.getElementById('client').value.trim();
+
+    if (!client) {
+        alert('Le nom du client est obligatoire');
+        return;
+    }
+
+    const lignes = collecterLignes();
+    if (lignes.length === 0) {
+        alert('Ajoutez au moins une ligne');
+        return;
+    }
+
+    const data = {
+        id: document.getElementById('proformaId').value || null,
+        dossier_id: document.getElementById('dossierId').value || null,
+        client: client,
+        client_adresse: document.getElementById('clientAdresse').value,
+        ifu: document.getElementById('ifu').value,
+        date_validite: document.getElementById('dateValidite').value || null,
+        objet: document.getElementById('objet').value,
+        notes: document.getElementById('notes').value,
+        statut: statut,
+        lignes: lignes
+    };
+
+    fetch('{% url "gestion:api_sauvegarder_proforma" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Proforma ' + result.numero + ' enregistree !');
+            window.location.href = '{% url "gestion:liste_proformas" %}';
+        } else {
+            alert('Erreur: ' + result.error);
+        }
+    })
+    .catch(error => {
+        alert('Erreur: ' + error.message);
+    });
+}
+
+{% if proforma %}
+function chargerLignesExistantes() {
+    fetch('{% url "gestion:api_proforma_detail" proforma.id %}')
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                result.data.lignes.forEach(ligne => {
+                    ajouterLigneAvecDonnees(ligne);
+                });
+                calculerTotaux();
+            }
+        });
+}
+
+function ajouterLigneAvecDonnees(data) {
+    const container = document.getElementById('lignesContainer');
+    const template = document.getElementById(data.type_ligne === 'acte' ? 'templateLigneActe' : 'templateLigneDebours');
+
+    const clone = template.content.cloneNode(true);
+    const ligneElement = clone.querySelector('.ligne-item');
+    ligneElement.dataset.index = ligneIndex++;
+
+    // Remplir les données
+    ligneElement.querySelector('.ligne-description').value = data.description;
+    ligneElement.querySelector('.ligne-groupe').value = data.groupe_taxation;
+
+    if (data.type_ligne === 'acte') {
+        ligneElement.querySelector('.ligne-honoraires').value = data.honoraires;
+        ligneElement.querySelector('.ligne-timbre').value = data.timbre;
+        ligneElement.querySelector('.ligne-enregistrement').value = data.enregistrement;
+    } else {
+        ligneElement.querySelector('.ligne-quantite').value = data.quantite;
+        ligneElement.querySelector('.ligne-prix-unitaire').value = data.prix_unitaire;
+    }
+
+    ligneElement.querySelector('.ligne-montant-ht').value = formatMontant(data.montant_ht);
+    ligneElement.querySelector('.ligne-tva').value = formatMontant(data.montant_tva);
+    ligneElement.querySelector('.ligne-montant-ttc').value = formatMontant(data.montant_ttc);
+
+    container.appendChild(clone);
+    lucide.createIcons();
+    updateEmptyState();
+}
+{% endif %}
+</script>
+{% endblock %}
