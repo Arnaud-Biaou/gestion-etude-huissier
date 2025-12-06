@@ -718,6 +718,155 @@ class Facture(models.Model):
         return self.statut_mecef == 'annule' or self.avoir_lie is not None
 
 
+class Proforma(models.Model):
+    """Devis/Proforma - peut être converti en Facture"""
+
+    STATUT_CHOICES = [
+        ('brouillon', 'Brouillon'),
+        ('envoyee', 'Envoyée'),
+        ('acceptee', 'Acceptée'),
+        ('refusee', 'Refusée'),
+        ('expiree', 'Expirée'),
+        ('convertie', 'Convertie en facture'),
+    ]
+
+    numero = models.CharField(max_length=20, unique=True, verbose_name="Numéro")
+    date_emission = models.DateField(auto_now_add=True, verbose_name="Date d'émission")
+    date_validite = models.DateField(null=True, blank=True, verbose_name="Date de validité")
+
+    dossier = models.ForeignKey(
+        'Dossier', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='proformas',
+        verbose_name="Dossier"
+    )
+
+    client = models.CharField(max_length=200, verbose_name="Client")
+    client_adresse = models.TextField(blank=True, verbose_name="Adresse client")
+    ifu = models.CharField(max_length=20, blank=True, verbose_name="IFU client")
+
+    objet = models.TextField(blank=True, verbose_name="Objet")
+
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant HT"
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TVA"
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TTC"
+    )
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name="Taux TVA"
+    )
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='brouillon', verbose_name="Statut"
+    )
+
+    facture_generee = models.ForeignKey(
+        'Facture', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='proforma_origine',
+        verbose_name="Facture générée"
+    )
+
+    notes = models.TextField(blank=True, verbose_name="Notes internes")
+
+    cree_par = models.ForeignKey(
+        'Utilisateur', on_delete=models.SET_NULL,
+        null=True, related_name='proformas_crees',
+        verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Proforma"
+        verbose_name_plural = "Proformas"
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"{self.numero} - {self.client}"
+
+    def save(self, *args, **kwargs):
+        if not self.numero:
+            self.numero = self.generer_numero()
+        self.calculer_totaux()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generer_numero(cls):
+        from django.utils import timezone
+        annee = timezone.now().year
+        dernier = cls.objects.filter(
+            numero__startswith=f'PRO-{annee}-'
+        ).order_by('-numero').first()
+
+        if dernier:
+            try:
+                num = int(dernier.numero.split('-')[-1]) + 1
+            except:
+                num = 1
+        else:
+            num = 1
+        return f'PRO-{annee}-{num:05d}'
+
+    def calculer_totaux(self):
+        """Recalcule les totaux depuis les lignes"""
+        if self.pk:
+            lignes = self.lignes.all()
+            self.montant_ht = sum(l.montant_ht for l in lignes)
+            self.montant_tva = sum(l.montant_tva for l in lignes)
+            self.montant_ttc = sum(l.montant_ttc for l in lignes)
+
+    def convertir_en_facture(self):
+        """Convertit cette proforma en facture"""
+        from django.db import transaction
+
+        if self.statut == 'convertie':
+            raise ValueError("Cette proforma a déjà été convertie")
+
+        with transaction.atomic():
+            facture = Facture.objects.create(
+                dossier=self.dossier,
+                client=self.client,
+                ifu=self.ifu,
+                montant_ht=self.montant_ht,
+                montant_tva=self.montant_tva,
+                montant_ttc=self.montant_ttc,
+                taux_tva=self.taux_tva,
+            )
+
+            for ligne_pro in self.lignes.all():
+                LigneFacture.objects.create(
+                    facture=facture,
+                    description=ligne_pro.description,
+                    quantite=ligne_pro.quantite,
+                    prix_unitaire=ligne_pro.prix_unitaire,
+                    type_ligne=ligne_pro.type_ligne,
+                    groupe_taxation=ligne_pro.groupe_taxation,
+                    honoraires=ligne_pro.honoraires,
+                    timbre=ligne_pro.timbre,
+                    enregistrement=ligne_pro.enregistrement,
+                    taux_tva=ligne_pro.taux_tva,
+                    montant_ht=ligne_pro.montant_ht,
+                    montant_tva=ligne_pro.montant_tva,
+                    montant_ttc=ligne_pro.montant_ttc,
+                )
+
+            self.statut = 'convertie'
+            self.facture_generee = facture
+            self.save()
+
+            return facture
+
+
 class LigneFacture(models.Model):
     """Lignes de facture avec décomposition MECeF"""
 
