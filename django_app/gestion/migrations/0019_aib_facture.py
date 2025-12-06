@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("documents", "0002_alter_dossiervirtuel_type_dossier_and_more"),
         ("gestion", "0018_add_dossier_indexes"),
-        ("hr", "__first__"),
+        ("rh", "__first__"),
     ]
 
     operations = [

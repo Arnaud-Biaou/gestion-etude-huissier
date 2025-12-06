@@ -719,11 +719,61 @@ class Facture(models.Model):
 
 
 class LigneFacture(models.Model):
-    """Lignes de facture"""
+    """Lignes de facture avec décomposition MECeF"""
+
+    # Taux TVA par groupe de taxation MECeF
+    TAUX_PAR_GROUPE = {'A': 0, 'B': 18, 'E': 0}
+
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
     description = models.CharField(max_length=500)
     quantite = models.IntegerField(default=1)
     prix_unitaire = models.DecimalField(max_digits=15, decimal_places=0)
+
+    type_ligne = models.CharField(
+        max_length=10,
+        choices=[('acte', 'Acte'), ('debours', 'Débours')],
+        default='acte',
+        verbose_name="Type de ligne"
+    )
+
+    groupe_taxation = models.CharField(
+        max_length=1,
+        choices=[('A', 'Exonéré'), ('B', 'TVA 18%'), ('E', 'TPS')],
+        default='E',
+        verbose_name="Groupe de taxation"
+    )
+
+    # Décomposition pour les actes
+    honoraires = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Honoraires"
+    )
+    timbre = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Droit de timbre"
+    )
+    enregistrement = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Droit d'enregistrement"
+    )
+
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name="Taux TVA appliqué"
+    )
+
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant HT"
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TVA"
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15, decimal_places=0, default=0,
+        verbose_name="Montant TTC"
+    )
 
     class Meta:
         verbose_name = 'Ligne de facture'
@@ -735,6 +785,21 @@ class LigneFacture(models.Model):
     @property
     def total(self):
         return self.quantite * self.prix_unitaire
+
+    def calculer_montants(self):
+        """Calcule les montants selon le type de ligne et le groupe de taxation"""
+        if self.type_ligne == 'acte':
+            self.montant_ht = self.honoraires + self.timbre + self.enregistrement
+        else:
+            self.montant_ht = self.prix_unitaire * self.quantite
+
+        self.taux_tva = Decimal(str(self.TAUX_PAR_GROUPE.get(self.groupe_taxation, 0)))
+        self.montant_tva = (self.montant_ht * self.taux_tva / 100).quantize(Decimal('1'))
+        self.montant_ttc = self.montant_ht + self.montant_tva
+
+    def save(self, *args, **kwargs):
+        self.calculer_montants()
+        super().save(*args, **kwargs)
 
 
 class ActeProcedure(models.Model):
