@@ -1920,6 +1920,89 @@ def api_exporter_factures(request):
 
 
 # ============================================
+# API ENDPOINTS FACTURES D'AVOIR
+# ============================================
+
+@login_required
+@require_POST
+def api_creer_avoir(request, facture_id):
+    """Crée un avoir pour annuler une facture normalisée"""
+    try:
+        facture = get_object_or_404(Facture, id=facture_id)
+        data = json.loads(request.body)
+        motif = data.get('motif', '')
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': 'Le motif est obligatoire'
+            }, status=400)
+
+        if not facture.peut_creer_avoir():
+            return JsonResponse({
+                'success': False,
+                'error': 'Impossible de créer un avoir pour cette facture (doit être standard, normalisée et sans avoir existant)'
+            }, status=400)
+
+        avoir = facture.creer_avoir(motif=motif, user=request.user)
+
+        return JsonResponse({
+            'success': True,
+            'avoir_id': avoir.id,
+            'avoir_numero': avoir.numero,
+            'message': f'Avoir {avoir.numero} créé avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+@require_POST
+def api_creer_corrective(request, facture_id):
+    """Crée une facture corrective après avoir"""
+    try:
+        facture = get_object_or_404(Facture, id=facture_id)
+        data = json.loads(request.body)
+        motif = data.get('motif', '')
+        nouvelles_donnees = data.get('donnees', {})
+
+        if not facture.avoir_lie:
+            return JsonResponse({
+                'success': False,
+                'error': 'Cette facture n\'a pas d\'avoir. Créez d\'abord un avoir.'
+            }, status=400)
+
+        if not motif:
+            return JsonResponse({
+                'success': False,
+                'error': 'Le motif est obligatoire'
+            }, status=400)
+
+        corrective = facture.creer_facture_corrective(
+            nouvelles_donnees=nouvelles_donnees,
+            motif=motif,
+            user=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'corrective_id': corrective.id,
+            'corrective_numero': corrective.numero,
+            'message': f'Facture corrective {corrective.numero} créée avec succès'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+# ============================================
 # API ENDPOINTS CALCUL RECOUVREMENT
 # ============================================
 

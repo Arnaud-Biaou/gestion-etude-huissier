@@ -55,6 +55,10 @@ urlpatterns = [
     path('api/exporter-factures/', views.api_exporter_factures, name='api_exporter_factures'),
     path('factures/<int:facture_id>/imprimer/', views.imprimer_facture, name='imprimer_facture'),
 
+    # === AVOIRS (Factures d'avoir) ===
+    path('api/factures/<int:facture_id>/creer-avoir/', views.api_creer_avoir, name='api_creer_avoir'),
+    path('api/factures/<int:facture_id>/creer-corrective/', views.api_creer_corrective, name='api_creer_corrective'),
+
     # === PROFORMAS ===
     path('proformas/', views.liste_proformas, name='liste_proformas'),
     path('proformas/nouveau/', views.nouvelle_proforma, name='nouvelle_proforma'),
