@@ -19,9 +19,10 @@ from django.core.paginator import Paginator
 
 from .models import (
     ConfigurationEtude, SiteAgence, TypeDossier, StatutDossier,
-    ModeleDocument, Localite, TauxLegal, JourFerie, TypeActe,
+    Localite, TauxLegal, JourFerie, TypeActe,
     Juridiction, HistoriqueSauvegarde, JournalModification, ModeleTypeBail
 )
+from documents.models import ModeleDocument
 
 
 def est_admin(user):
