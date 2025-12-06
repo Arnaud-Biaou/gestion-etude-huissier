@@ -7065,7 +7065,7 @@ def nouvelle_proforma(request):
     if proforma_id:
         proforma = get_object_or_404(Proforma, pk=proforma_id)
 
-    dossiers = Dossier.objects.filter(est_actif=True).order_by('-date_creation')[:100]
+    dossiers = Dossier.objects.filter(statut__in=['actif', 'urgent']).order_by('-date_creation')[:100]
 
     context = get_default_context(request)
     context.update({
