@@ -19,7 +19,6 @@ import datetime
 # dans le module Paramètres via ConfigurationEtude et TrancheIPTS.
 #
 # Pour récupérer les paramètres actuels, utiliser :
-#   from parametres.models import ConfigurationEtude, TrancheIPTS
 #   config = ConfigurationEtude.get_solo()
 #   bareme = TrancheIPTS.get_bareme_actif()
 # ══════════════════════════════════════════════════════════════════════════════
