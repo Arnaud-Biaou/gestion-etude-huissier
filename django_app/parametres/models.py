@@ -937,62 +937,8 @@ class StatutDossier(models.Model):
         }
 
 
-class ModeleDocument(models.Model):
-    """Modèles de documents"""
-    CATEGORIES = [
-        ('actes', 'Actes de procédure'),
-        ('factures', 'Factures et devis'),
-        ('courriers', 'Courriers'),
-        ('baux', 'Contrats de bail'),
-        ('etats_lieux', 'États des lieux'),
-        ('paie', 'Bulletins de paie'),
-        ('memoires', 'Mémoires de frais'),
-        ('rapports', 'Rapports'),
-    ]
-
-    nom = models.CharField(max_length=200, verbose_name="Nom du modèle")
-    categorie = models.CharField(
-        max_length=50,
-        choices=CATEGORIES,
-        verbose_name="Catégorie"
-    )
-    contenu_html = models.TextField(verbose_name="Contenu HTML")
-    variables_utilisees = models.JSONField(
-        default=list,
-        verbose_name="Variables utilisées"
-    )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
-    date_creation = models.DateTimeField(auto_now_add=True)
-    date_modification = models.DateTimeField(auto_now=True)
-    cree_par = models.ForeignKey(
-        'gestion.Utilisateur',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='parametres_modeles_crees',
-        verbose_name="Créé par"
-    )
-
-    class Meta:
-        verbose_name = "Modèle de document"
-        verbose_name_plural = "Modèles de documents"
-        ordering = ['categorie', 'nom']
-
-    def __str__(self):
-        return f"{self.nom} ({self.get_categorie_display()})"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'nom': self.nom,
-            'categorie': self.categorie,
-            'categorie_display': self.get_categorie_display(),
-            'contenu_html': self.contenu_html,
-            'variables_utilisees': self.variables_utilisees,
-            'actif': self.actif,
-            'date_creation': self.date_creation.isoformat(),
-            'date_modification': self.date_modification.isoformat(),
-        }
+# ModeleDocument a été déplacé vers documents.models
+# Importer depuis documents.models si nécessaire
 
 
 class Localite(models.Model):
@@ -1440,7 +1386,7 @@ class ModeleTypeBail(models.Model):
     libelle = models.CharField(max_length=200, verbose_name="Libellé")
     description = models.TextField(blank=True, verbose_name="Description")
     modele_document = models.ForeignKey(
-        ModeleDocument,
+        'documents.ModeleDocument',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
