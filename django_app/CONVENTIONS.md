@@ -38,58 +38,31 @@
 ## 4. Affichage des parties
 
 ### Convention "C/" (versus)
-- Format : `{Demandeur} C/ {Défendeur}`
-- Avec multiples : `{Demandeur} C/ {Défendeur} et 2 autres`
-- Méthode : `dossier.get_intitule_parties()`
-
-### Rôles des parties
-- `demandeur` : Partie demanderesse (créancier)
-- `defendeur` : Partie défenderesse (débiteur)
-- `tiers` : Tiers intervenant
-
-## 5. Structure des modèles
-
-### Modèle de base recommandé
-```python
-class MonModele(models.Model):
-    # Champs métier
-    ...
-
-    # Métadonnées
-    est_actif = models.BooleanField(default=True)
-    date_creation = models.DateTimeField(auto_now_add=True)
-    date_modification = models.DateTimeField(auto_now=True)
-    cree_par = models.ForeignKey(
-        'rh.Employe',
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='monmodeles_crees'
-    )
-
-    class Meta:
-        ordering = ['-date_creation']
-        verbose_name = "Mon modèle"
-        verbose_name_plural = "Mes modèles"
+```
+Demandeur C/ Défendeur
 ```
 
-## 6. API JSON
-
-### Format de réponse standard
-```json
-{
-    "success": true,
-    "data": {...},
-    "message": "Opération réussie"
-}
+### Convention "et X autres"
+```
+1 partie  : DUPONT Jean
+2 parties : DUPONT Jean et 1 autre
+3+ parties: DUPONT Jean et 2 autres
 ```
 
-### Format d'erreur
-```json
-{
-    "success": false,
-    "error": "Description de l'erreur"
-}
+### Exemple complet
 ```
+BANQUE XYZ et 1 autre C/ DUPONT Jean et 3 autres
+```
+
+## 5. Structure des lignes de facturation
+
+### Type Acte
+- honoraires + timbre + enregistrement = montant_ht
+- TVA sur honoraires uniquement (ou selon groupe)
+
+### Type Débours
+- prix_unitaire × quantité = montant_ht
+- Généralement exonéré (groupe A)
 
 ---
-*Généré le : 2025-12-06*
+*Dernière mise à jour : 2025-12-06*
