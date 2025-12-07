@@ -1,0 +1,991 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assistant IA - Étude d'Huissier{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --chat-bg: #f8f9fa;
+        --user-msg-bg: #1a365d;
+        --user-msg-color: #ffffff;
+        --assistant-msg-bg: #ffffff;
+        --assistant-msg-color: #1a365d;
+        --system-msg-bg: #fff3cd;
+        --error-msg-bg: #f8d7da;
+        --confirmation-msg-bg: #d1ecf1;
+        --validation-msg-bg: #d4edda;
+    }
+
+    .chatbot-container {
+        display: flex;
+        height: calc(100vh - 120px);
+        max-height: 800px;
+        background: var(--chat-bg);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    /* Sidebar des sessions */
+    .sessions-sidebar {
+        width: 280px;
+        background: #fff;
+        border-right: 1px solid #e9ecef;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sessions-header {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 600;
+        color: #1a365d;
+    }
+
+    .sessions-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem;
+    }
+
+    .session-item {
+        padding: 0.75rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-bottom: 0.5rem;
+        transition: background 0.2s;
+    }
+
+    .session-item:hover {
+        background: #f1f3f4;
+    }
+
+    .session-item.active {
+        background: #e8f0fe;
+        border-left: 3px solid #1a365d;
+    }
+
+    .session-title {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .session-date {
+        font-size: 0.75rem;
+        color: #666;
+    }
+
+    .new-session-btn {
+        margin: 0.5rem;
+        padding: 0.75rem;
+        background: #1a365d;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+
+    .new-session-btn:hover {
+        background: #2c4a7c;
+    }
+
+    /* Zone de chat principale */
+    .chat-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--chat-bg);
+    }
+
+    .chat-header {
+        padding: 1rem 1.5rem;
+        background: #fff;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .assistant-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .assistant-avatar {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #1a365d, #c6a962);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: bold;
+    }
+
+    .assistant-name {
+        font-weight: 600;
+        color: #1a365d;
+    }
+
+    .assistant-status {
+        font-size: 0.75rem;
+        color: #28a745;
+    }
+
+    /* Messages */
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .message {
+        max-width: 80%;
+        padding: 1rem 1.25rem;
+        border-radius: 16px;
+        line-height: 1.5;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.utilisateur {
+        background: var(--user-msg-bg);
+        color: var(--user-msg-color);
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+        background: var(--assistant-msg-bg);
+        color: var(--assistant-msg-color);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .message.systeme {
+        background: var(--system-msg-bg);
+        color: #856404;
+        align-self: center;
+        font-size: 0.9rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .message.erreur {
+        background: var(--error-msg-bg);
+        color: #721c24;
+        align-self: center;
+    }
+
+    .message.confirmation {
+        background: var(--confirmation-msg-bg);
+        color: #0c5460;
+        align-self: flex-start;
+        border: 1px solid #bee5eb;
+    }
+
+    .message.validation {
+        background: var(--validation-msg-bg);
+        color: #155724;
+        align-self: flex-start;
+        border: 1px solid #c3e6cb;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        margin-top: 0.5rem;
+    }
+
+    .message-vocal-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.7rem;
+        opacity: 0.8;
+        margin-left: 0.5rem;
+    }
+
+    /* Boutons de confirmation */
+    .confirmation-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .btn-confirm, .btn-cancel {
+        padding: 0.5rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-confirm {
+        background: #28a745;
+        color: #fff;
+    }
+
+    .btn-confirm:hover {
+        background: #218838;
+    }
+
+    .btn-cancel {
+        background: #dc3545;
+        color: #fff;
+    }
+
+    .btn-cancel:hover {
+        background: #c82333;
+    }
+
+    /* Indicateur de guidage */
+    .guidage-indicator {
+        background: #e8f0fe;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        color: #1a365d;
+    }
+
+    .guidage-progress {
+        display: flex;
+        gap: 0.25rem;
+        margin-top: 0.5rem;
+    }
+
+    .guidage-step {
+        width: 24px;
+        height: 4px;
+        background: #c4d4e8;
+        border-radius: 2px;
+    }
+
+    .guidage-step.completed {
+        background: #1a365d;
+    }
+
+    .guidage-step.current {
+        background: #c6a962;
+    }
+
+    /* Zone de saisie */
+    .chat-input-container {
+        padding: 1rem 1.5rem;
+        background: #fff;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .chat-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 24px;
+        padding: 0.5rem 1rem;
+        border: 2px solid transparent;
+        transition: border-color 0.2s;
+    }
+
+    .chat-input-wrapper:focus-within {
+        border-color: #1a365d;
+        background: #fff;
+    }
+
+    .chat-input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        padding: 0.5rem;
+        font-size: 1rem;
+        outline: none;
+    }
+
+    .chat-input::placeholder {
+        color: #999;
+    }
+
+    .btn-send, .btn-voice {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .btn-send {
+        background: #1a365d;
+        color: #fff;
+    }
+
+    .btn-send:hover {
+        background: #2c4a7c;
+    }
+
+    .btn-send:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    .btn-voice {
+        background: #f1f3f4;
+        color: #333;
+    }
+
+    .btn-voice:hover {
+        background: #e1e3e4;
+    }
+
+    .btn-voice.recording {
+        background: #dc3545;
+        color: #fff;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 1rem;
+        align-self: flex-start;
+    }
+
+    .typing-dot {
+        width: 8px;
+        height: 8px;
+        background: #999;
+        border-radius: 50%;
+        animation: typingBounce 1.4s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: 0s; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typingBounce {
+        0%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-8px); }
+    }
+
+    /* Options de choix */
+    .choice-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .choice-option {
+        padding: 0.5rem 1rem;
+        background: #e8f0fe;
+        border: 1px solid #1a365d;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .choice-option:hover {
+        background: #1a365d;
+        color: #fff;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .chatbot-container {
+            flex-direction: column;
+            height: calc(100vh - 80px);
+        }
+
+        .sessions-sidebar {
+            width: 100%;
+            height: auto;
+            max-height: 150px;
+            border-right: none;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .sessions-list {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem;
+            gap: 0.5rem;
+        }
+
+        .session-item {
+            flex-shrink: 0;
+            min-width: 200px;
+        }
+
+        .message {
+            max-width: 90%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="chatbot-container">
+        <!-- Sidebar des sessions -->
+        <div class="sessions-sidebar">
+            <div class="sessions-header">
+                <i class="bi bi-chat-dots me-2"></i> Conversations
+            </div>
+            <div class="sessions-list" id="sessionsList">
+                {% for session in sessions %}
+                <div class="session-item" data-session-id="{{ session.id }}">
+                    <div class="session-title">{{ session.titre|default:"Nouvelle conversation" }}</div>
+                    <div class="session-date">{{ session.date_derniere_activite|timesince }}</div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-3">
+                    Aucune conversation
+                </div>
+                {% endfor %}
+            </div>
+            <button class="new-session-btn" onclick="nouvelleSession()">
+                <i class="bi bi-plus-lg me-2"></i> Nouvelle conversation
+            </button>
+        </div>
+
+        <!-- Zone de chat principale -->
+        <div class="chat-main">
+            <div class="chat-header">
+                <div class="assistant-info">
+                    <div class="assistant-avatar">
+                        <i class="bi bi-robot"></i>
+                    </div>
+                    <div>
+                        <div class="assistant-name">{{ config.nom_assistant }}</div>
+                        <div class="assistant-status" id="connectionStatus">
+                            <i class="bi bi-circle-fill me-1"></i> Connecté
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    {% if config.reconnaissance_vocale_active %}
+                    <span class="badge bg-info" title="Commandes vocales activées">
+                        <i class="bi bi-mic"></i> Vocal actif
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <!-- Indicateur de guidage (caché par défaut) -->
+                <div class="guidage-indicator" id="guidageIndicator" style="display: none;">
+                    <strong>Mode guidé actif</strong>
+                    <div id="guidageInfo"></div>
+                    <div class="guidage-progress" id="guidageProgress"></div>
+                </div>
+
+                <!-- Messages seront ajoutés ici -->
+                <div class="message assistant">
+                    {{ config.message_bienvenue }}
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    {% if config.reconnaissance_vocale_active %}
+                    <button class="btn-voice" id="btnVoice" title="Commande vocale">
+                        <i class="bi bi-mic"></i>
+                    </button>
+                    {% endif %}
+                    <input
+                        type="text"
+                        class="chat-input"
+                        id="chatInput"
+                        placeholder="Tapez votre message..."
+                        autocomplete="off"
+                    >
+                    <button class="btn-send" id="btnSend" title="Envoyer">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Configuration
+    const CONFIG = {
+        wsUrl: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/chatbot/`,
+        vocal: {{ config_vocal|safe }},
+        synthese: {{ config_synthese|safe }},
+        seuilConfirmation: {{ config.seuil_confirmation_fcfa }},
+    };
+
+    // État de l'application
+    let socket = null;
+    let sessionId = null;
+    let isRecording = false;
+    let recognition = null;
+    let guidageActif = false;
+
+    // Éléments DOM
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const btnSend = document.getElementById('btnSend');
+    const btnVoice = document.getElementById('btnVoice');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const guidageIndicator = document.getElementById('guidageIndicator');
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        connecterWebSocket();
+        initialiserReconnaissanceVocale();
+        setupEventListeners();
+    });
+
+    // Connexion WebSocket
+    function connecterWebSocket() {
+        socket = new WebSocket(CONFIG.wsUrl);
+
+        socket.onopen = function() {
+            updateConnectionStatus(true);
+            console.log('WebSocket connecté');
+        };
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            handleMessage(data);
+        };
+
+        socket.onclose = function() {
+            updateConnectionStatus(false);
+            console.log('WebSocket déconnecté');
+            // Reconnecter après 3 secondes
+            setTimeout(connecterWebSocket, 3000);
+        };
+
+        socket.onerror = function(error) {
+            console.error('Erreur WebSocket:', error);
+            updateConnectionStatus(false);
+        };
+    }
+
+    function updateConnectionStatus(connected) {
+        if (connected) {
+            connectionStatus.innerHTML = '<i class="bi bi-circle-fill me-1"></i> Connecté';
+            connectionStatus.style.color = '#28a745';
+        } else {
+            connectionStatus.innerHTML = '<i class="bi bi-circle-fill me-1"></i> Déconnecté';
+            connectionStatus.style.color = '#dc3545';
+        }
+    }
+
+    // Gestion des messages reçus
+    function handleMessage(data) {
+        hideTypingIndicator();
+
+        switch(data.type) {
+            case 'bienvenue':
+                sessionId = data.session_id;
+                // Message de bienvenue déjà affiché dans le HTML
+                break;
+
+            case 'assistant':
+            case 'utilisateur':
+            case 'systeme':
+            case 'erreur':
+                afficherMessage(data.contenu, data.type, data);
+                break;
+
+            case 'confirmation':
+                afficherMessageConfirmation(data);
+                break;
+
+            case 'validation':
+                afficherMessageValidation(data);
+                break;
+
+            case 'confirmation_vocale':
+                afficherConfirmationVocale(data);
+                break;
+
+            case 'validation_completee':
+                afficherResultatValidation(data);
+                break;
+
+            case 'pong':
+                // Réponse au ping
+                break;
+        }
+
+        // Gérer le guidage
+        if (data.guidage) {
+            updateGuidage(data.guidage);
+        }
+
+        // Scroll en bas
+        scrollToBottom();
+    }
+
+    // Affichage des messages
+    function afficherMessage(contenu, type, extra = {}) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+
+        // Convertir le markdown simple
+        let html = contenu
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+
+        messageDiv.innerHTML = html;
+
+        // Badge vocal
+        if (extra.est_vocal) {
+            const badge = document.createElement('span');
+            badge.className = 'message-vocal-badge';
+            badge.innerHTML = '<i class="bi bi-mic"></i> Vocal';
+            messageDiv.appendChild(badge);
+        }
+
+        // Options de choix
+        if (extra.guidage && extra.guidage.options && extra.guidage.options.length > 0) {
+            const choicesDiv = document.createElement('div');
+            choicesDiv.className = 'choice-options';
+            extra.guidage.options.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-option';
+                btn.textContent = opt;
+                btn.onclick = () => envoyerMessage(opt);
+                choicesDiv.appendChild(btn);
+            });
+            messageDiv.appendChild(choicesDiv);
+        }
+
+        // Timestamp
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+        messageDiv.appendChild(timeDiv);
+
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function afficherMessageConfirmation(data) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message confirmation';
+
+        messageDiv.innerHTML = `
+            ${data.contenu.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
+            <div class="confirmation-buttons">
+                <button class="btn-confirm" onclick="confirmerAction('${data.action_id}', true)">
+                    <i class="bi bi-check-lg"></i> Confirmer
+                </button>
+                <button class="btn-cancel" onclick="confirmerAction('${data.action_id}', false)">
+                    <i class="bi bi-x-lg"></i> Annuler
+                </button>
+            </div>
+        `;
+
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function afficherMessageValidation(data) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message validation';
+        messageDiv.innerHTML = data.contenu.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function afficherConfirmationVocale(data) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message systeme';
+        messageDiv.innerHTML = `
+            <i class="bi bi-mic"></i> ${data.message}
+            <div class="confirmation-buttons">
+                <button class="btn-confirm" onclick="envoyerMessage('${data.transcription}')">Oui</button>
+                <button class="btn-cancel" onclick="afficherMessage('Veuillez reformuler.', 'systeme')">Non</button>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function afficherResultatValidation(data) {
+        const type = data.statut === 'succes' ? 'assistant' : 'erreur';
+        afficherMessage(data.message, type);
+    }
+
+    // Indicateur de frappe
+    function showTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        indicator.id = 'typingIndicator';
+        indicator.innerHTML = `
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        `;
+        chatMessages.appendChild(indicator);
+        scrollToBottom();
+    }
+
+    function hideTypingIndicator() {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) indicator.remove();
+    }
+
+    // Guidage
+    function updateGuidage(guidage) {
+        if (guidage.etape) {
+            guidageActif = true;
+            guidageIndicator.style.display = 'block';
+            document.getElementById('guidageInfo').textContent =
+                `Étape ${guidage.etape} sur ${guidage.total_etapes}`;
+
+            // Progress bar
+            const progress = document.getElementById('guidageProgress');
+            progress.innerHTML = '';
+            for (let i = 1; i <= guidage.total_etapes; i++) {
+                const step = document.createElement('div');
+                step.className = 'guidage-step';
+                if (i < guidage.etape) step.classList.add('completed');
+                if (i === guidage.etape) step.classList.add('current');
+                progress.appendChild(step);
+            }
+        } else {
+            guidageActif = false;
+            guidageIndicator.style.display = 'none';
+        }
+    }
+
+    // Envoi de message
+    function envoyerMessage(contenu = null) {
+        const message = contenu || chatInput.value.trim();
+        if (!message) return;
+
+        // Afficher le message utilisateur
+        afficherMessage(message, 'utilisateur');
+
+        // Envoyer via WebSocket
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'message',
+                contenu: message
+            }));
+            showTypingIndicator();
+        } else {
+            // Fallback API REST
+            envoyerMessageAPI(message);
+        }
+
+        // Vider l'input
+        chatInput.value = '';
+        chatInput.focus();
+    }
+
+    async function envoyerMessageAPI(contenu) {
+        try {
+            const response = await fetch('/chatbot/api/message/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    contenu: contenu,
+                    session_id: sessionId
+                })
+            });
+
+            const data = await response.json();
+            hideTypingIndicator();
+
+            if (data.success) {
+                sessionId = data.session_id;
+                afficherMessage(data.reponse.contenu, data.reponse.type);
+            } else {
+                afficherMessage(data.error || 'Erreur', 'erreur');
+            }
+        } catch (error) {
+            hideTypingIndicator();
+            afficherMessage('Erreur de connexion', 'erreur');
+        }
+    }
+
+    // Confirmation d'action
+    function confirmerAction(actionId, confirme) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'confirmation',
+                action_id: actionId,
+                confirme: confirme
+            }));
+            showTypingIndicator();
+        }
+    }
+
+    // Reconnaissance vocale
+    function initialiserReconnaissanceVocale() {
+        if (!btnVoice || !CONFIG.vocal.active) return;
+
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            btnVoice.style.display = 'none';
+            console.log('Reconnaissance vocale non supportée');
+            return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = CONFIG.vocal.langue;
+        recognition.continuous = CONFIG.vocal.continuous;
+        recognition.interimResults = CONFIG.vocal.interimResults;
+        recognition.maxAlternatives = CONFIG.vocal.maxAlternatives;
+
+        recognition.onstart = function() {
+            isRecording = true;
+            btnVoice.classList.add('recording');
+            btnVoice.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        };
+
+        recognition.onend = function() {
+            isRecording = false;
+            btnVoice.classList.remove('recording');
+            btnVoice.innerHTML = '<i class="bi bi-mic"></i>';
+        };
+
+        recognition.onresult = function(event) {
+            const result = event.results[event.results.length - 1];
+            const transcription = result[0].transcript;
+            const confiance = result[0].confidence;
+
+            if (result.isFinal) {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'vocal',
+                        transcription: transcription,
+                        confiance: confiance
+                    }));
+                    afficherMessage(transcription, 'utilisateur', {est_vocal: true});
+                    showTypingIndicator();
+                }
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error('Erreur reconnaissance vocale:', event.error);
+            isRecording = false;
+            btnVoice.classList.remove('recording');
+        };
+    }
+
+    function toggleVoice() {
+        if (!recognition) return;
+
+        if (isRecording) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    }
+
+    // Event listeners
+    function setupEventListeners() {
+        // Envoi message
+        btnSend.addEventListener('click', () => envoyerMessage());
+
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                envoyerMessage();
+            }
+        });
+
+        // Vocal
+        if (btnVoice) {
+            btnVoice.addEventListener('click', toggleVoice);
+        }
+
+        // Sessions
+        document.querySelectorAll('.session-item').forEach(item => {
+            item.addEventListener('click', function() {
+                chargerSession(this.dataset.sessionId);
+            });
+        });
+    }
+
+    // Nouvelle session
+    function nouvelleSession() {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.close();
+        }
+        sessionId = null;
+        chatMessages.innerHTML = '';
+        connecterWebSocket();
+    }
+
+    // Charger session existante
+    async function chargerSession(id) {
+        try {
+            const response = await fetch(`/chatbot/api/session/${id}/messages/`);
+            const data = await response.json();
+
+            if (data.success) {
+                sessionId = id;
+                chatMessages.innerHTML = '';
+
+                data.messages.forEach(msg => {
+                    afficherMessage(msg.contenu, msg.type, {est_vocal: msg.est_vocal});
+                });
+
+                // Marquer comme active
+                document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+                document.querySelector(`[data-session-id="${id}"]`)?.classList.add('active');
+            }
+        } catch (error) {
+            console.error('Erreur chargement session:', error);
+        }
+    }
+
+    // Utilitaires
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

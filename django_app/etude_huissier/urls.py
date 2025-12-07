@@ -34,6 +34,9 @@ urlpatterns = [
     # Portail Client (accès public et espace client sécurisé)
     path("portail/", include("portail_client.urls")),
 
+    # Chatbot / Assistant IA
+    path("chatbot/", include("chatbot.urls")),
+
     path("", include("gestion.urls")),
 ]
 

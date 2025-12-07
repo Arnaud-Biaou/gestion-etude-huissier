@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "channels",  # Django Channels pour WebSocket
     "gestion",
     "comptabilite",
     "rh",
@@ -55,6 +56,7 @@ INSTALLED_APPS = [
     "gerance",
     "recouvrement",
     "portail_client",
+    "chatbot",  # Module Assistant IA / Chatbot
 ]
 
 MIDDLEWARE = [
@@ -85,6 +87,19 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "etude_huissier.wsgi.application"
+ASGI_APPLICATION = "etude_huissier.asgi.application"
+
+# Django Channels - Configuration WebSocket pour Chatbot
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+        # En production, utiliser Redis:
+        # "BACKEND": "channels_redis.core.RedisChannelLayer",
+        # "CONFIG": {
+        #     "hosts": [("127.0.0.1", 6379)],
+        # },
+    },
+}
 
 
 # Database
